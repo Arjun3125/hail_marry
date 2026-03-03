@@ -12,6 +12,7 @@ import {
     Bot,
     Sparkles,
     MessageSquare,
+    RotateCcw,
     User,
 } from "lucide-react";
 
@@ -25,6 +26,7 @@ const studentNav = [
     { label: "Upload", href: "/student/upload", icon: Upload },
     { label: "AI Assistant", href: "/student/ai", icon: Bot },
     { label: "Study Tools", href: "/student/tools", icon: Sparkles },
+    { label: "Reviews", href: "/student/reviews", icon: RotateCcw },
     { label: "Complaints", href: "/student/complaints", icon: MessageSquare },
     { label: "Profile", href: "/student/profile", icon: User },
 ];

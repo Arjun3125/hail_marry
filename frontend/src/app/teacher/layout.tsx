@@ -9,6 +9,8 @@ import {
     FileText,
     Upload,
     BarChart3,
+    ClipboardList,
+    Flame,
     User,
 } from "lucide-react";
 
@@ -20,6 +22,8 @@ const teacherNav = [
     { label: "Assignments", href: "/teacher/assignments", icon: FileText },
     { label: "Upload Notes", href: "/teacher/upload", icon: Upload },
     { label: "AI Insights", href: "/teacher/insights", icon: BarChart3 },
+    { label: "Assessment Gen", href: "/teacher/generate-assessment", icon: ClipboardList },
+    { label: "Doubt Heatmap", href: "/teacher/doubt-heatmap", icon: Flame },
     { label: "Profile", href: "/teacher/profile", icon: User },
 ];
 

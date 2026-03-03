@@ -76,6 +76,17 @@ export const api = {
                 method: "POST",
                 body: JSON.stringify(data),
             }),
+        reviews: () => apiFetch("/api/student/reviews"),
+        createReview: (data: { topic: string; subject_id?: string }) =>
+            apiFetch("/api/student/reviews", {
+                method: "POST",
+                body: JSON.stringify(data),
+            }),
+        completeReview: (id: string, data: { rating: number }) =>
+            apiFetch(`/api/student/reviews/${id}/complete`, {
+                method: "POST",
+                body: JSON.stringify(data),
+            }),
     },
     teacher: {
         dashboard: () => apiFetch("/api/teacher/dashboard"),
@@ -109,6 +120,12 @@ export const api = {
                 body: JSON.stringify(data),
             }),
         uploadDocument: (formData: FormData) => apiFormFetch("/api/teacher/upload", formData),
+        generateAssessment: (data: { subject_id: string; topic: string; num_questions?: number }) =>
+            apiFetch("/api/teacher/generate-assessment", {
+                method: "POST",
+                body: JSON.stringify(data),
+            }),
+        doubtHeatmap: () => apiFetch("/api/teacher/doubt-heatmap"),
     },
     admin: {
         dashboard: () => apiFetch("/api/admin/dashboard"),
@@ -196,9 +213,11 @@ export const api = {
         attendance: () => apiFetch("/api/parent/attendance"),
         results: () => apiFetch("/api/parent/results"),
         reports: () => apiFetch("/api/parent/reports"),
+        audioReport: (childId?: string) =>
+            apiFetch(`/api/parent/audio-report${childId ? `?child_id=${childId}` : ""}`),
     },
     ai: {
-        query: (data: { query: string; mode: string }) =>
+        query: (data: { query: string; mode: string; subject_id?: string }) =>
             apiFetch("/api/ai/query", {
                 method: "POST",
                 body: JSON.stringify(data),

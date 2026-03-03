@@ -13,6 +13,7 @@ from models.audit_log import AuditLog
 from models.subject_performance import SubjectPerformance
 from models.webhook import WebhookSubscription, WebhookDelivery
 from models.parent_link import ParentLink
+from models.review_schedule import ReviewSchedule
 
 __all__ = [
     "Tenant", "User",
@@ -30,5 +31,6 @@ __all__ = [
     "WebhookSubscription",
     "WebhookDelivery",
     "ParentLink",
+    "ReviewSchedule",
 ]
 

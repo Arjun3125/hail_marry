@@ -870,3 +870,152 @@ async def student_weak_topics(
         "weak_count": len(weak),
     }
 
+
+# ─── Spaced Repetition Reviews ─────────────────────────────
+
+class ReviewCreateRequest(BaseModel):
+    topic: str
+    subject_id: Optional[str] = None
+
+
+class ReviewCompleteRequest(BaseModel):
+    rating: int  # 1-5 self-assessment quality
+
+
+def _sm2_update(interval: int, ease_factor: float, rating: int) -> tuple[int, float]:
+    """SM-2 spaced repetition algorithm.
+    Returns (new_interval_days, new_ease_factor).
+    Rating: 1=Again, 2=Hard, 3=Good, 4=Easy, 5=Perfect
+    """
+    if rating < 3:
+        return 1, max(1.3, ease_factor - 0.2)
+    else:
+        new_ef = ease_factor + (0.1 - (5 - rating) * (0.08 + (5 - rating) * 0.02))
+        new_ef = max(1.3, new_ef)
+        if interval == 0:
+            new_interval = 1
+        elif interval == 1:
+            new_interval = 6
+        else:
+            new_interval = round(interval * new_ef)
+        return new_interval, new_ef
+
+
+@router.get("/reviews")
+async def student_reviews(
+    current_user: User = Depends(require_role("student")),
+    db: Session = Depends(get_db),
+):
+    """Get student's spaced repetition review cards (due and upcoming)."""
+    from models.review_schedule import ReviewSchedule
+
+    reviews = db.query(ReviewSchedule).filter(
+        ReviewSchedule.tenant_id == current_user.tenant_id,
+        ReviewSchedule.student_id == current_user.id,
+    ).order_by(ReviewSchedule.next_review_at).all()
+
+    now = datetime.now(timezone.utc)
+    due = []
+    upcoming = []
+    for r in reviews:
+        entry = {
+            "id": str(r.id),
+            "topic": r.topic,
+            "subject_id": str(r.subject_id) if r.subject_id else None,
+            "next_review_at": str(r.next_review_at),
+            "interval_days": r.interval_days,
+            "ease_factor": round(r.ease_factor, 2),
+            "review_count": r.review_count,
+            "is_due": r.next_review_at <= now,
+        }
+        if r.next_review_at <= now:
+            due.append(entry)
+        else:
+            upcoming.append(entry)
+
+    return {"due": due, "upcoming": upcoming, "total": len(reviews)}
+
+
+@router.post("/reviews")
+async def create_review(
+    data: ReviewCreateRequest,
+    current_user: User = Depends(require_role("student")),
+    db: Session = Depends(get_db),
+):
+    """Create a new spaced repetition review card."""
+    from models.review_schedule import ReviewSchedule
+    from datetime import timedelta
+
+    topic = data.topic.strip()
+    if not topic:
+        raise HTTPException(status_code=400, detail="topic is required")
+
+    subject_uuid = None
+    if data.subject_id:
+        subject_uuid = _parse_uuid(data.subject_id, "subject_id")
+
+    now = datetime.now(timezone.utc)
+    review = ReviewSchedule(
+        tenant_id=current_user.tenant_id,
+        student_id=current_user.id,
+        subject_id=subject_uuid,
+        topic=topic,
+        next_review_at=now + timedelta(days=1),
+        interval_days=1,
+        ease_factor=2.5,
+        review_count=0,
+    )
+    db.add(review)
+    db.commit()
+    db.refresh(review)
+
+    return {
+        "success": True,
+        "review_id": str(review.id),
+        "topic": review.topic,
+        "next_review_at": str(review.next_review_at),
+    }
+
+
+@router.post("/reviews/{review_id}/complete")
+async def complete_review(
+    review_id: str,
+    data: ReviewCompleteRequest,
+    current_user: User = Depends(require_role("student")),
+    db: Session = Depends(get_db),
+):
+    """Mark a review as completed with quality self-rating (SM-2)."""
+    from models.review_schedule import ReviewSchedule
+    from datetime import timedelta
+
+    review_uuid = _parse_uuid(review_id, "review_id")
+    if data.rating < 1 or data.rating > 5:
+        raise HTTPException(status_code=400, detail="rating must be between 1 and 5")
+
+    review = db.query(ReviewSchedule).filter(
+        ReviewSchedule.id == review_uuid,
+        ReviewSchedule.tenant_id == current_user.tenant_id,
+        ReviewSchedule.student_id == current_user.id,
+    ).first()
+
+    if not review:
+        raise HTTPException(status_code=404, detail="Review not found")
+
+    new_interval, new_ef = _sm2_update(review.interval_days, review.ease_factor, data.rating)
+
+    review.interval_days = new_interval
+    review.ease_factor = new_ef
+    review.review_count += 1
+    review.next_review_at = datetime.now(timezone.utc) + timedelta(days=new_interval)
+    review.updated_at = datetime.now(timezone.utc)
+    db.commit()
+
+    return {
+        "success": True,
+        "review_id": str(review.id),
+        "new_interval_days": new_interval,
+        "new_ease_factor": round(new_ef, 2),
+        "next_review_at": str(review.next_review_at),
+        "review_count": review.review_count,
+    }
+

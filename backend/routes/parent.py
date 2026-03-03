@@ -208,3 +208,58 @@ async def parent_reports(
         "weak_subjects": weak_subjects,
         "summary": "Needs attention in weak subjects." if weak_subjects else "Overall progress is stable.",
     }
+
+
+@router.get("/audio-report")
+async def parent_audio_report(
+    child_id: str | None = None,
+    current_user: User = Depends(require_role("parent")),
+    db: Session = Depends(get_db),
+):
+    """Generate a text summary of child's progress for browser TTS playback."""
+    child = _get_child_for_parent(current_user=current_user, db=db, child_id=child_id)
+    results = _get_child_results(db=db, tenant_id=current_user.tenant_id, child_id=child.id)
+
+    total_att = db.query(Attendance).filter(
+        Attendance.tenant_id == current_user.tenant_id,
+        Attendance.student_id == child.id,
+    ).count()
+    present_att = db.query(Attendance).filter(
+        Attendance.tenant_id == current_user.tenant_id,
+        Attendance.student_id == child.id,
+        Attendance.status == "present",
+    ).count()
+    attendance_pct = round((present_att / total_att * 100) if total_att > 0 else 0)
+
+    # Build natural language summary
+    parts = [f"Progress report for {child.full_name}."]
+    parts.append(f"Attendance is at {attendance_pct} percent.")
+
+    if results:
+        subject_summaries = []
+        weak = []
+        for r in results:
+            avg = r.get("avg", 0)
+            name = r.get("name", "Unknown")
+            subject_summaries.append(f"{name}: {avg} percent average")
+            if avg < 60:
+                weak.append(name)
+        parts.append("Subject performance: " + ", ".join(subject_summaries) + ".")
+        if weak:
+            parts.append(f"Attention needed in: {', '.join(weak)}.")
+        else:
+            parts.append("All subjects are performing well.")
+    else:
+        parts.append("No exam results available yet.")
+
+    if attendance_pct < 75:
+        parts.append("Attendance is below 75 percent. Please ensure regular attendance.")
+
+    text = " ".join(parts)
+
+    return {
+        "child_name": child.full_name,
+        "text": text,
+        "attendance_pct": attendance_pct,
+        "subject_count": len(results),
+    }

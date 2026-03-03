@@ -705,3 +705,150 @@ async def teacher_insights(
             "recommendation": f"Focus on: {', '.join(weak_topics)}" if weak_topics else "All subjects performing well",
         })
     return {"insights": insights}
+
+
+# ─── Assessment Generator ────────────────────────────────────
+
+class AssessmentGenerateRequest(BaseModel):
+    subject_id: str
+    topic: str
+    num_questions: int = 5
+
+
+@router.post("/generate-assessment")
+async def generate_assessment(
+    data: AssessmentGenerateRequest,
+    current_user: User = Depends(require_role("teacher", "admin")),
+    teacher_class_ids: list = Depends(get_teacher_class_ids),
+    db: Session = Depends(get_db),
+):
+    """Generate an NCERT-aligned formative assessment using RAG + LLM."""
+    allowed_class_ids = set(teacher_class_ids)
+    subject = _get_subject_in_scope(
+        db=db, current_user=current_user,
+        subject_id=data.subject_id, allowed_class_ids=allowed_class_ids,
+    )
+
+    from routes.ai import ai_query, AIQueryRequest
+    n = max(1, min(data.num_questions, 15))
+    prompt_query = (
+        f"Generate exactly {n} multiple-choice questions about: {data.topic}. "
+        f"Subject: {subject.name}. Format as JSON array."
+    )
+    ai_request = AIQueryRequest(
+        query=prompt_query,
+        mode="quiz",
+        subject_id=str(subject.id),
+    )
+    ai_result = await ai_query(ai_request, current_user, db)
+    return {
+        "success": True,
+        "subject": subject.name,
+        "topic": data.topic,
+        "assessment": ai_result.get("answer", ""),
+        "citations": ai_result.get("citations", []),
+        "trace_id": ai_result.get("trace_id", ""),
+    }
+
+
+# ─── Doubt Heatmap ──────────────────────────────────────────
+
+@router.get("/doubt-heatmap")
+async def teacher_doubt_heatmap(
+    current_user: User = Depends(require_role("teacher", "admin")),
+    teacher_class_ids: list = Depends(get_teacher_class_ids),
+    db: Session = Depends(get_db),
+):
+    """Aggregate student AI queries by subject to identify doubt hotspots."""
+    from models.ai_query import AIQuery
+    from collections import Counter
+
+    allowed_class_ids = list(teacher_class_ids)
+    if not allowed_class_ids:
+        return {"heatmap": []}
+
+    # Get student IDs in teacher's classes
+    student_ids = []
+    for cid in allowed_class_ids:
+        enrollments = db.query(Enrollment).filter(
+            Enrollment.tenant_id == current_user.tenant_id,
+            Enrollment.class_id == cid,
+        ).all()
+        student_ids.extend([e.student_id for e in enrollments])
+
+    if not student_ids:
+        return {"heatmap": []}
+
+    student_ids = list(set(student_ids))
+
+    # Get recent AI queries from these students
+    queries = db.query(AIQuery).filter(
+        AIQuery.tenant_id == current_user.tenant_id,
+        AIQuery.user_id.in_(student_ids),
+    ).order_by(AIQuery.created_at.desc()).limit(500).all()
+
+    # Build subject mapping for context
+    subject_map = {}
+    for cid in allowed_class_ids:
+        cls = db.query(Class).filter(
+            Class.id == cid,
+            Class.tenant_id == current_user.tenant_id,
+        ).first()
+        subjects = db.query(Subject).filter(
+            Subject.tenant_id == current_user.tenant_id,
+            Subject.class_id == cid,
+        ).all()
+        for subj in subjects:
+            subject_map[str(subj.id)] = {
+                "subject": subj.name,
+                "class": cls.name if cls else "Unknown",
+            }
+
+    # Count queries per topic keyword (use query text as topic proxy)
+    topic_counter: Counter = Counter()
+    subject_counter: Counter = Counter()
+    queries_by_subject: dict = {}
+
+    for q in queries:
+        # Extract short topic from query text (first 60 chars)
+        topic = q.query_text[:60].strip() if q.query_text else "Unknown"
+        topic_counter[topic] += 1
+
+        # Count by mode
+        mode_key = q.mode or "qa"
+
+        # Try to associate with a subject if subject queries exist
+        for subj_id, info in subject_map.items():
+            subj_name = info["subject"]
+            cls_name = info["class"]
+            key = f"{cls_name} — {subj_name}"
+            if subj_name.lower() in (q.query_text or "").lower():
+                subject_counter[key] += 1
+                if key not in queries_by_subject:
+                    queries_by_subject[key] = []
+                queries_by_subject[key].append(topic)
+                break
+
+    # Build heatmap data
+    heatmap = []
+    for key, count in subject_counter.most_common(20):
+        sample_topics = list(set(queries_by_subject.get(key, [])))[:5]
+        heatmap.append({
+            "label": key,
+            "query_count": count,
+            "intensity": min(1.0, count / max(1, len(queries)) * 10),
+            "sample_topics": sample_topics,
+        })
+
+    # Top doubt topics overall
+    top_topics = [
+        {"topic": t, "count": c}
+        for t, c in topic_counter.most_common(15)
+    ]
+
+    return {
+        "heatmap": heatmap,
+        "top_topics": top_topics,
+        "total_queries": len(queries),
+        "student_count": len(student_ids),
+    }
