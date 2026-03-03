@@ -1,0 +1,65 @@
+# AIaaS Default Settings
+# Override per environment via settings-{env}.yaml
+
+app:
+  debug: true
+  cors_origins:
+    - "http://localhost:3000"
+
+database:
+  url: "postgresql://postgres:postgres@localhost:5432/aiaas"
+  echo: false
+
+redis:
+  url: "redis://localhost:6379/0"
+
+auth:
+  jwt_secret: ""
+  jwt_expiry_minutes: 60
+  google_client_id: ""
+
+ai_service:
+  url: "http://localhost:8001"
+  api_key: ""
+
+rate_limit:
+  requests_per_minute: 30
+  ai_queries_per_day: 50
+
+# ─── RAG Pipeline Configuration ──────────────
+rag:
+  similarity_top_k: 8
+  rerank:
+    enabled: true
+    model: "cross-encoder/ms-marco-MiniLM-L-2-v2"
+    top_n: 5
+  dedup:
+    similarity_threshold: 0.85
+  context:
+    max_tokens: 3000
+    compress_lower_ranked: true
+
+llm:
+  provider: "ollama"
+  model: "llama3.2"
+  max_new_tokens: 800
+  context_window: 4096
+  temperature: 0.1
+  timeout_seconds: 60
+  fallback_model: "llama3.2"
+
+embedding:
+  provider: "ollama"
+  model: "nomic-embed-text"
+  embed_dim: 768
+
+vectorstore:
+  backend: "faiss"
+  # Scale: qdrant
+  # qdrant_url: "http://localhost:6333"
+
+cache:
+  enabled: true
+  query_ttl_seconds: 86400      # 24h for frequent queries
+  study_guide_ttl_seconds: 604800  # 7 days
+  quiz_ttl_seconds: 604800        # 7 days

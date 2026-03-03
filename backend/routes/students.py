@@ -1,0 +1,872 @@
+"""Student-facing API routes — dashboard, attendance, results, timetable, assignments, lectures, complaints, upload."""
+import json
+import logging
+import re
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Literal
+from uuid import UUID, uuid4
+
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from pydantic import BaseModel
+from sqlalchemy import func
+from sqlalchemy.orm import Session
+
+from database import get_db
+from auth.dependencies import require_role
+from models.user import User
+from models.attendance import Attendance
+from models.marks import Exam, Mark
+from models.assignment import Assignment, AssignmentSubmission
+from models.timetable import Timetable
+from models.lecture import Lecture
+from models.complaint import Complaint
+from models.academic import Enrollment, Subject
+from models.ai_query import AIQuery
+from models.document import Document
+from models.tenant import Tenant
+from utils.upload_security import (
+    UploadValidationError,
+    ensure_storage_dir,
+    sanitize_docx_bytes,
+)
+
+router = APIRouter(prefix="/api/student", tags=["Student"])
+
+logger = logging.getLogger(__name__)
+
+UPLOAD_DIR = ensure_storage_dir("uploads")
+STUDENT_ALLOWED_EXTENSIONS = {"pdf", "docx"}
+MAX_FILE_SIZE = 25 * 1024 * 1024  # 25MB for students
+ASSIGNMENT_SUBMISSION_DIR = ensure_storage_dir("uploads", "assignment_submissions")
+
+
+class ComplaintCreate(BaseModel):
+    category: str = "other"
+    description: str
+
+
+class StudyToolGenerateRequest(BaseModel):
+    tool: Literal["quiz", "flashcards", "mindmap", "flowchart", "concept_map"]
+    topic: str
+    subject_id: str | None = None
+
+
+def _parse_uuid(value: str, field_name: str) -> UUID:
+    try:
+        return UUID(str(value))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail=f"Invalid {field_name}")
+
+
+def _extract_json_payload(text: str) -> Any:
+    raw = (text or "").strip()
+    if not raw:
+        return None
+
+    try:
+        return json.loads(raw)
+    except Exception:
+        pass
+
+    fenced = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", raw)
+    if fenced:
+        candidate = fenced.group(1).strip()
+        try:
+            return json.loads(candidate)
+        except Exception:
+            pass
+
+    for start_char, end_char in (("[", "]"), ("{", "}")):
+        start_idx = raw.find(start_char)
+        end_idx = raw.rfind(end_char)
+        if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+            candidate = raw[start_idx : end_idx + 1]
+            try:
+                return json.loads(candidate)
+            except Exception:
+                continue
+
+    return None
+
+
+def _normalize_tool_output(tool: str, answer: str) -> Any:
+    if tool == "flowchart":
+        cleaned = answer.split("\n\nSources:")[0].strip()
+        if not cleaned:
+            raise HTTPException(status_code=422, detail="Tool output is empty")
+        return cleaned
+
+    parsed = _extract_json_payload(answer)
+    if parsed is None:
+        raise HTTPException(status_code=422, detail="Failed to parse tool output as JSON")
+
+    if tool == "quiz":
+        if not isinstance(parsed, list):
+            raise HTTPException(status_code=422, detail="Quiz output must be a JSON array")
+        normalized: list[dict[str, Any]] = []
+        for idx, item in enumerate(parsed):
+            if not isinstance(item, dict):
+                continue
+            question = str(item.get("question", "")).strip()
+            options_raw = item.get("options", [])
+            if isinstance(options_raw, list):
+                options = [str(option).strip() for option in options_raw if str(option).strip()]
+            else:
+                options = []
+            correct_raw = str(item.get("correct", "")).strip().upper()
+            match = re.search(r"[A-D]", correct_raw)
+            correct = match.group(0) if match else "A"
+            if not question or len(options) < 2:
+                continue
+            normalized.append(
+                {
+                    "question": question,
+                    "options": options,
+                    "correct": correct,
+                    "citation": str(item.get("citation", "")).strip() or None,
+                    "index": idx + 1,
+                }
+            )
+        if not normalized:
+            raise HTTPException(status_code=422, detail="Quiz output did not contain valid questions")
+        return normalized
+
+    if tool == "flashcards":
+        if not isinstance(parsed, list):
+            raise HTTPException(status_code=422, detail="Flashcards output must be a JSON array")
+        cards = []
+        for item in parsed:
+            if not isinstance(item, dict):
+                continue
+            front = str(item.get("front", "")).strip()
+            back = str(item.get("back", "")).strip()
+            if front and back:
+                cards.append({"front": front, "back": back})
+        if not cards:
+            raise HTTPException(status_code=422, detail="Flashcards output was empty")
+        return cards
+
+    if tool == "mindmap":
+        if not isinstance(parsed, dict) or not str(parsed.get("label", "")).strip():
+            raise HTTPException(status_code=422, detail="Mind map output must include a root label")
+        return parsed
+
+    if tool == "concept_map":
+        if not isinstance(parsed, dict):
+            raise HTTPException(status_code=422, detail="Concept map output must be a JSON object")
+        nodes = parsed.get("nodes", [])
+        edges = parsed.get("edges", [])
+        if not isinstance(nodes, list) or not isinstance(edges, list):
+            raise HTTPException(status_code=422, detail="Concept map nodes/edges are invalid")
+        normalized_nodes = []
+        for node in nodes:
+            if not isinstance(node, dict):
+                continue
+            node_id = str(node.get("id", "")).strip()
+            label = str(node.get("label", "")).strip()
+            if node_id and label:
+                normalized_nodes.append({"id": node_id, "label": label})
+        normalized_edges = []
+        for edge in edges:
+            if not isinstance(edge, dict):
+                continue
+            edge_from = str(edge.get("from", "")).strip()
+            edge_to = str(edge.get("to", "")).strip()
+            edge_label = str(edge.get("label", "")).strip()
+            if edge_from and edge_to:
+                normalized_edges.append({"from": edge_from, "to": edge_to, "label": edge_label})
+        if not normalized_nodes:
+            raise HTTPException(status_code=422, detail="Concept map output had no valid nodes")
+        return {"nodes": normalized_nodes, "edges": normalized_edges}
+
+    raise HTTPException(status_code=400, detail="Unsupported tool")
+
+
+@router.get("/dashboard")
+async def student_dashboard(
+    current_user: User = Depends(require_role("student")),
+    db: Session = Depends(get_db),
+):
+    """Student dashboard: KPI stats + upcoming classes + AI insight."""
+    tenant_id = current_user.tenant_id
+    user_id = current_user.id
+
+    # Attendance %
+    total_att = db.query(Attendance).filter(
+        Attendance.tenant_id == tenant_id, Attendance.student_id == user_id
+    ).count()
+    present_att = db.query(Attendance).filter(
+        Attendance.tenant_id == tenant_id, Attendance.student_id == user_id,
+        Attendance.status == "present"
+    ).count()
+    attendance_pct = round((present_att / total_att * 100) if total_att > 0 else 0)
+
+    # Average marks
+    avg_marks_row = db.query(func.avg(Mark.marks_obtained)).filter(
+        Mark.tenant_id == tenant_id, Mark.student_id == user_id
+    ).scalar()
+    avg_marks = round(float(avg_marks_row)) if avg_marks_row else 0
+
+    # Pending assignments
+    enrollment = db.query(Enrollment).filter(
+        Enrollment.tenant_id == tenant_id, Enrollment.student_id == user_id
+    ).first()
+    pending_assignments = 0
+    if enrollment:
+        subject_ids = [s.id for s in db.query(Subject).filter(
+            Subject.tenant_id == tenant_id, Subject.class_id == enrollment.class_id
+        ).all()]
+        total_assignments = db.query(Assignment).filter(
+            Assignment.tenant_id == tenant_id, Assignment.subject_id.in_(subject_ids)
+        ).count()
+        submitted = db.query(AssignmentSubmission).filter(
+            AssignmentSubmission.tenant_id == tenant_id,
+            AssignmentSubmission.student_id == user_id
+        ).count()
+        pending_assignments = max(0, total_assignments - submitted)
+
+    # AI queries today
+    from datetime import date
+    ai_today = db.query(AIQuery).filter(
+        AIQuery.tenant_id == tenant_id, AIQuery.user_id == user_id,
+        func.date(AIQuery.created_at) == date.today()
+    ).count()
+    tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
+    ai_limit = tenant.ai_daily_limit if tenant else 50
+
+    # Upcoming classes (timetable for today)
+    from datetime import datetime
+    today_dow = datetime.now().weekday()
+    upcoming = []
+    if enrollment:
+        slots = db.query(Timetable).filter(
+            Timetable.tenant_id == tenant_id,
+            Timetable.class_id == enrollment.class_id,
+            Timetable.day_of_week == today_dow,
+        ).order_by(Timetable.start_time).all()
+        for slot in slots:
+            subject = db.query(Subject).filter(
+                Subject.id == slot.subject_id,
+                Subject.tenant_id == tenant_id,
+            ).first()
+            upcoming.append({
+                "subject": subject.name if subject else "Unknown",
+                "time": slot.start_time.strftime("%I:%M %p"),
+            })
+
+    # Uploaded docs count
+    my_docs = db.query(Document).filter(
+        Document.tenant_id == tenant_id, Document.uploaded_by == user_id
+    ).count()
+
+    return {
+        "attendance_pct": attendance_pct,
+        "avg_marks": avg_marks,
+        "pending_assignments": pending_assignments,
+        "ai_queries_today": ai_today,
+        "ai_queries_limit": ai_limit,
+        "upcoming_classes": upcoming,
+        "my_uploads": my_docs,
+        "ai_insight": f"Your average is {avg_marks}%. Focus on weak areas to improve." if avg_marks < 80 else None,
+    }
+
+
+@router.get("/attendance")
+async def student_attendance(
+    current_user: User = Depends(require_role("student")),
+    db: Session = Depends(get_db),
+):
+    """List student's attendance records."""
+    records = db.query(Attendance).filter(
+        Attendance.tenant_id == current_user.tenant_id,
+        Attendance.student_id == current_user.id,
+    ).order_by(Attendance.date.desc()).limit(30).all()
+
+    return [
+        {
+            "date": str(r.date),
+            "day": r.date.strftime("%a"),
+            "status": r.status,
+        }
+        for r in records
+    ]
+
+
+@router.get("/results")
+async def student_results(
+    current_user: User = Depends(require_role("student")),
+    db: Session = Depends(get_db),
+):
+    """Get student's exam results grouped by subject."""
+    marks = db.query(Mark, Exam).join(Exam, Mark.exam_id == Exam.id).filter(
+        Mark.tenant_id == current_user.tenant_id,
+        Mark.student_id == current_user.id,
+    ).all()
+
+    subjects_map: dict = {}
+    for mark, exam in marks:
+        subject = db.query(Subject).filter(
+            Subject.id == exam.subject_id,
+            Subject.tenant_id == current_user.tenant_id,
+        ).first()
+        subj_name = subject.name if subject else "Unknown"
+        if subj_name not in subjects_map:
+            subjects_map[subj_name] = {"name": subj_name, "exams": [], "total": 0, "count": 0}
+        pct = round(mark.marks_obtained / exam.max_marks * 100)
+        subjects_map[subj_name]["exams"].append({
+            "name": exam.name,
+            "marks": mark.marks_obtained,
+            "max": exam.max_marks,
+        })
+        subjects_map[subj_name]["total"] += pct
+        subjects_map[subj_name]["count"] += 1
+
+    result = []
+    for s in subjects_map.values():
+        s["avg"] = round(s["total"] / s["count"]) if s["count"] > 0 else 0
+        del s["total"]
+        del s["count"]
+        result.append(s)
+
+    return result
+
+
+@router.get("/results/trends")
+async def student_result_trends(
+    current_user: User = Depends(require_role("student")),
+    db: Session = Depends(get_db),
+):
+    """Get chronological marks trend by subject for charting."""
+    marks = db.query(Mark, Exam).join(Exam, Mark.exam_id == Exam.id).filter(
+        Mark.tenant_id == current_user.tenant_id,
+        Mark.student_id == current_user.id,
+    ).all()
+
+    subject_ids = list({exam.subject_id for _, exam in marks})
+    subject_name_by_id: dict[UUID, str] = {}
+    if subject_ids:
+        subjects = db.query(Subject).filter(
+            Subject.tenant_id == current_user.tenant_id,
+            Subject.id.in_(subject_ids),
+        ).all()
+        subject_name_by_id = {subject.id: subject.name for subject in subjects}
+
+    trends_by_subject: dict[str, list[dict[str, Any]]] = {}
+    for mark, exam in marks:
+        subject_name = subject_name_by_id.get(exam.subject_id, "Unknown")
+        date_value = exam.exam_date or (exam.created_at.date() if exam.created_at else None)
+        percentage = round(mark.marks_obtained / exam.max_marks * 100) if exam.max_marks > 0 else 0
+        trends_by_subject.setdefault(subject_name, []).append(
+            {
+                "exam": exam.name,
+                "date": str(date_value) if date_value else None,
+                "marks": mark.marks_obtained,
+                "max": exam.max_marks,
+                "percentage": percentage,
+            }
+        )
+
+    response = []
+    for subject_name, points in trends_by_subject.items():
+        points.sort(key=lambda point: (point.get("date") or "9999-99-99", point.get("exam") or ""))
+        average = round(sum(point["percentage"] for point in points) / len(points)) if points else 0
+        response.append({"subject": subject_name, "average": average, "points": points})
+
+    response.sort(key=lambda item: item["subject"])
+    return response
+
+
+@router.get("/timetable")
+async def student_timetable(
+    current_user: User = Depends(require_role("student")),
+    db: Session = Depends(get_db),
+):
+    """Get student's weekly timetable."""
+    enrollment = db.query(Enrollment).filter(
+        Enrollment.tenant_id == current_user.tenant_id,
+        Enrollment.student_id == current_user.id,
+    ).first()
+
+    if not enrollment:
+        return []
+
+    slots = db.query(Timetable).filter(
+        Timetable.tenant_id == current_user.tenant_id,
+        Timetable.class_id == enrollment.class_id,
+    ).order_by(Timetable.day_of_week, Timetable.start_time).all()
+
+    result = []
+    for slot in slots:
+        subject = db.query(Subject).filter(
+            Subject.id == slot.subject_id,
+            Subject.tenant_id == current_user.tenant_id,
+        ).first()
+        teacher = db.query(User).filter(
+            User.id == slot.teacher_id,
+            User.tenant_id == current_user.tenant_id,
+        ).first()
+        result.append({
+            "day": slot.day_of_week,
+            "start": slot.start_time.strftime("%H:%M"),
+            "end": slot.end_time.strftime("%H:%M"),
+            "subject": subject.name if subject else "Unknown",
+            "teacher": teacher.full_name if teacher else "Unknown",
+        })
+
+    return result
+
+
+@router.get("/assignments")
+async def student_assignments(
+    current_user: User = Depends(require_role("student")),
+    db: Session = Depends(get_db),
+):
+    """Get student's assignments with submission status."""
+    enrollment = db.query(Enrollment).filter(
+        Enrollment.tenant_id == current_user.tenant_id,
+        Enrollment.student_id == current_user.id,
+    ).first()
+
+    if not enrollment:
+        return []
+
+    subject_ids = [s.id for s in db.query(Subject).filter(
+        Subject.tenant_id == current_user.tenant_id,
+        Subject.class_id == enrollment.class_id,
+    ).all()]
+
+    assignments = db.query(Assignment).filter(
+        Assignment.tenant_id == current_user.tenant_id,
+        Assignment.subject_id.in_(subject_ids),
+    ).order_by(Assignment.due_date.desc()).all()
+
+    result = []
+    for a in assignments:
+        submission = db.query(AssignmentSubmission).filter(
+            AssignmentSubmission.assignment_id == a.id,
+            AssignmentSubmission.student_id == current_user.id,
+        ).first()
+        subject = db.query(Subject).filter(
+            Subject.id == a.subject_id,
+            Subject.tenant_id == current_user.tenant_id,
+        ).first()
+
+        status = "pending"
+        grade = None
+        if submission:
+            if submission.grade is not None:
+                status = "graded"
+                grade = submission.grade
+            else:
+                status = "submitted"
+
+        result.append({
+            "id": str(a.id),
+            "title": a.title,
+            "subject": subject.name if subject else "Unknown",
+            "due": str(a.due_date.date()) if a.due_date else None,
+            "status": status,
+            "grade": grade,
+            "has_submission": submission is not None,
+            "submitted_at": str(submission.submitted_at) if submission and submission.submitted_at else None,
+        })
+
+    return result
+
+
+@router.post("/assignments/{assignment_id}/submit")
+async def submit_assignment(
+    assignment_id: str,
+    file: UploadFile = File(...),
+    current_user: User = Depends(require_role("student")),
+    db: Session = Depends(get_db),
+):
+    """Upload or replace student's assignment submission."""
+    assignment_uuid = _parse_uuid(assignment_id, "assignment_id")
+
+    enrollment = db.query(Enrollment).filter(
+        Enrollment.tenant_id == current_user.tenant_id,
+        Enrollment.student_id == current_user.id,
+    ).first()
+    if not enrollment:
+        raise HTTPException(status_code=403, detail="Student is not enrolled in any class")
+
+    assignment = db.query(Assignment).filter(
+        Assignment.id == assignment_uuid,
+        Assignment.tenant_id == current_user.tenant_id,
+    ).first()
+    if not assignment:
+        raise HTTPException(status_code=404, detail="Assignment not found")
+
+    subject = db.query(Subject).filter(
+        Subject.id == assignment.subject_id,
+        Subject.tenant_id == current_user.tenant_id,
+    ).first()
+    if not subject or subject.class_id != enrollment.class_id:
+        raise HTTPException(status_code=403, detail="Not authorized to submit this assignment")
+
+    existing_submission = db.query(AssignmentSubmission).filter(
+        AssignmentSubmission.tenant_id == current_user.tenant_id,
+        AssignmentSubmission.assignment_id == assignment_uuid,
+        AssignmentSubmission.student_id == current_user.id,
+    ).first()
+    if existing_submission and existing_submission.grade is not None:
+        raise HTTPException(status_code=409, detail="Assignment already graded. Resubmission is locked.")
+
+    safe_filename = Path(file.filename or "").name
+    if not safe_filename:
+        raise HTTPException(status_code=400, detail="Filename is required.")
+
+    ext = safe_filename.split(".")[-1].lower() if "." in safe_filename else ""
+    if ext not in STUDENT_ALLOWED_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Only {', '.join(sorted(STUDENT_ALLOWED_EXTENSIONS))} files allowed.",
+        )
+
+    content = await file.read()
+    if ext == "docx":
+        try:
+            content, _ = sanitize_docx_bytes(content)
+        except UploadValidationError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+    if len(content) > MAX_FILE_SIZE:
+        raise HTTPException(status_code=400, detail="File exceeds 25MB limit.")
+
+    stored_name = f"{current_user.tenant_id}_{current_user.id}_{assignment_uuid}_{uuid4().hex}_{safe_filename}"
+    file_path = ASSIGNMENT_SUBMISSION_DIR / stored_name
+    with open(file_path, "wb") as f:
+        f.write(content)
+
+    now = datetime.now(timezone.utc)
+    if existing_submission:
+        existing_submission.submission_url = str(file_path)
+        existing_submission.submitted_at = now
+    else:
+        existing_submission = AssignmentSubmission(
+            tenant_id=current_user.tenant_id,
+            assignment_id=assignment_uuid,
+            student_id=current_user.id,
+            submission_url=str(file_path),
+            submitted_at=now,
+        )
+        db.add(existing_submission)
+
+    db.commit()
+    db.refresh(existing_submission)
+
+    return {
+        "success": True,
+        "submission_id": str(existing_submission.id),
+        "assignment_id": str(assignment_uuid),
+        "file_name": safe_filename,
+        "submitted_at": str(existing_submission.submitted_at),
+        "status": "submitted",
+    }
+
+
+@router.get("/lectures")
+async def student_lectures(
+    current_user: User = Depends(require_role("student")),
+    db: Session = Depends(get_db),
+):
+    """List lectures available to student."""
+    enrollment = db.query(Enrollment).filter(
+        Enrollment.tenant_id == current_user.tenant_id,
+        Enrollment.student_id == current_user.id,
+    ).first()
+
+    if not enrollment:
+        return []
+
+    subject_ids = [s.id for s in db.query(Subject).filter(
+        Subject.tenant_id == current_user.tenant_id,
+        Subject.class_id == enrollment.class_id,
+    ).all()]
+
+    lectures = db.query(Lecture).filter(
+        Lecture.tenant_id == current_user.tenant_id,
+        Lecture.subject_id.in_(subject_ids),
+    ).all()
+
+    result = []
+    for lecture in lectures:
+        subject = db.query(Subject).filter(
+            Subject.id == lecture.subject_id,
+            Subject.tenant_id == current_user.tenant_id,
+        ).first()
+        result.append({
+            "title": lecture.title,
+            "subject": subject.name if subject else "Unknown",
+            "youtube_url": lecture.youtube_url,
+            "has_transcript": lecture.transcript_ingested,
+        })
+    return result
+
+
+@router.get("/complaints")
+async def student_complaints(
+    current_user: User = Depends(require_role("student")),
+    db: Session = Depends(get_db),
+):
+    """List student's complaints."""
+    complaints = db.query(Complaint).filter(
+        Complaint.tenant_id == current_user.tenant_id,
+        Complaint.student_id == current_user.id,
+    ).order_by(Complaint.created_at.desc()).all()
+
+    return [
+        {
+            "id": str(c.id),
+            "category": c.category,
+            "description": c.description,
+            "status": c.status,
+            "date": str(c.created_at.date()),
+        }
+        for c in complaints
+    ]
+
+
+@router.post("/complaints")
+async def create_complaint(
+    data: ComplaintCreate,
+    current_user: User = Depends(require_role("student")),
+    db: Session = Depends(get_db),
+):
+    """Submit a new complaint."""
+    complaint = Complaint(
+        tenant_id=current_user.tenant_id,
+        student_id=current_user.id,
+        category=data.category,
+        description=data.description.strip(),
+    )
+    db.add(complaint)
+    db.commit()
+    return {"success": True, "message": "Complaint submitted"}
+
+
+# ─── Student File Upload ────────────────────────────────────
+@router.post("/tools/generate")
+async def generate_study_tool(
+    data: StudyToolGenerateRequest,
+    current_user: User = Depends(require_role("student")),
+    db: Session = Depends(get_db),
+):
+    """Generate structured study tools from student's grounded materials."""
+    topic = data.topic.strip()
+    if not topic:
+        raise HTTPException(status_code=400, detail="topic is required")
+
+    from routes.ai import AIQueryRequest, ai_query
+
+    ai_result = await ai_query(
+        AIQueryRequest(query=topic, mode=data.tool, subject_id=data.subject_id),
+        current_user=current_user,
+        db=db,
+    )
+
+    answer = str(ai_result.get("answer", ""))
+    try:
+        structured_data = _normalize_tool_output(data.tool, answer)
+    except HTTPException as exc:
+        # Retry once with a strict JSON formatting instruction for non-flowchart tools.
+        if exc.status_code != 422 or data.tool == "flowchart":
+            raise
+
+        strict_query = (
+            f"{topic}\n\nReturn STRICT valid JSON only for tool mode '{data.tool}'. "
+            "Do not include markdown fences or extra prose."
+        )
+        ai_result = await ai_query(
+            AIQueryRequest(query=strict_query, mode=data.tool, subject_id=data.subject_id),
+            current_user=current_user,
+            db=db,
+        )
+        answer = str(ai_result.get("answer", ""))
+        structured_data = _normalize_tool_output(data.tool, answer)
+
+    return {
+        "tool": data.tool,
+        "topic": topic,
+        "data": structured_data,
+        "citations": ai_result.get("citations", []),
+        "trace_id": ai_result.get("trace_id"),
+        "token_usage": ai_result.get("token_usage", 0),
+        "response_time_ms": ai_result.get("response_time_ms", 0),
+        "citation_valid": ai_result.get("citation_valid", False),
+    }
+
+
+@router.post("/upload")
+async def student_upload(
+    file: UploadFile = File(...),
+    current_user: User = Depends(require_role("student")),
+    db: Session = Depends(get_db),
+):
+    """
+    Student uploads study materials (PDF, DOCX).
+    Uploaded files are ingested into the RAG pipeline.
+    """
+    safe_filename = Path(file.filename or "").name
+    if not safe_filename:
+        raise HTTPException(status_code=400, detail="Filename is required.")
+
+    ext = safe_filename.split(".")[-1].lower() if "." in safe_filename else ""
+    if ext not in STUDENT_ALLOWED_EXTENSIONS:
+        raise HTTPException(status_code=400, detail=f"Only {', '.join(sorted(STUDENT_ALLOWED_EXTENSIONS))} files allowed.")
+
+    content = await file.read()
+    macros_removed = False
+    if ext == "docx":
+        try:
+            content, macros_removed = sanitize_docx_bytes(content)
+        except UploadValidationError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+    if len(content) > MAX_FILE_SIZE:
+        raise HTTPException(status_code=400, detail="File exceeds 25MB limit.")
+
+    # Save file
+    safe_name = f"{current_user.tenant_id}_{current_user.id}_{uuid4().hex}_{safe_filename}"
+    file_path = UPLOAD_DIR / safe_name
+    with open(file_path, "wb") as f:
+        f.write(content)
+
+    # Track in DB
+    doc = Document(
+        tenant_id=current_user.tenant_id,
+        uploaded_by=current_user.id,
+        file_name=safe_filename,
+        file_type=ext,
+        storage_path=str(file_path),
+        ingestion_status="processing",
+    )
+    db.add(doc)
+    db.commit()
+    db.refresh(doc)
+
+    # RAG ingestion
+    chunks_count = 0
+    try:
+        from ai.ingestion import ingest_document
+        from ai.embeddings import generate_embeddings_batch
+        from ai.vector_store import get_vector_store
+
+        chunks = ingest_document(
+            file_path=str(file_path),
+            document_id=str(doc.id),
+            tenant_id=str(current_user.tenant_id),
+        )
+
+        if chunks:
+            texts = [c.text for c in chunks]
+            embeddings = await generate_embeddings_batch(texts)
+            store = get_vector_store(str(current_user.tenant_id))
+            chunk_dicts = [{
+                "text": c.text,
+                "document_id": c.document_id,
+                "page_number": c.page_number,
+                "section_title": c.section_title or "",
+                "subject_id": c.subject_id or "",
+                "source_file": c.source_file or "",
+            } for c in chunks]
+            store.add_chunks(chunk_dicts, embeddings)
+            chunks_count = len(chunks)
+
+        doc.ingestion_status = "completed"
+        db.commit()
+    except Exception:
+        logger.exception("Student document ingestion failed", extra={"document_id": str(doc.id)})
+        doc.ingestion_status = "failed"
+        db.commit()
+        return {
+            "success": False,
+            "document_id": str(doc.id),
+            "file_name": safe_filename,
+            "status": "failed",
+            "error": "Document ingestion failed.",
+        }
+
+    return {
+        "success": True,
+        "document_id": str(doc.id),
+        "file_name": safe_filename,
+        "file_type": ext,
+        "chunks": chunks_count,
+        "macros_removed": macros_removed,
+        "status": doc.ingestion_status,
+    }
+
+
+@router.get("/uploads")
+async def student_uploads(
+    current_user: User = Depends(require_role("student")),
+    db: Session = Depends(get_db),
+    page: int = 1,
+    page_size: int = 20,
+):
+    """List files uploaded by this student (paginated)."""
+    query = db.query(Document).filter(
+        Document.tenant_id == current_user.tenant_id,
+        Document.uploaded_by == current_user.id,
+    ).order_by(Document.created_at.desc())
+
+    from utils.pagination import paginate
+    result = paginate(query, page, page_size)
+
+    return {
+        "items": [{
+            "id": str(d.id),
+            "file_name": d.file_name,
+            "file_type": d.file_type,
+            "status": d.ingestion_status,
+            "uploaded_at": str(d.created_at),
+        } for d in result["items"]],
+        "total": result["total"],
+        "page": result["page"],
+        "total_pages": result["total_pages"],
+    }
+
+
+# ─── Weak Topics ────────────────────────────────────────────
+@router.get("/weak-topics")
+async def student_weak_topics(
+    current_user: User = Depends(require_role("student")),
+    db: Session = Depends(get_db),
+):
+    """
+    Get the student's weak topics based on subject_performance.
+    Returns subjects where average score < 60%.
+    """
+    from models.subject_performance import SubjectPerformance
+
+    performances = db.query(SubjectPerformance).filter(
+        SubjectPerformance.tenant_id == current_user.tenant_id,
+        SubjectPerformance.student_id == current_user.id,
+    ).all()
+
+    weak = []
+    strong = []
+    for p in performances:
+        subject = db.query(Subject).filter(
+            Subject.id == p.subject_id,
+            Subject.tenant_id == current_user.tenant_id,
+        ).first()
+        entry = {
+            "subject": subject.name if subject else "Unknown",
+            "average_score": p.average_score,
+            "exam_count": p.exam_count,
+            "is_weak": p.average_score < 60,
+        }
+        if p.average_score < 60:
+            weak.append(entry)
+        else:
+            strong.append(entry)
+
+    return {
+        "weak_topics": sorted(weak, key=lambda x: x["average_score"]),
+        "strong_topics": sorted(strong, key=lambda x: -x["average_score"]),
+        "total_subjects": len(performances),
+        "weak_count": len(weak),
+    }
+
