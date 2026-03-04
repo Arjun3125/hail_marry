@@ -1,0 +1,48 @@
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+
+# Environment
+.env
+.env.local
+.env.production
+.env.*
+!.env.example
+
+# Build
+.next/
+dist/
+build/
+out/
+
+# IDE
+.vscode/
+.idea/
+
+# Data
+uploads/
+vector_store/
+private_storage/
+*.db
+*.sqlite
+*.sqlite3
+
+# Local repos / raw references
+repo/
+raw/
+proxy_notebooklm_publish_*/
+
+# Frontend test artifacts
+frontend/test-results/
+frontend/playwright-report/
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
