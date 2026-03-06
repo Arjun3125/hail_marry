@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { GraduationCap, LogOut, Menu, X, ChevronLeft } from "lucide-react";
 import { LucideIcon } from "lucide-react";
-import { API_BASE } from "@/lib/api";
+import { API_BASE, clearStoredAccessToken } from "@/lib/api";
 
 interface NavItem {
     label: string;
@@ -24,11 +24,6 @@ export default function Sidebar({ items, role, userName }: SidebarProps) {
     const [mobileOpen, setMobileOpen] = useState(false);
     const [collapsed, setCollapsed] = useState(false);
 
-    // Close mobile drawer on route change
-    useEffect(() => {
-        setMobileOpen(false);
-    }, [pathname]);
-
     // Close mobile drawer on resize to desktop
     useEffect(() => {
         const handleResize = () => {
@@ -43,6 +38,7 @@ export default function Sidebar({ items, role, userName }: SidebarProps) {
             method: "POST",
             credentials: "include",
         });
+        clearStoredAccessToken();
         window.location.href = "/";
     };
 
@@ -71,6 +67,7 @@ export default function Sidebar({ items, role, userName }: SidebarProps) {
                         <Link
                             key={item.href}
                             href={item.href}
+                            onClick={() => setMobileOpen(false)}
                             title={collapsed ? item.label : undefined}
                             className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-all duration-150 ${collapsed ? "justify-center" : ""
                                 } ${isActive

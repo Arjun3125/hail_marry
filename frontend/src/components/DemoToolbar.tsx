@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Users, RotateCcw, GraduationCap, BookOpen, Shield, Loader2, X } from "lucide-react";
-import { API_BASE } from "@/lib/api";
+import { API_BASE, setStoredAccessToken } from "@/lib/api";
 import { useToast } from "./Toast";
 
 const roles = [
@@ -35,14 +35,18 @@ export default function DemoToolbar() {
                 credentials: "include",
                 body: JSON.stringify({ role: role.id }),
             });
-            await fetch(`${API_BASE}/api/auth/demo-login`, {
+            const loginRes = await fetch(`${API_BASE}/api/auth/demo-login`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 credentials: "include",
                 body: JSON.stringify({ role: role.id }),
             });
+            const payload = await loginRes.json().catch(() => ({} as { access_token?: string }));
+            if ((payload as { access_token?: string }).access_token) {
+                setStoredAccessToken((payload as { access_token: string }).access_token);
+            }
         } catch {
-            document.cookie = `demo_role=${role.id}; path=/; max-age=86400`;
+            // Best effort: continue routing even if backend calls fail.
         }
         router.push(role.path);
         toast(`Switched to ${role.label} view`, "success");

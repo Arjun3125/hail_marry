@@ -1,13 +1,36 @@
 export const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const ACCESS_TOKEN_KEY = "aiaas_access_token";
+
+export function getStoredAccessToken(): string | null {
+    if (typeof window === "undefined") return null;
+    return window.localStorage.getItem(ACCESS_TOKEN_KEY);
+}
+
+export function setStoredAccessToken(token: string) {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(ACCESS_TOKEN_KEY, token);
+}
+
+export function clearStoredAccessToken() {
+    if (typeof window === "undefined") return;
+    window.localStorage.removeItem(ACCESS_TOKEN_KEY);
+}
 
 export async function apiFetch(path: string, options: RequestInit = {}) {
     const url = `${API_BASE}${path}`;
+    const headers = new Headers(options.headers || {});
+    const token = getStoredAccessToken();
+
+    if (!headers.has("Content-Type")) {
+        headers.set("Content-Type", "application/json");
+    }
+    if (token && !headers.has("Authorization")) {
+        headers.set("Authorization", `Bearer ${token}`);
+    }
+
     const res = await fetch(url, {
         credentials: "include",
-        headers: {
-            "Content-Type": "application/json",
-            ...options.headers,
-        },
+        headers,
         ...options,
     });
 
@@ -20,9 +43,16 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
 }
 
 async function apiFormFetch(path: string, formData: FormData) {
+    const token = getStoredAccessToken();
+    const headers = new Headers();
+    if (token) {
+        headers.set("Authorization", `Bearer ${token}`);
+    }
+
     const res = await fetch(`${API_BASE}${path}`, {
         method: "POST",
         credentials: "include",
+        headers,
         body: formData,
     });
 
@@ -39,18 +69,29 @@ async function apiFormFetch(path: string, formData: FormData) {
 
 export const api = {
     auth: {
-        loginGoogle: (token: string) =>
-            apiFetch("/api/auth/google", {
+        loginGoogle: async (token: string) => {
+            const payload = await apiFetch("/api/auth/google", {
                 method: "POST",
                 body: JSON.stringify({ token }),
-            }),
+            }) as { access_token?: string };
+            if (payload?.access_token) {
+                setStoredAccessToken(payload.access_token);
+            }
+            return payload;
+        },
         me: () => apiFetch("/api/auth/me"),
         updateProfile: (data: { full_name?: string; avatar_url?: string }) =>
             apiFetch("/api/auth/profile", {
                 method: "PATCH",
                 body: JSON.stringify(data),
             }),
-        logout: () => apiFetch("/api/auth/logout", { method: "POST" }),
+        logout: async () => {
+            try {
+                return await apiFetch("/api/auth/logout", { method: "POST" });
+            } finally {
+                clearStoredAccessToken();
+            }
+        },
     },
     student: {
         dashboard: () => apiFetch("/api/student/dashboard"),

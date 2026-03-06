@@ -17,7 +17,7 @@ import {
     Loader2,
     Play,
 } from "lucide-react";
-import { API_BASE } from "@/lib/api";
+import { API_BASE, setStoredAccessToken } from "@/lib/api";
 
 type RoleCard = {
     id: "student" | "teacher" | "admin" | "parent";
@@ -141,12 +141,16 @@ export default function DemoPage() {
                 credentials: "include",
                 body: JSON.stringify({ role: role.id }),
             });
-            await fetch(`${API_BASE}/api/auth/demo-login`, {
+            const loginRes = await fetch(`${API_BASE}/api/auth/demo-login`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 credentials: "include",
                 body: JSON.stringify({ role: role.id }),
             });
+            const payload = await loginRes.json().catch(() => ({} as { access_token?: string }));
+            if ((payload as { access_token?: string }).access_token) {
+                setStoredAccessToken((payload as { access_token: string }).access_token);
+            }
             router.push(role.path);
         } catch {
             document.cookie = `demo_role=${role.id}; path=/; max-age=86400`;

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { GraduationCap, Loader2 } from "lucide-react";
-import { api, API_BASE } from "@/lib/api";
+import { api, API_BASE, setStoredAccessToken } from "@/lib/api";
 import { getRoleDashboard } from "@/lib/auth";
 
 declare global {
@@ -58,6 +58,34 @@ export default function LoginPage() {
         });
     };
 
+    const runDemoLogin = async (role: "student" | "teacher" | "admin" | "parent", redirectPath: string) => {
+        setLoading(true);
+        setError(null);
+        try {
+            const res = await fetch(`${API_BASE}/api/auth/demo-login`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+                body: JSON.stringify({ role }),
+            });
+
+            const payload = await res.json().catch(() => ({} as { detail?: string; access_token?: string }));
+            if (!res.ok) {
+                setError((payload as { detail?: string }).detail || "Demo login failed");
+                return;
+            }
+
+            if ((payload as { access_token?: string }).access_token) {
+                setStoredAccessToken((payload as { access_token: string }).access_token);
+            }
+            router.push(redirectPath);
+        } catch {
+            setError("Backend not running");
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return (
         <div className="min-h-screen bg-[var(--bg-page)] flex items-center justify-center px-4">
             <div className="w-full max-w-md">
@@ -97,94 +125,25 @@ export default function LoginPage() {
                                     {demoLoginEnabled ? (
                                         <>
                                     <button
-                                        onClick={async () => {
-                                            // Demo mode: login as student directly
-                                            setLoading(true);
-                                            try {
-                                                const res = await fetch(`${API_BASE}/api/auth/demo-login`, {
-                                                    method: "POST",
-                                                    headers: { "Content-Type": "application/json" },
-                                                    credentials: "include",
-                                                    body: JSON.stringify({ role: "student" }),
-                                                });
-                                                if (res.ok) {
-                                                    router.push("/student/overview");
-                                                }
-                                            } catch {
-                                                setError("Backend not running");
-                                            } finally {
-                                                setLoading(false);
-                                            }
-                                        }}
+                                        onClick={() => void runDemoLogin("student", "/student/overview")}
                                         className="w-full py-3 bg-[var(--primary)] text-white rounded-[var(--radius-sm)] font-medium hover:bg-[var(--primary-hover)] transition-colors mb-3"
                                     >
                                         Demo: Login as Student
                                     </button>
                                     <button
-                                        onClick={async () => {
-                                            setLoading(true);
-                                            try {
-                                                const res = await fetch(`${API_BASE}/api/auth/demo-login`, {
-                                                    method: "POST",
-                                                    headers: { "Content-Type": "application/json" },
-                                                    credentials: "include",
-                                                    body: JSON.stringify({ role: "teacher" }),
-                                                });
-                                                if (res.ok) {
-                                                    router.push("/teacher/dashboard");
-                                                }
-                                            } catch {
-                                                setError("Backend not running");
-                                            } finally {
-                                                setLoading(false);
-                                            }
-                                        }}
+                                        onClick={() => void runDemoLogin("teacher", "/teacher/dashboard")}
                                         className="w-full py-3 border border-[var(--border)] text-[var(--text-secondary)] rounded-[var(--radius-sm)] font-medium hover:border-[var(--primary)] hover:text-[var(--primary)] transition-colors mb-3"
                                     >
                                         Demo: Login as Teacher
                                     </button>
                                     <button
-                                        onClick={async () => {
-                                            setLoading(true);
-                                            try {
-                                                const res = await fetch(`${API_BASE}/api/auth/demo-login`, {
-                                                    method: "POST",
-                                                    headers: { "Content-Type": "application/json" },
-                                                    credentials: "include",
-                                                    body: JSON.stringify({ role: "admin" }),
-                                                });
-                                                if (res.ok) {
-                                                    router.push("/admin/dashboard");
-                                                }
-                                            } catch {
-                                                setError("Backend not running");
-                                            } finally {
-                                                setLoading(false);
-                                            }
-                                        }}
+                                        onClick={() => void runDemoLogin("admin", "/admin/dashboard")}
                                         className="w-full py-3 border border-[var(--border)] text-[var(--text-secondary)] rounded-[var(--radius-sm)] font-medium hover:border-[var(--primary)] hover:text-[var(--primary)] transition-colors"
                                     >
                                         Demo: Login as Admin
                                     </button>
                                     <button
-                                        onClick={async () => {
-                                            setLoading(true);
-                                            try {
-                                                const res = await fetch(`${API_BASE}/api/auth/demo-login`, {
-                                                    method: "POST",
-                                                    headers: { "Content-Type": "application/json" },
-                                                    credentials: "include",
-                                                    body: JSON.stringify({ role: "parent" }),
-                                                });
-                                                if (res.ok) {
-                                                    router.push("/parent/dashboard");
-                                                }
-                                            } catch {
-                                                setError("Backend not running");
-                                            } finally {
-                                                setLoading(false);
-                                            }
-                                        }}
+                                        onClick={() => void runDemoLogin("parent", "/parent/dashboard")}
                                         className="w-full py-3 border border-[var(--border)] text-[var(--text-secondary)] rounded-[var(--radius-sm)] font-medium hover:border-[var(--primary)] hover:text-[var(--primary)] transition-colors mt-3"
                                     >
                                         Demo: Login as Parent
