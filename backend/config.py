@@ -59,8 +59,11 @@ _yaml_config = load_yaml_config()
 
 class DatabaseSettings(BaseSettings):
     url: str = Field(
-        default=_yaml_config.get("database", {}).get(
-            "url", "postgresql://postgres:postgres@localhost:5432/aiaas"
+        default=os.getenv(
+            "DATABASE_URL",
+            _yaml_config.get("database", {}).get(
+                "url", "postgresql://postgres:postgres@localhost:5432/aiaas"
+            ),
         )
     )
     echo: bool = Field(
@@ -70,8 +73,11 @@ class DatabaseSettings(BaseSettings):
 
 class RedisSettings(BaseSettings):
     url: str = Field(
-        default=_yaml_config.get("redis", {}).get(
-            "url", "redis://localhost:6379/0"
+        default=os.getenv(
+            "REDIS_URL",
+            _yaml_config.get("redis", {}).get(
+                "url", "redis://localhost:6379/0"
+            ),
         )
     )
 
