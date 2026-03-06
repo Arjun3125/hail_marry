@@ -2,11 +2,13 @@
 AIaaS Backend Configuration
 Loads settings from YAML files with environment variable overrides.
 """
+import json
 import os
 import secrets
 import yaml
 from pathlib import Path
-from pydantic import Field
+from typing import Any
+from pydantic import Field, field_validator
 
 try:
     from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -55,6 +57,47 @@ def _deep_merge(base: dict, override: dict) -> dict:
 
 
 _yaml_config = load_yaml_config()
+
+
+def _normalize_origin(origin: str) -> str:
+    """Normalize a single origin entry from env/config input."""
+    return origin.strip().strip('"').strip("'")
+
+
+def _parse_cors_origins(value: Any, fallback: list[str] | None = None) -> list[str]:
+    """
+    Parse CORS origins from list/JSON/csv forms.
+    Accepts:
+    - list[str]
+    - JSON string: ["https://a.com","https://b.com"]
+    - CSV string: https://a.com,https://b.com
+    """
+    if value is None:
+        return list(fallback or [])
+
+    if isinstance(value, list):
+        return [origin for origin in (_normalize_origin(str(v)) for v in value) if origin]
+
+    if isinstance(value, str):
+        raw = value.strip()
+        if not raw:
+            return []
+
+        # Handle accidental extra wrapping quotes from dashboard paste.
+        if len(raw) >= 2 and raw[0] == raw[-1] and raw[0] in ("'", '"'):
+            raw = raw[1:-1].strip()
+
+        if raw.startswith("[") and raw.endswith("]"):
+            try:
+                parsed = json.loads(raw)
+                if isinstance(parsed, list):
+                    return [origin for origin in (_normalize_origin(str(v)) for v in parsed) if origin]
+            except json.JSONDecodeError:
+                pass
+
+        return [origin for origin in (_normalize_origin(part) for part in raw.split(",")) if origin]
+
+    raise ValueError("APP_CORS_ORIGINS must be a list or string")
 
 
 class DatabaseSettings(BaseSettings):
@@ -125,10 +168,19 @@ class AppSettings(BaseSettings):
         default=os.getenv("DEMO_MODE", "false").lower() in ("true", "1", "yes")
     )
     cors_origins: list[str] = Field(
-        default=_yaml_config.get("app", {}).get(
-            "cors_origins", ["http://localhost:3000"]
+        default_factory=lambda: _parse_cors_origins(
+            os.getenv("APP_CORS_ORIGINS"),
+            _yaml_config.get("app", {}).get("cors_origins", ["http://localhost:3000"]),
         )
     )
+
+    @field_validator("cors_origins", mode="before")
+    @classmethod
+    def validate_cors_origins(cls, value: Any):
+        return _parse_cors_origins(
+            value,
+            _yaml_config.get("app", {}).get("cors_origins", ["http://localhost:3000"]),
+        )
 
 
 class Settings:

@@ -27,21 +27,31 @@ app = FastAPI(
     redoc_url="/redoc" if settings.app.debug else None,
 )
 
-_demo_origins = ["http://localhost:3000", "http://localhost:3001", "http://localhost:3002", "http://127.0.0.1:3000", "http://127.0.0.1:3001"]
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=_demo_origins if settings.app.demo_mode else settings.app.cors_origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+_demo_origins = [
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "http://localhost:3002",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:3001",
+]
+_allowed_origins = settings.app.cors_origins + (_demo_origins if settings.app.demo_mode else [])
+_allowed_origins = list(dict.fromkeys(_allowed_origins))
+_vercel_origin_regex = r"^https://.*\.vercel\.app$" if settings.app.debug else None
 
 # Order matters: last added executes first.
 if not settings.app.demo_mode:
     app.add_middleware(RateLimitMiddleware)
 app.add_middleware(TenantMiddleware)
 if not settings.app.demo_mode:
-    app.add_middleware(CSRFMiddleware, allowed_origins=settings.app.cors_origins)
+    app.add_middleware(CSRFMiddleware, allowed_origins=_allowed_origins)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_allowed_origins,
+    allow_origin_regex=_vercel_origin_regex,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.get("/health")
