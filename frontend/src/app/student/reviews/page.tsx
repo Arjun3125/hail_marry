@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { RotateCcw, Plus, Loader2, Star, Clock, CheckCircle, Brain, Zap } from "lucide-react";
+import { Plus, Loader2, Star, CheckCircle, Brain, Zap } from "lucide-react";
 
 import { api } from "@/lib/api";
 
@@ -110,7 +110,7 @@ export default function ReviewsPage() {
 
             {/* Add new review card */}
             <div className="bg-white rounded-2xl shadow-[var(--shadow-card)] p-4 mb-6 border border-[var(--border)]/50">
-                <div className="flex gap-3">
+                <div className="flex flex-col gap-3 sm:flex-row">
                     <input
                         value={newTopic}
                         onChange={(e) => setNewTopic(e.target.value)}
@@ -121,7 +121,7 @@ export default function ReviewsPage() {
                     <button
                         onClick={() => void addReview()}
                         disabled={adding || !newTopic.trim()}
-                        className="px-5 py-2.5 bg-gradient-to-r from-violet-500 to-purple-600 text-white text-sm font-medium rounded-xl hover:shadow-lg transition-all duration-200 disabled:opacity-40 flex items-center gap-2 hover:scale-[1.02]"
+                        className="w-full sm:w-auto px-5 py-2.5 bg-gradient-to-r from-violet-500 to-purple-600 text-white text-sm font-medium rounded-xl hover:shadow-lg transition-all duration-200 disabled:opacity-40 flex items-center justify-center gap-2 hover:scale-[1.02]"
                     >
                         {adding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
                         Add Topic
@@ -147,7 +147,7 @@ export default function ReviewsPage() {
             ) : (
                 <>
                     {/* Stats strip */}
-                    <div className="grid grid-cols-3 gap-3 mb-6">
+                    <div className="grid grid-cols-1 gap-3 mb-6 sm:grid-cols-3">
                         <div className="bg-gradient-to-br from-rose-500 to-red-600 rounded-xl p-3 text-center text-white shadow-md">
                             <p className="text-2xl font-bold">{data.due.length}</p>
                             <p className="text-[10px] uppercase tracking-wider opacity-80">Due Now</p>
@@ -172,10 +172,10 @@ export default function ReviewsPage() {
                             <div className="space-y-3">
                                 {data.due.map((review) => (
                                     <div key={review.id} className="bg-white rounded-2xl shadow-[var(--shadow-card)] p-4 border-l-4 border-rose-500 border border-[var(--border)]/50 transition-all duration-200 hover:shadow-md">
-                                        <div className="flex items-center justify-between">
+                                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                                             <div>
                                                 <p className="text-sm font-bold text-[var(--text-primary)]">{review.topic}</p>
-                                                <div className="flex items-center gap-3 mt-1">
+                                                <div className="flex flex-wrap items-center gap-2 mt-1">
                                                     <span className="text-[10px] text-[var(--text-muted)] bg-[var(--bg-page)] px-2 py-0.5 rounded-full">
                                                         {review.review_count}× reviewed
                                                     </span>
@@ -188,7 +188,7 @@ export default function ReviewsPage() {
                                                 </div>
                                             </div>
                                             {ratingCard === review.id ? (
-                                                <div className="flex gap-1.5">
+                                                <div className="flex flex-wrap gap-1.5 sm:justify-end">
                                                     {ratingLabels.map((r) => (
                                                         <button
                                                             key={r.value}

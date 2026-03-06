@@ -61,7 +61,7 @@ export default function AdminBillingPage() {
                             </div>
                             <CreditCard className="w-10 h-10 opacity-50" />
                         </div>
-                        <div className="grid grid-cols-3 gap-4 mt-4">
+                        <div className="grid grid-cols-1 gap-3 mt-4 sm:grid-cols-3 sm:gap-4">
                             <div>
                                 <p className="text-xs opacity-70">Max Students</p>
                                 <p className="text-lg font-semibold">{billing?.max_students ?? 0}</p>

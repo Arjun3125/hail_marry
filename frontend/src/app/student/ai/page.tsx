@@ -109,7 +109,7 @@ export default function AIAssistant() {
         <div className="max-w-4xl mx-auto">
             {/* Header */}
             <div className="mb-4">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex items-center gap-3">
                         <div className={`p-2 rounded-xl bg-gradient-to-br ${activeMode.gradient} shadow-lg`}>
                             <Bot className="w-5 h-5 text-white" />
@@ -119,7 +119,7 @@ export default function AIAssistant() {
                             <p className="text-xs text-[var(--text-muted)]">Powered by RAG • Citation-grounded</p>
                         </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 self-start sm:self-auto">
                         {/* Language Selector */}
                         <div className="flex items-center gap-1.5 bg-white border border-[var(--border)]/50 rounded-xl px-3 py-2">
                             <Globe className="w-3.5 h-3.5 text-[var(--text-muted)]" />
@@ -147,7 +147,7 @@ export default function AIAssistant() {
             {/* Settings Panel */}
             {showSettings && (
                 <div className="bg-white rounded-2xl p-4 mb-4 border border-[var(--border)]/50 shadow-sm animate-[fadeIn_0.2s_ease-out]">
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                         <div>
                             <label className="block text-[10px] font-bold text-[var(--text-muted)] mb-2 uppercase tracking-wider">Response Length</label>
                             <div className="flex gap-1.5">
@@ -189,7 +189,7 @@ export default function AIAssistant() {
             )}
 
             {/* Mode Selector */}
-            <div className="grid grid-cols-4 gap-2 mb-4">
+            <div className="grid grid-cols-2 gap-2 mb-4 sm:grid-cols-4">
                 {modes.map((m) => (
                     <button
                         key={m.id}
@@ -213,7 +213,7 @@ export default function AIAssistant() {
                     return (
                         <div key={i} className="space-y-3">
                             <div className="flex justify-end">
-                                <div className={`bg-gradient-to-br ${itemMode.gradient} text-white px-4 py-3 rounded-2xl rounded-br-md max-w-[80%] shadow-md`}>
+                                <div className={`bg-gradient-to-br ${itemMode.gradient} text-white px-4 py-3 rounded-2xl rounded-br-md max-w-[90%] sm:max-w-[80%] shadow-md`}>
                                     <p className="text-sm">{item.query}</p>
                                 </div>
                             </div>
@@ -282,19 +282,19 @@ export default function AIAssistant() {
             )}
 
             {/* Input */}
-            <form onSubmit={handleSubmit} className="sticky bottom-4 bg-white rounded-2xl shadow-xl p-3 flex items-center gap-3 border border-[var(--border)]/50">
+            <form onSubmit={handleSubmit} className="sticky bottom-4 bg-white rounded-2xl shadow-xl p-3 flex items-center gap-2 sm:gap-3 border border-[var(--border)]/50">
                 <input
                     type="text"
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     placeholder={placeholders[mode] || "Type your question..."}
-                    className="flex-1 px-4 py-3 text-sm bg-[var(--bg-page)] border-0 rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/50"
+                    className="flex-1 min-w-0 px-3 py-3 sm:px-4 text-sm bg-[var(--bg-page)] border-0 rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/50"
                     disabled={loading}
                 />
                 <button
                     type="submit"
                     disabled={loading || !query.trim()}
-                    className={`px-5 py-3 bg-gradient-to-r ${activeMode.gradient} text-white rounded-xl hover:shadow-lg transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed hover:scale-[1.02]`}
+                    className={`px-4 py-3 sm:px-5 bg-gradient-to-r ${activeMode.gradient} text-white rounded-xl hover:shadow-lg transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed hover:scale-[1.02]`}
                 >
                     {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                 </button>

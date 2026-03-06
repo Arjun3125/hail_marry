@@ -71,7 +71,7 @@ export default function TeacherClassesPage() {
                                 </span>
                             ))}
                         </div>
-                        <div className="mt-4 grid grid-cols-3 gap-3">
+                        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
                             <div className="text-center p-2 bg-[var(--bg-page)] rounded-[var(--radius-sm)]">
                                 <CheckSquare className="w-4 h-4 mx-auto text-[var(--success)] mb-1" />
                                 <p className="text-[10px] text-[var(--text-muted)]">Attendance</p>

@@ -64,7 +64,7 @@ export default function AIUsagePage() {
                 <p className="text-sm text-[var(--text-muted)]">Loading analytics...</p>
             ) : (
                 <>
-                    <div className="grid grid-cols-3 gap-4 mb-6">
+                    <div className="grid grid-cols-1 gap-4 mb-6 sm:grid-cols-2 lg:grid-cols-3">
                         <div className="bg-white rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)]">
                             <Bot className="w-5 h-5 text-[var(--primary)] mb-2" />
                             <p className="text-2xl font-bold text-[var(--text-primary)]">{data?.total_week ?? 0}</p>
