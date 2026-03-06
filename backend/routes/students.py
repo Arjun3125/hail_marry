@@ -4,7 +4,7 @@ import logging
 import re
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, Optional
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
@@ -1023,4 +1023,3 @@ async def complete_review(
         "next_review_at": str(review.next_review_at),
         "review_count": review.review_count,
     }
-
