@@ -1,0 +1,42 @@
+# VCS / metadata
+.git
+.github
+.qodo
+.pytest_cache
+
+# Node / frontend artifacts
+node_modules
+frontend/node_modules
+frontend/.next
+frontend/test-results
+frontend/playwright-report
+
+# Python artifacts
+**/__pycache__
+**/*.pyc
+**/*.pyo
+**/.pytest_cache
+.venv
+venv
+
+# Large local data and references
+repo
+raw
+data
+uploads
+vector_store
+private_storage
+backend/uploads
+backend/vector_store
+backend/demo.db
+
+# Build output / logs
+dist
+build
+out
+*.log
+
+# Env files
+.env
+.env.*
+!.env.example

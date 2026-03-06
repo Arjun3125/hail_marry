@@ -1,0 +1,25 @@
+# Keep backend Docker context minimal
+
+# VCS / metadata
+.git
+.github
+.pytest_cache
+__pycache__
+
+# Python cache/artifacts
+**/__pycache__
+**/*.pyc
+**/*.pyo
+**/.pytest_cache
+.venv
+venv
+
+# Local runtime data
+uploads
+vector_store
+demo.db
+
+# Tests/docs not needed in runtime image
+tests
+scripts
+*.log
