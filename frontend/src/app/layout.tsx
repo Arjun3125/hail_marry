@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import DemoToolbarWrapper from "@/components/DemoToolbarWrapper";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -28,7 +29,10 @@ export default function RootLayout({
           defer
         />
       </head>
-      <body className="antialiased bg-slate-50 text-slate-900">{children}</body>
+      <body className="antialiased bg-slate-50 text-slate-900">
+        {children}
+        <DemoToolbarWrapper />
+      </body>
     </html>
   );
 }

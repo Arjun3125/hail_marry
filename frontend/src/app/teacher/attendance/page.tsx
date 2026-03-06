@@ -151,55 +151,57 @@ export default function TeacherAttendancePage() {
             ) : null}
 
             <div className="bg-white rounded-[var(--radius)] shadow-[var(--shadow-card)] overflow-hidden">
-                <table className="w-full">
-                    <thead>
-                        <tr className="border-b border-[var(--border)] bg-[var(--bg-page)]">
-                            <th className="px-5 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase">Roll</th>
-                            <th className="px-5 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase">Name</th>
-                            <th className="px-5 py-3 text-center text-xs font-medium text-[var(--text-muted)] uppercase">Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {loading ? (
-                            <tr>
-                                <td className="px-5 py-4 text-sm text-[var(--text-muted)]" colSpan={3}>Loading students...</td>
+                <div className="overflow-x-auto">
+                    <table className="w-full min-w-[600px]">
+                        <thead>
+                            <tr className="border-b border-[var(--border)] bg-[var(--bg-page)]">
+                                <th className="px-5 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase">Roll</th>
+                                <th className="px-5 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase">Name</th>
+                                <th className="px-5 py-3 text-center text-xs font-medium text-[var(--text-muted)] uppercase">Status</th>
                             </tr>
-                        ) : !(selectedClass?.students.length) ? (
-                            <tr>
-                                <td className="px-5 py-4 text-sm text-[var(--text-muted)]" colSpan={3}>No students in this class.</td>
-                            </tr>
-                        ) : selectedClass.students.map((student) => {
-                            const status = entries[student.id] || "present";
-                            const cfg = statusConfig[status];
-                            const Icon = cfg.icon;
-                            return (
-                                <tr key={student.id} className="border-b border-[var(--border-light)]">
-                                    <td className="px-5 py-3 text-sm text-[var(--text-secondary)]">{student.roll_number || "-"}</td>
-                                    <td className="px-5 py-3 text-sm font-medium text-[var(--text-primary)]">{student.name}</td>
-                                    <td className="px-5 py-3 text-center">
-                                        <button
-                                            onClick={() => toggleStatus(student.id)}
-                                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ${cfg.bg} ${cfg.color}`}
-                                        >
-                                            <Icon className="w-3.5 h-3.5" /> {status}
-                                        </button>
-                                    </td>
+                        </thead>
+                        <tbody>
+                            {loading ? (
+                                <tr>
+                                    <td className="px-5 py-4 text-sm text-[var(--text-muted)]" colSpan={3}>Loading students...</td>
                                 </tr>
-                            );
-                        })}
-                    </tbody>
-                </table>
-            </div>
+                            ) : !(selectedClass?.students.length) ? (
+                                <tr>
+                                    <td className="px-5 py-4 text-sm text-[var(--text-muted)]" colSpan={3}>No students in this class.</td>
+                                </tr>
+                            ) : selectedClass.students.map((student) => {
+                                const status = entries[student.id] || "present";
+                                const cfg = statusConfig[status];
+                                const Icon = cfg.icon;
+                                return (
+                                    <tr key={student.id} className="border-b border-[var(--border-light)]">
+                                        <td className="px-5 py-3 text-sm text-[var(--text-secondary)]">{student.roll_number || "-"}</td>
+                                        <td className="px-5 py-3 text-sm font-medium text-[var(--text-primary)]">{student.name}</td>
+                                        <td className="px-5 py-3 text-center">
+                                            <button
+                                                onClick={() => toggleStatus(student.id)}
+                                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ${cfg.bg} ${cfg.color}`}
+                                            >
+                                                <Icon className="w-3.5 h-3.5" /> {status}
+                                            </button>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+                </div>
 
-            <div className="mt-4 flex justify-end">
-                <button
-                    className="px-6 py-2.5 bg-[var(--primary)] text-white text-sm font-medium rounded-[var(--radius-sm)] hover:bg-[var(--primary-hover)] transition-colors flex items-center gap-2 disabled:opacity-60"
-                    onClick={() => void saveAttendance()}
-                    disabled={saving || !selectedClass}
-                >
-                    <Save className="w-4 h-4" /> {saving ? "Saving..." : "Save Attendance"}
-                </button>
+                <div className="mt-4 flex justify-end">
+                    <button
+                        className="px-6 py-2.5 bg-[var(--primary)] text-white text-sm font-medium rounded-[var(--radius-sm)] hover:bg-[var(--primary-hover)] transition-colors flex items-center gap-2 disabled:opacity-60"
+                        onClick={() => void saveAttendance()}
+                        disabled={saving || !selectedClass}
+                    >
+                        <Save className="w-4 h-4" /> {saving ? "Saving..." : "Save Attendance"}
+                    </button>
+                </div>
             </div>
-        </div>
-    );
+            );
 }

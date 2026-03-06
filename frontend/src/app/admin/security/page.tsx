@@ -98,41 +98,43 @@ export default function AdminSecurityPage() {
                 <div className="px-5 py-3 border-b border-[var(--border)]">
                     <h2 className="text-base font-semibold text-[var(--text-primary)]">Audit Trail</h2>
                 </div>
-                <table className="w-full">
-                    <thead>
-                        <tr className="border-b border-[var(--border)] bg-[var(--bg-page)]">
-                            <th className="px-5 py-2.5 text-left text-xs font-medium text-[var(--text-muted)]">User</th>
-                            <th className="px-5 py-2.5 text-left text-xs font-medium text-[var(--text-muted)]">Action</th>
-                            <th className="px-5 py-2.5 text-left text-xs font-medium text-[var(--text-muted)]">Details</th>
-                            <th className="px-5 py-2.5 text-left text-xs font-medium text-[var(--text-muted)]">Time</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {loading ? (
-                            <tr>
-                                <td className="px-5 py-4 text-sm text-[var(--text-muted)]" colSpan={4}>
-                                    Loading logs...
-                                </td>
+                <div className="overflow-x-auto">
+                    <table className="w-full min-w-[700px]">
+                        <thead>
+                            <tr className="border-b border-[var(--border)] bg-[var(--bg-page)]">
+                                <th className="px-5 py-2.5 text-left text-xs font-medium text-[var(--text-muted)]">User</th>
+                                <th className="px-5 py-2.5 text-left text-xs font-medium text-[var(--text-muted)]">Action</th>
+                                <th className="px-5 py-2.5 text-left text-xs font-medium text-[var(--text-muted)]">Details</th>
+                                <th className="px-5 py-2.5 text-left text-xs font-medium text-[var(--text-muted)]">Time</th>
                             </tr>
-                        ) : logs.length === 0 ? (
-                            <tr>
-                                <td className="px-5 py-4 text-sm text-[var(--text-muted)]" colSpan={4}>
-                                    No audit entries found.
-                                </td>
-                            </tr>
-                        ) : logs.map((log) => (
-                            <tr key={log.id} className="border-b border-[var(--border-light)]">
-                                <td className="px-5 py-3 text-sm text-[var(--text-primary)]">{log.user}</td>
-                                <td className="px-5 py-3">
-                                    <span className="text-xs bg-[var(--bg-page)] text-[var(--text-secondary)] px-2 py-0.5 rounded-full">{log.action}</span>
-                                </td>
-                                <td className="px-5 py-3 text-xs text-[var(--text-muted)]">{log.metadata ? JSON.stringify(log.metadata) : "-"}</td>
-                                <td className="px-5 py-3 text-xs text-[var(--text-muted)]">{formatDateTime(log.date)}</td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            {loading ? (
+                                <tr>
+                                    <td className="px-5 py-4 text-sm text-[var(--text-muted)]" colSpan={4}>
+                                        Loading logs...
+                                    </td>
+                                </tr>
+                            ) : logs.length === 0 ? (
+                                <tr>
+                                    <td className="px-5 py-4 text-sm text-[var(--text-muted)]" colSpan={4}>
+                                        No audit entries found.
+                                    </td>
+                                </tr>
+                            ) : logs.map((log) => (
+                                <tr key={log.id} className="border-b border-[var(--border-light)]">
+                                    <td className="px-5 py-3 text-sm text-[var(--text-primary)]">{log.user}</td>
+                                    <td className="px-5 py-3">
+                                        <span className="text-xs bg-[var(--bg-page)] text-[var(--text-secondary)] px-2 py-0.5 rounded-full">{log.action}</span>
+                                    </td>
+                                    <td className="px-5 py-3 text-xs text-[var(--text-muted)]">{log.metadata ? JSON.stringify(log.metadata) : "-"}</td>
+                                    <td className="px-5 py-3 text-xs text-[var(--text-muted)]">{formatDateTime(log.date)}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+                </div>
             </div>
-        </div>
-    );
+            );
 }

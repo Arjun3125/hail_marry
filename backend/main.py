@@ -16,6 +16,7 @@ from routes import ai as ai_routes
 from routes import audio as audio_routes
 from routes import video as video_routes
 from routes import discovery as discovery_routes
+from routes import demo_management as demo_mgmt_routes
 
 
 app = FastAPI(
@@ -26,18 +27,21 @@ app = FastAPI(
     redoc_url="/redoc" if settings.app.debug else None,
 )
 
+_demo_origins = ["http://localhost:3000", "http://localhost:3001", "http://localhost:3002", "http://127.0.0.1:3000", "http://127.0.0.1:3001"]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.app.cors_origins,
+    allow_origins=_demo_origins if settings.app.demo_mode else settings.app.cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # Order matters: last added executes first.
-app.add_middleware(RateLimitMiddleware)
+if not settings.app.demo_mode:
+    app.add_middleware(RateLimitMiddleware)
 app.add_middleware(TenantMiddleware)
-app.add_middleware(CSRFMiddleware, allowed_origins=settings.app.cors_origins)
+if not settings.app.demo_mode:
+    app.add_middleware(CSRFMiddleware, allowed_origins=settings.app.cors_origins)
 
 
 @app.get("/health")
@@ -46,8 +50,7 @@ async def health_check():
 
 
 app.include_router(auth_routes.router)
-if settings.app.debug:
-    app.include_router(demo_routes.router)
+app.include_router(demo_routes.router)
 app.include_router(student_routes.router)
 app.include_router(parent_routes.router)
 app.include_router(teacher_routes.router)
@@ -56,3 +59,21 @@ app.include_router(ai_routes.router)
 app.include_router(audio_routes.router)
 app.include_router(video_routes.router)
 app.include_router(discovery_routes.router)
+app.include_router(demo_mgmt_routes.router)
+
+
+# ── Auto-seed in DEMO_MODE ──
+if settings.app.demo_mode:
+    import models  # noqa — register all models so create_all creates all tables
+    from database import Base, engine
+    Base.metadata.create_all(bind=engine)
+    try:
+        from database import SessionLocal
+        _db = SessionLocal()
+        from models.user import User
+        if _db.query(User).count() == 0:
+            from demo_seed import seed_demo_data
+            seed_demo_data(_db)
+        _db.close()
+    except Exception as e:
+        print(f"⚠️ Demo seed check: {e}")

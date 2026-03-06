@@ -63,10 +63,10 @@ export default function StudentUploadPage() {
             prev.map((item) =>
                 item.key === key
                     ? {
-                          ...item,
-                          status,
-                          ...extras,
-                      }
+                        ...item,
+                        status,
+                        ...extras,
+                    }
                     : item,
             ),
         );
@@ -145,11 +145,10 @@ export default function StudentUploadPage() {
             ) : null}
 
             <div
-                className={`border-2 border-dashed rounded-[var(--radius)] p-10 text-center transition-colors cursor-pointer ${
-                    isDragging
+                className={`border-2 border-dashed rounded-[var(--radius)] p-10 text-center transition-colors cursor-pointer ${isDragging
                         ? "border-[var(--primary)] bg-[var(--primary-light)]"
                         : "border-[var(--border)] bg-white hover:border-[var(--primary)] hover:bg-blue-50/30"
-                }`}
+                    }`}
                 onDragOver={(e) => {
                     e.preventDefault();
                     setIsDragging(true);
@@ -228,70 +227,71 @@ export default function StudentUploadPage() {
                 <div className="px-5 py-3 border-b border-[var(--border)]">
                     <h2 className="text-base font-semibold text-[var(--text-primary)]">Uploaded Files</h2>
                 </div>
-                <table className="w-full">
-                    <thead>
-                        <tr className="border-b border-[var(--border)]">
-                            <th className="px-5 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase">File</th>
-                            <th className="px-5 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase">Type</th>
-                            <th className="px-5 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase">Status</th>
-                            <th className="px-5 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase">Uploaded At</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {loading ? (
-                            <tr>
-                                <td className="px-5 py-4 text-sm text-[var(--text-muted)]" colSpan={4}>
-                                    Loading uploads...
-                                </td>
+                <div className="overflow-x-auto">
+                    <table className="w-full min-w-[600px]">
+                        <thead>
+                            <tr className="border-b border-[var(--border)]">
+                                <th className="px-5 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase">File</th>
+                                <th className="px-5 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase">Type</th>
+                                <th className="px-5 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase">Status</th>
+                                <th className="px-5 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase">Uploaded At</th>
                             </tr>
-                        ) : uploads.length === 0 ? (
-                            <tr>
-                                <td className="px-5 py-4 text-sm text-[var(--text-muted)]" colSpan={4}>
-                                    No uploaded files yet.
-                                </td>
-                            </tr>
-                        ) : (
-                            uploads.map((upload) => (
-                                <tr key={upload.id} className="border-b border-[var(--border-light)]">
-                                    <td className="px-5 py-3 text-sm text-[var(--text-primary)]">{upload.file_name}</td>
-                                    <td className="px-5 py-3 text-xs font-medium uppercase text-[var(--text-secondary)]">{upload.file_type}</td>
-                                    <td className="px-5 py-3 text-xs">
-                                        <span
-                                            className={`px-2 py-1 rounded-full font-medium capitalize ${
-                                                upload.status === "completed"
-                                                    ? "bg-green-50 text-[var(--success)]"
-                                                    : upload.status === "processing"
-                                                      ? "bg-blue-50 text-[var(--primary)]"
-                                                      : "bg-red-50 text-[var(--error)]"
-                                            }`}
-                                        >
-                                            {upload.status}
-                                        </span>
+                        </thead>
+                        <tbody>
+                            {loading ? (
+                                <tr>
+                                    <td className="px-5 py-4 text-sm text-[var(--text-muted)]" colSpan={4}>
+                                        Loading uploads...
                                     </td>
-                                    <td className="px-5 py-3 text-xs text-[var(--text-secondary)]">{upload.uploaded_at}</td>
                                 </tr>
-                            ))
-                        )}
-                    </tbody>
-                </table>
-            </div>
+                            ) : uploads.length === 0 ? (
+                                <tr>
+                                    <td className="px-5 py-4 text-sm text-[var(--text-muted)]" colSpan={4}>
+                                        No uploaded files yet.
+                                    </td>
+                                </tr>
+                            ) : (
+                                uploads.map((upload) => (
+                                    <tr key={upload.id} className="border-b border-[var(--border-light)]">
+                                        <td className="px-5 py-3 text-sm text-[var(--text-primary)]">{upload.file_name}</td>
+                                        <td className="px-5 py-3 text-xs font-medium uppercase text-[var(--text-secondary)]">{upload.file_type}</td>
+                                        <td className="px-5 py-3 text-xs">
+                                            <span
+                                                className={`px-2 py-1 rounded-full font-medium capitalize ${upload.status === "completed"
+                                                        ? "bg-green-50 text-[var(--success)]"
+                                                        : upload.status === "processing"
+                                                            ? "bg-blue-50 text-[var(--primary)]"
+                                                            : "bg-red-50 text-[var(--error)]"
+                                                    }`}
+                                            >
+                                                {upload.status}
+                                            </span>
+                                        </td>
+                                        <td className="px-5 py-3 text-xs text-[var(--text-secondary)]">{upload.uploaded_at}</td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+                </div>
 
-            <div className="mt-8 grid grid-cols-2 md:grid-cols-4 gap-3">
-                {[
-                    { label: "PDF", desc: "Textbooks, notes" },
-                    { label: "DOCX", desc: "Reports, essays" },
-                    { label: "Limit", desc: "Up to 25MB" },
-                    { label: "AI", desc: "Indexed for search" },
-                ].map((item) => (
-                    <div key={item.label} className="bg-white rounded-[var(--radius-sm)] p-3 shadow-[var(--shadow-card)] text-center">
-                        <div className="w-8 h-8 mx-auto rounded-full bg-[var(--bg-page)] flex items-center justify-center mb-2">
-                            <FileText className="w-4 h-4 text-[var(--text-secondary)]" />
+                <div className="mt-8 grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {[
+                        { label: "PDF", desc: "Textbooks, notes" },
+                        { label: "DOCX", desc: "Reports, essays" },
+                        { label: "Limit", desc: "Up to 25MB" },
+                        { label: "AI", desc: "Indexed for search" },
+                    ].map((item) => (
+                        <div key={item.label} className="bg-white rounded-[var(--radius-sm)] p-3 shadow-[var(--shadow-card)] text-center">
+                            <div className="w-8 h-8 mx-auto rounded-full bg-[var(--bg-page)] flex items-center justify-center mb-2">
+                                <FileText className="w-4 h-4 text-[var(--text-secondary)]" />
+                            </div>
+                            <p className="text-xs font-semibold text-[var(--text-primary)]">{item.label}</p>
+                            <p className="text-[10px] text-[var(--text-muted)]">{item.desc}</p>
                         </div>
-                        <p className="text-xs font-semibold text-[var(--text-primary)]">{item.label}</p>
-                        <p className="text-[10px] text-[var(--text-muted)]">{item.desc}</p>
-                    </div>
-                ))}
+                    ))}
+                </div>
             </div>
-        </div>
-    );
+            );
 }

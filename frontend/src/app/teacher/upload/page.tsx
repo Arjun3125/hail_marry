@@ -266,44 +266,46 @@ export default function UploadPage() {
                 <div className="px-5 py-3 border-b border-[var(--border)]">
                     <h2 className="text-base font-semibold text-[var(--text-primary)]">Recent Upload Activity</h2>
                 </div>
-                <table className="w-full">
-                    <thead>
-                        <tr className="border-b border-[var(--border)]">
-                            <th className="px-5 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase">Name</th>
-                            <th className="px-5 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase">Type</th>
-                            <th className="px-5 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase">Status</th>
-                            <th className="px-5 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase">Details</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {activities.length === 0 ? (
-                            <tr>
-                                <td className="px-5 py-4 text-sm text-[var(--text-muted)]" colSpan={4}>
-                                    No uploads in this session yet.
-                                </td>
+                <div className="overflow-x-auto">
+                    <table className="w-full min-w-[600px]">
+                        <thead>
+                            <tr className="border-b border-[var(--border)]">
+                                <th className="px-5 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase">Name</th>
+                                <th className="px-5 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase">Type</th>
+                                <th className="px-5 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase">Status</th>
+                                <th className="px-5 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase">Details</th>
                             </tr>
-                        ) : (
-                            activities.map((activity) => (
-                                <tr key={activity.id} className="border-b border-[var(--border-light)] hover:bg-[var(--bg-page)]">
-                                    <td className="px-5 py-3 text-sm text-[var(--text-primary)]">{activity.name}</td>
-                                    <td className="px-5 py-3">
-                                        <span className="text-xs font-medium uppercase text-[var(--text-muted)] bg-[var(--bg-page)] px-2 py-1 rounded">
-                                            {activity.type}
-                                        </span>
+                        </thead>
+                        <tbody>
+                            {activities.length === 0 ? (
+                                <tr>
+                                    <td className="px-5 py-4 text-sm text-[var(--text-muted)]" colSpan={4}>
+                                        No uploads in this session yet.
                                     </td>
-                                    <td className="px-5 py-3">
-                                        <span className="flex items-center gap-1.5 text-xs font-medium capitalize">
-                                            {statusIcon[activity.status]}
-                                            {activity.status}
-                                        </span>
-                                    </td>
-                                    <td className="px-5 py-3 text-xs text-[var(--text-secondary)]">{activity.detail || "-"}</td>
                                 </tr>
-                            ))
-                        )}
-                    </tbody>
-                </table>
+                            ) : (
+                                activities.map((activity) => (
+                                    <tr key={activity.id} className="border-b border-[var(--border-light)] hover:bg-[var(--bg-page)]">
+                                        <td className="px-5 py-3 text-sm text-[var(--text-primary)]">{activity.name}</td>
+                                        <td className="px-5 py-3">
+                                            <span className="text-xs font-medium uppercase text-[var(--text-muted)] bg-[var(--bg-page)] px-2 py-1 rounded">
+                                                {activity.type}
+                                            </span>
+                                        </td>
+                                        <td className="px-5 py-3">
+                                            <span className="flex items-center gap-1.5 text-xs font-medium capitalize">
+                                                {statusIcon[activity.status]}
+                                                {activity.status}
+                                            </span>
+                                        </td>
+                                        <td className="px-5 py-3 text-xs text-[var(--text-secondary)]">{activity.detail || "-"}</td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+                </div>
             </div>
-        </div>
-    );
+            );
 }

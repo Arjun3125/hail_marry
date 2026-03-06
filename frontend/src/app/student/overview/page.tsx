@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 
 import { api } from "@/lib/api";
+import { SkeletonCard, SkeletonList } from "@/components/Skeleton";
 
 type DashboardStats = {
     attendance_pct: number;
@@ -147,33 +148,39 @@ export default function StudentOverview() {
                 </div>
             ) : null}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-                {kpiCards.map((card) => (
-                    <div
-                        key={card.label}
-                        className="bg-white rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)]"
-                    >
-                        <div className="flex items-center justify-between mb-3">
-                            <span className="text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">
-                                {card.label}
-                            </span>
-                            <card.icon className="w-4 h-4" style={{ color: card.color }} />
-                        </div>
-                        <div className="text-2xl font-bold text-[var(--text-primary)]">
-                            {loading ? "-" : card.value}
-                        </div>
-                        {card.trend ? (
-                            <div
-                                className="flex items-center gap-1 mt-1 text-xs"
-                                style={{ color: card.trendUp ? "var(--success)" : "var(--warning)" }}
-                            >
-                                {card.trendUp ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                                {card.trend}
+            {loading ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+                    {Array.from({ length: 5 }).map((_, i) => <SkeletonCard key={i} />)}
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+                    {kpiCards.map((card) => (
+                        <div
+                            key={card.label}
+                            className="bg-white rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)] card-hover"
+                        >
+                            <div className="flex items-center justify-between mb-3">
+                                <span className="text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">
+                                    {card.label}
+                                </span>
+                                <card.icon className="w-4 h-4" style={{ color: card.color }} />
                             </div>
-                        ) : null}
-                    </div>
-                ))}
-            </div>
+                            <div className="text-2xl font-bold text-[var(--text-primary)]">
+                                {loading ? "-" : card.value}
+                            </div>
+                            {card.trend ? (
+                                <div
+                                    className="flex items-center gap-1 mt-1 text-xs"
+                                    style={{ color: card.trendUp ? "var(--success)" : "var(--warning)" }}
+                                >
+                                    {card.trendUp ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                                    {card.trend}
+                                </div>
+                            ) : null}
+                        </div>
+                    ))}
+                </div>
+            )}
 
             {weakTopics.length > 0 ? (
                 <div className="bg-red-50 border border-red-200 rounded-[var(--radius)] p-4 mb-6">
@@ -232,7 +239,7 @@ export default function StudentOverview() {
                     <div className="bg-white rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)]">
                         <div className="flex items-center gap-2 mb-4">
                             <Bot className="w-4 h-4 text-[var(--primary)]" />
-                            <h2 className="text-base font-semibold text-[var(--text-primary)]">AI Insight</h2>
+                            <h2 className="text-base font-semibold text-[var(--text-primary)] mb-4">AI Insight</h2>
                         </div>
                         {stats.ai_insight ? (
                             <div className="p-4 bg-[var(--primary-light)] rounded-[var(--radius-sm)]">

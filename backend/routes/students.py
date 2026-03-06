@@ -918,6 +918,11 @@ async def student_reviews(
     due = []
     upcoming = []
     for r in reviews:
+        # SQLite returns naive datetimes; make them aware for comparison
+        review_at = r.next_review_at
+        if review_at and review_at.tzinfo is None:
+            review_at = review_at.replace(tzinfo=timezone.utc)
+        is_due = review_at <= now if review_at else False
         entry = {
             "id": str(r.id),
             "topic": r.topic,
@@ -926,9 +931,9 @@ async def student_reviews(
             "interval_days": r.interval_days,
             "ease_factor": round(r.ease_factor, 2),
             "review_count": r.review_count,
-            "is_due": r.next_review_at <= now,
+            "is_due": is_due,
         }
-        if r.next_review_at <= now:
+        if is_due:
             due.append(entry)
         else:
             upcoming.append(entry)

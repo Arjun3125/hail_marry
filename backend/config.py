@@ -115,6 +115,9 @@ class AppSettings(BaseSettings):
     debug: bool = Field(
         default=_yaml_config.get("app", {}).get("debug", True)
     )
+    demo_mode: bool = Field(
+        default=os.getenv("DEMO_MODE", "false").lower() in ("true", "1", "yes")
+    )
     cors_origins: list[str] = Field(
         default=_yaml_config.get("app", {}).get(
             "cors_origins", ["http://localhost:3000"]

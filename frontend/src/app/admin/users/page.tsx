@@ -191,8 +191,8 @@ export default function UsersPage() {
                         key={r}
                         onClick={() => setRoleFilter(r)}
                         className={`px-3 py-2 text-xs font-medium rounded-[var(--radius-sm)] capitalize transition-colors ${roleFilter === r
-                                ? "bg-[var(--primary)] text-white"
-                                : "bg-white border border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--primary)]"
+                            ? "bg-[var(--primary)] text-white"
+                            : "bg-white border border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--primary)]"
                             }`}
                     >
                         {r}
@@ -201,150 +201,152 @@ export default function UsersPage() {
             </div>
 
             <div className="bg-white rounded-[var(--radius)] shadow-[var(--shadow-card)] overflow-hidden">
-                <table className="w-full">
-                    <thead>
-                        <tr className="border-b border-[var(--border)]">
-                            <th className="px-5 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase">User</th>
-                            <th className="px-5 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase">Role</th>
-                            <th className="px-5 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase">Status</th>
-                            <th className="px-5 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase">Last Login</th>
-                            <th className="px-5 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase">AI (30d)</th>
-                            <th className="px-5 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {loading ? (
-                            <tr>
-                                <td className="px-5 py-6 text-sm text-[var(--text-muted)]" colSpan={6}>
-                                    Loading users...
-                                </td>
+                <div className="overflow-x-auto">
+                    <table className="w-full min-w-[700px]">
+                        <thead>
+                            <tr className="border-b border-[var(--border)]">
+                                <th className="px-5 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase">User</th>
+                                <th className="px-5 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase">Role</th>
+                                <th className="px-5 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase">Status</th>
+                                <th className="px-5 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase">Last Login</th>
+                                <th className="px-5 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase">AI (30d)</th>
+                                <th className="px-5 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase">Actions</th>
                             </tr>
-                        ) : filtered.length === 0 ? (
-                            <tr>
-                                <td className="px-5 py-6 text-sm text-[var(--text-muted)]" colSpan={6}>
-                                    No users found.
-                                </td>
-                            </tr>
-                        ) : filtered.map((user) => (
-                            <tr key={user.id} className="border-b border-[var(--border-light)] hover:bg-[var(--bg-page)] transition-colors">
-                                <td className="px-5 py-3">
-                                    <p className="text-sm font-medium text-[var(--text-primary)]">{user.name}</p>
-                                    <p className="text-xs text-[var(--text-muted)]">{user.email}</p>
-                                </td>
-                                <td className="px-5 py-3">
-                                    <span className={`text-xs font-medium px-2.5 py-1 rounded-full capitalize ${roleColors[user.role]}`}>
-                                        {user.role}
-                                    </span>
-                                </td>
-                                <td className="px-5 py-3">
-                                    <span className={`flex items-center gap-1.5 text-xs ${user.is_active ? "text-[var(--success)]" : "text-[var(--error)]"}`}>
-                                        <span className={`w-1.5 h-1.5 rounded-full ${user.is_active ? "bg-[var(--success)]" : "bg-[var(--error)]"}`} />
-                                        {user.is_active ? "Active" : "Inactive"}
-                                    </span>
-                                </td>
-                                <td className="px-5 py-3 text-sm text-[var(--text-secondary)]">
-                                    {formatDateTime(user.last_login)}
-                                </td>
-                                <td className="px-5 py-3 text-sm text-[var(--text-primary)] font-medium">{user.ai_queries_30d}</td>
-                                <td className="px-5 py-3">
-                                    <div className="flex items-center gap-2">
-                                        <div className="flex items-center gap-1">
-                                            <Shield className="w-4 h-4 text-[var(--text-muted)]" />
-                                            <select
-                                                value={user.role}
-                                                onChange={(e) => void handleRoleChange(user, e.target.value as UserRole)}
-                                                className="px-2 py-1 text-xs border border-[var(--border)] rounded"
+                        </thead>
+                        <tbody>
+                            {loading ? (
+                                <tr>
+                                    <td className="px-5 py-6 text-sm text-[var(--text-muted)]" colSpan={6}>
+                                        Loading users...
+                                    </td>
+                                </tr>
+                            ) : filtered.length === 0 ? (
+                                <tr>
+                                    <td className="px-5 py-6 text-sm text-[var(--text-muted)]" colSpan={6}>
+                                        No users found.
+                                    </td>
+                                </tr>
+                            ) : filtered.map((user) => (
+                                <tr key={user.id} className="border-b border-[var(--border-light)] hover:bg-[var(--bg-page)] transition-colors">
+                                    <td className="px-5 py-3">
+                                        <p className="text-sm font-medium text-[var(--text-primary)]">{user.name}</p>
+                                        <p className="text-xs text-[var(--text-muted)]">{user.email}</p>
+                                    </td>
+                                    <td className="px-5 py-3">
+                                        <span className={`text-xs font-medium px-2.5 py-1 rounded-full capitalize ${roleColors[user.role]}`}>
+                                            {user.role}
+                                        </span>
+                                    </td>
+                                    <td className="px-5 py-3">
+                                        <span className={`flex items-center gap-1.5 text-xs ${user.is_active ? "text-[var(--success)]" : "text-[var(--error)]"}`}>
+                                            <span className={`w-1.5 h-1.5 rounded-full ${user.is_active ? "bg-[var(--success)]" : "bg-[var(--error)]"}`} />
+                                            {user.is_active ? "Active" : "Inactive"}
+                                        </span>
+                                    </td>
+                                    <td className="px-5 py-3 text-sm text-[var(--text-secondary)]">
+                                        {formatDateTime(user.last_login)}
+                                    </td>
+                                    <td className="px-5 py-3 text-sm text-[var(--text-primary)] font-medium">{user.ai_queries_30d}</td>
+                                    <td className="px-5 py-3">
+                                        <div className="flex items-center gap-2">
+                                            <div className="flex items-center gap-1">
+                                                <Shield className="w-4 h-4 text-[var(--text-muted)]" />
+                                                <select
+                                                    value={user.role}
+                                                    onChange={(e) => void handleRoleChange(user, e.target.value as UserRole)}
+                                                    className="px-2 py-1 text-xs border border-[var(--border)] rounded"
+                                                    disabled={actionUserId === user.id}
+                                                >
+                                                    <option value="student">student</option>
+                                                    <option value="teacher">teacher</option>
+                                                    <option value="admin">admin</option>
+                                                    <option value="parent">parent</option>
+                                                </select>
+                                            </div>
+                                            <button
+                                                className="p-1.5 text-[var(--text-muted)] hover:text-[var(--error)] transition-colors"
+                                                title={user.is_active ? "Deactivate" : "Activate"}
+                                                onClick={() => void handleToggleActive(user.id)}
                                                 disabled={actionUserId === user.id}
                                             >
-                                                <option value="student">student</option>
-                                                <option value="teacher">teacher</option>
-                                                <option value="admin">admin</option>
-                                                <option value="parent">parent</option>
-                                            </select>
+                                                <UserX className="w-4 h-4" />
+                                            </button>
                                         </div>
-                                        <button
-                                            className="p-1.5 text-[var(--text-muted)] hover:text-[var(--error)] transition-colors"
-                                            title={user.is_active ? "Deactivate" : "Activate"}
-                                            onClick={() => void handleToggleActive(user.id)}
-                                            disabled={actionUserId === user.id}
-                                        >
-                                            <UserX className="w-4 h-4" />
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
-
-            <div className="bg-white rounded-[var(--radius)] shadow-[var(--shadow-card)] p-5 mt-6">
-                <h2 className="text-base font-semibold text-[var(--text-primary)] mb-4">Parent-Child Links</h2>
-
-                <div className="grid md:grid-cols-[1fr_1fr_auto] gap-3 mb-4">
-                    <select
-                        value={selectedParentId}
-                        onChange={(e) => setSelectedParentId(e.target.value)}
-                        className="px-3 py-2.5 border border-[var(--border)] rounded-[var(--radius-sm)] text-sm"
-                        disabled={linkBusy || parents.length === 0}
-                    >
-                        {parents.length === 0 ? (
-                            <option value="">No parent users available</option>
-                        ) : (
-                            parents.map((p) => (
-                                <option key={p.id} value={p.id}>{p.name} ({p.email})</option>
-                            ))
-                        )}
-                    </select>
-                    <select
-                        value={selectedChildId}
-                        onChange={(e) => setSelectedChildId(e.target.value)}
-                        className="px-3 py-2.5 border border-[var(--border)] rounded-[var(--radius-sm)] text-sm"
-                        disabled={linkBusy || students.length === 0}
-                    >
-                        {students.length === 0 ? (
-                            <option value="">No student users available</option>
-                        ) : (
-                            students.map((s) => (
-                                <option key={s.id} value={s.id}>{s.name} ({s.email})</option>
-                            ))
-                        )}
-                    </select>
-                    <button
-                        onClick={() => void handleCreateParentLink()}
-                        className="px-4 py-2.5 bg-[var(--primary)] text-white text-sm font-medium rounded-[var(--radius-sm)] hover:bg-[var(--primary-hover)] transition-colors flex items-center gap-2"
-                        disabled={linkBusy || !selectedParentId || !selectedChildId}
-                    >
-                        <Link2 className="w-4 h-4" />
-                        Link
-                    </button>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
                 </div>
 
-                {links.length === 0 ? (
-                    <p className="text-sm text-[var(--text-muted)]">No parent-child links configured yet.</p>
-                ) : (
-                    <div className="space-y-2">
-                        {links.map((link) => (
-                            <div key={link.id} className="p-3 rounded-[var(--radius-sm)] border border-[var(--border)] flex items-center justify-between gap-3">
-                                <div>
-                                    <p className="text-sm font-medium text-[var(--text-primary)]">
-                                        {link.parent_name}{" -> "}{link.child_name}
-                                    </p>
-                                    <p className="text-xs text-[var(--text-muted)]">Created: {formatDateTime(link.created_at)}</p>
-                                </div>
-                                <button
-                                    onClick={() => void handleDeleteParentLink(link.id)}
-                                    className="px-3 py-1.5 text-xs rounded bg-red-50 text-[var(--error)] flex items-center gap-1"
-                                    disabled={linkBusy}
-                                >
-                                    <Unlink className="w-3.5 h-3.5" />
-                                    Unlink
-                                </button>
-                            </div>
-                        ))}
+                <div className="bg-white rounded-[var(--radius)] shadow-[var(--shadow-card)] p-5 mt-6">
+                    <h2 className="text-base font-semibold text-[var(--text-primary)] mb-4">Parent-Child Links</h2>
+
+                    <div className="grid md:grid-cols-[1fr_1fr_auto] gap-3 mb-4">
+                        <select
+                            value={selectedParentId}
+                            onChange={(e) => setSelectedParentId(e.target.value)}
+                            className="px-3 py-2.5 border border-[var(--border)] rounded-[var(--radius-sm)] text-sm"
+                            disabled={linkBusy || parents.length === 0}
+                        >
+                            {parents.length === 0 ? (
+                                <option value="">No parent users available</option>
+                            ) : (
+                                parents.map((p) => (
+                                    <option key={p.id} value={p.id}>{p.name} ({p.email})</option>
+                                ))
+                            )}
+                        </select>
+                        <select
+                            value={selectedChildId}
+                            onChange={(e) => setSelectedChildId(e.target.value)}
+                            className="px-3 py-2.5 border border-[var(--border)] rounded-[var(--radius-sm)] text-sm"
+                            disabled={linkBusy || students.length === 0}
+                        >
+                            {students.length === 0 ? (
+                                <option value="">No student users available</option>
+                            ) : (
+                                students.map((s) => (
+                                    <option key={s.id} value={s.id}>{s.name} ({s.email})</option>
+                                ))
+                            )}
+                        </select>
+                        <button
+                            onClick={() => void handleCreateParentLink()}
+                            className="px-4 py-2.5 bg-[var(--primary)] text-white text-sm font-medium rounded-[var(--radius-sm)] hover:bg-[var(--primary-hover)] transition-colors flex items-center gap-2"
+                            disabled={linkBusy || !selectedParentId || !selectedChildId}
+                        >
+                            <Link2 className="w-4 h-4" />
+                            Link
+                        </button>
                     </div>
-                )}
+
+                    {links.length === 0 ? (
+                        <p className="text-sm text-[var(--text-muted)]">No parent-child links configured yet.</p>
+                    ) : (
+                        <div className="space-y-2">
+                            {links.map((link) => (
+                                <div key={link.id} className="p-3 rounded-[var(--radius-sm)] border border-[var(--border)] flex items-center justify-between gap-3">
+                                    <div>
+                                        <p className="text-sm font-medium text-[var(--text-primary)]">
+                                            {link.parent_name}{" -> "}{link.child_name}
+                                        </p>
+                                        <p className="text-xs text-[var(--text-muted)]">Created: {formatDateTime(link.created_at)}</p>
+                                    </div>
+                                    <button
+                                        onClick={() => void handleDeleteParentLink(link.id)}
+                                        className="px-3 py-1.5 text-xs rounded bg-red-50 text-[var(--error)] flex items-center gap-1"
+                                        disabled={linkBusy}
+                                    >
+                                        <Unlink className="w-3.5 h-3.5" />
+                                        Unlink
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
             </div>
-        </div>
-    );
+            );
 }

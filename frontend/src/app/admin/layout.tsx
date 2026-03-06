@@ -33,9 +33,11 @@ const adminNav = [
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
     return (
-        <div className="min-h-screen bg-slate-50">
+        <div className="flex min-h-screen bg-slate-50">
             <Sidebar items={adminNav} role="admin" />
-            <main className="ml-60 p-6">{children}</main>
+            <main className="flex-1 min-w-0 p-4 pt-16 sm:p-5 sm:pt-16 lg:p-6 lg:pt-6">
+                <div className="mx-auto max-w-7xl">{children}</div>
+            </main>
         </div>
     );
 }

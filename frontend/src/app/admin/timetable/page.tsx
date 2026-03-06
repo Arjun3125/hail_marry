@@ -268,59 +268,61 @@ export default function AdminTimetablePage() {
             </div>
 
             <div className="bg-white rounded-[var(--radius)] shadow-[var(--shadow-card)] overflow-hidden">
-                <table className="w-full">
-                    <thead>
-                        <tr className="border-b border-[var(--border)]">
-                            <th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase w-32">Time</th>
-                            {DAYS.map((day) => (
-                                <th key={day.value} className="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase">{day.label}</th>
+                <div className="overflow-x-auto">
+                    <table className="w-full min-w-[700px]">
+                        <thead>
+                            <tr className="border-b border-[var(--border)]">
+                                <th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase w-32">Time</th>
+                                {DAYS.map((day) => (
+                                    <th key={day.value} className="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase">{day.label}</th>
+                                ))}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {loading ? (
+                                <tr>
+                                    <td colSpan={8} className="px-4 py-6 text-sm text-[var(--text-muted)]">Loading timetable...</td>
+                                </tr>
+                            ) : rows.length === 0 ? (
+                                <tr>
+                                    <td colSpan={8} className="px-4 py-6 text-sm text-[var(--text-muted)]">No timetable slots found for this class.</td>
+                                </tr>
+                            ) : rows.map((row) => (
+                                <tr key={`${row.start}-${row.end}`} className="border-b border-[var(--border-light)]">
+                                    <td className="px-4 py-3 text-xs text-[var(--text-secondary)]">
+                                        <div className="flex items-center gap-1">
+                                            <Clock className="w-3 h-3" />
+                                            {row.start} - {row.end}
+                                        </div>
+                                    </td>
+                                    {DAYS.map((day) => {
+                                        const slot = getSlot(day.value, row.start, row.end);
+                                        return (
+                                            <td key={`${day.value}-${row.start}-${row.end}`} className="px-4 py-3 align-top">
+                                                {slot ? (
+                                                    <div className="p-2 rounded-[var(--radius-sm)] bg-[var(--primary-light)] text-[var(--primary)]">
+                                                        <p className="text-xs font-semibold">{slot.subject}</p>
+                                                        <p className="text-[10px] text-[var(--text-secondary)]">{slot.teacher}</p>
+                                                        <button
+                                                            onClick={() => void deleteSlot(slot.id)}
+                                                            disabled={saving}
+                                                            className="mt-1 text-[10px] text-[var(--error)] inline-flex items-center gap-1 disabled:opacity-60"
+                                                        >
+                                                            <Trash2 className="w-3 h-3" /> Delete
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <div className="p-2 rounded-[var(--radius-sm)] bg-[var(--bg-page)] text-[var(--text-muted)] text-xs">-</div>
+                                                )}
+                                            </td>
+                                        );
+                                    })}
+                                </tr>
                             ))}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {loading ? (
-                            <tr>
-                                <td colSpan={8} className="px-4 py-6 text-sm text-[var(--text-muted)]">Loading timetable...</td>
-                            </tr>
-                        ) : rows.length === 0 ? (
-                            <tr>
-                                <td colSpan={8} className="px-4 py-6 text-sm text-[var(--text-muted)]">No timetable slots found for this class.</td>
-                            </tr>
-                        ) : rows.map((row) => (
-                            <tr key={`${row.start}-${row.end}`} className="border-b border-[var(--border-light)]">
-                                <td className="px-4 py-3 text-xs text-[var(--text-secondary)]">
-                                    <div className="flex items-center gap-1">
-                                        <Clock className="w-3 h-3" />
-                                        {row.start} - {row.end}
-                                    </div>
-                                </td>
-                                {DAYS.map((day) => {
-                                    const slot = getSlot(day.value, row.start, row.end);
-                                    return (
-                                        <td key={`${day.value}-${row.start}-${row.end}`} className="px-4 py-3 align-top">
-                                            {slot ? (
-                                                <div className="p-2 rounded-[var(--radius-sm)] bg-[var(--primary-light)] text-[var(--primary)]">
-                                                    <p className="text-xs font-semibold">{slot.subject}</p>
-                                                    <p className="text-[10px] text-[var(--text-secondary)]">{slot.teacher}</p>
-                                                    <button
-                                                        onClick={() => void deleteSlot(slot.id)}
-                                                        disabled={saving}
-                                                        className="mt-1 text-[10px] text-[var(--error)] inline-flex items-center gap-1 disabled:opacity-60"
-                                                    >
-                                                        <Trash2 className="w-3 h-3" /> Delete
-                                                    </button>
-                                                </div>
-                                            ) : (
-                                                <div className="p-2 rounded-[var(--radius-sm)] bg-[var(--bg-page)] text-[var(--text-muted)] text-xs">-</div>
-                                            )}
-                                        </td>
-                                    );
-                                })}
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
+                        </tbody>
+                    </table>
+                </div>
+                </div>
             </div>
-        </div>
-    );
+            );
 }

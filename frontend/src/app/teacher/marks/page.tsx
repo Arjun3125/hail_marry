@@ -182,69 +182,71 @@ export default function TeacherMarksPage() {
             </div>
 
             <div className="bg-white rounded-[var(--radius)] shadow-[var(--shadow-card)] overflow-hidden">
-                <table className="w-full">
-                    <thead>
-                        <tr className="border-b border-[var(--border)] bg-[var(--bg-page)]">
-                            <th className="px-5 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase">Roll</th>
-                            <th className="px-5 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase">Name</th>
-                            <th className="px-5 py-3 text-center text-xs font-medium text-[var(--text-muted)] uppercase">Marks (/{maxMarks || "0"})</th>
-                            <th className="px-5 py-3 text-center text-xs font-medium text-[var(--text-muted)] uppercase">%</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {loading ? (
-                            <tr>
-                                <td colSpan={4} className="px-5 py-4 text-sm text-[var(--text-muted)]">Loading students...</td>
+                <div className="overflow-x-auto">
+                    <table className="w-full min-w-[600px]">
+                        <thead>
+                            <tr className="border-b border-[var(--border)] bg-[var(--bg-page)]">
+                                <th className="px-5 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase">Roll</th>
+                                <th className="px-5 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase">Name</th>
+                                <th className="px-5 py-3 text-center text-xs font-medium text-[var(--text-muted)] uppercase">Marks (/{maxMarks || "0"})</th>
+                                <th className="px-5 py-3 text-center text-xs font-medium text-[var(--text-muted)] uppercase">%</th>
                             </tr>
-                        ) : !(selectedClass?.students.length) ? (
-                            <tr>
-                                <td colSpan={4} className="px-5 py-4 text-sm text-[var(--text-muted)]">No students in selected class.</td>
-                            </tr>
-                        ) : selectedClass.students.map((student) => {
-                            const markText = marksByStudent[student.id] || "";
-                            const mark = Number(markText);
-                            const max = Number(maxMarks);
-                            const pct = markText !== "" && max > 0 && Number.isFinite(mark) ? Math.round((mark / max) * 100) : null;
-                            return (
-                                <tr key={student.id} className="border-b border-[var(--border-light)]">
-                                    <td className="px-5 py-3 text-sm text-[var(--text-secondary)]">{student.roll_number || "-"}</td>
-                                    <td className="px-5 py-3 text-sm font-medium text-[var(--text-primary)]">{student.name}</td>
-                                    <td className="px-5 py-3 text-center">
-                                        <input
-                                            type="number"
-                                            value={markText}
-                                            onChange={(e) => updateMarks(student.id, e.target.value)}
-                                            min="0"
-                                            max={maxMarks || "0"}
-                                            placeholder="-"
-                                            className="w-24 px-3 py-1.5 text-sm text-center border border-[var(--border)] rounded-[var(--radius-sm)]"
-                                        />
-                                    </td>
-                                    <td className="px-5 py-3 text-center">
-                                        {pct !== null ? (
-                                            <span className={`text-sm font-medium ${pct >= 80 ? "text-[var(--success)]" : pct >= 50 ? "text-[var(--warning)]" : "text-[var(--error)]"}`}>
-                                                {pct}%
-                                            </span>
-                                        ) : (
-                                            <span className="text-sm text-[var(--text-muted)]">-</span>
-                                        )}
-                                    </td>
+                        </thead>
+                        <tbody>
+                            {loading ? (
+                                <tr>
+                                    <td colSpan={4} className="px-5 py-4 text-sm text-[var(--text-muted)]">Loading students...</td>
                                 </tr>
-                            );
-                        })}
-                    </tbody>
-                </table>
-            </div>
+                            ) : !(selectedClass?.students.length) ? (
+                                <tr>
+                                    <td colSpan={4} className="px-5 py-4 text-sm text-[var(--text-muted)]">No students in selected class.</td>
+                                </tr>
+                            ) : selectedClass.students.map((student) => {
+                                const markText = marksByStudent[student.id] || "";
+                                const mark = Number(markText);
+                                const max = Number(maxMarks);
+                                const pct = markText !== "" && max > 0 && Number.isFinite(mark) ? Math.round((mark / max) * 100) : null;
+                                return (
+                                    <tr key={student.id} className="border-b border-[var(--border-light)]">
+                                        <td className="px-5 py-3 text-sm text-[var(--text-secondary)]">{student.roll_number || "-"}</td>
+                                        <td className="px-5 py-3 text-sm font-medium text-[var(--text-primary)]">{student.name}</td>
+                                        <td className="px-5 py-3 text-center">
+                                            <input
+                                                type="number"
+                                                value={markText}
+                                                onChange={(e) => updateMarks(student.id, e.target.value)}
+                                                min="0"
+                                                max={maxMarks || "0"}
+                                                placeholder="-"
+                                                className="w-24 px-3 py-1.5 text-sm text-center border border-[var(--border)] rounded-[var(--radius-sm)]"
+                                            />
+                                        </td>
+                                        <td className="px-5 py-3 text-center">
+                                            {pct !== null ? (
+                                                <span className={`text-sm font-medium ${pct >= 80 ? "text-[var(--success)]" : pct >= 50 ? "text-[var(--warning)]" : "text-[var(--error)]"}`}>
+                                                    {pct}%
+                                                </span>
+                                            ) : (
+                                                <span className="text-sm text-[var(--text-muted)]">-</span>
+                                            )}
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+                </div>
 
-            <div className="mt-4 flex justify-end">
-                <button
-                    className="px-6 py-2.5 bg-[var(--primary)] text-white text-sm font-medium rounded-[var(--radius-sm)] hover:bg-[var(--primary-hover)] transition-colors flex items-center gap-2 disabled:opacity-60"
-                    onClick={() => void saveMarks()}
-                    disabled={saving || !selectedClass}
-                >
-                    <Save className="w-4 h-4" /> {saving ? "Saving..." : "Save Marks"}
-                </button>
+                <div className="mt-4 flex justify-end">
+                    <button
+                        className="px-6 py-2.5 bg-[var(--primary)] text-white text-sm font-medium rounded-[var(--radius-sm)] hover:bg-[var(--primary-hover)] transition-colors flex items-center gap-2 disabled:opacity-60"
+                        onClick={() => void saveMarks()}
+                        disabled={saving || !selectedClass}
+                    >
+                        <Save className="w-4 h-4" /> {saving ? "Saving..." : "Save Marks"}
+                    </button>
+                </div>
             </div>
-        </div>
-    );
+            );
 }

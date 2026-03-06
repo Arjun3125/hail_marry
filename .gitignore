@@ -24,6 +24,7 @@ out/
 .idea/
 
 # Data
+data/
 uploads/
 vector_store/
 private_storage/
