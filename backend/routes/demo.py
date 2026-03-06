@@ -11,6 +11,13 @@ from schemas.auth import TokenResponse
 router = APIRouter(prefix="/api/auth", tags=["Demo Auth"])
 
 
+def _cookie_policy() -> tuple[bool, str]:
+    app_env = (settings.app.env or "").lower()
+    if app_env in {"production", "prod", "staging"}:
+        return True, "none"
+    return (not settings.app.debug), "lax"
+
+
 @router.post("/demo-login", response_model=TokenResponse)
 async def demo_login(
     data: dict,
@@ -43,13 +50,14 @@ async def demo_login(
         "role": user.role,
     }
     access_token = create_access_token(token_data)
+    cookie_secure, cookie_samesite = _cookie_policy()
 
     response.set_cookie(
         key="access_token",
         value=access_token,
         httponly=True,
-        secure=not settings.app.debug,
-        samesite="lax",
+        secure=cookie_secure,
+        samesite=cookie_samesite,
         max_age=3600,
     )
 

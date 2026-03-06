@@ -11,6 +11,13 @@ router = APIRouter(prefix="/api/demo", tags=["Demo"])
 DEMO_MODE = os.getenv("DEMO_MODE", "false").lower() in ("true", "1", "yes")
 
 
+def _cookie_policy() -> tuple[bool, str]:
+    app_env = (settings.app.env or "").lower()
+    if app_env in {"production", "prod", "staging"}:
+        return True, "none"
+    return (not settings.app.debug), "lax"
+
+
 @router.get("/status")
 async def demo_status():
     """Return demo mode status and available roles."""
@@ -225,12 +232,14 @@ async def switch_role(data: dict, response: Response):
     role = data.get("role", "student")
     if role not in ("student", "teacher", "admin", "parent"):
         role = "student"
+    cookie_secure, cookie_samesite = _cookie_policy()
 
     response.set_cookie(
         key="demo_role",
         value=role,
         httponly=False,  # readable by frontend
-        samesite="lax",
+        secure=cookie_secure,
+        samesite=cookie_samesite,
         max_age=86400,
     )
     return {"role": role, "redirect": {

@@ -16,6 +16,18 @@ from schemas.auth import GoogleLoginRequest, TokenResponse, UserResponse
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 
 
+def _cookie_policy() -> tuple[bool, str]:
+    """
+    Choose cookie policy by environment.
+    - Production/staging deployments (cross-site frontend/backend): Secure + SameSite=None
+    - Local development: legacy behavior (Lax, optionally insecure)
+    """
+    app_env = (settings.app.env or "").lower()
+    if app_env in {"production", "prod", "staging"}:
+        return True, "none"
+    return (not settings.app.debug), "lax"
+
+
 @router.post("/google", response_model=TokenResponse)
 async def google_login(
     request: GoogleLoginRequest,
@@ -80,7 +92,7 @@ async def google_login(
     }
     access_token = create_access_token(token_data)
     refresh_token = create_refresh_token(token_data)
-    cookie_secure = not settings.app.debug
+    cookie_secure, cookie_samesite = _cookie_policy()
 
     # Set HTTP-only cookies
     response.set_cookie(
@@ -88,7 +100,7 @@ async def google_login(
         value=access_token,
         httponly=True,
         secure=cookie_secure,
-        samesite="lax",
+        samesite=cookie_samesite,
         max_age=3600,
     )
     response.set_cookie(
@@ -96,7 +108,7 @@ async def google_login(
         value=refresh_token,
         httponly=True,
         secure=cookie_secure,
-        samesite="lax",
+        samesite=cookie_samesite,
         max_age=7 * 24 * 3600,  # 7 days
         path="/api/auth/refresh",  # Only sent to refresh endpoint
     )
@@ -154,14 +166,14 @@ async def refresh_tokens(
     }
     new_access = create_access_token(token_data)
     new_refresh = create_refresh_token(token_data)
-    cookie_secure = not settings.app.debug
+    cookie_secure, cookie_samesite = _cookie_policy()
 
     response.set_cookie(
         key="access_token",
         value=new_access,
         httponly=True,
         secure=cookie_secure,
-        samesite="lax",
+        samesite=cookie_samesite,
         max_age=3600,
     )
     response.set_cookie(
@@ -169,7 +181,7 @@ async def refresh_tokens(
         value=new_refresh,
         httponly=True,
         secure=cookie_secure,
-        samesite="lax",
+        samesite=cookie_samesite,
         max_age=7 * 24 * 3600,
         path="/api/auth/refresh",
     )
@@ -210,7 +222,17 @@ async def update_profile(
 @router.post("/logout")
 async def logout(response: Response):
     """Clear auth cookies."""
-    response.delete_cookie("access_token")
-    response.delete_cookie("refresh_token", path="/api/auth/refresh")
+    cookie_secure, cookie_samesite = _cookie_policy()
+    response.delete_cookie(
+        "access_token",
+        secure=cookie_secure,
+        samesite=cookie_samesite,
+    )
+    response.delete_cookie(
+        "refresh_token",
+        path="/api/auth/refresh",
+        secure=cookie_secure,
+        samesite=cookie_samesite,
+    )
     return {"message": "Logged out", "success": True}
 
