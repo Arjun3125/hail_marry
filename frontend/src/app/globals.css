@@ -350,11 +350,9 @@ main>div {
   * {
     @apply border-border outline-ring/50;
   }
-
   body {
     @apply bg-background text-foreground;
   }
-
   html {
     @apply font-sans;
   }
@@ -370,7 +368,6 @@ main>div {
 }
 
 .dark .glass-panel {
-  background: rgba(30, 41, 59, 0.7);
-  /* Slate 800 with opacity */
+  background: rgba(30, 41, 59, 0.7); /* Slate 800 with opacity */
   border: 1px solid rgba(255, 255, 255, 0.05);
 }
