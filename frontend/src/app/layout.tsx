@@ -29,7 +29,7 @@ export default function RootLayout({
           defer
         />
       </head>
-      <body className="antialiased bg-[#0a0a0a] text-[#fafafa]">
+      <body className="antialiased bg-slate-50 text-slate-900">
         {children}
         <DemoToolbarWrapper />
       </body>
