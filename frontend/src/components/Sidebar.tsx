@@ -53,7 +53,7 @@ export default function Sidebar({ items, role, userName }: SidebarProps) {
                     <div className="flex flex-col justify-center">
                         <div className="flex items-center gap-2">
                             <img src="/brand/logo-mark.png" alt="ModernHustlers" className="h-5 object-contain opacity-90" />
-                            <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold capitalize text-blue-700">
+                            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold capitalize text-slate-700">
                                 {role}
                             </span>
                         </div>
@@ -119,7 +119,7 @@ export default function Sidebar({ items, role, userName }: SidebarProps) {
                 <div className="flex items-center gap-2 max-w-[130px] sm:max-w-[200px]">
                     <img src="/brand/logo-mark.png" alt="ModernHustlers" className="h-[18px] object-contain" />
                 </div>
-                <span className="ml-auto rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold capitalize text-blue-700">
+                <span className="ml-auto rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold capitalize text-slate-700">
                     {role}
                 </span>
             </div>
