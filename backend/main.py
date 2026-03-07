@@ -40,7 +40,12 @@ import sys
 try:
     if not os.environ.get("TESTING"):
         print("Running automatic database migrations...", flush=True)
-        subprocess.run([sys.executable, "-m", "alembic", "upgrade", "head"], check=True)
+        backend_dir = os.path.dirname(os.path.abspath(__file__))
+        subprocess.run(
+            [sys.executable, "-m", "alembic", "upgrade", "head"], 
+            check=True,
+            cwd=backend_dir
+        )
 except Exception as e:
     print(f"Failed to run database migrations: {e}", flush=True)
 
