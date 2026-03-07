@@ -52,8 +52,13 @@ export default function Sidebar({ items, role, userName }: SidebarProps) {
                 {!collapsed && (
                     <div className="flex flex-col justify-center">
                         <div className="flex items-center gap-2">
-                            <span className="font-bold text-lg tracking-tight text-[var(--text-primary)]">VidyaOS</span>
-                            <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold capitalize text-blue-700">
+                            <div className="flex flex-col">
+                                <span className="font-bold text-lg tracking-tight text-[var(--text-primary)] leading-tight">VidyaOS</span>
+                                <span className="text-[9px] font-bold leading-none mt-0.5">
+                                    By <span className="text-[#000000]">Modern</span><span className="text-[#ff3b1f]">Hustlers</span>
+                                </span>
+                            </div>
+                            <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold capitalize text-blue-700 h-fit">
                                 {role}
                             </span>
                         </div>
@@ -117,7 +122,12 @@ export default function Sidebar({ items, role, userName }: SidebarProps) {
                 </button>
                 <GraduationCap className="h-5 w-5 text-slate-900" />
                 <div className="flex items-center gap-2 max-w-[130px] sm:max-w-[200px]">
-                    <span className="font-bold text-lg tracking-tight text-[var(--text-primary)]">VidyaOS</span>
+                    <div className="flex flex-col">
+                        <span className="font-bold text-lg tracking-tight text-[var(--text-primary)] leading-tight">VidyaOS</span>
+                        <span className="text-[9px] font-bold leading-none mt-0.5">
+                            By <span className="text-[#000000]">Modern</span><span className="text-[#ff3b1f]">Hustlers</span>
+                        </span>
+                    </div>
                 </div>
                 <span className="ml-auto rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold capitalize text-blue-700">
                     {role}

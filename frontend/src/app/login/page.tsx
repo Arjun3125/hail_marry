@@ -94,8 +94,11 @@ export default function LoginPage() {
                     <div className="w-16 h-16 bg-[var(--primary-light)] rounded-2xl flex items-center justify-center mx-auto mb-4">
                         <GraduationCap className="w-8 h-8 text-[var(--primary)]" />
                     </div>
-                    <div className="flex items-center justify-center mt-4">
-                        <span className="font-black text-2xl tracking-tighter text-[var(--text-primary)]">VidyaOS</span>
+                    <div className="flex flex-col items-center justify-center mt-4">
+                        <span className="font-black text-3xl tracking-tighter text-[var(--text-primary)] leading-none mb-1">VidyaOS</span>
+                        <span className="text-xs font-bold leading-none">
+                            By <span className="text-[#000000]">Modern</span><span className="text-[#ff3b1f]">Hustlers</span>
+                        </span>
                     </div>
                     <p className="text-sm text-[var(--text-secondary)] mt-2">
                         Sign in with your school Google account
