@@ -2,9 +2,9 @@
 
 /* VidyaOS design tokens */
 :root {
-  --primary: #0f172a;
-  --primary-light: #f1f5f9;
-  --primary-hover: #1e293b;
+  --primary: #2563eb;
+  --primary-light: #eff6ff;
+  --primary-hover: #1d4ed8;
 
   --text-primary: #111827;
   --text-secondary: #334155;
