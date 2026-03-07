@@ -74,7 +74,7 @@ def configure_telemetry(service_name: str, app: Any | None = None) -> None:
         otel["FastAPIInstrumentor"].instrument_app(app)
 
     if not _HTTPX_INSTRUMENTED:
-        otel["HTTPXClientInstrumentor"].instrument()
+        otel["HTTPXClientInstrumentor"]().instrument()
         _HTTPX_INSTRUMENTED = True
 
 
@@ -90,7 +90,7 @@ def instrument_sqlalchemy_engine(engine: Any) -> None:
     if engine_id in _SQLALCHEMY_INSTRUMENTED_ENGINES:
         return
 
-    otel["SQLAlchemyInstrumentor"].instrument(engine=engine)
+    otel["SQLAlchemyInstrumentor"]().instrument(engine=engine)
     _SQLALCHEMY_INSTRUMENTED_ENGINES.add(engine_id)
 
 
