@@ -48,6 +48,15 @@ try:
         )
 except Exception as e:
     print(f"Failed to run database migrations: {e}", flush=True)
+    # RAW SQL FALLBACK - Railway Proof
+    try:
+        from sqlalchemy import text
+        from database import engine
+        print("Running raw fallback migration for users.hashed_password...", flush=True)
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS hashed_password VARCHAR(255);"))
+    except Exception as raw_e:
+        print(f"Fallback migration failed: {raw_e}", flush=True)
 
 
 @asynccontextmanager

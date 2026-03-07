@@ -1,8 +1,12 @@
 """Alembic env.py — reads models and database URL for migration generation."""
 import os
+import sys
 from logging.config import fileConfig
 from sqlalchemy import engine_from_config, pool
 from alembic import context
+
+# Force inject backend directory into PYTHONPATH so Railway finds models.py
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 config = context.config
 
