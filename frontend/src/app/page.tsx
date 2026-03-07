@@ -92,12 +92,11 @@ export default function LandingPage() {
           <div className="flex items-center gap-2">
             <GraduationCap className="w-7 h-7 text-[var(--primary)]" />
             <div className="flex flex-col justify-center leading-none">
-              <span className="text-xl font-semibold text-[var(--text-primary)]">
-                VidyaOS
+              <span className="text-xl font-semibold text-[var(--text-primary)] tracking-tight">
+                ModernHustlers
               </span>
               <div className="flex items-center gap-1 mt-1">
-                <span className="text-[10px] font-medium text-[var(--text-muted)] tracking-wide">by</span>
-                <img src="/images/mh-logo.png" alt="ModernHustlers" className="h-3 object-contain" />
+                <img src="/brand/logo-mark.png" alt="ModernHustlers" className="h-3 object-contain" />
               </div>
             </div>
           </div>
@@ -289,15 +288,14 @@ export default function LandingPage() {
           <div className="flex items-center gap-2">
             <GraduationCap className="w-5 h-5 text-[var(--primary)]" />
             <div className="flex flex-col justify-center leading-none">
-              <span className="font-semibold text-[var(--text-primary)]">VidyaOS</span>
+              <span className="font-semibold text-[var(--text-primary)] tracking-tight">ModernHustlers</span>
               <div className="flex items-center gap-1 mt-1">
-                <span className="text-[10px] font-medium text-[var(--text-muted)] tracking-wide">by</span>
-                <img src="/images/mh-logo.png" alt="ModernHustlers" className="h-3 object-contain" />
+                <img src="/brand/logo-mark.png" alt="ModernHustlers" className="h-3 object-contain" />
               </div>
             </div>
           </div>
           <p className="text-sm text-[var(--text-muted)]">
-            © 2026 VidyaOS by ModernHustlers. AI Infrastructure for Educational Institutions.
+            © 2026 ModernHustlers. AI Infrastructure for Educational Institutions.
           </p>
           <div className="flex gap-6 text-sm text-[var(--text-secondary)]">
             <a href="#" className="hover:text-[var(--primary)]">Privacy</a>

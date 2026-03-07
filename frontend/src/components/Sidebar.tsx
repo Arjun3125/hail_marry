@@ -52,14 +52,13 @@ export default function Sidebar({ items, role, userName }: SidebarProps) {
                 {!collapsed && (
                     <div className="flex flex-col justify-center">
                         <div className="flex items-center gap-2">
-                            <span className="font-semibold text-slate-900">VidyaOS</span>
-                            <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold capitalize text-blue-700">
+                            <span className="font-bold tracking-tight text-[#fafafa]">ModernHustlers</span>
+                            <span className="rounded-full bg-[#27272a] px-2 py-0.5 text-[10px] font-semibold capitalize text-[#fafafa]">
                                 {role}
                             </span>
                         </div>
                         <div className="flex items-center gap-1 mt-0.5">
-                            <span className="text-[9px] font-medium text-slate-500 tracking-wide">by</span>
-                            <img src="/images/mh-logo.png" alt="ModernHustlers" className="h-3 object-contain" />
+                            <img src="/brand/logo-mark.png" alt="ModernHustlers" className="h-3 object-contain" />
                         </div>
                     </div>
                 )}
@@ -119,14 +118,14 @@ export default function Sidebar({ items, role, userName }: SidebarProps) {
                 >
                     <Menu className="h-5 w-5" />
                 </button>
-                <GraduationCap className="h-5 w-5 text-blue-700" />
+                <GraduationCap className="h-5 w-5 text-[#fafafa]" />
                 <div className="flex flex-col justify-center leading-none">
-                    <span className="font-semibold text-slate-900 text-sm">VidyaOS</span>
+                    <span className="font-bold text-[#fafafa] text-sm tracking-tight">ModernHustlers</span>
                     <div className="flex items-center gap-1 mt-0.5">
-                        <img src="/images/mh-logo.png" alt="ModernHustlers" className="h-[10px] object-contain" />
+                        <img src="/brand/logo-mark.png" alt="ModernHustlers" className="h-[10px] object-contain" />
                     </div>
                 </div>
-                <span className="ml-auto rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold capitalize text-blue-700">
+                <span className="ml-auto rounded-full bg-[#27272a] px-2 py-0.5 text-[10px] font-semibold capitalize text-[#fafafa]">
                     {role}
                 </span>
             </div>
