@@ -65,17 +65,17 @@ export default function AIUsagePage() {
             ) : (
                 <>
                     <div className="grid grid-cols-1 gap-4 mb-6 sm:grid-cols-2 lg:grid-cols-3">
-                        <div className="bg-white rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)]">
+                        <div className="bg-[var(--bg-card)] rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)]">
                             <Bot className="w-5 h-5 text-[var(--primary)] mb-2" />
                             <p className="text-2xl font-bold text-[var(--text-primary)]">{data?.total_week ?? 0}</p>
                             <p className="text-xs text-[var(--text-muted)]">Total queries this week</p>
                         </div>
-                        <div className="bg-white rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)]">
+                        <div className="bg-[var(--bg-card)] rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)]">
                             <TrendingUp className="w-5 h-5 text-[var(--success)] mb-2" />
                             <p className="text-2xl font-bold text-[var(--text-primary)]">{data?.heavy_users.length ?? 0}</p>
                             <p className="text-xs text-[var(--text-muted)]">Heavy users identified</p>
                         </div>
-                        <div className="bg-white rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)]">
+                        <div className="bg-[var(--bg-card)] rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)]">
                             <Users className="w-5 h-5 text-[var(--primary)] mb-2" />
                             <p className="text-2xl font-bold text-[var(--text-primary)]">{(data?.by_role.students ?? 0) + (data?.by_role.teachers ?? 0) + (data?.by_role.admin ?? 0)}%</p>
                             <p className="text-xs text-[var(--text-muted)]">Role distribution coverage</p>
@@ -83,7 +83,7 @@ export default function AIUsagePage() {
                     </div>
 
                     <div className="grid lg:grid-cols-2 gap-6">
-                        <div className="bg-white rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)]">
+                        <div className="bg-[var(--bg-card)] rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)]">
                             <h2 className="text-base font-semibold text-[var(--text-primary)] mb-4">Usage by Role</h2>
                             <div className="space-y-4">
                                 {roleUsage.map((item) => (
@@ -100,7 +100,7 @@ export default function AIUsagePage() {
                             </div>
                         </div>
 
-                        <div className="bg-white rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)]">
+                        <div className="bg-[var(--bg-card)] rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)]">
                             <h2 className="text-base font-semibold text-[var(--text-primary)] mb-4">Heavy Users</h2>
                             {data?.heavy_users.length ? (
                                 <div className="space-y-3">

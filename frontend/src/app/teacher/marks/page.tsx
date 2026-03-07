@@ -181,7 +181,7 @@ export default function TeacherMarksPage() {
                 />
             </div>
 
-            <div className="bg-white rounded-[var(--radius)] shadow-[var(--shadow-card)] overflow-hidden">
+            <div className="bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full min-w-[600px]">
                         <thead>

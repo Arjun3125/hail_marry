@@ -74,7 +74,7 @@ export default function TeacherDashboard() {
                 <>
                     <div className="grid md:grid-cols-2 gap-4 mb-6">
                         {classes.map((cls) => (
-                            <div key={cls.id} className="bg-white rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)]">
+                            <div key={cls.id} className="bg-[var(--bg-card)] rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)]">
                                 <div className="flex items-center justify-between mb-4">
                                     <h3 className="text-base font-semibold text-[var(--text-primary)]">{cls.name}</h3>
                                     <span className="text-xs text-[var(--text-muted)]">{cls.students} students</span>
@@ -98,7 +98,7 @@ export default function TeacherDashboard() {
                     </div>
 
                     <div className="grid lg:grid-cols-2 gap-6">
-                        <div className="bg-white rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)]">
+                        <div className="bg-[var(--bg-card)] rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)]">
                             <div className="flex items-center gap-2 mb-4">
                                 <FileText className="w-4 h-4 text-[var(--primary)]" />
                                 <h2 className="text-base font-semibold text-[var(--text-primary)]">Recent Assignments</h2>
@@ -119,7 +119,7 @@ export default function TeacherDashboard() {
                             </div>
                         </div>
 
-                        <div className="bg-white rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)]">
+                        <div className="bg-[var(--bg-card)] rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)]">
                             <div className="flex items-center gap-2 mb-4">
                                 <Bot className="w-4 h-4 text-[var(--primary)]" />
                                 <h2 className="text-base font-semibold text-[var(--text-primary)]">AI Class Analytics</h2>

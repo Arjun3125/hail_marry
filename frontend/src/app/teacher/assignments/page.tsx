@@ -102,7 +102,7 @@ export default function TeacherAssignmentsPage() {
                 </div>
             ) : null}
 
-            <div className="bg-white rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)] mb-5">
+            <div className="bg-[var(--bg-card)] rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)] mb-5">
                 <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-3">New Assignment</h2>
                 <div className="grid md:grid-cols-4 gap-2 mb-2">
                     <input
@@ -145,15 +145,15 @@ export default function TeacherAssignmentsPage() {
 
             <div className="space-y-3">
                 {loading ? (
-                    <div className="bg-white rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)] text-sm text-[var(--text-muted)]">
+                    <div className="bg-[var(--bg-card)] rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)] text-sm text-[var(--text-muted)]">
                         Loading assignments...
                     </div>
                 ) : assignments.length === 0 ? (
-                    <div className="bg-white rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)] text-sm text-[var(--text-muted)]">
+                    <div className="bg-[var(--bg-card)] rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)] text-sm text-[var(--text-muted)]">
                         No assignments created yet.
                     </div>
                 ) : assignments.map((assignment) => (
-                    <div key={assignment.id} className="bg-white rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)] flex items-center justify-between">
+                    <div key={assignment.id} className="bg-[var(--bg-card)] rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)] flex items-center justify-between">
                         <div className="flex items-start gap-4">
                             <div className="w-10 h-10 bg-[var(--primary-light)] rounded-[var(--radius-sm)] flex items-center justify-center">
                                 <FileText className="w-5 h-5 text-[var(--primary)]" />

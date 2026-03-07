@@ -245,7 +245,7 @@ export default function AdminQueuePage() {
                 ) : null}
 
                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                    <div className="rounded-[var(--radius)] bg-white p-5 shadow-[var(--shadow-card)]">
+                    <div className="rounded-[var(--radius)] bg-[var(--bg-card)] p-5 shadow-[var(--shadow-card)]">
                         <div className="flex items-center justify-between">
                             <span className="text-sm text-[var(--text-secondary)]">Queue Depth</span>
                             <Activity className="h-4 w-4 text-[var(--primary)]" />
@@ -255,7 +255,7 @@ export default function AdminQueuePage() {
                             Tenant cap {metrics ? metrics.max_pending_jobs_per_tenant : "-"} / global cap {metrics ? metrics.max_pending_jobs : "-"}.
                         </p>
                     </div>
-                    <div className="rounded-[var(--radius)] bg-white p-5 shadow-[var(--shadow-card)]">
+                    <div className="rounded-[var(--radius)] bg-[var(--bg-card)] p-5 shadow-[var(--shadow-card)]">
                         <div className="flex items-center justify-between">
                             <span className="text-sm text-[var(--text-secondary)]">Worker Throughput</span>
                             <Workflow className="h-4 w-4 text-[var(--primary)]" />
@@ -267,7 +267,7 @@ export default function AdminQueuePage() {
                             Completed in the last {metrics ? formatWindow(metrics.metrics_window_seconds) : "window"}.
                         </p>
                     </div>
-                    <div className="rounded-[var(--radius)] bg-white p-5 shadow-[var(--shadow-card)]">
+                    <div className="rounded-[var(--radius)] bg-[var(--bg-card)] p-5 shadow-[var(--shadow-card)]">
                         <div className="flex items-center justify-between">
                             <span className="text-sm text-[var(--text-secondary)]">Failure / Dead Letter</span>
                             <ServerCrash className="h-4 w-4 text-[var(--error)]" />
@@ -279,7 +279,7 @@ export default function AdminQueuePage() {
                             Recent failures and current dead-letter bucket size.
                         </p>
                     </div>
-                    <div className="rounded-[var(--radius)] bg-white p-5 shadow-[var(--shadow-card)]">
+                    <div className="rounded-[var(--radius)] bg-[var(--bg-card)] p-5 shadow-[var(--shadow-card)]">
                         <div className="flex items-center justify-between">
                             <span className="text-sm text-[var(--text-secondary)]">Retries / Stuck</span>
                             <RotateCcw className="h-4 w-4 text-[var(--primary)]" />
@@ -293,7 +293,7 @@ export default function AdminQueuePage() {
                     </div>
                 </div>
 
-                <div className="rounded-[var(--radius)] bg-white p-5 shadow-[var(--shadow-card)]">
+                <div className="rounded-[var(--radius)] bg-[var(--bg-card)] p-5 shadow-[var(--shadow-card)]">
                     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                         <div>
                             <h2 className="text-lg font-semibold text-[var(--text-primary)]">Queued Jobs</h2>
@@ -432,7 +432,7 @@ export default function AdminQueuePage() {
                     )}
                 </div>
 
-                <div className="rounded-[var(--radius)] bg-white p-5 shadow-[var(--shadow-card)]">
+                <div className="rounded-[var(--radius)] bg-[var(--bg-card)] p-5 shadow-[var(--shadow-card)]">
                     <div className="flex items-center gap-2 mb-4">
                         <ShieldAlert className="h-4 w-4 text-[var(--primary)]" />
                         <h2 className="text-lg font-semibold text-[var(--text-primary)]">Persistent Audit History</h2>
@@ -455,7 +455,7 @@ export default function AdminQueuePage() {
                 </div>
             </div>
 
-            <div className="h-fit rounded-[var(--radius)] bg-white p-5 shadow-[var(--shadow-card)] xl:sticky xl:top-6">
+            <div className="h-fit rounded-[var(--radius)] bg-[var(--bg-card)] p-5 shadow-[var(--shadow-card)] xl:sticky xl:top-6">
                 <div className="flex items-center gap-2 mb-4">
                     <Clock3 className="h-4 w-4 text-[var(--primary)]" />
                     <h2 className="text-sm font-semibold text-[var(--text-primary)]">Job Detail</h2>

@@ -95,7 +95,7 @@ export default function AssignmentsPage() {
                         className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-colors ${
                             activeTab === tab.id
                                 ? "bg-[var(--primary)] text-white border-[var(--primary)]"
-                                : "bg-white text-[var(--text-secondary)] border-[var(--border)] hover:border-[var(--primary)]"
+                                : "bg-[var(--bg-card)] text-[var(--text-secondary)] border-[var(--border)] hover:border-[var(--primary)]"
                         }`}
                     >
                         {tab.label}
@@ -105,16 +105,16 @@ export default function AssignmentsPage() {
 
             <div className="space-y-3">
                 {loading ? (
-                    <div className="bg-white rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)] text-sm text-[var(--text-muted)]">
+                    <div className="bg-[var(--bg-card)] rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)] text-sm text-[var(--text-muted)]">
                         Loading assignments...
                     </div>
                 ) : filteredAssignments.length === 0 ? (
-                    <div className="bg-white rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)] text-sm text-[var(--text-muted)]">
+                    <div className="bg-[var(--bg-card)] rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)] text-sm text-[var(--text-muted)]">
                         No assignments in this tab.
                     </div>
                 ) : (
                     filteredAssignments.map((item) => (
-                        <div key={item.id} className="bg-white rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)] flex items-center justify-between gap-3">
+                        <div key={item.id} className="bg-[var(--bg-card)] rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)] flex items-center justify-between gap-3">
                             <div className="flex items-start gap-4">
                                 <div
                                     className={`w-10 h-10 rounded-[var(--radius-sm)] flex items-center justify-center ${

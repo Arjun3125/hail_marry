@@ -26,7 +26,7 @@ export function Skeleton({ className = "", variant = "line" }: SkeletonProps) {
 /** Skeleton for a KPI stat card */
 export function SkeletonCard() {
     return (
-        <div className="bg-white rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)] space-y-3">
+        <div className="bg-[var(--bg-card)] rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)] space-y-3">
             <div className="flex items-center justify-between">
                 <Skeleton className="h-3 w-20" />
                 <Skeleton className="h-4 w-4 rounded" />
@@ -40,7 +40,7 @@ export function SkeletonCard() {
 /** Skeleton for a table */
 export function SkeletonTable({ rows = 5, cols = 3 }: { rows?: number; cols?: number }) {
     return (
-        <div className="bg-white rounded-[var(--radius)] shadow-[var(--shadow-card)] overflow-hidden">
+        <div className="bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] overflow-hidden">
             {/* Header */}
             <div className="flex gap-4 px-5 py-3 border-b border-[var(--border)] bg-[var(--bg-page)]">
                 {Array.from({ length: cols }).map((_, i) => (

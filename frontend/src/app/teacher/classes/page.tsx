@@ -49,15 +49,15 @@ export default function TeacherClassesPage() {
 
             <div className="grid md:grid-cols-2 gap-4">
                 {loading ? (
-                    <div className="bg-white rounded-[var(--radius)] shadow-[var(--shadow-card)] p-5 text-sm text-[var(--text-muted)]">
+                    <div className="bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] p-5 text-sm text-[var(--text-muted)]">
                         Loading classes...
                     </div>
                 ) : classes.length === 0 ? (
-                    <div className="bg-white rounded-[var(--radius)] shadow-[var(--shadow-card)] p-5 text-sm text-[var(--text-muted)]">
+                    <div className="bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] p-5 text-sm text-[var(--text-muted)]">
                         No classes assigned.
                     </div>
                 ) : classes.map((cls) => (
-                    <div key={cls.id} className="bg-white rounded-[var(--radius)] shadow-[var(--shadow-card)] p-5">
+                    <div key={cls.id} className="bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] p-5">
                         <div className="flex items-center justify-between mb-4">
                             <h3 className="text-lg font-semibold text-[var(--text-primary)]">{cls.name}</h3>
                             <span className="flex items-center gap-1 text-sm text-[var(--text-secondary)]">

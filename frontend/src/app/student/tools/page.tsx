@@ -150,7 +150,7 @@ export default function StudyToolsPage() {
                         className={`p-4 rounded-[var(--radius)] text-center transition-all ${
                             activeTool === tool.id
                                 ? `bg-gradient-to-br ${tool.color} text-white shadow-lg scale-[1.02]`
-                                : "bg-white shadow-[var(--shadow-card)] hover:shadow-md text-[var(--text-primary)]"
+                                : "bg-[var(--bg-card)] shadow-[var(--shadow-card)] hover:shadow-md text-[var(--text-primary)]"
                         } ${loading ? "opacity-60 cursor-not-allowed" : ""}`}
                     >
                         <tool.icon className={`w-6 h-6 mx-auto mb-2 ${activeTool === tool.id ? "text-white" : "text-[var(--primary)]"}`} />
@@ -162,7 +162,7 @@ export default function StudyToolsPage() {
 
             {activeTool ? (
                 <>
-                    <div className="bg-white rounded-[var(--radius)] shadow-[var(--shadow-card)] p-4 mb-6">
+                    <div className="bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] p-4 mb-6">
                         <div className="flex gap-3">
                             <input
                                 value={topic}
@@ -187,7 +187,7 @@ export default function StudyToolsPage() {
                     </div>
 
                     {loading ? (
-                        <div className="bg-white rounded-[var(--radius)] shadow-[var(--shadow-card)] p-12 text-center">
+                        <div className="bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] p-12 text-center">
                             <Loader2 className="w-8 h-8 mx-auto text-[var(--primary)] animate-spin mb-3" />
                             <p className="text-sm text-[var(--text-secondary)]">
                                 {jobStatus === "queued" ? `Queued ${selectedTool?.label}...` : `Generating ${selectedTool?.label}...`}
@@ -202,7 +202,7 @@ export default function StudyToolsPage() {
                     {!loading && result && activeTool === "concept_map" ? <ConceptMapView data={result as ConceptMap} /> : null}
 
                     {!loading && citations.length > 0 ? (
-                        <div className="mt-4 bg-white rounded-[var(--radius)] shadow-[var(--shadow-card)] p-4">
+                        <div className="mt-4 bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] p-4">
                             <p className="text-xs font-semibold text-[var(--text-secondary)] mb-2">Sources</p>
                             <div className="flex flex-wrap gap-2">
                                 {citations.map((citation, idx) => (
@@ -221,7 +221,7 @@ export default function StudyToolsPage() {
 
 function QuizView({ questions }: { questions: QuizQ[] }) {
     return (
-        <div className="bg-white rounded-[var(--radius)] shadow-[var(--shadow-card)] p-6">
+        <div className="bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] p-6">
             <h3 className="text-base font-semibold text-[var(--text-primary)] mb-4">Generated Quiz</h3>
             <div className="space-y-4">
                 {questions.map((question, idx) => (
@@ -247,7 +247,7 @@ function FlashcardsView({ cards }: { cards: Flashcard[] }) {
     const card = cards[current];
 
     return (
-        <div className="bg-white rounded-[var(--radius)] shadow-[var(--shadow-card)] p-6">
+        <div className="bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] p-6">
             <div className="flex items-center justify-between mb-4">
                 <span className="text-xs text-[var(--text-muted)]">Card {current + 1} of {cards.length}</span>
                 <div className="flex gap-2">
@@ -287,7 +287,7 @@ function FlashcardsView({ cards }: { cards: Flashcard[] }) {
 
 function MindMapView({ data }: { data: MindNode }) {
     return (
-        <div className="bg-white rounded-[var(--radius)] shadow-[var(--shadow-card)] p-6 overflow-x-auto">
+        <div className="bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] p-6 overflow-x-auto">
             <h3 className="text-base font-semibold text-[var(--text-primary)] mb-3">Mind Map</h3>
             <MindNodeView node={data} depth={0} />
         </div>
@@ -315,7 +315,7 @@ function MindNodeView({ node, depth }: { node: MindNode; depth: number }) {
 
 function FlowchartView({ code }: { code: string }) {
     return (
-        <div className="bg-white rounded-[var(--radius)] shadow-[var(--shadow-card)] p-6">
+        <div className="bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] p-6">
             <h3 className="text-base font-semibold text-[var(--text-primary)] mb-3">Generated Mermaid Flowchart</h3>
             <pre className="text-xs p-3 rounded-[var(--radius-sm)] bg-[var(--bg-page)] overflow-x-auto whitespace-pre-wrap">{code}</pre>
         </div>
@@ -324,7 +324,7 @@ function FlowchartView({ code }: { code: string }) {
 
 function ConceptMapView({ data }: { data: ConceptMap }) {
     return (
-        <div className="bg-white rounded-[var(--radius)] shadow-[var(--shadow-card)] p-6">
+        <div className="bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] p-6">
             <h3 className="text-base font-semibold text-[var(--text-primary)] mb-3">Concept Map</h3>
             <div className="grid md:grid-cols-2 gap-4">
                 <div>

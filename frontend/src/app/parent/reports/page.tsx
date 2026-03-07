@@ -46,7 +46,7 @@ export default function ParentReportsPage() {
             {loading ? (
                 <p className="text-sm text-[var(--text-muted)]">Loading...</p>
             ) : report ? (
-                <div className="bg-white rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)] space-y-3">
+                <div className="bg-[var(--bg-card)] rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)] space-y-3">
                     <p className="text-sm text-[var(--text-secondary)]">Child: <span className="font-medium text-[var(--text-primary)]">{report.child.name}</span></p>
                     <p className="text-sm text-[var(--text-secondary)]">Attendance (30d): <span className="font-medium text-[var(--text-primary)]">{report.attendance_pct_30d}%</span></p>
                     <p className="text-sm text-[var(--text-secondary)]">Summary: <span className="font-medium text-[var(--text-primary)]">{report.summary}</span></p>

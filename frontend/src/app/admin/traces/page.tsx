@@ -51,7 +51,7 @@ export default function AdminTracesPage() {
                 <p className="text-sm text-[var(--text-secondary)]">Inspect persisted trace events across API, queue, worker, and AI service boundaries.</p>
             </div>
 
-            <div className="rounded-[var(--radius)] bg-white p-5 shadow-[var(--shadow-card)]">
+            <div className="rounded-[var(--radius)] bg-[var(--bg-card)] p-5 shadow-[var(--shadow-card)]">
                 <form
                     className="flex flex-col gap-3 sm:flex-row"
                     onSubmit={(event) => {
@@ -75,7 +75,7 @@ export default function AdminTracesPage() {
                 {error ? <p className="mt-3 text-sm text-[var(--error)]">{error}</p> : null}
             </div>
 
-            <div className="rounded-[var(--radius)] bg-white p-5 shadow-[var(--shadow-card)]">
+            <div className="rounded-[var(--radius)] bg-[var(--bg-card)] p-5 shadow-[var(--shadow-card)]">
                 <div className="flex items-center gap-2 mb-4">
                     <Workflow className="h-4 w-4 text-[var(--primary)]" />
                     <h2 className="text-base font-semibold text-[var(--text-primary)]">Trace Timeline</h2>

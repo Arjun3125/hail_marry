@@ -147,7 +147,7 @@ export default function StudentUploadPage() {
             <div
                 className={`border-2 border-dashed rounded-[var(--radius)] p-10 text-center transition-colors cursor-pointer ${isDragging
                         ? "border-[var(--primary)] bg-[var(--primary-light)]"
-                        : "border-[var(--border)] bg-white hover:border-[var(--primary)] hover:bg-blue-50/30"
+                        : "border-[var(--border)] bg-[var(--bg-card)] hover:border-[var(--primary)] hover:bg-blue-50/30"
                     }`}
                 onDragOver={(e) => {
                     e.preventDefault();
@@ -189,7 +189,7 @@ export default function StudentUploadPage() {
                 <div className="mt-6 space-y-2">
                     <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-3">Recent Upload Activity</h2>
                     {activity.map((item) => (
-                        <div key={item.key} className="bg-white rounded-[var(--radius-sm)] shadow-[var(--shadow-card)] p-3 flex items-center justify-between">
+                        <div key={item.key} className="bg-[var(--bg-card)] rounded-[var(--radius-sm)] shadow-[var(--shadow-card)] p-3 flex items-center justify-between">
                             <div className="flex items-center gap-3">
                                 <div className="w-8 h-8 rounded-[var(--radius-sm)] flex items-center justify-center bg-[var(--primary-light)]">
                                     <FileText className="w-4 h-4 text-[var(--primary)]" />
@@ -223,7 +223,7 @@ export default function StudentUploadPage() {
                 </div>
             ) : null}
 
-            <div className="mt-8 bg-white rounded-[var(--radius)] shadow-[var(--shadow-card)] overflow-hidden">
+            <div className="mt-8 bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] overflow-hidden">
                 <div className="px-5 py-3 border-b border-[var(--border)]">
                     <h2 className="text-base font-semibold text-[var(--text-primary)]">Uploaded Files</h2>
                 </div>
@@ -283,7 +283,7 @@ export default function StudentUploadPage() {
                         { label: "Limit", desc: "Up to 25MB" },
                         { label: "AI", desc: "Indexed for search" },
                     ].map((item) => (
-                        <div key={item.label} className="bg-white rounded-[var(--radius-sm)] p-3 shadow-[var(--shadow-card)] text-center">
+                        <div key={item.label} className="bg-[var(--bg-card)] rounded-[var(--radius-sm)] p-3 shadow-[var(--shadow-card)] text-center">
                             <div className="w-8 h-8 mx-auto rounded-full bg-[var(--bg-page)] flex items-center justify-center mb-2">
                                 <FileText className="w-4 h-4 text-[var(--text-secondary)]" />
                             </div>

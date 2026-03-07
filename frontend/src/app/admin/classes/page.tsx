@@ -110,7 +110,7 @@ export default function AdminClassesPage() {
             ) : null}
 
             <div className="grid lg:grid-cols-2 gap-4 mb-6">
-                <div className="bg-white rounded-[var(--radius)] shadow-[var(--shadow-card)] p-4">
+                <div className="bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] p-4">
                     <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-3">Add Class</h2>
                     <div className="grid grid-cols-[1fr_120px_auto] gap-2">
                         <input
@@ -135,7 +135,7 @@ export default function AdminClassesPage() {
                     </div>
                 </div>
 
-                <div className="bg-white rounded-[var(--radius)] shadow-[var(--shadow-card)] p-4">
+                <div className="bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] p-4">
                     <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-3">Add Subject</h2>
                     <div className="grid grid-cols-[1fr_1fr_auto] gap-2">
                         <input
@@ -171,15 +171,15 @@ export default function AdminClassesPage() {
 
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {loading ? (
-                    <div className="bg-white rounded-[var(--radius)] shadow-[var(--shadow-card)] p-5 text-sm text-[var(--text-muted)]">
+                    <div className="bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] p-5 text-sm text-[var(--text-muted)]">
                         Loading classes...
                     </div>
                 ) : items.length === 0 ? (
-                    <div className="bg-white rounded-[var(--radius)] shadow-[var(--shadow-card)] p-5 text-sm text-[var(--text-muted)]">
+                    <div className="bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] p-5 text-sm text-[var(--text-muted)]">
                         No classes found.
                     </div>
                 ) : items.map((item) => (
-                    <div key={item.id} className="bg-white rounded-[var(--radius)] shadow-[var(--shadow-card)] p-5">
+                    <div key={item.id} className="bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] p-5">
                         <div className="flex items-center justify-between mb-3">
                             <h3 className="text-base font-semibold text-[var(--text-primary)]">{item.name}</h3>
                             <span className="text-xs bg-[var(--primary-light)] text-[var(--primary)] px-2 py-0.5 rounded-full">Grade {item.grade}</span>

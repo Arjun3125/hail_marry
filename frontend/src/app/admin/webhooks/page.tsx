@@ -122,7 +122,7 @@ export default function AdminWebhooksPage() {
                 </div>
             ) : null}
 
-            <form onSubmit={handleCreate} className="bg-white rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)] grid md:grid-cols-3 gap-3">
+            <form onSubmit={handleCreate} className="bg-[var(--bg-card)] rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)] grid md:grid-cols-3 gap-3">
                 <select
                     value={eventType}
                     onChange={(e) => setEventType(e.target.value)}
@@ -147,7 +147,7 @@ export default function AdminWebhooksPage() {
                 </button>
             </form>
 
-            <div className="bg-white rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)]">
+            <div className="bg-[var(--bg-card)] rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)]">
                 <h2 className="text-base font-semibold text-[var(--text-primary)] mb-4">Subscriptions</h2>
                 {loading ? (
                     <p className="text-sm text-[var(--text-muted)]">Loading subscriptions...</p>
@@ -189,7 +189,7 @@ export default function AdminWebhooksPage() {
                 )}
             </div>
 
-            <div className="bg-white rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)]">
+            <div className="bg-[var(--bg-card)] rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)]">
                 <h2 className="text-base font-semibold text-[var(--text-primary)] mb-4">Recent Deliveries</h2>
                 {!selectedId ? (
                     <p className="text-sm text-[var(--text-muted)]">Select a subscription to inspect deliveries.</p>

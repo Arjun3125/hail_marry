@@ -161,7 +161,7 @@ export default function InteractiveMindMapPage() {
 
             {/* Input */}
             {!data && (
-                <div className="bg-white rounded-2xl p-5 shadow-[var(--shadow-card)] border border-[var(--border)]/50 mb-5">
+                <div className="bg-[var(--bg-card)] rounded-2xl p-5 shadow-[var(--shadow-card)] border border-[var(--border)]/50 mb-5">
                     <input
                         value={topic}
                         onChange={(e) => setTopic(e.target.value)}
@@ -183,7 +183,7 @@ export default function InteractiveMindMapPage() {
             {error && <div className="mb-4 rounded-xl border border-[var(--error)]/30 bg-red-50 px-4 py-3 text-sm text-[var(--error)]">{error}</div>}
 
             {loading && (
-                <div className="bg-white rounded-2xl p-12 shadow-[var(--shadow-card)] text-center border border-[var(--border)]/50">
+                <div className="bg-[var(--bg-card)] rounded-2xl p-12 shadow-[var(--shadow-card)] text-center border border-[var(--border)]/50">
                     <div className="w-14 h-14 mx-auto mb-4 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center animate-pulse">
                         <Network className="w-7 h-7 text-white" />
                     </div>
@@ -193,19 +193,19 @@ export default function InteractiveMindMapPage() {
 
             {/* Canvas */}
             {!loading && data && (
-                <div className="relative bg-white rounded-2xl shadow-[var(--shadow-card)] border border-[var(--border)]/50 overflow-hidden">
+                <div className="relative bg-[var(--bg-card)] rounded-2xl shadow-[var(--shadow-card)] border border-[var(--border)]/50 overflow-hidden">
                     {/* Zoom Controls */}
                     <div className="absolute top-3 right-3 flex gap-1.5 z-10">
-                        <button onClick={() => setZoom((z) => Math.min(z + 0.15, 2.5))} className="p-2 bg-white/90 rounded-lg shadow-md hover:bg-white transition-all">
+                        <button onClick={() => setZoom((z) => Math.min(z + 0.15, 2.5))} className="p-2 bg-white/90 rounded-lg shadow-md hover:bg-[var(--bg-card)] transition-all">
                             <ZoomIn className="w-4 h-4 text-[var(--text-secondary)]" />
                         </button>
-                        <button onClick={() => setZoom((z) => Math.max(z - 0.15, 0.3))} className="p-2 bg-white/90 rounded-lg shadow-md hover:bg-white transition-all">
+                        <button onClick={() => setZoom((z) => Math.max(z - 0.15, 0.3))} className="p-2 bg-white/90 rounded-lg shadow-md hover:bg-[var(--bg-card)] transition-all">
                             <ZoomOut className="w-4 h-4 text-[var(--text-secondary)]" />
                         </button>
-                        <button onClick={() => { setZoom(1); setPan({ x: 60, y: 0 }); }} className="p-2 bg-white/90 rounded-lg shadow-md hover:bg-white transition-all">
+                        <button onClick={() => { setZoom(1); setPan({ x: 60, y: 0 }); }} className="p-2 bg-white/90 rounded-lg shadow-md hover:bg-[var(--bg-card)] transition-all">
                             <Maximize2 className="w-4 h-4 text-[var(--text-secondary)]" />
                         </button>
-                        <button onClick={() => { setData(null); setTopic(""); }} className="px-3 py-2 text-[10px] font-bold bg-white/90 rounded-lg shadow-md hover:bg-white text-[var(--text-muted)] transition-all">New</button>
+                        <button onClick={() => { setData(null); setTopic(""); }} className="px-3 py-2 text-[10px] font-bold bg-white/90 rounded-lg shadow-md hover:bg-[var(--bg-card)] text-[var(--text-muted)] transition-all">New</button>
                     </div>
                     <canvas
                         ref={canvasRef}

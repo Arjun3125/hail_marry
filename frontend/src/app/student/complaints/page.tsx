@@ -80,7 +80,7 @@ export default function ComplaintsPage() {
                 </div>
             ) : null}
 
-            <div className="bg-white rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)] mb-6">
+            <div className="bg-[var(--bg-card)] rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)] mb-6">
                 <h2 className="text-base font-semibold text-[var(--text-primary)] mb-4">New Complaint</h2>
                 <select
                     value={category}
@@ -108,7 +108,7 @@ export default function ComplaintsPage() {
                 </button>
             </div>
 
-            <div className="bg-white rounded-[var(--radius)] shadow-[var(--shadow-card)] overflow-hidden">
+            <div className="bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] overflow-hidden">
                 <div className="px-5 py-3 border-b border-[var(--border)]">
                     <h2 className="text-base font-semibold text-[var(--text-primary)]">Your Complaints</h2>
                 </div>

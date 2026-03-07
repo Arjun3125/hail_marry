@@ -259,7 +259,7 @@ export default function UploadPage() {
             ) : null}
 
             <div className="grid lg:grid-cols-2 gap-6 mb-6">
-                <div className="bg-white rounded-[var(--radius)] p-6 shadow-[var(--shadow-card)]">
+                <div className="bg-[var(--bg-card)] rounded-[var(--radius)] p-6 shadow-[var(--shadow-card)]">
                     <div className="flex items-center gap-2 mb-4">
                         <Upload className="w-5 h-5 text-[var(--primary)]" />
                         <h2 className="text-base font-semibold text-[var(--text-primary)]">Upload Document</h2>
@@ -272,7 +272,7 @@ export default function UploadPage() {
                     </label>
                 </div>
 
-                <div className="bg-white rounded-[var(--radius)] p-6 shadow-[var(--shadow-card)]">
+                <div className="bg-[var(--bg-card)] rounded-[var(--radius)] p-6 shadow-[var(--shadow-card)]">
                     <div className="flex items-center gap-2 mb-4">
                         <Youtube className="w-5 h-5 text-[var(--error)]" />
                         <h2 className="text-base font-semibold text-[var(--text-primary)]">YouTube Lecture</h2>
@@ -319,7 +319,7 @@ export default function UploadPage() {
                 </div>
             </div>
 
-            <div className="bg-white rounded-[var(--radius)] shadow-[var(--shadow-card)] overflow-hidden">
+            <div className="bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] overflow-hidden">
                 <div className="px-5 py-3 border-b border-[var(--border)]">
                     <h2 className="text-base font-semibold text-[var(--text-primary)]">Recent Upload Activity</h2>
                 </div>

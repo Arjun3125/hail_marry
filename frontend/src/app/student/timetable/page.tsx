@@ -86,7 +86,7 @@ export default function TimetablePage() {
                 </div>
             ) : null}
 
-            <div className="bg-white rounded-[var(--radius)] shadow-[var(--shadow-card)] overflow-auto">
+            <div className="bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] overflow-auto">
                 <table className="w-full min-w-[760px]">
                     <thead>
                         <tr className="border-b border-[var(--border)]">

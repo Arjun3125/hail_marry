@@ -144,7 +144,7 @@ export default function GenerateAssessmentPage() {
             ) : null}
 
             {/* Config Card */}
-            <div className="bg-white rounded-2xl shadow-[var(--shadow-card)] p-6 mb-6 border border-[var(--border)]/50">
+            <div className="bg-[var(--bg-card)] rounded-2xl shadow-[var(--shadow-card)] p-6 mb-6 border border-[var(--border)]/50">
                 <div className="grid md:grid-cols-3 gap-4 mb-5">
                     <div>
                         <label className="block text-[10px] font-bold text-[var(--text-muted)] mb-2 uppercase tracking-wider">Subject</label>
@@ -198,7 +198,7 @@ export default function GenerateAssessmentPage() {
 
             {/* Loading State */}
             {loading ? (
-                <div className="bg-white rounded-2xl shadow-[var(--shadow-card)] p-12 text-center border border-[var(--border)]/50">
+                <div className="bg-[var(--bg-card)] rounded-2xl shadow-[var(--shadow-card)] p-12 text-center border border-[var(--border)]/50">
                     <div className="w-12 h-12 mx-auto mb-4 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center animate-pulse">
                         <Sparkles className="w-6 h-6 text-white" />
                     </div>
@@ -215,7 +215,7 @@ export default function GenerateAssessmentPage() {
 
             {/* Result */}
             {!loading && result ? (
-                <div className="bg-white rounded-2xl shadow-[var(--shadow-card)] p-6 border border-[var(--border)]/50">
+                <div className="bg-[var(--bg-card)] rounded-2xl shadow-[var(--shadow-card)] p-6 border border-[var(--border)]/50">
                     <div className="flex items-center gap-2 mb-4">
                         <BookOpen className="w-4 h-4 text-indigo-500" />
                         <h3 className="text-sm font-bold text-[var(--text-primary)] uppercase tracking-wider">Generated Assessment</h3>

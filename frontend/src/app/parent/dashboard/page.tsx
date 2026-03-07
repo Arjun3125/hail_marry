@@ -103,7 +103,7 @@ export default function ParentDashboardPage() {
             ) : null}
 
             {loading ? (
-                <div className="bg-white rounded-2xl shadow-[var(--shadow-card)] p-12 text-center border border-[var(--border)]/50">
+                <div className="bg-[var(--bg-card)] rounded-2xl shadow-[var(--shadow-card)] p-12 text-center border border-[var(--border)]/50">
                     <Loader2 className="w-8 h-8 mx-auto text-teal-500 animate-spin mb-3" />
                     <p className="text-sm text-[var(--text-muted)]">Loading dashboard...</p>
                 </div>
@@ -125,7 +125,7 @@ export default function ParentDashboardPage() {
 
                     {/* Stats Grid */}
                     <div className="grid md:grid-cols-3 gap-3">
-                        <div className="bg-white rounded-2xl p-5 shadow-[var(--shadow-card)] border border-[var(--border)]/50 hover:shadow-md transition-all duration-200">
+                        <div className="bg-[var(--bg-card)] rounded-2xl p-5 shadow-[var(--shadow-card)] border border-[var(--border)]/50 hover:shadow-md transition-all duration-200">
                             <div className="flex items-center gap-2 mb-3">
                                 <div className="p-1.5 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600">
                                     <CalendarCheck className="w-3.5 h-3.5 text-white" />
@@ -139,7 +139,7 @@ export default function ParentDashboardPage() {
                                 <p className="text-[10px] text-rose-500 mt-1 font-medium">⚠ Below 75% threshold</p>
                             )}
                         </div>
-                        <div className="bg-white rounded-2xl p-5 shadow-[var(--shadow-card)] border border-[var(--border)]/50 hover:shadow-md transition-all duration-200">
+                        <div className="bg-[var(--bg-card)] rounded-2xl p-5 shadow-[var(--shadow-card)] border border-[var(--border)]/50 hover:shadow-md transition-all duration-200">
                             <div className="flex items-center gap-2 mb-3">
                                 <div className="p-1.5 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600">
                                     <Award className="w-3.5 h-3.5 text-white" />
@@ -150,7 +150,7 @@ export default function ParentDashboardPage() {
                                 {data.avg_marks}%
                             </p>
                         </div>
-                        <div className="bg-white rounded-2xl p-5 shadow-[var(--shadow-card)] border border-[var(--border)]/50 hover:shadow-md transition-all duration-200">
+                        <div className="bg-[var(--bg-card)] rounded-2xl p-5 shadow-[var(--shadow-card)] border border-[var(--border)]/50 hover:shadow-md transition-all duration-200">
                             <div className="flex items-center gap-2 mb-3">
                                 <div className="p-1.5 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600">
                                     <FileText className="w-3.5 h-3.5 text-white" />

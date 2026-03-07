@@ -157,7 +157,7 @@ export default function StudentOverview() {
                     {kpiCards.map((card) => (
                         <div
                             key={card.label}
-                            className="bg-white rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)] card-hover"
+                            className="bg-[var(--bg-card)] rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)] card-hover"
                         >
                             <div className="flex items-center justify-between mb-3">
                                 <span className="text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">
@@ -192,7 +192,7 @@ export default function StudentOverview() {
                         {weakTopics.map((topic) => (
                             <div key={topic.subject} className="flex items-center gap-3">
                                 <span className="w-24 text-xs text-[var(--text-secondary)]">{topic.subject}</span>
-                                <div className="flex-1 h-5 bg-white rounded-full overflow-hidden">
+                                <div className="flex-1 h-5 bg-[var(--bg-card)] rounded-full overflow-hidden">
                                     <div
                                         className="h-full rounded-full bg-[var(--error)] transition-all"
                                         style={{ width: `${topic.average_score}%` }}
@@ -209,7 +209,7 @@ export default function StudentOverview() {
             ) : null}
 
             <div className="grid lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2 bg-white rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)]">
+                <div className="lg:col-span-2 bg-[var(--bg-card)] rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)]">
                     <h2 className="text-base font-semibold text-[var(--text-primary)] mb-4">Today schedule</h2>
                     {loading ? (
                         <p className="text-sm text-[var(--text-muted)]">Loading schedule...</p>
@@ -236,7 +236,7 @@ export default function StudentOverview() {
                 </div>
 
                 <div className="space-y-4">
-                    <div className="bg-white rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)]">
+                    <div className="bg-[var(--bg-card)] rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)]">
                         <div className="flex items-center gap-2 mb-4">
                             <Bot className="w-4 h-4 text-[var(--primary)]" />
                             <h2 className="text-base font-semibold text-[var(--text-primary)] mb-4">AI Insight</h2>
@@ -270,7 +270,7 @@ export default function StudentOverview() {
                         </div>
                     </div>
 
-                    <div className="bg-white rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)]">
+                    <div className="bg-[var(--bg-card)] rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)]">
                         <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-3">Subject performance</h2>
                         {loading ? (
                             <p className="text-sm text-[var(--text-muted)]">Loading performance...</p>

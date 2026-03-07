@@ -45,7 +45,7 @@ export default function ParentAttendancePage() {
             {loading ? (
                 <p className="text-sm text-[var(--text-muted)]">Loading...</p>
             ) : (
-                <div className="bg-white rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)]">
+                <div className="bg-[var(--bg-card)] rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)]">
                     <div className="space-y-2">
                         {items.map((item) => (
                             <div key={`${item.date}-${item.status}`} className="p-3 rounded-[var(--radius-sm)] bg-[var(--bg-page)] flex items-center justify-between">

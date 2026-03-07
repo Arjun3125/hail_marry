@@ -87,7 +87,7 @@ export default function AdminComplaintsPage() {
                         key={value}
                         className={`text-xs px-3 py-1.5 rounded-full border capitalize ${filter === value
                             ? "bg-[var(--primary)] border-[var(--primary)] text-white"
-                            : "bg-white border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--primary-light)] hover:text-[var(--primary)]"
+                            : "bg-[var(--bg-card)] border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--primary-light)] hover:text-[var(--primary)]"
                             }`}
                         onClick={() => setFilter(value)}
                     >
@@ -98,18 +98,18 @@ export default function AdminComplaintsPage() {
 
             <div className="space-y-3">
                 {loading ? (
-                    <div className="bg-white rounded-[var(--radius)] shadow-[var(--shadow-card)] p-5 text-sm text-[var(--text-muted)]">
+                    <div className="bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] p-5 text-sm text-[var(--text-muted)]">
                         Loading complaints...
                     </div>
                 ) : filtered.length === 0 ? (
-                    <div className="bg-white rounded-[var(--radius)] shadow-[var(--shadow-card)] p-5 text-sm text-[var(--text-muted)]">
+                    <div className="bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] p-5 text-sm text-[var(--text-muted)]">
                         No complaints found.
                     </div>
                 ) : filtered.map((item) => {
                     const cfg = statusConfig[item.status];
                     const Icon = cfg.icon;
                     return (
-                        <div key={item.id} className="bg-white rounded-[var(--radius)] shadow-[var(--shadow-card)] p-5">
+                        <div key={item.id} className="bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] p-5">
                             <div className="flex items-center justify-between mb-2">
                                 <div className="flex items-center gap-2">
                                     <span className="text-sm font-medium text-[var(--text-primary)]">{item.student}</span>

@@ -96,7 +96,7 @@ export default function DiscoverSourcesPage() {
             </div>
 
             {/* Search */}
-            <div className="bg-white rounded-2xl p-5 shadow-[var(--shadow-card)] border border-[var(--border)]/50 mb-5">
+            <div className="bg-[var(--bg-card)] rounded-2xl p-5 shadow-[var(--shadow-card)] border border-[var(--border)]/50 mb-5">
                 <div className="flex gap-2">
                     <input
                         value={query}
@@ -119,7 +119,7 @@ export default function DiscoverSourcesPage() {
             {error && <div className="mb-4 rounded-xl border border-[var(--error)]/30 bg-red-50 px-4 py-3 text-sm text-[var(--error)]">{error}</div>}
 
             {loading && (
-                <div className="bg-white rounded-2xl p-12 shadow-[var(--shadow-card)] text-center border border-[var(--border)]/50">
+                <div className="bg-[var(--bg-card)] rounded-2xl p-12 shadow-[var(--shadow-card)] text-center border border-[var(--border)]/50">
                     <div className="w-14 h-14 mx-auto mb-4 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center animate-pulse">
                         <Search className="w-7 h-7 text-white" />
                     </div>
@@ -133,7 +133,7 @@ export default function DiscoverSourcesPage() {
                 <div className="space-y-3">
                     <p className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">{results.length} results found</p>
                     {results.map((r, i) => (
-                        <div key={i} className="bg-white rounded-2xl p-5 shadow-[var(--shadow-card)] border border-[var(--border)]/50 group hover:shadow-md transition-all">
+                        <div key={i} className="bg-[var(--bg-card)] rounded-2xl p-5 shadow-[var(--shadow-card)] border border-[var(--border)]/50 group hover:shadow-md transition-all">
                             <div className="flex items-start gap-3">
                                 <div className="p-2 rounded-lg bg-gradient-to-br from-amber-50 to-orange-50 mt-0.5">
                                     <BookOpen className="w-4 h-4 text-amber-600" />
@@ -168,7 +168,7 @@ export default function DiscoverSourcesPage() {
             )}
 
             {!loading && results.length === 0 && query && (
-                <div className="bg-white rounded-2xl p-12 shadow-[var(--shadow-card)] text-center border border-[var(--border)]/50">
+                <div className="bg-[var(--bg-card)] rounded-2xl p-12 shadow-[var(--shadow-card)] text-center border border-[var(--border)]/50">
                     <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center opacity-40">
                         <Globe className="w-8 h-8 text-white" />
                     </div>

@@ -120,7 +120,7 @@ export default function Sidebar({ items, role, userName }: SidebarProps) {
     return (
         <>
             {/* ── Mobile top bar ── */}
-            <div className="fixed left-0 right-0 top-0 z-50 flex h-14 items-center gap-3 border-b border-slate-200 bg-white px-4 lg:hidden">
+            <div className="fixed left-0 right-0 top-0 z-50 flex h-14 items-center gap-3 border-b border-slate-200 bg-[var(--bg-card)] px-4 lg:hidden">
                 <button
                     onClick={() => setMobileOpen(true)}
                     className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 active:bg-slate-200"
@@ -152,7 +152,7 @@ export default function Sidebar({ items, role, userName }: SidebarProps) {
 
             {/* ── Mobile drawer ── */}
             <aside
-                className={`fixed left-0 top-0 z-50 flex h-screen w-72 flex-col bg-white shadow-2xl transition-transform duration-300 lg:hidden ${mobileOpen ? "translate-x-0" : "-translate-x-full"
+                className={`fixed left-0 top-0 z-50 flex h-screen w-72 flex-col bg-[var(--bg-card)] shadow-2xl transition-transform duration-300 lg:hidden ${mobileOpen ? "translate-x-0" : "-translate-x-full"
                     }`}
             >
                 <div className="flex items-center justify-end p-2">
@@ -168,13 +168,13 @@ export default function Sidebar({ items, role, userName }: SidebarProps) {
 
             {/* ── Desktop sidebar ── */}
             <aside
-                className={`fixed left-0 top-0 z-40 hidden h-screen flex-col border-r border-slate-200 bg-white transition-all duration-200 lg:flex ${sidebarWidth}`}
+                className={`fixed left-0 top-0 z-40 hidden h-screen flex-col border-r border-slate-200 bg-[var(--bg-card)] transition-all duration-200 lg:flex ${sidebarWidth}`}
             >
                 {sidebarContent}
                 {/* Collapse toggle */}
                 <button
                     onClick={() => setCollapsed(!collapsed)}
-                    className="absolute -right-3 top-20 z-50 flex h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-400 shadow-sm hover:text-slate-600 hover:shadow-md transition-all"
+                    className="absolute -right-3 top-20 z-50 flex h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-[var(--bg-card)] text-slate-400 shadow-sm hover:text-slate-600 hover:shadow-md transition-all"
                     aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
                 >
                     <ChevronLeft className={`h-3 w-3 transition-transform duration-200 ${collapsed ? "rotate-180" : ""}`} />

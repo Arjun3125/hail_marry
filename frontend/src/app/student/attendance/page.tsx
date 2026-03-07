@@ -73,14 +73,14 @@ export default function AttendancePage() {
                     { label: "Absent", value: stats.absent, color: "var(--error)" },
                     { label: "Late", value: stats.late, color: "var(--warning)" },
                 ].map((s) => (
-                    <div key={s.label} className="bg-white rounded-[var(--radius)] p-4 shadow-[var(--shadow-card)]">
+                    <div key={s.label} className="bg-[var(--bg-card)] rounded-[var(--radius)] p-4 shadow-[var(--shadow-card)]">
                         <p className="text-xs text-[var(--text-muted)] mb-1">{s.label}</p>
                         <p className="text-2xl font-bold" style={{ color: s.color }}>{s.value}</p>
                     </div>
                 ))}
             </div>
 
-            <div className="bg-white rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)] mb-6">
+            <div className="bg-[var(--bg-card)] rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)] mb-6">
                 <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-medium text-[var(--text-primary)]">Overall Attendance</span>
                     <span className="text-sm font-bold" style={{ color: stats.percentage >= 75 ? "var(--success)" : "var(--error)" }}>
@@ -101,7 +101,7 @@ export default function AttendancePage() {
                 ) : null}
             </div>
 
-            <div className="bg-white rounded-[var(--radius)] shadow-[var(--shadow-card)] overflow-hidden">
+            <div className="bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full min-w-[480px]">
                         <thead>

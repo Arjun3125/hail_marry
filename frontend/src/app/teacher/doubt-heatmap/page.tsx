@@ -80,14 +80,14 @@ export default function DoubtHeatmapPage() {
             ) : null}
 
             {loading ? (
-                <div className="bg-white rounded-2xl shadow-[var(--shadow-card)] p-12 text-center border border-[var(--border)]/50">
+                <div className="bg-[var(--bg-card)] rounded-2xl shadow-[var(--shadow-card)] p-12 text-center border border-[var(--border)]/50">
                     <div className="w-12 h-12 mx-auto mb-4 rounded-xl bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center animate-pulse">
                         <Flame className="w-6 h-6 text-white" />
                     </div>
                     <p className="text-sm text-[var(--text-muted)]">Analyzing student queries...</p>
                 </div>
             ) : !data || (data.heatmap.length === 0 && data.top_topics.length === 0) ? (
-                <div className="bg-white rounded-2xl p-12 shadow-[var(--shadow-card)] text-center border border-[var(--border)]/50">
+                <div className="bg-[var(--bg-card)] rounded-2xl p-12 shadow-[var(--shadow-card)] text-center border border-[var(--border)]/50">
                     <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center shadow-lg opacity-40">
                         <Flame className="w-8 h-8 text-white" />
                     </div>
@@ -118,7 +118,7 @@ export default function DoubtHeatmapPage() {
 
                     {/* Subject Heatmap */}
                     {data.heatmap.length > 0 ? (
-                        <div className="bg-white rounded-2xl shadow-[var(--shadow-card)] p-5 mb-6 border border-[var(--border)]/50">
+                        <div className="bg-[var(--bg-card)] rounded-2xl shadow-[var(--shadow-card)] p-5 mb-6 border border-[var(--border)]/50">
                             <h2 className="text-sm font-bold text-[var(--text-primary)] mb-4 uppercase tracking-wider flex items-center gap-2">
                                 <TrendingUp className="w-4 h-4 text-orange-500" />
                                 Subject Doubt Intensity
@@ -154,7 +154,7 @@ export default function DoubtHeatmapPage() {
 
                     {/* Top Topics */}
                     {data.top_topics.length > 0 ? (
-                        <div className="bg-white rounded-2xl shadow-[var(--shadow-card)] p-5 border border-[var(--border)]/50">
+                        <div className="bg-[var(--bg-card)] rounded-2xl shadow-[var(--shadow-card)] p-5 border border-[var(--border)]/50">
                             <h2 className="text-sm font-bold text-[var(--text-primary)] mb-4 uppercase tracking-wider flex items-center gap-2">
                                 <Flame className="w-4 h-4 text-orange-500" />
                                 Most Asked Topics
@@ -170,7 +170,7 @@ export default function DoubtHeatmapPage() {
                                             {idx + 1}
                                         </span>
                                         <span className="flex-1 text-sm text-[var(--text-primary)] truncate">{item.topic}</span>
-                                        <span className="text-xs font-bold text-[var(--text-muted)] bg-white px-2.5 py-1 rounded-full shadow-sm">
+                                        <span className="text-xs font-bold text-[var(--text-muted)] bg-[var(--bg-card)] px-2.5 py-1 rounded-full shadow-sm">
                                             {item.count}×
                                         </span>
                                     </div>

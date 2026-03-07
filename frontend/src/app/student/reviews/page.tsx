@@ -109,7 +109,7 @@ export default function ReviewsPage() {
             ) : null}
 
             {/* Add new review card */}
-            <div className="bg-white rounded-2xl shadow-[var(--shadow-card)] p-4 mb-6 border border-[var(--border)]/50">
+            <div className="bg-[var(--bg-card)] rounded-2xl shadow-[var(--shadow-card)] p-4 mb-6 border border-[var(--border)]/50">
                 <div className="flex flex-col gap-3 sm:flex-row">
                     <input
                         value={newTopic}
@@ -130,12 +130,12 @@ export default function ReviewsPage() {
             </div>
 
             {loading ? (
-                <div className="bg-white rounded-2xl shadow-[var(--shadow-card)] p-12 text-center border border-[var(--border)]/50">
+                <div className="bg-[var(--bg-card)] rounded-2xl shadow-[var(--shadow-card)] p-12 text-center border border-[var(--border)]/50">
                     <Loader2 className="w-8 h-8 mx-auto text-violet-500 animate-spin mb-3" />
                     <p className="text-sm text-[var(--text-muted)]">Loading reviews...</p>
                 </div>
             ) : !data || data.total === 0 ? (
-                <div className="bg-white rounded-2xl p-12 shadow-[var(--shadow-card)] text-center border border-[var(--border)]/50">
+                <div className="bg-[var(--bg-card)] rounded-2xl p-12 shadow-[var(--shadow-card)] text-center border border-[var(--border)]/50">
                     <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg">
                         <Brain className="w-8 h-8 text-white" />
                     </div>
@@ -171,7 +171,7 @@ export default function ReviewsPage() {
                             </h2>
                             <div className="space-y-3">
                                 {data.due.map((review) => (
-                                    <div key={review.id} className="bg-white rounded-2xl shadow-[var(--shadow-card)] p-4 border-l-4 border-rose-500 border border-[var(--border)]/50 transition-all duration-200 hover:shadow-md">
+                                    <div key={review.id} className="bg-[var(--bg-card)] rounded-2xl shadow-[var(--shadow-card)] p-4 border-l-4 border-rose-500 border border-[var(--border)]/50 transition-all duration-200 hover:shadow-md">
                                         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                                             <div>
                                                 <p className="text-sm font-bold text-[var(--text-primary)]">{review.topic}</p>
@@ -226,7 +226,7 @@ export default function ReviewsPage() {
                             </h2>
                             <div className="space-y-2">
                                 {data.upcoming.map((review) => (
-                                    <div key={review.id} className="bg-white rounded-xl shadow-sm p-3 flex items-center justify-between border border-[var(--border)]/50 hover:shadow-md transition-all duration-200">
+                                    <div key={review.id} className="bg-[var(--bg-card)] rounded-xl shadow-sm p-3 flex items-center justify-between border border-[var(--border)]/50 hover:shadow-md transition-all duration-200">
                                         <div>
                                             <p className="text-sm font-medium text-[var(--text-primary)]">{review.topic}</p>
                                             <p className="text-[10px] text-[var(--text-muted)] mt-0.5">

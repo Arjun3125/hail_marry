@@ -53,15 +53,15 @@ export default function TeacherInsightsPage() {
             ) : null}
 
             {loading ? (
-                <div className="bg-white rounded-[var(--radius)] shadow-[var(--shadow-card)] p-5 text-sm text-[var(--text-muted)]">
+                <div className="bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] p-5 text-sm text-[var(--text-muted)]">
                     Loading insights...
                 </div>
             ) : insights.length === 0 ? (
-                <div className="bg-white rounded-[var(--radius)] shadow-[var(--shadow-card)] p-5 text-sm text-[var(--text-muted)]">
+                <div className="bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] p-5 text-sm text-[var(--text-muted)]">
                     No class insights available yet.
                 </div>
             ) : insights.map((cls) => (
-                <div key={cls.class} className="bg-white rounded-[var(--radius)] shadow-[var(--shadow-card)] p-5 mb-4">
+                <div key={cls.class} className="bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] p-5 mb-4">
                     <div className="flex items-center justify-between mb-4">
                         <h2 className="text-lg font-semibold text-[var(--text-primary)]">{cls.class}</h2>
                         <span className="flex items-center gap-1.5 text-xs text-[var(--primary)] font-medium">
@@ -92,7 +92,7 @@ export default function TeacherInsightsPage() {
                             <p className="text-xs font-medium text-[var(--error)] mb-1">Weak Topics Detected</p>
                             <div className="flex flex-wrap gap-1.5">
                                 {cls.weak_topics.map((topic) => (
-                                    <span key={topic} className="text-[10px] bg-white text-[var(--error)] px-2 py-0.5 rounded-full">{topic}</span>
+                                    <span key={topic} className="text-[10px] bg-[var(--bg-card)] text-[var(--error)] px-2 py-0.5 rounded-full">{topic}</span>
                                 ))}
                             </div>
                         </div>

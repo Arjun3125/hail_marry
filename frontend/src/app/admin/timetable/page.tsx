@@ -182,7 +182,7 @@ export default function AdminTimetablePage() {
                     <p className="text-sm text-[var(--text-secondary)]">Create and manage class schedules</p>
                 </div>
                 <select
-                    className="w-full sm:w-auto px-4 py-2 text-sm border border-[var(--border)] rounded-[var(--radius-sm)] bg-white"
+                    className="w-full sm:w-auto px-4 py-2 text-sm border border-[var(--border)] rounded-[var(--radius-sm)] bg-[var(--bg-card)]"
                     value={selectedClassId}
                     onChange={(e) => setSelectedClassId(e.target.value)}
                     disabled={loading || classes.length === 0}
@@ -205,7 +205,7 @@ export default function AdminTimetablePage() {
                 </div>
             ) : null}
 
-            <div className="bg-white rounded-[var(--radius)] shadow-[var(--shadow-card)] p-4 mb-6">
+            <div className="bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] p-4 mb-6">
                 <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-3">Add Slot</h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2">
                     <select
@@ -267,7 +267,7 @@ export default function AdminTimetablePage() {
                 </div>
             </div>
 
-            <div className="bg-white rounded-[var(--radius)] shadow-[var(--shadow-card)] overflow-hidden">
+            <div className="bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full min-w-[700px]">
                         <thead>

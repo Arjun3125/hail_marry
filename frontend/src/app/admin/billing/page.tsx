@@ -78,17 +78,17 @@ export default function AdminBillingPage() {
                     </div>
 
                     <div className="grid md:grid-cols-3 gap-4">
-                        <div className="bg-white rounded-[var(--radius)] shadow-[var(--shadow-card)] p-5">
+                        <div className="bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] p-5">
                             <Zap className="w-5 h-5 text-[var(--primary)] mb-2" />
                             <p className="text-2xl font-bold text-[var(--text-primary)]">{(billing?.total_queries ?? 0).toLocaleString()}</p>
                             <p className="text-xs text-[var(--text-muted)]">Total AI Queries</p>
                         </div>
-                        <div className="bg-white rounded-[var(--radius)] shadow-[var(--shadow-card)] p-5">
+                        <div className="bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] p-5">
                             <FileText className="w-5 h-5 text-[var(--primary)] mb-2" />
                             <p className="text-2xl font-bold text-[var(--text-primary)]">{(billing?.total_tokens ?? 0).toLocaleString()}</p>
                             <p className="text-xs text-[var(--text-muted)]">Total Tokens Used</p>
                         </div>
-                        <div className="bg-white rounded-[var(--radius)] shadow-[var(--shadow-card)] p-5">
+                        <div className="bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] p-5">
                             <Users className="w-5 h-5 text-[var(--primary)] mb-2" />
                             <p className="text-2xl font-bold text-[var(--text-primary)]">{billing?.total_documents ?? 0}</p>
                             <p className="text-xs text-[var(--text-muted)]">Documents Uploaded</p>

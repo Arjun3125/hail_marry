@@ -76,7 +76,7 @@ export default function AdminSettingsPage() {
                 <p className="text-sm text-[var(--text-muted)]">Loading settings...</p>
             ) : settings ? (
                 <div className="max-w-lg space-y-6">
-                    <div className="bg-white rounded-[var(--radius)] shadow-[var(--shadow-card)] p-5">
+                    <div className="bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] p-5">
                         <h2 className="text-base font-semibold text-[var(--text-primary)] mb-4 flex items-center gap-2">
                             <Settings className="w-4 h-4" /> General
                         </h2>

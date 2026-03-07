@@ -95,7 +95,7 @@ export default function AdminReportsPage() {
 
             <div className="grid md:grid-cols-3 gap-4 mb-8">
                 {reports.map((report) => (
-                    <div key={report.type} className="bg-white rounded-[var(--radius)] shadow-[var(--shadow-card)] p-5">
+                    <div key={report.type} className="bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] p-5">
                         <report.icon className="w-8 h-8 text-[var(--primary)] mb-3" />
                         <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-1">{report.name}</h3>
                         <p className="text-xs text-[var(--text-muted)] mb-4">{report.desc}</p>
@@ -118,7 +118,7 @@ export default function AdminReportsPage() {
                 ))}
             </div>
 
-            <div className="bg-white rounded-[var(--radius)] shadow-[var(--shadow-card)] p-5">
+            <div className="bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] p-5">
                 <h2 className="text-base font-semibold text-[var(--text-primary)] mb-4">Recent Reports</h2>
                 {lastReport ? (
                     <div className="space-y-3">

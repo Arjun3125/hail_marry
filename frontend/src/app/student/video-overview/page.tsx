@@ -163,7 +163,7 @@ export default function VideoOverviewPage() {
 
             {/* Input */}
             {!data && (
-                <div className="bg-white rounded-2xl p-5 shadow-[var(--shadow-card)] border border-[var(--border)]/50 mb-5">
+                <div className="bg-[var(--bg-card)] rounded-2xl p-5 shadow-[var(--shadow-card)] border border-[var(--border)]/50 mb-5">
                     <input
                         value={topic}
                         onChange={(e) => setTopic(e.target.value)}
@@ -185,7 +185,7 @@ export default function VideoOverviewPage() {
             {error && <div className="mb-4 rounded-xl border border-[var(--error)]/30 bg-red-50 px-4 py-3 text-sm text-[var(--error)]">{error}</div>}
 
             {loading && (
-                <div className="bg-white rounded-2xl p-12 shadow-[var(--shadow-card)] text-center border border-[var(--border)]/50">
+                <div className="bg-[var(--bg-card)] rounded-2xl p-12 shadow-[var(--shadow-card)] text-center border border-[var(--border)]/50">
                     <div className="w-14 h-14 mx-auto mb-4 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center animate-pulse">
                         <Presentation className="w-7 h-7 text-white" />
                     </div>
@@ -204,7 +204,7 @@ export default function VideoOverviewPage() {
             {!loading && data && data.slides.length > 0 && (
                 <div className="space-y-4">
                     {/* Controls */}
-                    <div className="flex items-center justify-between bg-white rounded-2xl p-3 shadow-[var(--shadow-card)] border border-[var(--border)]/50">
+                    <div className="flex items-center justify-between bg-[var(--bg-card)] rounded-2xl p-3 shadow-[var(--shadow-card)] border border-[var(--border)]/50">
                         <h2 className="text-sm font-bold text-[var(--text-primary)] truncate px-2">{data.presentation_title}</h2>
                         <div className="flex items-center gap-2">
                             {!autoPlaying ? (
@@ -268,7 +268,7 @@ export default function VideoOverviewPage() {
                                 onClick={() => { setCurrent(i); if (!autoPlaying) speakSlide(i); }}
                                 className={`flex-shrink-0 w-28 p-3 rounded-xl text-left transition-all ${i === current
                                         ? `bg-gradient-to-br ${colors[i % colors.length]} text-white shadow-md scale-105`
-                                        : "bg-white text-[var(--text-secondary)] border border-[var(--border)]/50 hover:shadow-md"
+                                        : "bg-[var(--bg-card)] text-[var(--text-secondary)] border border-[var(--border)]/50 hover:shadow-md"
                                     }`}
                             >
                                 <p className="text-[9px] font-bold opacity-60">{i + 1}</p>
@@ -278,7 +278,7 @@ export default function VideoOverviewPage() {
                     </div>
 
                     {/* Narration Text */}
-                    <div className="bg-white rounded-2xl p-5 shadow-[var(--shadow-card)] border border-[var(--border)]/50">
+                    <div className="bg-[var(--bg-card)] rounded-2xl p-5 shadow-[var(--shadow-card)] border border-[var(--border)]/50">
                         <p className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider mb-2">Narration Script</p>
                         <p className="text-sm text-[var(--text-primary)] leading-relaxed italic">&ldquo;{data.slides[current].narration}&rdquo;</p>
                     </div>

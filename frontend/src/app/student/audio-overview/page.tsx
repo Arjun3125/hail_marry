@@ -146,7 +146,7 @@ export default function AudioOverviewPage() {
             </div>
 
             {/* Input */}
-            <div className="bg-white rounded-2xl p-5 shadow-[var(--shadow-card)] border border-[var(--border)]/50 mb-5">
+            <div className="bg-[var(--bg-card)] rounded-2xl p-5 shadow-[var(--shadow-card)] border border-[var(--border)]/50 mb-5">
                 <input
                     value={topic}
                     onChange={(e) => setTopic(e.target.value)}
@@ -183,7 +183,7 @@ export default function AudioOverviewPage() {
             )}
 
             {loading && (
-                <div className="bg-white rounded-2xl p-12 shadow-[var(--shadow-card)] text-center border border-[var(--border)]/50">
+                <div className="bg-[var(--bg-card)] rounded-2xl p-12 shadow-[var(--shadow-card)] text-center border border-[var(--border)]/50">
                     <div className="w-14 h-14 mx-auto mb-4 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center animate-pulse">
                         <Headphones className="w-7 h-7 text-white" />
                     </div>
@@ -200,7 +200,7 @@ export default function AudioOverviewPage() {
 
             {/* Podcast Player */}
             {!loading && data && (
-                <div className="bg-white rounded-2xl shadow-[var(--shadow-card)] border border-[var(--border)]/50 overflow-hidden">
+                <div className="bg-[var(--bg-card)] rounded-2xl shadow-[var(--shadow-card)] border border-[var(--border)]/50 overflow-hidden">
                     {/* Player Header */}
                     <div className="bg-gradient-to-r from-violet-500 to-purple-600 p-5 text-white">
                         <p className="text-[10px] uppercase tracking-widest opacity-70 mb-1">Now Playing</p>

@@ -47,7 +47,7 @@ export default function ParentResultsPage() {
             ) : (
                 <div className="space-y-3">
                     {items.map((item) => (
-                        <div key={item.name} className="bg-white rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)]">
+                        <div key={item.name} className="bg-[var(--bg-card)] rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)]">
                             <div className="flex items-center justify-between mb-3">
                                 <h2 className="text-base font-semibold text-[var(--text-primary)]">{item.name}</h2>
                                 <span className="text-sm font-medium text-[var(--text-secondary)]">Avg: {item.avg}%</span>

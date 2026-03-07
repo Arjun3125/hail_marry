@@ -192,7 +192,7 @@ export default function UsersPage() {
                         onClick={() => setRoleFilter(r)}
                         className={`px-3 py-2 text-xs font-medium rounded-[var(--radius-sm)] capitalize transition-colors ${roleFilter === r
                             ? "bg-[var(--primary)] text-white"
-                            : "bg-white border border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--primary)]"
+                            : "bg-[var(--bg-card)] border border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--primary)]"
                             }`}
                     >
                         {r}
@@ -200,7 +200,7 @@ export default function UsersPage() {
                 ))}
             </div>
 
-            <div className="bg-white rounded-[var(--radius)] shadow-[var(--shadow-card)] overflow-hidden">
+            <div className="bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full min-w-[700px]">
                         <thead>
@@ -280,7 +280,7 @@ export default function UsersPage() {
                 </div>
                 </div>
 
-                <div className="bg-white rounded-[var(--radius)] shadow-[var(--shadow-card)] p-5 mt-6">
+                <div className="bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] p-5 mt-6">
                     <h2 className="text-base font-semibold text-[var(--text-primary)] mb-4">Parent-Child Links</h2>
 
                     <div className="grid md:grid-cols-[1fr_1fr_auto] gap-3 mb-4">

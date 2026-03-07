@@ -116,7 +116,7 @@ export default function ResultsPage() {
                 </div>
             ) : null}
 
-            <div className="bg-white rounded-[var(--radius)] p-6 shadow-[var(--shadow-card)] mb-6">
+            <div className="bg-[var(--bg-card)] rounded-[var(--radius)] p-6 shadow-[var(--shadow-card)] mb-6">
                 <div className="flex items-center gap-3 mb-2">
                     <Award className="w-5 h-5 text-[var(--primary)]" />
                     <h2 className="text-base font-semibold text-[var(--text-primary)]">Overall Average</h2>
@@ -129,7 +129,7 @@ export default function ResultsPage() {
                 </div>
             </div>
 
-            <div className="bg-white rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)] mb-6">
+            <div className="bg-[var(--bg-card)] rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)] mb-6">
                 <div className="flex items-center gap-2 mb-3">
                     <TrendingUp className="w-4 h-4 text-[var(--primary)]" />
                     <h2 className="text-base font-semibold text-[var(--text-primary)]">Performance Trend</h2>
@@ -166,17 +166,17 @@ export default function ResultsPage() {
             </div>
 
             {loading ? (
-                <div className="bg-white rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)] text-sm text-[var(--text-muted)]">
+                <div className="bg-[var(--bg-card)] rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)] text-sm text-[var(--text-muted)]">
                     Loading results...
                 </div>
             ) : subjects.length === 0 ? (
-                <div className="bg-white rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)] text-sm text-[var(--text-muted)]">
+                <div className="bg-[var(--bg-card)] rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)] text-sm text-[var(--text-muted)]">
                     No results published yet.
                 </div>
             ) : (
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {subjects.map((subject) => (
-                        <div key={subject.name} className="bg-white rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)]">
+                        <div key={subject.name} className="bg-[var(--bg-card)] rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)]">
                             <div className="flex items-center justify-between mb-4">
                                 <h3 className="text-base font-semibold text-[var(--text-primary)]">{subject.name}</h3>
                                 <span className="text-sm font-bold" style={{ color: getColor(subject.avg) }}>

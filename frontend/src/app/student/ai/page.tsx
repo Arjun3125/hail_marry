@@ -214,7 +214,7 @@ export default function AIAssistant() {
                     </div>
                     <div className="flex items-center gap-2 self-start sm:self-auto">
                         {/* Language Selector */}
-                        <div className="flex items-center gap-1.5 bg-white border border-[var(--border)]/50 rounded-xl px-3 py-2">
+                        <div className="flex items-center gap-1.5 bg-[var(--bg-card)] border border-[var(--border)]/50 rounded-xl px-3 py-2">
                             <Globe className="w-3.5 h-3.5 text-[var(--text-muted)]" />
                             <select
                                 value={language}
@@ -229,7 +229,7 @@ export default function AIAssistant() {
                         {/* Settings Toggle */}
                         <button
                             onClick={() => setShowSettings(!showSettings)}
-                            className={`p-2 rounded-xl border transition-all ${showSettings ? "bg-[var(--primary)] text-white border-[var(--primary)]" : "bg-white text-[var(--text-muted)] border-[var(--border)]/50 hover:border-[var(--primary)]"}`}
+                            className={`p-2 rounded-xl border transition-all ${showSettings ? "bg-[var(--primary)] text-white border-[var(--primary)]" : "bg-[var(--bg-card)] text-[var(--text-muted)] border-[var(--border)]/50 hover:border-[var(--primary)]"}`}
                         >
                             <Settings2 className="w-4 h-4" />
                         </button>
@@ -239,7 +239,7 @@ export default function AIAssistant() {
 
             {/* Settings Panel */}
             {showSettings && (
-                <div className="bg-white rounded-2xl p-4 mb-4 border border-[var(--border)]/50 shadow-sm animate-[fadeIn_0.2s_ease-out]">
+                <div className="bg-[var(--bg-card)] rounded-2xl p-4 mb-4 border border-[var(--border)]/50 shadow-sm animate-[fadeIn_0.2s_ease-out]">
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                         <div>
                             <label className="block text-[10px] font-bold text-[var(--text-muted)] mb-2 uppercase tracking-wider">Response Length</label>
@@ -291,7 +291,7 @@ export default function AIAssistant() {
                         title={m.desc}
                         className={`group relative flex flex-col items-center gap-1.5 px-3 py-3 rounded-xl text-xs font-medium transition-all duration-200 ${mode === m.id
                                 ? `bg-gradient-to-br ${m.gradient} text-white shadow-lg scale-[1.03]`
-                                : "bg-white text-[var(--text-secondary)] border border-[var(--border)] hover:shadow-md hover:scale-[1.02]"
+                                : "bg-[var(--bg-card)] text-[var(--text-secondary)] border border-[var(--border)] hover:shadow-md hover:scale-[1.02]"
                             } ${loading ? "opacity-60 cursor-not-allowed" : ""}`}
                     >
                         <m.icon className={`w-4 h-4 transition-transform group-hover:scale-110 ${mode === m.id ? "text-white" : "text-[var(--primary)]"}`} />
@@ -311,7 +311,7 @@ export default function AIAssistant() {
                                     <p className="text-sm">{item.query}</p>
                                 </div>
                             </div>
-                            <div className="bg-white rounded-2xl p-5 shadow-[var(--shadow-card)] border border-[var(--border)]/50">
+                            <div className="bg-[var(--bg-card)] rounded-2xl p-5 shadow-[var(--shadow-card)] border border-[var(--border)]/50">
                                 <div className="flex items-center gap-2 mb-3">
                                     <div className={`p-1 rounded-lg bg-gradient-to-br ${itemMode.gradient}`}>
                                         <Bot className="w-3 h-3 text-white" />
@@ -338,7 +338,7 @@ export default function AIAssistant() {
                     );
                 })}
                 {loading && (
-                    <div className="bg-white rounded-2xl p-5 shadow-[var(--shadow-card)] border border-[var(--border)]/50">
+                    <div className="bg-[var(--bg-card)] rounded-2xl p-5 shadow-[var(--shadow-card)] border border-[var(--border)]/50">
                         <div className="flex items-center gap-3">
                             <div className={`p-2 rounded-xl bg-gradient-to-br ${activeMode.gradient} animate-pulse`}>
                                 <Bot className="w-4 h-4 text-white" />
@@ -365,7 +365,7 @@ export default function AIAssistant() {
 
             {/* Empty State */}
             {history.length === 0 && !loading && (
-                <div className="bg-white rounded-2xl p-12 shadow-[var(--shadow-card)] text-center mb-6 border border-[var(--border)]/50">
+                <div className="bg-[var(--bg-card)] rounded-2xl p-12 shadow-[var(--shadow-card)] text-center mb-6 border border-[var(--border)]/50">
                     <div className={`w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br ${activeMode.gradient} flex items-center justify-center shadow-lg`}>
                         <Bot className="w-8 h-8 text-white" />
                     </div>
@@ -382,7 +382,7 @@ export default function AIAssistant() {
             )}
 
             {/* Input */}
-            <form onSubmit={handleSubmit} className="sticky bottom-4 bg-white rounded-2xl shadow-xl p-3 flex items-center gap-2 sm:gap-3 border border-[var(--border)]/50">
+            <form onSubmit={handleSubmit} className="sticky bottom-4 bg-[var(--bg-card)] rounded-2xl shadow-xl p-3 flex items-center gap-2 sm:gap-3 border border-[var(--border)]/50">
                 <input
                     type="text"
                     value={query}

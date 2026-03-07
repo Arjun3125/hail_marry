@@ -71,21 +71,21 @@ export default function AdminSecurityPage() {
             ) : null}
 
             <div className="grid md:grid-cols-3 gap-4 mb-6">
-                <div className="bg-white rounded-[var(--radius)] shadow-[var(--shadow-card)] p-4">
+                <div className="bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] p-4">
                     <div className="flex items-center gap-2 mb-1">
                         <Shield className="w-4 h-4 text-[var(--success)]" />
                         <span className="text-xs text-[var(--text-muted)]">Security Status</span>
                     </div>
                     <p className="text-lg font-bold text-[var(--success)]">{failedLogins24h > 0 ? "Monitor" : "Secure"}</p>
                 </div>
-                <div className="bg-white rounded-[var(--radius)] shadow-[var(--shadow-card)] p-4">
+                <div className="bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] p-4">
                     <div className="flex items-center gap-2 mb-1">
                         <AlertTriangle className="w-4 h-4 text-[var(--warning)]" />
                         <span className="text-xs text-[var(--text-muted)]">Failed Logins (24h)</span>
                     </div>
                     <p className="text-lg font-bold text-[var(--text-primary)]">{failedLogins24h}</p>
                 </div>
-                <div className="bg-white rounded-[var(--radius)] shadow-[var(--shadow-card)] p-4">
+                <div className="bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] p-4">
                     <div className="flex items-center gap-2 mb-1">
                         <User className="w-4 h-4 text-[var(--primary)]" />
                         <span className="text-xs text-[var(--text-muted)]">Admin Actions (7d)</span>
@@ -94,7 +94,7 @@ export default function AdminSecurityPage() {
                 </div>
             </div>
 
-            <div className="bg-white rounded-[var(--radius)] shadow-[var(--shadow-card)] overflow-hidden">
+            <div className="bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] overflow-hidden">
                 <div className="px-5 py-3 border-b border-[var(--border)]">
                     <h2 className="text-base font-semibold text-[var(--text-primary)]">Audit Trail</h2>
                 </div>

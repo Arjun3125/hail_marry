@@ -97,7 +97,7 @@ export default function AdminDashboard() {
                 <>
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
                         {kpis.map((kpi) => (
-                            <div key={kpi.label} className="bg-white rounded-[var(--radius)] p-4 shadow-[var(--shadow-card)]">
+                            <div key={kpi.label} className="bg-[var(--bg-card)] rounded-[var(--radius)] p-4 shadow-[var(--shadow-card)]">
                                 <div className="flex items-center justify-between mb-2">
                                     <kpi.icon className="w-4 h-4" style={{ color: kpi.color }} />
                                 </div>
@@ -107,7 +107,7 @@ export default function AdminDashboard() {
                         ))}
                     </div>
 
-                    <div className="bg-white rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)]">
+                    <div className="bg-[var(--bg-card)] rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)]">
                         <div className="flex items-center justify-between mb-4">
                             <h2 className="text-base font-semibold text-[var(--text-primary)]">Queue Health</h2>
                             <Workflow className="w-4 h-4 text-[var(--primary)]" />
@@ -132,7 +132,7 @@ export default function AdminDashboard() {
                         </div>
                     </div>
 
-                    <div className="bg-white rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)]">
+                    <div className="bg-[var(--bg-card)] rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)]">
                         <div className="flex items-center justify-between mb-4">
                             <h2 className="text-base font-semibold text-[var(--text-primary)]">Active Alerts</h2>
                             <div className="flex items-center gap-3">
@@ -177,7 +177,7 @@ export default function AdminDashboard() {
                         </div>
                     </div>
 
-                    <div className="bg-white rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)]">
+                    <div className="bg-[var(--bg-card)] rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)]">
                         <h2 className="text-base font-semibold text-[var(--text-primary)] mb-4">Recent Security Activity</h2>
                         <div className="space-y-3">
                             {activity.slice(0, 8).map((item) => (

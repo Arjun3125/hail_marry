@@ -127,17 +127,17 @@ export default function AIReviewPage() {
 
                 <div className="space-y-3">
                     {loading ? (
-                        <div className="bg-white rounded-[var(--radius)] shadow-[var(--shadow-card)] p-5 text-sm text-[var(--text-muted)]">
+                        <div className="bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] p-5 text-sm text-[var(--text-muted)]">
                             Loading responses...
                         </div>
                     ) : items.length === 0 ? (
-                        <div className="bg-white rounded-[var(--radius)] shadow-[var(--shadow-card)] p-5 text-sm text-[var(--text-muted)]">
+                        <div className="bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] p-5 text-sm text-[var(--text-muted)]">
                             No responses available for review.
                         </div>
                     ) : items.map((item) => (
                         <div
                             key={item.id}
-                            className={`bg-white rounded-[var(--radius)] shadow-[var(--shadow-card)] p-5 border transition-colors ${selectedId === item.id ? "border-[var(--primary)]" : "border-transparent"}`}
+                            className={`bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] p-5 border transition-colors ${selectedId === item.id ? "border-[var(--primary)]" : "border-transparent"}`}
                         >
                             <div className="flex items-center justify-between mb-3 gap-3">
                                 <div className="flex items-center gap-2 min-w-0">
@@ -203,7 +203,7 @@ export default function AIReviewPage() {
                 </div>
             </div>
 
-            <div className="bg-white rounded-[var(--radius)] shadow-[var(--shadow-card)] p-5 h-fit xl:sticky xl:top-6">
+            <div className="bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] p-5 h-fit xl:sticky xl:top-6">
                 <div className="flex items-center gap-2 mb-4">
                     <ShieldAlert className="w-4 h-4 text-[var(--primary)]" />
                     <h2 className="text-sm font-semibold text-[var(--text-primary)]">Trace Viewer</h2>

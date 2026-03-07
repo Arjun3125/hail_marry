@@ -76,7 +76,7 @@ export default function TeacherProfilePage() {
                 </div>
             ) : null}
 
-            <div className="bg-white rounded-[var(--radius)] shadow-[var(--shadow-card)] p-6 max-w-lg">
+            <div className="bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] p-6 max-w-lg">
                 <div className="w-16 h-16 bg-[var(--primary-light)] rounded-full flex items-center justify-center mb-4">
                     <User className="w-8 h-8 text-[var(--primary)]" />
                 </div>

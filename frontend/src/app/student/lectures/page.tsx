@@ -67,11 +67,11 @@ export default function LecturesPage() {
             ) : null}
 
             {loading ? (
-                <div className="bg-white rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)] text-sm text-[var(--text-muted)]">
+                <div className="bg-[var(--bg-card)] rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)] text-sm text-[var(--text-muted)]">
                     Loading lectures...
                 </div>
             ) : lectures.length === 0 ? (
-                <div className="bg-white rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)] text-sm text-[var(--text-muted)]">
+                <div className="bg-[var(--bg-card)] rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)] text-sm text-[var(--text-muted)]">
                     No lectures available for your class.
                 </div>
             ) : (
@@ -81,7 +81,7 @@ export default function LecturesPage() {
                         <select
                             value={selectedSubject}
                             onChange={(event) => setSelectedSubject(event.target.value)}
-                            className="px-3 py-2 text-sm border border-[var(--border)] rounded-[var(--radius-sm)] bg-white text-[var(--text-primary)]"
+                            className="px-3 py-2 text-sm border border-[var(--border)] rounded-[var(--radius-sm)] bg-[var(--bg-card)] text-[var(--text-primary)]"
                         >
                             <option value="all">All Subjects</option>
                             {subjects.map((subject) => (
@@ -94,7 +94,7 @@ export default function LecturesPage() {
 
                     <div className="grid md:grid-cols-2 gap-4">
                     {filteredLectures.map((lecture, i) => (
-                        <div key={`${lecture.title}-${i}`} className="bg-white rounded-[var(--radius)] shadow-[var(--shadow-card)] overflow-hidden">
+                        <div key={`${lecture.title}-${i}`} className="bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] overflow-hidden">
                             <div className="h-36 bg-gradient-to-br from-[var(--primary-light)] to-[var(--primary)] flex items-center justify-center">
                                 <Youtube className="w-12 h-12 text-white/80" />
                             </div>
