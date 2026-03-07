@@ -94,11 +94,8 @@ export default function LoginPage() {
                     <div className="w-16 h-16 bg-[var(--primary-light)] rounded-2xl flex items-center justify-center mx-auto mb-4">
                         <GraduationCap className="w-8 h-8 text-[var(--primary)]" />
                     </div>
-                    <h1 className="text-2xl font-bold text-[var(--text-primary)] tracking-tight">
-                        Welcome to ModernHustlers
-                    </h1>
-                    <div className="flex items-center justify-center mt-2">
-                        <img src="/brand/logo-mark.png" alt="ModernHustlers" className="h-5 object-contain" />
+                    <div className="flex items-center justify-center mt-4">
+                        <img src="/brand/logo-mark.png" alt="ModernHustlers" className="h-7 object-contain" />
                     </div>
                     <p className="text-sm text-[var(--text-secondary)] mt-2">
                         Sign in with your school Google account

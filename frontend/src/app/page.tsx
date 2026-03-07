@@ -72,13 +72,8 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <GraduationCap className="w-7 h-7 text-[var(--primary)]" />
-            <div className="flex flex-col justify-center leading-none">
-              <span className="text-xl font-semibold text-[var(--text-primary)] tracking-tight">
-                ModernHustlers
-              </span>
-              <div className="flex items-center gap-1 mt-1">
-                <img src="/brand/logo-mark.png" alt="ModernHustlers" className="h-3 object-contain" />
-              </div>
+            <div className="flex flex-col justify-center h-full">
+              <img src="/brand/logo-mark.png" alt="ModernHustlers" className="h-[22px] mt-0.5 object-contain" />
             </div>
           </div>
           <div className="hidden md:flex items-center gap-8">
@@ -281,11 +276,8 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-3">
             <GraduationCap className="w-6 h-6 text-[var(--text-primary)]" />
-            <div className="flex flex-col justify-center leading-none">
-              <span className="font-bold text-[var(--text-primary)] tracking-tight text-lg">ModernHustlers</span>
-              <div className="flex items-center gap-1 mt-1.5">
-                <img src="/brand/logo-mark.png" alt="ModernHustlers" className="h-3.5 object-contain" />
-              </div>
+            <div className="flex flex-col justify-center h-full">
+              <img src="/brand/logo-mark.png" alt="ModernHustlers" className="h-[20px] mt-0.5 object-contain opacity-80" />
             </div>
           </div>
           <p className="text-sm text-[var(--text-muted)]">
