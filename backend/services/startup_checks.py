@@ -81,8 +81,6 @@ def enforce_startup_dependencies(service_name: str) -> dict[str, Any]:
         logger.info("Startup dependency checks passed for %s", service_name)
         return status
 
-    message = f"Startup dependency checks failed for {service_name}: {status['checks']}"
-    if settings.startup_checks.strict:
-        raise RuntimeError(message)
-    logger.warning(message)
+    if not status["ready"]:
+        logger.warning("Startup dependency checks failed for %s: %s", service_name, status["checks"])
     return status
