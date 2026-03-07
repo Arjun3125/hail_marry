@@ -146,7 +146,7 @@ export default function LandingPage() {
             {audiences.map((tier) => (
               <div
                 key={tier.title}
-                className="bg-[var(--bg-page)] p-8 rounded-2xl border border-[var(--border)] hover:border-[var(--text-muted)] transition-colors"
+                className="glass-panel p-8 rounded-2xl transition-colors hover:border-[var(--text-muted)]"
               >
                 <div className="w-12 h-12 bg-[var(--bg-card)] border border-[var(--border)] rounded-xl flex items-center justify-center mb-6">
                   <tier.icon className="w-6 h-6 text-[var(--primary)]" />
@@ -178,7 +178,7 @@ export default function LandingPage() {
             {features.map((f, i) => (
               <div
                 key={f.title}
-                className={`bg-[var(--bg-card)] p-8 rounded-2xl border border-[var(--border)] transition-all ${i === 4 ? "md:col-span-2 lg:col-span-1" : ""}`}
+                className={`glass-panel p-8 rounded-2xl transition-all ${i === 4 ? "md:col-span-2 lg:col-span-1" : ""}`}
               >
                 <div className="w-10 h-10 bg-[var(--bg-page)] border border-[var(--border)] rounded-lg flex items-center justify-center mb-6">
                   <f.icon className="w-5 h-5 text-[var(--primary)]" />
@@ -252,7 +252,7 @@ export default function LandingPage() {
             Why Invest in VidyaOS?
           </h2>
           <div className="grid md:grid-cols-2 gap-8 text-left mt-12">
-            <div className="bg-[var(--bg-card)] border border-[var(--border)] p-8 rounded-2xl">
+            <div className="glass-panel p-8 rounded-2xl">
               <h3 className="text-xl font-bold text-[var(--text-primary)] mb-3 flex items-center gap-2 tracking-tight">
                 <CheckCircle2 className="w-5 h-5 text-[var(--success)]" />
                 Platform Consolidation
@@ -261,7 +261,7 @@ export default function LandingPage() {
                 Replaces three or more separate subscriptions. Instead of paying separately for a traditional ERP, a disjointed LMS, and a risky public AI tool, VidyaOS unifies it all under one secure umbrella.
               </p>
             </div>
-            <div className="bg-[var(--bg-card)] border border-[var(--border)] p-8 rounded-2xl">
+            <div className="glass-panel p-8 rounded-2xl">
               <h3 className="text-xl font-bold text-[var(--text-primary)] mb-3 flex items-center gap-2 tracking-tight">
                 <CheckCircle2 className="w-5 h-5 text-[var(--success)]" />
                 Prevent Educator Burnout

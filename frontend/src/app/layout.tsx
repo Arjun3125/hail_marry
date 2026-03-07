@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
-import { Inter_Tight } from "next/font/google";
+import { Inter_Tight, Geist } from "next/font/google";
 import "./globals.css";
+import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import DemoToolbarWrapper from "@/components/DemoToolbarWrapper";
+import { cn } from "@/lib/utils";
+
+const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
 const interTight = Inter_Tight({
   subsets: ["latin"],
@@ -21,7 +25,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={interTight.variable}>
+    <html lang="en" className={cn("font-sans", geist.variable)}>
       <head>
         <script
           src="https://accounts.google.com/gsi/client"
@@ -29,9 +33,16 @@ export default function RootLayout({
           defer
         />
       </head>
-      <body className="antialiased bg-slate-50 text-slate-900">
-        {children}
-        <DemoToolbarWrapper />
+      <body className="antialiased bg-[var(--bg-page)] text-[var(--text-primary)] transition-colors duration-300">
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          {children}
+          <DemoToolbarWrapper />
+        </ThemeProvider>
       </body>
     </html>
   );

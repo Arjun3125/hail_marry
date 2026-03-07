@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { GraduationCap, LogOut, Menu, X, ChevronLeft } from "lucide-react";
+import { ThemeToggle } from "./theme/ThemeToggle";
 import { LucideIcon } from "lucide-react";
 import { API_BASE, clearStoredAccessToken } from "@/lib/api";
 
@@ -89,22 +90,29 @@ export default function Sidebar({ items, role, userName }: SidebarProps) {
                 })}
             </nav>
 
-            {/* User & Logout */}
-            <div className="border-t border-slate-200 p-2">
-                {userName && !collapsed && (
-                    <p className="mb-1 truncate px-3 text-xs text-slate-400">
-                        {userName}
-                    </p>
+            {/* User & Settings */}
+            <div className="border-t border-slate-200 p-2 flex items-center justify-between">
+                <div className="flex flex-col min-w-0 flex-1">
+                    {userName && !collapsed && (
+                        <p className="mb-1 truncate px-3 text-xs text-slate-400">
+                            {userName}
+                        </p>
+                    )}
+                    <button
+                        onClick={handleLogout}
+                        title={collapsed ? "Logout" : undefined}
+                        className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-slate-600 transition-colors hover:bg-red-50 hover:text-red-600 ${collapsed ? "justify-center" : ""
+                            }`}
+                    >
+                        <LogOut className="h-[18px] w-[18px] flex-shrink-0" />
+                        {!collapsed && "Logout"}
+                    </button>
+                </div>
+                {!collapsed && (
+                    <div className="px-2">
+                        <ThemeToggle />
+                    </div>
                 )}
-                <button
-                    onClick={handleLogout}
-                    title={collapsed ? "Logout" : undefined}
-                    className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-600 transition-colors hover:bg-red-50 hover:text-red-600 ${collapsed ? "justify-center" : ""
-                        }`}
-                >
-                    <LogOut className="h-[18px] w-[18px] flex-shrink-0" />
-                    {!collapsed && "Logout"}
-                </button>
             </div>
         </>
     );
