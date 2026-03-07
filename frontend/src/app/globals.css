@@ -6,12 +6,19 @@
   --primary-light: #eff6ff;
   --primary-hover: #1d4ed8;
 
-  --text-primary: #111827;
+  --text-primary: #0f172a;
+  /* Slate 900 */
   --text-secondary: #334155;
+  /* Slate 700 */
   --text-muted: #64748b;
+  /* Slate 500 */
   --bg-page: #f8fafc;
+  /* Slate 50 */
   --bg-card: #ffffff;
-  --border: #cbd5e1;
+  --bg-hover: #f1f5f9;
+  /* Slate 100 */
+  --border: #e2e8f0;
+  /* Slate 200 */
   --border-light: #e2e8f0;
 
   --success: #16a34a;
