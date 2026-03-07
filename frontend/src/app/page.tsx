@@ -73,7 +73,7 @@ export default function LandingPage() {
           <div className="flex items-center gap-2">
             <GraduationCap className="w-7 h-7 text-[var(--primary)]" />
             <div className="flex flex-col justify-center h-full">
-              <img src="/brand/logo-mark.png" alt="ModernHustlers" className="h-[22px] mt-0.5 object-contain" />
+              <span className="font-black text-xl tracking-tighter text-[var(--text-primary)]">VidyaOS</span>
             </div>
           </div>
           <div className="hidden md:flex items-center gap-8">
@@ -277,7 +277,7 @@ export default function LandingPage() {
           <div className="flex items-center gap-3">
             <GraduationCap className="w-6 h-6 text-[var(--text-primary)]" />
             <div className="flex flex-col justify-center h-full">
-              <img src="/brand/logo-mark.png" alt="ModernHustlers" className="h-[20px] mt-0.5 object-contain opacity-80" />
+              <span className="font-bold text-lg tracking-tight text-[var(--text-primary)] opacity-80">VidyaOS</span>
             </div>
           </div>
           <p className="text-sm text-[var(--text-muted)]">

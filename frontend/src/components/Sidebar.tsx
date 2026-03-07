@@ -52,7 +52,7 @@ export default function Sidebar({ items, role, userName }: SidebarProps) {
                 {!collapsed && (
                     <div className="flex flex-col justify-center">
                         <div className="flex items-center gap-2">
-                            <img src="/brand/logo-mark.png" alt="ModernHustlers" className="h-5 object-contain opacity-90" />
+                            <span className="font-bold text-lg tracking-tight text-[var(--text-primary)]">VidyaOS</span>
                             <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold capitalize text-blue-700">
                                 {role}
                             </span>
@@ -117,7 +117,7 @@ export default function Sidebar({ items, role, userName }: SidebarProps) {
                 </button>
                 <GraduationCap className="h-5 w-5 text-slate-900" />
                 <div className="flex items-center gap-2 max-w-[130px] sm:max-w-[200px]">
-                    <img src="/brand/logo-mark.png" alt="ModernHustlers" className="h-[18px] object-contain" />
+                    <span className="font-bold text-lg tracking-tight text-[var(--text-primary)]">VidyaOS</span>
                 </div>
                 <span className="ml-auto rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold capitalize text-blue-700">
                     {role}

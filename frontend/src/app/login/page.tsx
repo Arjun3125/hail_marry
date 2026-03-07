@@ -95,7 +95,7 @@ export default function LoginPage() {
                         <GraduationCap className="w-8 h-8 text-[var(--primary)]" />
                     </div>
                     <div className="flex items-center justify-center mt-4">
-                        <img src="/brand/logo-mark.png" alt="ModernHustlers" className="h-7 object-contain" />
+                        <span className="font-black text-2xl tracking-tighter text-[var(--text-primary)]">VidyaOS</span>
                     </div>
                     <p className="text-sm text-[var(--text-secondary)] mt-2">
                         Sign in with your school Google account
