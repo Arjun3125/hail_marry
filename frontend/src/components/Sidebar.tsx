@@ -56,7 +56,7 @@ export default function Sidebar({ items, role, userName }: SidebarProps) {
                             <div className="flex flex-col">
                                 <span className="font-bold text-lg tracking-tight text-[var(--text-primary)] leading-tight">VidyaOS</span>
                                 <span className="text-[9px] font-bold leading-none mt-0.5">
-                                    By <span className="text-[#000000]">Modern</span><span className="text-[#ff3b1f]">Hustlers</span>
+                                    By <span className="text-[#000000] [-webkit-text-stroke:1px_#ffffff]">Modern</span><span className="text-[#ff3b1f]">Hustlers</span>
                                 </span>
                             </div>
                             <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold capitalize text-blue-700 h-fit">
@@ -133,7 +133,7 @@ export default function Sidebar({ items, role, userName }: SidebarProps) {
                     <div className="flex flex-col">
                         <span className="font-bold text-lg tracking-tight text-[var(--text-primary)] leading-tight">VidyaOS</span>
                         <span className="text-[9px] font-bold leading-none mt-0.5">
-                            By <span className="text-[#000000]">Modern</span><span className="text-[#ff3b1f]">Hustlers</span>
+                            By <span className="text-[#000000] [-webkit-text-stroke:1px_#ffffff]">Modern</span><span className="text-[#ff3b1f]">Hustlers</span>
                         </span>
                     </div>
                 </div>
