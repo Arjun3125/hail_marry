@@ -16,8 +16,8 @@ frontend/playwright-report
 **/*.pyc
 **/*.pyo
 **/.pytest_cache
-.venv
-venv
+**/.venv
+**/venv
 
 # Large local data and references
 repo
