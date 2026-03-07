@@ -11,8 +11,6 @@ RUN pip install --no-cache-dir torch torchvision --index-url https://download.py
 
 COPY . .
 
-RUN chmod +x /app/start-worker.sh /app/start-ai-service.sh
+RUN chmod +x /app/start-api.sh /app/start-worker.sh /app/start-ai-service.sh
 
-ENV PORT=8000
-EXPOSE 8000
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["sh", "/app/start-api.sh"]
