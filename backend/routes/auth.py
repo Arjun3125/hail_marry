@@ -11,6 +11,7 @@ from auth.jwt import create_access_token, create_refresh_token, decode_refresh_t
 from auth.oauth import verify_google_token
 from config import settings
 from database import get_db
+from sqlalchemy.orm import Session
 from models.tenant import Tenant
 from models.user import User
 from schemas.auth import GoogleLoginRequest, TokenResponse, UserResponse
