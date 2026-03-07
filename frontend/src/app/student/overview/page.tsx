@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 
 import { api } from "@/lib/api";
-import { SkeletonCard, SkeletonList } from "@/components/Skeleton";
+import { SkeletonCard } from "@/components/Skeleton";
 
 type DashboardStats = {
     attendance_pct: number;

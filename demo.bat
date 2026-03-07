@@ -1,6 +1,6 @@
 @echo off
 REM ========================================
-REM  AIaaS Demo Launcher — One-Click Start
+REM  VidyaOS Demo Launcher — One-Click Start
 REM ========================================
 REM  This script launches the demo in DEMO_MODE.
 REM  No PostgreSQL, Redis, or Google OAuth needed.
@@ -9,7 +9,7 @@ REM ========================================
 
 echo.
 echo  ╔══════════════════════════════════════╗
-echo  ║   AIaaS — Investor Demo Launcher    ║
+echo  ║   VidyaOS — Investor Demo Launcher    ║
 echo  ║   No database config needed         ║
 echo  ╚══════════════════════════════════════╝
 echo.

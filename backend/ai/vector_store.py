@@ -2,21 +2,21 @@
 FAISS Vector Store — tenant-namespaced vector storage and retrieval.
 Stores document chunks as vectors for semantic search.
 """
-import os
 import json
 import numpy as np
 from pathlib import Path
 from typing import List, Dict, Optional, Tuple
 from dataclasses import dataclass, asdict
+from config import settings
 
 try:
     import faiss
 except ImportError:
     faiss = None
 
-VECTOR_DIR = Path("vector_store")
-VECTOR_DIR.mkdir(exist_ok=True)
-EMBED_DIM = 768
+VECTOR_DIR = Path(settings.storage.vector_store_dir).resolve()
+VECTOR_DIR.mkdir(parents=True, exist_ok=True)
+EMBED_DIM = settings.embedding.embed_dim
 
 
 @dataclass

@@ -3,9 +3,7 @@ RAG Retrieval Pipeline — search, rerank (cross-encoder), context dedup + compr
 """
 from typing import List, Dict, Optional
 import re
-import numpy as np
-from ai.embeddings import generate_embedding, cosine_similarity
-from ai.vector_store import get_vector_store
+from ai.providers import get_embedding_provider, get_vector_store_provider
 
 
 # ─── Cross-Encoder Reranker ──────────────────────────────────
@@ -156,12 +154,12 @@ async def retrieve_context(
     """
     # Step 1: Embed query
     try:
-        query_embedding = await generate_embedding(query)
+        query_embedding = await get_embedding_provider().embed(query)
     except Exception:
         return []
 
     # Step 2: Vector search (over-fetch for reranking)
-    store = get_vector_store(tenant_id)
+    store = get_vector_store_provider(tenant_id)
     if store.chunk_count == 0:
         return []
 

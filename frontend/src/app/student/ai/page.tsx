@@ -1,14 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Bot, Send, Loader2, FileText, Sparkles, HelpCircle, BookOpen, MessageSquare, Shuffle, Swords, PenLine, Briefcase, Globe, Settings2 } from "lucide-react";
-import { API_BASE } from "@/lib/api";
+import { api } from "@/lib/api";
 
 interface AIResponse {
     answer: string;
     citations: Array<{ source: string; page: string }>;
     mode: string;
 }
+
+type AIJobStatus = "queued" | "running" | "completed" | "failed";
 
 const modes = [
     { id: "qa", label: "Q&A", icon: HelpCircle, desc: "Ask questions about your notes", gradient: "from-blue-500 to-indigo-600" },
@@ -52,57 +54,148 @@ export default function AIAssistant() {
     const [responseLength, setResponseLength] = useState("default");
     const [expertiseLevel, setExpertiseLevel] = useState("standard");
     const [showSettings, setShowSettings] = useState(false);
+    const [jobId, setJobId] = useState<string | null>(null);
+    const [jobStatus, setJobStatus] = useState<AIJobStatus | null>(null);
+    const [pendingQuery, setPendingQuery] = useState<string | null>(null);
+
+    const QUEUED_MODES = new Set(["study_guide", "quiz"]);
 
     const activeMode = modes.find((m) => m.id === mode) || modes[0];
+
+    useEffect(() => {
+        if (!jobId || !pendingQuery) return;
+
+        let cancelled = false;
+        let timer: ReturnType<typeof setTimeout> | null = null;
+
+        const poll = async () => {
+            try {
+                const job = await api.ai.jobStatus(jobId) as {
+                    status: AIJobStatus;
+                    error?: string;
+                    result?: {
+                        answer: string;
+                        citations?: Array<{ source: string; page: string }>;
+                        mode: string;
+                    };
+                    poll_after_ms?: number;
+                };
+
+                if (cancelled) return;
+                setJobStatus(job.status);
+
+                if (job.status === "completed" && job.result) {
+                    const result = job.result;
+                    setHistory((prev) => [
+                        ...prev,
+                        {
+                            query: pendingQuery,
+                            response: {
+                                answer: result.answer || "No response received.",
+                                citations: result.citations || [],
+                                mode: result.mode || mode,
+                            },
+                        },
+                    ]);
+                    setLoading(false);
+                    setJobId(null);
+                    setPendingQuery(null);
+                    return;
+                }
+
+                if (job.status === "failed") {
+                    setHistory((prev) => [
+                        ...prev,
+                        {
+                            query: pendingQuery,
+                            response: {
+                                answer: job.error || "Sorry, something went wrong. Please try again.",
+                                citations: [],
+                                mode,
+                            },
+                        },
+                    ]);
+                    setLoading(false);
+                    setJobId(null);
+                    setPendingQuery(null);
+                    return;
+                }
+
+                timer = setTimeout(() => {
+                    void poll();
+                }, job.poll_after_ms ?? 2000);
+            } catch {
+                if (cancelled) return;
+                setHistory((prev) => [
+                    ...prev,
+                    {
+                        query: pendingQuery,
+                        response: {
+                            answer: "Cannot connect to AI service. Make sure the backend is running.",
+                            citations: [],
+                            mode,
+                        },
+                    },
+                ]);
+                setLoading(false);
+                setJobId(null);
+                setPendingQuery(null);
+            }
+        };
+
+        void poll();
+
+        return () => {
+            cancelled = true;
+            if (timer) clearTimeout(timer);
+        };
+    }, [jobId, pendingQuery, mode]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!query.trim() || loading) return;
 
+        const submittedQuery = query.trim();
         setLoading(true);
         try {
-            const res = await fetch(`${API_BASE}/api/ai/query`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                credentials: "include",
-                body: JSON.stringify({
-                    query: query.trim(),
+            if (QUEUED_MODES.has(mode)) {
+                const job = await api.ai.enqueueQueryJob({
+                    query: submittedQuery,
                     mode,
                     language,
                     response_length: responseLength,
                     expertise_level: expertiseLevel,
-                }),
-            });
-
-            if (res.ok) {
-                const data = await res.json();
+                }) as { job_id: string; status: AIJobStatus };
+                setPendingQuery(submittedQuery);
+                setJobId(job.job_id);
+                setJobStatus(job.status);
+            } else {
+                const data = await api.ai.query({
+                    query: submittedQuery,
+                    mode,
+                    language,
+                    response_length: responseLength,
+                    expertise_level: expertiseLevel,
+                }) as { answer?: string; response_text?: string; citations?: Array<{ source: string; page: string }> };
                 const aiResponse: AIResponse = {
                     answer: data.answer || data.response_text || "No response received.",
                     citations: data.citations || [],
                     mode,
                 };
-                setHistory((prev) => [...prev, { query: query.trim(), response: aiResponse }]);
-            } else {
-                setHistory((prev) => [...prev, {
-                    query: query.trim(), response: {
-                        answer: "Sorry, something went wrong. Please try again.",
-                        citations: [],
-                        mode,
-                    }
-                }]);
+                setHistory((prev) => [...prev, { query: submittedQuery, response: aiResponse }]);
+                setLoading(false);
             }
         } catch {
             setHistory((prev) => [...prev, {
-                query: query.trim(), response: {
+                query: submittedQuery, response: {
                     answer: "Cannot connect to AI service. Make sure the backend is running.",
                     citations: [],
                     mode,
                 }
             }]);
-        } finally {
             setLoading(false);
-            setQuery("");
         }
+        setQuery("");
     };
 
     return (
@@ -194,11 +287,12 @@ export default function AIAssistant() {
                     <button
                         key={m.id}
                         onClick={() => setMode(m.id)}
+                        disabled={loading}
                         title={m.desc}
                         className={`group relative flex flex-col items-center gap-1.5 px-3 py-3 rounded-xl text-xs font-medium transition-all duration-200 ${mode === m.id
                                 ? `bg-gradient-to-br ${m.gradient} text-white shadow-lg scale-[1.03]`
                                 : "bg-white text-[var(--text-secondary)] border border-[var(--border)] hover:shadow-md hover:scale-[1.02]"
-                            }`}
+                            } ${loading ? "opacity-60 cursor-not-allowed" : ""}`}
                     >
                         <m.icon className={`w-4 h-4 transition-transform group-hover:scale-110 ${mode === m.id ? "text-white" : "text-[var(--primary)]"}`} />
                         <span className="leading-tight">{m.label}</span>
@@ -250,8 +344,14 @@ export default function AIAssistant() {
                                 <Bot className="w-4 h-4 text-white" />
                             </div>
                             <div>
-                                <p className="text-sm font-medium text-[var(--text-primary)]">Thinking...</p>
-                                <p className="text-xs text-[var(--text-muted)]">Searching notes and generating response</p>
+                                <p className="text-sm font-medium text-[var(--text-primary)]">
+                                    {jobStatus === "queued" ? "Queued..." : "Thinking..."}
+                                </p>
+                                <p className="text-xs text-[var(--text-muted)]">
+                                    {jobStatus === "queued"
+                                        ? "Waiting for the AI worker to pick up this request"
+                                        : "Searching notes and generating response"}
+                                </p>
                             </div>
                             <div className="ml-auto flex gap-1">
                                 <span className="w-2 h-2 rounded-full bg-[var(--primary)] animate-bounce" style={{ animationDelay: "0ms" }} />

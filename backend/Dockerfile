@@ -10,4 +10,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+RUN chmod +x /app/start-api.sh /app/start-worker.sh /app/start-ai-service.sh
+
+CMD ["sh", "/app/start-api.sh"]

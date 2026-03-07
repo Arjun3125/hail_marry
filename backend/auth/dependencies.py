@@ -3,6 +3,7 @@ import os
 from fastapi import Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from database import get_db
+import uuid
 from auth.jwt import decode_access_token
 from models.user import User
 
@@ -35,6 +36,7 @@ async def get_current_user(request: Request, db: Session = Depends(get_db)) -> U
             if user:
                 request.state.tenant_id = str(user.tenant_id)
                 request.state.user_role = user.role
+                request.state.user_id = str(user.id)
                 return user
 
         raise HTTPException(status_code=503, detail="Demo data not seeded. Run: python seed.py")
@@ -64,15 +66,23 @@ async def get_current_user(request: Request, db: Session = Depends(get_db)) -> U
             detail="Invalid or expired token",
         )
 
-    user_id = payload.get("user_id")
-    if not user_id:
+    user_id_str = payload.get("user_id")
+    if not user_id_str:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token payload",
         )
 
+    try:
+        user_uuid = uuid.UUID(user_id_str)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Malformed user ID in token",
+        )
+
     user = db.query(User).filter(
-        User.id == user_id,
+        User.id == user_uuid,
         User.is_active == True,
         User.is_deleted == False,
     ).first()
@@ -86,6 +96,7 @@ async def get_current_user(request: Request, db: Session = Depends(get_db)) -> U
     # Attach tenant_id to request state for downstream use
     request.state.tenant_id = str(user.tenant_id)
     request.state.user_role = user.role
+    request.state.user_id = str(user.id)
 
     return user
 

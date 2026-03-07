@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
     Users,
@@ -8,6 +9,8 @@ import {
     Award,
     MessageSquare,
     Activity,
+    AlertTriangle,
+    Workflow,
 } from "lucide-react";
 
 import { api } from "@/lib/api";
@@ -20,6 +23,15 @@ type DashboardData = {
     avg_attendance: number;
     avg_performance: number;
     open_complaints: number;
+    queue_pending_depth: number;
+    queue_processing_depth: number;
+    queue_failure_rate_pct: number;
+    queue_stuck_jobs: number;
+    observability_alerts: Array<{
+        code: string;
+        severity: string;
+        message: string;
+    }>;
 };
 
 type SecurityItem = {
@@ -33,6 +45,7 @@ export default function AdminDashboard() {
     const [dashboard, setDashboard] = useState<DashboardData | null>(null);
     const [activity, setActivity] = useState<SecurityItem[]>([]);
     const [loading, setLoading] = useState(true);
+    const [dispatchingAlerts, setDispatchingAlerts] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
@@ -92,6 +105,76 @@ export default function AdminDashboard() {
                                 <p className="text-xs text-[var(--text-muted)] mt-1">{kpi.label}</p>
                             </div>
                         ))}
+                    </div>
+
+                    <div className="bg-white rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)]">
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="text-base font-semibold text-[var(--text-primary)]">Queue Health</h2>
+                            <Workflow className="w-4 h-4 text-[var(--primary)]" />
+                        </div>
+                        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                            <div className="rounded-[var(--radius-sm)] bg-[var(--bg-page)] p-4">
+                                <p className="text-xs text-[var(--text-muted)]">Pending Jobs</p>
+                                <p className="mt-2 text-2xl font-bold text-[var(--text-primary)]">{dashboard?.queue_pending_depth ?? 0}</p>
+                            </div>
+                            <div className="rounded-[var(--radius-sm)] bg-[var(--bg-page)] p-4">
+                                <p className="text-xs text-[var(--text-muted)]">Processing Jobs</p>
+                                <p className="mt-2 text-2xl font-bold text-[var(--text-primary)]">{dashboard?.queue_processing_depth ?? 0}</p>
+                            </div>
+                            <div className="rounded-[var(--radius-sm)] bg-[var(--bg-page)] p-4">
+                                <p className="text-xs text-[var(--text-muted)]">Failure Rate</p>
+                                <p className="mt-2 text-2xl font-bold text-[var(--text-primary)]">{dashboard?.queue_failure_rate_pct ?? 0}%</p>
+                            </div>
+                            <div className="rounded-[var(--radius-sm)] bg-[var(--bg-page)] p-4">
+                                <p className="text-xs text-[var(--text-muted)]">Stuck Jobs</p>
+                                <p className="mt-2 text-2xl font-bold text-[var(--text-primary)]">{dashboard?.queue_stuck_jobs ?? 0}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="bg-white rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)]">
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="text-base font-semibold text-[var(--text-primary)]">Active Alerts</h2>
+                            <div className="flex items-center gap-3">
+                                <button
+                                    type="button"
+                                    onClick={async () => {
+                                        try {
+                                            setDispatchingAlerts(true);
+                                            await api.admin.dispatchObservabilityAlerts();
+                                        } catch (err) {
+                                            setError(err instanceof Error ? err.message : "Failed to dispatch alerts");
+                                        } finally {
+                                            setDispatchingAlerts(false);
+                                        }
+                                    }}
+                                    className="rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800 hover:bg-amber-200 disabled:opacity-60"
+                                    disabled={dispatchingAlerts || (dashboard?.observability_alerts?.length ?? 0) === 0}
+                                >
+                                    {dispatchingAlerts ? "Dispatching..." : "Dispatch Alerts"}
+                                </button>
+                                <AlertTriangle className="w-4 h-4 text-[var(--warning)]" />
+                            </div>
+                        </div>
+                        <div className="space-y-3">
+                            {(dashboard?.observability_alerts || []).slice(0, 5).map((alert) => (
+                                <div key={alert.code} className="rounded-[var(--radius-sm)] border border-amber-200 bg-amber-50 p-3">
+                                    <div className="flex items-center justify-between gap-3">
+                                        <p className="text-sm font-medium text-[var(--text-primary)]">{alert.message}</p>
+                                        <span className="text-[11px] uppercase tracking-wide text-amber-700">{alert.severity}</span>
+                                    </div>
+                                    <p className="mt-1 text-xs text-[var(--text-muted)]">{alert.code}</p>
+                                </div>
+                            ))}
+                            {(dashboard?.observability_alerts?.length ?? 0) === 0 ? (
+                                <p className="text-sm text-[var(--text-muted)]">No active observability alerts.</p>
+                            ) : null}
+                            <div className="pt-2 text-sm">
+                                <Link href="/admin/traces" className="text-[var(--primary)] hover:underline">
+                                    Open Trace Viewer
+                                </Link>
+                            </div>
+                        </div>
                     </div>
 
                     <div className="bg-white rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)]">

@@ -91,9 +91,14 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <GraduationCap className="w-7 h-7 text-[var(--primary)]" />
-            <span className="text-xl font-semibold text-[var(--text-primary)]">
-              AIaaS
-            </span>
+            <div className="flex flex-col justify-center leading-none">
+              <span className="text-xl font-semibold text-[var(--text-primary)]">
+                VidyaOS
+              </span>
+              <span className="text-[10px] font-bold text-orange-600 tracking-wider uppercase mt-0.5">
+                By ModernHustlers
+              </span>
+            </div>
           </div>
           <div className="hidden md:flex items-center gap-8">
             <a href="#features" className="text-sm text-[var(--text-secondary)] hover:text-[var(--primary)] transition-colors">
@@ -265,8 +270,8 @@ export default function LandingPage() {
                 <Link
                   href="/login"
                   className={`block text-center py-2.5 rounded-[var(--radius-sm)] text-sm font-medium transition-colors ${tier.popular
-                      ? "bg-[var(--primary)] text-white hover:bg-[var(--primary-hover)]"
-                      : "border border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--primary)] hover:text-[var(--primary)]"
+                    ? "bg-[var(--primary)] text-white hover:bg-[var(--primary-hover)]"
+                    : "border border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--primary)] hover:text-[var(--primary)]"
                     }`}
                 >
                   Get Started
@@ -282,10 +287,13 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <GraduationCap className="w-5 h-5 text-[var(--primary)]" />
-            <span className="font-semibold text-[var(--text-primary)]">AIaaS</span>
+            <div className="flex flex-col justify-center leading-none">
+              <span className="font-semibold text-[var(--text-primary)]">VidyaOS</span>
+              <span className="text-[10px] font-bold text-orange-600 tracking-wider uppercase mt-1">By ModernHustlers</span>
+            </div>
           </div>
           <p className="text-sm text-[var(--text-muted)]">
-            © 2026 AIaaS. AI Infrastructure for Educational Institutions.
+            © 2026 VidyaOS by ModernHustlers. AI Infrastructure for Educational Institutions.
           </p>
           <div className="flex gap-6 text-sm text-[var(--text-secondary)]">
             <a href="#" className="hover:text-[var(--primary)]">Privacy</a>

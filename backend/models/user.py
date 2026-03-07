@@ -15,6 +15,7 @@ class User(Base):
     email = Column(String(255), nullable=False)
     full_name = Column(String(255), nullable=True)
     avatar_url = Column(String(512), nullable=True)
+    hashed_password = Column(String(255), nullable=True)
     role = Column(String(50), nullable=False, default="student")  # student, teacher, admin, parent
     is_active = Column(Boolean, default=True)
     is_deleted = Column(Boolean, default=False)

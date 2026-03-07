@@ -1,6 +1,6 @@
 #!/bin/bash
 # ========================================
-#  AIaaS Demo Launcher — One-Click Start
+#  VidyaOS Demo Launcher — One-Click Start
 # ========================================
 #  No PostgreSQL, Redis, or Google OAuth needed.
 #  Uses SQLite + auto-seeded demo data.
@@ -8,7 +8,7 @@
 
 echo ""
 echo "╔══════════════════════════════════════╗"
-echo "║   AIaaS — Investor Demo Launcher    ║"
+echo "║   VidyaOS — Investor Demo Launcher    ║"
 echo "║   No database config needed         ║"
 echo "╚══════════════════════════════════════╝"
 echo ""

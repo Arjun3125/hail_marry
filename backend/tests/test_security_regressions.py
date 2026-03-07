@@ -370,10 +370,11 @@ class StudentRouteRegressionTests(unittest.IsolatedAsyncioTestCase):
         file = UploadFile(filename="notes.pdf", file=io.BytesIO(b"small pdf payload"))
 
         with patch("ai.ingestion.ingest_document", side_effect=RuntimeError("ingest failed")):
-            payload = await student_routes.student_upload(file, current_user, db)
+            with self.assertRaises(HTTPException) as ctx:
+                await student_routes.student_upload(file, current_user, db)
 
-        self.assertEqual(payload["status"], "failed")
-        self.assertFalse(payload["success"])
+        self.assertEqual(ctx.exception.status_code, 500)
+        self.assertEqual(ctx.exception.detail, "Document ingestion failed.")
 
     def test_tool_normalizer_rejects_invalid_quiz_payload(self):
         student_routes = importlib.import_module("routes.students")
@@ -443,17 +444,17 @@ class StudentRouteRegressionTests(unittest.IsolatedAsyncioTestCase):
             "concept_map": '{"nodes":[{"id":"1","label":"Cell"}],"edges":[{"from":"1","to":"1","label":"self"}]}',
         }
 
-        async def fake_ai_query(request, current_user, db):
+        async def fake_run_study_tool(request):
             return {
-                "answer": answers[request.mode],
+                "tool": request.tool,
+                "topic": request.topic,
+                "data": student_routes._normalize_tool_output(request.tool, answers[request.tool]),
                 "citations": [{"source": "notes.pdf", "page": "1"}],
-                "trace_id": "t123",
                 "token_usage": 12,
-                "response_time_ms": 120,
                 "citation_valid": True,
             }
 
-        with patch("routes.ai.ai_query", AsyncMock(side_effect=fake_ai_query)):
+        with patch("routes.students.run_study_tool", AsyncMock(side_effect=fake_run_study_tool)):
             for mode in ["quiz", "flashcards", "mindmap", "flowchart", "concept_map"]:
                 payload = await student_routes.generate_study_tool(
                     student_routes.StudyToolGenerateRequest(tool=mode, topic="Biology"),
@@ -464,41 +465,58 @@ class StudentRouteRegressionTests(unittest.IsolatedAsyncioTestCase):
                 self.assertIn("data", payload)
 
     async def test_tools_generate_retries_once_when_json_is_malformed(self):
-        student_routes = importlib.import_module("routes.students")
-        current_user = SimpleNamespace(tenant_id=uuid4(), id=uuid4())
-        db = _DBStub({})
+        study_tools = importlib.import_module("ai.study_tools")
 
         ai_mock = AsyncMock(
             side_effect=[
                 {
+                    "tool": "quiz",
+                    "topic": "Retry topic",
                     "answer": "not-json",
                     "citations": [],
-                    "trace_id": "t1",
                     "token_usage": 1,
-                    "response_time_ms": 10,
                     "citation_valid": False,
                 },
                 {
+                    "tool": "quiz",
+                    "topic": "Retry topic",
                     "answer": '[{"question":"Q1","options":["A. One","B. Two"],"correct":"A"}]',
                     "citations": [],
-                    "trace_id": "t2",
                     "token_usage": 1,
-                    "response_time_ms": 12,
                     "citation_valid": True,
                 },
             ]
         )
 
-        with patch("routes.ai.ai_query", ai_mock):
-            payload = await student_routes.generate_study_tool(
-                student_routes.StudyToolGenerateRequest(tool="quiz", topic="Retry topic"),
-                current_user,
-                db,
+        with patch("ai.study_tools.execute_text_query", ai_mock):
+            payload = await study_tools.execute_study_tool(
+                study_tools.InternalStudyToolGenerateRequest(
+                    tool="quiz",
+                    topic="Retry topic",
+                    tenant_id=str(uuid4()),
+                )
             )
 
         self.assertEqual(ai_mock.await_count, 2)
         self.assertEqual(payload["tool"], "quiz")
         self.assertTrue(isinstance(payload["data"], list))
+
+    async def test_ai_gateway_queries_always_go_through_ai_service_boundary(self):
+        ai_gateway = importlib.import_module("services.ai_gateway")
+
+        mocked_post = AsyncMock(return_value={"answer": "ok", "mode": "qa"})
+        with patch.object(ai_gateway, "_post_to_ai_service", mocked_post):
+            result = await ai_gateway.run_text_query(
+                ai_gateway.InternalAIQueryRequest(
+                    query="What is force?",
+                    mode="qa",
+                    tenant_id=str(uuid4()),
+                )
+            )
+
+        self.assertEqual(result["answer"], "ok")
+        mocked_post.assert_awaited_once()
+        self.assertEqual(mocked_post.await_args.args[0], "/internal/ai/query")
 
     async def test_assignment_submit_create_then_replace_flow(self):
         student_routes = importlib.import_module("routes.students")

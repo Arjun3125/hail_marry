@@ -1,4 +1,4 @@
-# AIaaS Default Settings
+# VidyaOS Default Settings
 # Override per environment via settings-{env}.yaml
 
 app:
@@ -7,7 +7,7 @@ app:
     - "http://localhost:3000"
 
 database:
-  url: "postgresql://postgres:postgres@localhost:5432/aiaas"
+  url: "postgresql://postgres:postgres@localhost:5432/vidyaos"
   echo: false
 
 redis:
@@ -17,10 +17,40 @@ auth:
   jwt_secret: ""
   jwt_expiry_minutes: 60
   google_client_id: ""
+  saml_sp_base_url: "http://localhost:8000"
+
+observability:
+  service_name: "vidyaos-api"
+  log_level: "INFO"
+  log_path: ""
+  metrics_token: ""
+  queue_depth_warn_threshold_pct: 80
+  queue_failure_warn_pct: 20
+  otlp_endpoint: ""
+  trace_sample_ratio: 1.0
 
 ai_service:
   url: "http://localhost:8001"
   api_key: ""
+
+ai_queue:
+  pending_key: "ai_jobs:pending"
+  processing_key: "ai_jobs:processing"
+  result_ttl_seconds: 86400
+  max_retries: 2
+  poll_timeout_seconds: 5
+  stuck_after_seconds: 300
+  metrics_window_seconds: 3600
+  max_pending_jobs: 1000
+  max_pending_jobs_per_tenant: 200
+
+startup_checks:
+  timeout_seconds: 5
+
+worker_health:
+  host: "0.0.0.0"
+  port: 8010
+  heartbeat_stale_seconds: 60
 
 rate_limit:
   requests_per_minute: 30
@@ -53,10 +83,19 @@ embedding:
   model: "nomic-embed-text"
   embed_dim: 768
 
-vectorstore:
-  backend: "faiss"
-  # Scale: qdrant
-  # qdrant_url: "http://localhost:6333"
+vector_backend:
+  provider: "faiss"
+  qdrant_url: "http://localhost:6333"
+  qdrant_api_key: ""
+  collection_prefix: "tenant_"
+  timeout_seconds: 20
+
+compliance:
+  export_retention_days: 30
+  default_data_retention_days: 365
+
+incidents:
+  default_escalation_minutes: 30
 
 cache:
   enabled: true

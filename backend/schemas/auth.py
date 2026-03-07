@@ -1,19 +1,21 @@
 """Auth-related Pydantic schemas."""
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from uuid import UUID
 from typing import Optional
 
+class StrictBaseModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
 
-class GoogleLoginRequest(BaseModel):
+class GoogleLoginRequest(StrictBaseModel):
     token: str
 
-
-class TokenResponse(BaseModel):
+class TokenResponse(StrictBaseModel):
     access_token: str
     token_type: str = "bearer"
 
+class UserResponse(StrictBaseModel):
+    model_config = ConfigDict(from_attributes=True)
 
-class UserResponse(BaseModel):
     id: UUID
     tenant_id: UUID
     email: str
@@ -22,11 +24,7 @@ class UserResponse(BaseModel):
     role: str
     is_active: bool
 
-    class Config:
-        from_attributes = True
-
-
-class UserCreateRequest(BaseModel):
+class UserCreateRequest(StrictBaseModel):
     email: str
     full_name: str
     role: str = "student"

@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Loader2, Sparkles, ClipboardList, BookOpen, Send } from "lucide-react";
+import { Loader2, Sparkles, ClipboardList, BookOpen } from "lucide-react";
 
 import { api } from "@/lib/api";
 
 type Subject = { id: string; name: string };
 type ClassData = { id: string; name: string; subjects: Subject[] };
+type AIJobStatus = "queued" | "running" | "completed" | "failed";
 
 export default function GenerateAssessmentPage() {
     const [classes, setClasses] = useState<ClassData[]>([]);
@@ -17,6 +18,8 @@ export default function GenerateAssessmentPage() {
     const [loadingClasses, setLoadingClasses] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [result, setResult] = useState<string | null>(null);
+    const [jobId, setJobId] = useState<string | null>(null);
+    const [jobStatus, setJobStatus] = useState<AIJobStatus | null>(null);
 
     useEffect(() => {
         const load = async () => {
@@ -44,21 +47,73 @@ export default function GenerateAssessmentPage() {
         return subjects;
     }, [classes]);
 
+    useEffect(() => {
+        if (!jobId) return;
+
+        let cancelled = false;
+        let timer: ReturnType<typeof setTimeout> | null = null;
+
+        const poll = async () => {
+            try {
+                const job = (await api.ai.jobStatus(jobId)) as {
+                    status: AIJobStatus;
+                    error?: string;
+                    result?: { assessment?: string };
+                    poll_after_ms?: number;
+                };
+
+                if (cancelled) return;
+                setJobStatus(job.status);
+
+                if (job.status === "completed") {
+                    setResult(job.result?.assessment || "No assessment generated.");
+                    setLoading(false);
+                    setJobId(null);
+                    return;
+                }
+
+                if (job.status === "failed") {
+                    setError(job.error || "Failed to generate assessment");
+                    setLoading(false);
+                    setJobId(null);
+                    return;
+                }
+
+                timer = setTimeout(() => {
+                    void poll();
+                }, job.poll_after_ms ?? 2000);
+            } catch (err) {
+                if (cancelled) return;
+                setError(err instanceof Error ? err.message : "Failed to load job status");
+                setLoading(false);
+                setJobId(null);
+            }
+        };
+
+        void poll();
+
+        return () => {
+            cancelled = true;
+            if (timer) clearTimeout(timer);
+        };
+    }, [jobId]);
+
     const generate = async () => {
         if (!selectedSubject || !topic.trim()) return;
         try {
             setLoading(true);
             setError(null);
             setResult(null);
+            setJobStatus("queued");
             const payload = (await api.teacher.generateAssessment({
                 subject_id: selectedSubject,
                 topic: topic.trim(),
                 num_questions: numQuestions,
-            })) as { assessment?: string; subject?: string; topic?: string };
-            setResult(payload.assessment || "No assessment generated.");
+            })) as { job_id: string; status: AIJobStatus };
+            setJobId(payload.job_id);
+            setJobStatus(payload.status);
         } catch (err) {
             setError(err instanceof Error ? err.message : "Failed to generate assessment");
-        } finally {
             setLoading(false);
         }
     };
@@ -147,8 +202,14 @@ export default function GenerateAssessmentPage() {
                     <div className="w-12 h-12 mx-auto mb-4 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center animate-pulse">
                         <Sparkles className="w-6 h-6 text-white" />
                     </div>
-                    <p className="text-sm font-medium text-[var(--text-primary)]">Generating assessment...</p>
-                    <p className="text-xs text-[var(--text-muted)] mt-1">Searching uploaded materials and creating MCQs</p>
+                    <p className="text-sm font-medium text-[var(--text-primary)]">
+                        {jobStatus === "queued" ? "Queued assessment generation..." : "Generating assessment..."}
+                    </p>
+                    <p className="text-xs text-[var(--text-muted)] mt-1">
+                        {jobStatus === "queued"
+                            ? "Waiting for the AI worker to pick up this request"
+                            : "Searching uploaded materials and creating MCQs"}
+                    </p>
                 </div>
             ) : null}
 

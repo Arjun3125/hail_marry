@@ -95,8 +95,11 @@ export default function LoginPage() {
                         <GraduationCap className="w-8 h-8 text-[var(--primary)]" />
                     </div>
                     <h1 className="text-2xl font-bold text-[var(--text-primary)]">
-                        Welcome to AIaaS
+                        Welcome to VidyaOS
                     </h1>
+                    <p className="text-xs font-bold text-orange-600 tracking-wider mt-1 uppercase">
+                        By ModernHustlers
+                    </p>
                     <p className="text-sm text-[var(--text-secondary)] mt-2">
                         Sign in with your school Google account
                     </p>
@@ -124,30 +127,30 @@ export default function LoginPage() {
                                     </p>
                                     {demoLoginEnabled ? (
                                         <>
-                                    <button
-                                        onClick={() => void runDemoLogin("student", "/student/overview")}
-                                        className="w-full py-3 bg-[var(--primary)] text-white rounded-[var(--radius-sm)] font-medium hover:bg-[var(--primary-hover)] transition-colors mb-3"
-                                    >
-                                        Demo: Login as Student
-                                    </button>
-                                    <button
-                                        onClick={() => void runDemoLogin("teacher", "/teacher/dashboard")}
-                                        className="w-full py-3 border border-[var(--border)] text-[var(--text-secondary)] rounded-[var(--radius-sm)] font-medium hover:border-[var(--primary)] hover:text-[var(--primary)] transition-colors mb-3"
-                                    >
-                                        Demo: Login as Teacher
-                                    </button>
-                                    <button
-                                        onClick={() => void runDemoLogin("admin", "/admin/dashboard")}
-                                        className="w-full py-3 border border-[var(--border)] text-[var(--text-secondary)] rounded-[var(--radius-sm)] font-medium hover:border-[var(--primary)] hover:text-[var(--primary)] transition-colors"
-                                    >
-                                        Demo: Login as Admin
-                                    </button>
-                                    <button
-                                        onClick={() => void runDemoLogin("parent", "/parent/dashboard")}
-                                        className="w-full py-3 border border-[var(--border)] text-[var(--text-secondary)] rounded-[var(--radius-sm)] font-medium hover:border-[var(--primary)] hover:text-[var(--primary)] transition-colors mt-3"
-                                    >
-                                        Demo: Login as Parent
-                                    </button>
+                                            <button
+                                                onClick={() => void runDemoLogin("student", "/student/overview")}
+                                                className="w-full py-3 bg-[var(--primary)] text-white rounded-[var(--radius-sm)] font-medium hover:bg-[var(--primary-hover)] transition-colors mb-3"
+                                            >
+                                                Demo: Login as Student
+                                            </button>
+                                            <button
+                                                onClick={() => void runDemoLogin("teacher", "/teacher/dashboard")}
+                                                className="w-full py-3 border border-[var(--border)] text-[var(--text-secondary)] rounded-[var(--radius-sm)] font-medium hover:border-[var(--primary)] hover:text-[var(--primary)] transition-colors mb-3"
+                                            >
+                                                Demo: Login as Teacher
+                                            </button>
+                                            <button
+                                                onClick={() => void runDemoLogin("admin", "/admin/dashboard")}
+                                                className="w-full py-3 border border-[var(--border)] text-[var(--text-secondary)] rounded-[var(--radius-sm)] font-medium hover:border-[var(--primary)] hover:text-[var(--primary)] transition-colors"
+                                            >
+                                                Demo: Login as Admin
+                                            </button>
+                                            <button
+                                                onClick={() => void runDemoLogin("parent", "/parent/dashboard")}
+                                                className="w-full py-3 border border-[var(--border)] text-[var(--text-secondary)] rounded-[var(--radius-sm)] font-medium hover:border-[var(--primary)] hover:text-[var(--primary)] transition-colors mt-3"
+                                            >
+                                                Demo: Login as Parent
+                                            </button>
                                         </>
                                     ) : (
                                         <p className="text-xs text-[var(--text-muted)]">

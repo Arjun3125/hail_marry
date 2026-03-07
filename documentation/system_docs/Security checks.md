@@ -1,8 +1,16 @@
-# Security Checks
+# Security Standards and Practices Reference
 
-**Project:** AIaaS – AI Infrastructure for Educational Institutions  
-**Version:** v0.1 (Pilot → Scale Ready)  
-**Threat Model:** Multi-tenant SaaS handling student academic data
+> [!WARNING]
+> This document is a **Historical Reference** generated at an earlier project phase. 
+> It is **NOT** a continuously updated source of truth. Features like email-based local logins, queue draining, and AI observability logic have been added beyond this scope. 
+> Do not rely on this document to represent the exact live state of the codebase.
+
+---
+
+**Project:** VidyaOS – AI Infrastructure for Educational Institutions  
+**Version:** v0.1 (Current Implementation)  
+**Threat Model:** Multi-tenant SaaS handling student academic data  
+**Status:** Updated to match the repository on 2026-03-06
 
 > [!IMPORTANT]  
 > This is a checkbox document. Every item must be verified before pilot launch. Anything not verified = not launched.
@@ -36,7 +44,9 @@
 - [ ] JWT includes: `user_id`, `tenant_id`, `role`, `issued_at`, `expiry`
 - [ ] JWT stored in HTTP-only cookies (not localStorage)
 - [ ] Refresh token rotation implemented
-- [ ] SAML SSO configuration validated (if enabled)
+- [ ] SAML SSO configuration validated (backend configuration implemented)
+- [ ] CSRF middleware active for state-changing requests
+- [ ] Rate limiting middleware active in production
 
 ---
 
@@ -49,7 +59,7 @@
 - [ ] Student cannot access other students' data
 - [ ] Teacher can only view assigned class data
 - [ ] Admin constrained to own tenant data
-- [ ] Parent access scoped to linked child's data only
+- [ ] Parent access scoped to linked child's data only (via `parent_links` table)
 
 ---
 

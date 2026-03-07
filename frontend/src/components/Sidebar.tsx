@@ -50,12 +50,15 @@ export default function Sidebar({ items, role, userName }: SidebarProps) {
             <div className={`flex h-14 items-center border-b border-slate-200 px-4 ${collapsed ? "justify-center" : "gap-2.5"}`}>
                 <GraduationCap className="h-6 w-6 flex-shrink-0 text-blue-700" />
                 {!collapsed && (
-                    <>
-                        <span className="font-semibold text-slate-900">AIaaS</span>
-                        <span className="ml-auto rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold capitalize text-blue-700">
-                            {role}
-                        </span>
-                    </>
+                    <div className="flex flex-col justify-center">
+                        <div className="flex items-center gap-2">
+                            <span className="font-semibold text-slate-900">VidyaOS</span>
+                            <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold capitalize text-blue-700">
+                                {role}
+                            </span>
+                        </div>
+                        <span className="text-[9px] font-bold text-orange-600 tracking-wider uppercase">By ModernHustlers</span>
+                    </div>
                 )}
             </div>
 
@@ -114,8 +117,11 @@ export default function Sidebar({ items, role, userName }: SidebarProps) {
                     <Menu className="h-5 w-5" />
                 </button>
                 <GraduationCap className="h-5 w-5 text-blue-700" />
-                <span className="font-semibold text-slate-900 text-sm">AIaaS</span>
-                <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold capitalize text-blue-700">
+                <div className="flex flex-col justify-center leading-none">
+                    <span className="font-semibold text-slate-900 text-sm">VidyaOS</span>
+                    <span className="text-[9px] font-bold text-orange-600 tracking-wider uppercase mt-0.5">By ModernHustlers</span>
+                </div>
+                <span className="ml-auto rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold capitalize text-blue-700">
                     {role}
                 </span>
             </div>

@@ -1,5 +1,5 @@
 #!/bin/bash
-# ─── AIaaS Backup Script ─────────────────────────────
+# ─── VidyaOS Backup Script ─────────────────────────────
 # Daily automated backup for PostgreSQL + Vector DB
 # Schedule: cron tab → 0 2 * * * /app/scripts/backup.sh
 #
@@ -9,9 +9,9 @@ set -euo pipefail
 
 # ─── Configuration ───────────────────────────
 BACKUP_DIR="/backups"
-DB_NAME="${POSTGRES_DB:-aiaas}"
+DB_NAME="${POSTGRES_DB:-vidyaos}"
 DB_USER="${POSTGRES_USER:-postgres}"
-VECTOR_DIR="/app/vector_data"
+VECTOR_DIR="${VidyaOS_VECTOR_STORE_DIR:-/app/data/vector_store}"
 RETENTION_DAYS=30
 DATE=$(date +%Y-%m-%d_%H%M)
 

@@ -1,8 +1,13 @@
-"""AIaaS backend FastAPI application entry point."""
-from fastapi import FastAPI
+"""VidyaOS backend FastAPI application entry point."""
+import os
+from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.responses import PlainTextResponse
+from contextlib import asynccontextmanager
 
 from config import settings
+from database import engine
+from middleware.observability import ObservabilityMiddleware
 from middleware.tenant import TenantMiddleware
 from middleware.rate_limit import RateLimitMiddleware
 from middleware.csrf import CSRFMiddleware
@@ -13,11 +18,27 @@ from routes import parent as parent_routes
 from routes import teacher as teacher_routes
 from routes import admin as admin_routes
 from routes import ai as ai_routes
+from routes import ai_jobs as ai_job_routes
 from routes import audio as audio_routes
 from routes import video as video_routes
 from routes import discovery as discovery_routes
 from routes import demo_management as demo_mgmt_routes
+from routes import enterprise as enterprise_routes
+from routes import superadmin as superadmin_routes
+from services.alerting import get_active_alerts
+from services.metrics_registry import export_prometheus_text
+from services.startup_checks import collect_dependency_status, enforce_startup_dependencies
+from services.structured_logging import configure_structured_logging
+from services.telemetry import configure_telemetry, instrument_sqlalchemy_engine
 
+configure_structured_logging(service_name="vidyaos-api")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    if not os.environ.get("TESTING"):
+        enforce_startup_dependencies("api")
+    yield
 
 app = FastAPI(
     title=settings.app.name,
@@ -25,7 +46,10 @@ app = FastAPI(
     description="AI Infrastructure for Educational Institutions",
     docs_url="/docs" if settings.app.debug else None,
     redoc_url="/redoc" if settings.app.debug else None,
+    lifespan=lifespan,
 )
+configure_telemetry(service_name="vidyaos-api", app=app)
+instrument_sqlalchemy_engine(engine)
 
 _demo_origins = [
     "http://localhost:3000",
@@ -39,10 +63,10 @@ _allowed_origins = list(dict.fromkeys(_allowed_origins))
 _vercel_origin_regex = r"^https://.*\.vercel\.app$" if settings.app.debug else None
 
 # Order matters: last added executes first.
-if not settings.app.demo_mode:
+if not settings.app.demo_mode or os.environ.get("TESTING") == "true":
     app.add_middleware(RateLimitMiddleware)
 app.add_middleware(TenantMiddleware)
-if not settings.app.demo_mode:
+if not settings.app.demo_mode or os.environ.get("TESTING") == "true":
     app.add_middleware(CSRFMiddleware, allowed_origins=_allowed_origins)
 app.add_middleware(
     CORSMiddleware,
@@ -52,11 +76,30 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(ObservabilityMiddleware, service_name="vidyaos-api")
 
 
 @app.get("/health")
 async def health_check():
     return {"status": "healthy", "version": settings.app.version}
+
+
+@app.get("/ready")
+async def readiness_check():
+    status = collect_dependency_status("api")
+    if not status["ready"]:
+        raise HTTPException(status_code=503, detail=status)
+    return status
+
+
+@app.get("/metrics", response_class=PlainTextResponse)
+async def metrics_export(x_metrics_token: str | None = Header(default=None)):
+    expected = settings.observability.metrics_token.strip()
+    if expected and x_metrics_token != expected:
+        raise HTTPException(status_code=401, detail="Unauthorized metrics request.")
+
+    alerts = []
+    return export_prometheus_text(alerts=alerts)
 
 
 app.include_router(auth_routes.router)
@@ -66,10 +109,13 @@ app.include_router(parent_routes.router)
 app.include_router(teacher_routes.router)
 app.include_router(admin_routes.router)
 app.include_router(ai_routes.router)
+app.include_router(ai_job_routes.router)
 app.include_router(audio_routes.router)
 app.include_router(video_routes.router)
 app.include_router(discovery_routes.router)
 app.include_router(demo_mgmt_routes.router)
+app.include_router(enterprise_routes.router)
+app.include_router(superadmin_routes.router)
 
 
 # ── Auto-seed in DEMO_MODE ──

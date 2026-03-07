@@ -1,0 +1,82 @@
+groups:
+  - name: vidyaos-runtime
+    rules:
+      - alert: VidyaOSApiDown
+        expr: up{job="vidyaos-api"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: api
+        annotations:
+          summary: "VidyaOS API is down"
+          description: "Prometheus cannot scrape the public API metrics endpoint for 2 minutes."
+
+      - alert: VidyaOSAIServiceDown
+        expr: up{job="vidyaos-ai-service"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: ai-service
+        annotations:
+          summary: "Dedicated AI service is down"
+          description: "Prometheus cannot scrape the AI service metrics endpoint for 2 minutes."
+
+      - alert: VidyaOSWorkerDown
+        expr: up{job="vidyaos-worker"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: worker
+        annotations:
+          summary: "AI worker health endpoint is down"
+          description: "Prometheus cannot scrape the worker health/metrics endpoint for 2 minutes."
+
+      - alert: VidyaOSWorkerNotReady
+        expr: vidyaos_worker_ready == 0
+        for: 3m
+        labels:
+          severity: warning
+          service: worker
+        annotations:
+          summary: "AI worker is not ready"
+          description: "Worker dependencies or heartbeat are failing readiness."
+
+      - alert: VidyaOSQueueBacklogHigh
+        expr: vidyaos_queue_pending_depth > 200
+        for: 10m
+        labels:
+          severity: warning
+          service: queue
+        annotations:
+          summary: "AI queue backlog is high"
+          description: "Pending AI jobs exceeded 200 for 10 minutes."
+
+      - alert: VidyaOSQueueDeadLettersIncreasing
+        expr: increase(vidyaos_queue_dead_letter_total[15m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+          service: queue
+        annotations:
+          summary: "AI dead-letter jobs detected"
+          description: "One or more AI jobs entered the dead-letter bucket in the last 15 minutes."
+
+      - alert: VidyaOSQueueRetriesIncreasing
+        expr: increase(vidyaos_queue_retries_total[15m]) > 5
+        for: 0m
+        labels:
+          severity: warning
+          service: queue
+        annotations:
+          summary: "AI queue retries spiking"
+          description: "More than 5 AI job retries were recorded in the last 15 minutes."
+
+      - alert: VidyaOSApplicationAlertsActive
+        expr: vidyaos_alerts_active > 0
+        for: 5m
+        labels:
+          severity: warning
+          service: observability
+        annotations:
+          summary: "Application-level observability alerts are active"
+          description: "The application has active alerts persisted in its own observability layer."

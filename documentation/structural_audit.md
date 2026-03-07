@@ -1,7 +1,14 @@
-# AIaaS — Deep Structural Audit Report
+# Structural Audit Report: VidyaOS Platform
 
-**Project:** AIaaS (proxy_notebooklm) — AI Infrastructure for Educational Institutions  
-**Audit Date:** 2026-03-03  
+> [!WARNING]
+> This document is a **Historical Audit** generated at a specific point in time (Batch 1 implementation phase).
+> It is **NOT** a live or continuously updated architectural reference. Many gaps identified here (such as AI queue persistence, worker health API, and Grafana integrations) have since been resolved.
+> Do not use this as the single source of truth for the current state.
+
+---
+
+**Project:** VidyaOS (proxy_notebooklm) — AI Infrastructure for Educational Institutions
+**Audit Date:** 2026-03-03
 **Auditor Scope:** 12 system docs, full backend source (16 models, 6 AI modules, 7 route files, 3 middleware), Docker/nginx config, frontend structure (40 route directories), settings YAML, and existing feature analysis report.
 
 ---
@@ -10,7 +17,7 @@
 
 ## What is this project?
 
-AIaaS is a **software platform built for schools** that combines two things:
+VidyaOS is a **software platform built for schools** that combines two things:
 
 1. **A school management system** (ERP) — tracking attendance, marks, assignments, timetables, complaints, and lectures.
 2. **An AI study assistant** — students can ask questions about their uploaded notes and textbooks, and get answers *grounded in their actual curriculum*, with citations pointing back to the source page.
@@ -19,7 +26,7 @@ Think of it as **Google NotebookLM, but purpose-built for schools**, running on 
 
 ## What problem does it solve?
 
-Indian schools lack access to AI tools that *understand their specific curriculum*. Generic tools like ChatGPT can hallucinate. AIaaS guarantees every answer comes from the school's own uploaded materials — teachers upload PDFs and YouTube lectures, and students can query them with AI.
+Indian schools lack access to AI tools that *understand their specific curriculum*. Generic tools like ChatGPT can hallucinate. VidyaOS guarantees every answer comes from the school's own uploaded materials — teachers upload PDFs and YouTube lectures, and students can query them with AI.
 
 ## Who is it for?
 
@@ -30,7 +37,7 @@ Indian schools lack access to AI tools that *understand their specific curriculu
 
 ## Why does it matter?
 
-India has **1.5M+ schools** and a growing EdTech market. Most schools can't afford or deploy AI. AIaaS runs on a single local GPU (₹3L one-time), costs ~₹6,500/month to operate, and can serve 2-3 pilot schools simultaneously. This is an **infrastructure play** — the data accumulation and personalization loops create compounding value.
+India has **1.5M+ schools** and a growing EdTech market. Most schools can't afford or deploy AI. VidyaOS runs on a single local GPU (₹3L one-time), costs ~₹6,500/month to operate, and can serve 2-3 pilot schools simultaneously. This is an **infrastructure play** — the data accumulation and personalization loops create compounding value.
 
 ## What happens if it doesn't exist?
 
@@ -49,7 +56,7 @@ Schools continue using generic chatbots (hallucination risk), expensive cloud AI
 
 ### Existing Alternatives
 
-| Alternative | Weakness vs AIaaS |
+| Alternative | Weakness vs VidyaOS |
 |---|---|
 | **ChatGPT / Gemini** | No curriculum grounding, hallucinates, no citation, no tenant isolation, data privacy concerns |
 | **Google NotebookLM** | No multi-tenant, no ERP integration, no per-student personalization, no weak-topic intelligence |
@@ -57,7 +64,7 @@ Schools continue using generic chatbots (hallucination risk), expensive cloud AI
 | **OpenEduCat** | ERP only, no AI layer |
 | **Custom school ERPs** | No AI, outdated UX, single-tenant |
 
-**AIaaS's unique positioning:** Citation-enforced, multi-tenant, performance-aware, curriculum-grounded AI + ERP in one platform, running on affordable local hardware.
+**VidyaOS's unique positioning:** Citation-enforced, multi-tenant, performance-aware, curriculum-grounded AI + ERP in one platform, running on affordable local hardware.
 
 ---
 
@@ -463,7 +470,7 @@ Tier-based pricing (documented):
 
 | Competitor | ERP | AI | Citation | Multi-tenant | Local GPU | Price |
 |---|---|---|---|---|---|---|
-| **AIaaS (this)** | ✅ | ✅ | ✅ | ✅ | ✅ | ~₹6.5K/mo |
+| **VidyaOS (this)** | ✅ | ✅ | ✅ | ✅ | ✅ | ~₹6.5K/mo |
 | Google NotebookLM | ❌ | ✅ | ✅ | ❌ | ❌ | Free (limits) |
 | ChatGPT for Education | ❌ | ✅ | ❌ | ❌ | ❌ | $20/user/mo |
 | Byju's / Vedantu | ❌ | Partial | ❌ | ❌ | ❌ | ₹10K+/student/yr |
@@ -516,7 +523,7 @@ Tier-based pricing (documented):
 |---|---|---|
 | 1 | **Integrate Razorpay** for automated billing | Enables self-service upgrades, recurring revenue automation, reduces collection effort |
 | 2 | **Implement usage-based AI credits** with clear dashboard | Creates natural upsell moment; provides cost transparency; aligns revenue with value delivered |
-| 3 | **Add "Powered by AIaaS" watermark on free tier** | Organic marketing channel; social proof at parent-teacher meetings |
+| 3 | **Add "Powered by VidyaOS" watermark on free tier** | Organic marketing channel; social proof at parent-teacher meetings |
 
 ## 3 Risk Mitigation Strategies
 

@@ -1,5 +1,5 @@
 export const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-const ACCESS_TOKEN_KEY = "aiaas_access_token";
+const ACCESS_TOKEN_KEY = "vidyaos_access_token";
 
 export function getStoredAccessToken(): string | null {
     if (typeof window === "undefined") return null;
@@ -117,6 +117,11 @@ export const api = {
                 method: "POST",
                 body: JSON.stringify(data),
             }),
+        enqueueToolJob: (data: { tool: "quiz" | "flashcards" | "mindmap" | "flowchart" | "concept_map"; topic: string; subject_id?: string }) =>
+            apiFetch("/api/student/tools/generate/jobs", {
+                method: "POST",
+                body: JSON.stringify(data),
+            }),
         reviews: () => apiFetch("/api/student/reviews"),
         createReview: (data: { topic: string; subject_id?: string }) =>
             apiFetch("/api/student/reviews", {
@@ -182,6 +187,29 @@ export const api = {
             }),
         aiUsage: () => apiFetch("/api/admin/ai-usage"),
         aiReview: () => apiFetch("/api/admin/ai-review"),
+        aiReviewDetail: (id: string) => apiFetch(`/api/admin/ai-review/${id}`),
+        updateAIReview: (id: string, data: { action: "approve" | "flag"; note?: string }) =>
+            apiFetch(`/api/admin/ai-review/${id}`, {
+                method: "PATCH",
+                body: JSON.stringify(data),
+            }),
+        aiJobsMetrics: () => apiFetch("/api/admin/ai-jobs/metrics"),
+        aiJobs: (params?: { limit?: number; status?: string; job_type?: string }) => {
+            const query = new URLSearchParams();
+            if (params?.limit) query.set("limit", String(params.limit));
+            if (params?.status) query.set("status", params.status);
+            if (params?.job_type) query.set("job_type", params.job_type);
+            const suffix = query.toString();
+            return apiFetch(`/api/admin/ai-jobs${suffix ? `?${suffix}` : ""}`);
+        },
+        aiJobsHistory: (limit = 50) => apiFetch(`/api/admin/ai-jobs/history?limit=${limit}`),
+        aiJobDetail: (id: string) => apiFetch(`/api/admin/ai-jobs/${id}`),
+        cancelAIJob: (id: string) => apiFetch(`/api/admin/ai-jobs/${id}/cancel`, { method: "POST" }),
+        retryAIJob: (id: string) => apiFetch(`/api/admin/ai-jobs/${id}/retry`, { method: "POST" }),
+        deadLetterAIJob: (id: string) => apiFetch(`/api/admin/ai-jobs/${id}/dead-letter`, { method: "POST" }),
+        observabilityAlerts: () => apiFetch("/api/admin/observability/alerts"),
+        dispatchObservabilityAlerts: () => apiFetch("/api/admin/observability/alerts/dispatch", { method: "POST" }),
+        traceDetail: (traceId: string) => apiFetch(`/api/admin/observability/traces/${traceId}`),
         complaints: () => apiFetch("/api/admin/complaints"),
         updateComplaint: (id: string, status: string, resolution_note = "") =>
             apiFetch(`/api/admin/complaints/${id}`, {
@@ -249,6 +277,68 @@ export const api = {
         deleteParentLink: (id: string) =>
             apiFetch(`/api/admin/parent-links/${id}`, { method: "DELETE" }),
     },
+    enterprise: {
+        ssoSettings: () => apiFetch("/api/admin/enterprise/sso"),
+        updateSSOSettings: (data: { enabled?: boolean; entity_id?: string; metadata_url?: string; attribute_email?: string; attribute_name?: string }) =>
+            apiFetch("/api/admin/enterprise/sso", {
+                method: "PATCH",
+                body: JSON.stringify(data),
+            }),
+        importSSOMetadata: (data: { metadata_url?: string; metadata_xml?: string }) =>
+            apiFetch("/api/admin/enterprise/sso/import-metadata", {
+                method: "POST",
+                body: JSON.stringify(data),
+            }),
+        vectorBackend: () => apiFetch("/api/admin/enterprise/vector-backend"),
+        complianceSettings: () => apiFetch("/api/admin/enterprise/compliance/settings"),
+        updateComplianceSettings: (data: { data_retention_days?: number; export_retention_days?: number }) =>
+            apiFetch("/api/admin/enterprise/compliance/settings", {
+                method: "PATCH",
+                body: JSON.stringify(data),
+            }),
+        complianceExports: () => apiFetch("/api/admin/enterprise/compliance/exports"),
+        createComplianceExport: (data: { scope_type?: string; scope_user_id?: string }) =>
+            apiFetch("/api/admin/enterprise/compliance/exports", {
+                method: "POST",
+                body: JSON.stringify(data),
+            }),
+        deletionRequests: () => apiFetch("/api/admin/enterprise/compliance/deletion-requests"),
+        createDeletionRequest: (data: { target_user_id?: string; reason: string }) =>
+            apiFetch("/api/admin/enterprise/compliance/deletion-requests", {
+                method: "POST",
+                body: JSON.stringify(data),
+            }),
+        resolveDeletionRequest: (id: string, note: string) =>
+            apiFetch(`/api/admin/enterprise/compliance/deletion-requests/${id}/resolve`, {
+                method: "POST",
+                body: JSON.stringify({ note }),
+            }),
+        incidentRoutes: () => apiFetch("/api/admin/enterprise/incidents/routes"),
+        createIncidentRoute: (data: {
+            name: string;
+            channel_type: string;
+            target: string;
+            secret?: string;
+            severity_filter?: string;
+            escalation_channel_type?: string;
+            escalation_target?: string;
+            escalation_after_minutes?: number;
+        }) =>
+            apiFetch("/api/admin/enterprise/incidents/routes", {
+                method: "POST",
+                body: JSON.stringify(data),
+            }),
+        syncIncidents: () => apiFetch("/api/admin/enterprise/incidents/sync", { method: "POST" }),
+        incidents: () => apiFetch("/api/admin/enterprise/incidents"),
+        incidentDetail: (id: string) => apiFetch(`/api/admin/enterprise/incidents/${id}`),
+        acknowledgeIncident: (id: string) =>
+            apiFetch(`/api/admin/enterprise/incidents/${id}/acknowledge`, { method: "POST" }),
+        resolveIncident: (id: string, note: string) =>
+            apiFetch(`/api/admin/enterprise/incidents/${id}/resolve`, {
+                method: "POST",
+                body: JSON.stringify({ note }),
+            }),
+    },
     parent: {
         dashboard: () => apiFetch("/api/parent/dashboard"),
         attendance: () => apiFetch("/api/parent/attendance"),
@@ -263,8 +353,18 @@ export const api = {
                 method: "POST",
                 body: JSON.stringify(data),
             }),
+        enqueueQueryJob: (data: { query: string; mode: string; subject_id?: string; language?: string; response_length?: string; expertise_level?: string }) =>
+            apiFetch("/api/ai/query/jobs", {
+                method: "POST",
+                body: JSON.stringify(data),
+            }),
         audioOverview: (data: { topic: string; format?: string; language?: string }) =>
             apiFetch("/api/ai/audio-overview", {
+                method: "POST",
+                body: JSON.stringify(data),
+            }),
+        enqueueAudioOverviewJob: (data: { topic: string; format?: string; language?: string }) =>
+            apiFetch("/api/ai/audio-overview/jobs", {
                 method: "POST",
                 body: JSON.stringify(data),
             }),
@@ -273,6 +373,12 @@ export const api = {
                 method: "POST",
                 body: JSON.stringify(data),
             }),
+        enqueueVideoOverviewJob: (data: { topic: string; num_slides?: number; language?: string }) =>
+            apiFetch("/api/ai/video-overview/jobs", {
+                method: "POST",
+                body: JSON.stringify(data),
+            }),
+        jobStatus: (jobId: string) => apiFetch(`/api/ai/jobs/${jobId}`),
         discoverSources: (data: { query: string; max_results?: number }) =>
             apiFetch("/api/ai/discover-sources", {
                 method: "POST",

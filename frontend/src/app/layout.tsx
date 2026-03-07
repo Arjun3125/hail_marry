@@ -9,7 +9,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "AIaaS — AI-Powered Learning for Schools",
+  title: "VidyaOS — AI-Powered Learning for Schools",
   description:
     "Document intelligence platform for educational institutions. Grounded answers, citation-enforced, multi-tenant, privacy-first.",
   keywords: ["AI", "education", "school", "ERP", "learning", "NotebookLM"],

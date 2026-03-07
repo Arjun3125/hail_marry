@@ -10,7 +10,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 STORAGE_ROOT = Path(
-    os.getenv("AIAAS_STORAGE_ROOT", str(PROJECT_ROOT / "private_storage"))
+    os.getenv("VidyaOS_STORAGE_ROOT", str(PROJECT_ROOT / "private_storage"))
 ).resolve()
 
 _REL_VBA_PATTERN = re.compile(r"<Relationship[^>]*vbaProject[^>]*/>", flags=re.IGNORECASE)

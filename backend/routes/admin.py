@@ -7,7 +7,10 @@ from pydantic import BaseModel
 from typing import Optional
 import csv
 import io
+import re
 from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 
 from database import get_db
 from auth.dependencies import require_role
@@ -23,7 +26,18 @@ from models.audit_log import AuditLog
 from models.tenant import Tenant
 from models.webhook import WebhookSubscription, WebhookDelivery
 from models.parent_link import ParentLink
-from services.webhooks import emit_webhook_event
+from services.ai_queue import (
+    cancel_job,
+    drain_queue,
+    get_job_detail_for_tenant,
+    get_queue_metrics,
+    list_jobs_for_tenant,
+    move_to_dead_letter,
+    pause_queue,
+    resume_queue,
+    retry_job,
+)
+from services.alerting import get_active_alerts
 
 router = APIRouter(prefix="/api/admin", tags=["Admin"])
 
@@ -139,6 +153,144 @@ async def deactivate_user(user_id: str, current_user: User = Depends(require_rol
     db.commit()
     return {"success": True, "is_active": user.is_active}
 
+
+# ─── User Authority & Onboarding ────────────────────────────
+@router.post("/onboard/teachers")
+async def onboard_teachers(
+    file: UploadFile = File(...),
+    current_user: User = Depends(require_role("admin")),
+    db: Session = Depends(get_db),
+):
+    """
+    Onboard a list of teachers using either a CSV file or an Image (JPG/PNG).
+    CSV Format: name, email, password (optional)
+    Image Format: handwritten or printed list of names (one per line). Emails/passwords auto-generated.
+    """
+    safe_filename = file.filename or ""
+    ext = safe_filename.split(".")[-1].lower() if "." in safe_filename else ""
+    import tempfile
+    import shutil
+    import os
+
+    with tempfile.NamedTemporaryFile(suffix=f".{ext}", delete=False) as tmp:
+        shutil.copyfileobj(file.file, tmp)
+        tmp_path = tmp.name
+
+    teachers_to_create = []
+
+    if ext in ("csv", "txt"):
+        try:
+            with open(tmp_path, "r", encoding="utf-8") as f:
+                text = f.read()
+        except UnicodeDecodeError:
+            raise HTTPException(status_code=400, detail="Invalid text encoding. Please use UTF-8.")
+        
+        reader = csv.reader(io.StringIO(text))
+        for row in reader:
+            if not row or not any(row):
+                continue
+            name = row[0].strip()
+            email = row[1].strip() if len(row) > 1 else f"{re.sub(r'[^a-zA-Z0-9]', '.', name.lower())}@example.com"
+            password = row[2].strip() if len(row) > 2 else "Teacher123!"
+            teachers_to_create.append({"name": name, "email": email, "password": password})
+            
+    elif ext in ("jpg", "jpeg", "png"):
+        from ai.ocr_service import extract_text_from_image, validate_image_size
+        try:
+            with open(tmp_path, "rb") as f:
+                validate_image_size(f.read())
+        except ValueError as exc:
+            os.unlink(tmp_path)
+            raise HTTPException(status_code=400, detail=str(exc))
+        
+        try:
+            extracted_text = extract_text_from_image(tmp_path)
+            for line in extracted_text.splitlines():
+                name = line.strip()
+                if len(name) > 2:
+                    email = f"{re.sub(r'[^a-zA-Z0-9]', '.', name.lower())}@example.com"
+                    teachers_to_create.append({"name": name, "email": email, "password": "Teacher123!"})
+        except Exception:
+            os.unlink(tmp_path)
+            raise HTTPException(status_code=500, detail="OCR processing failed")
+    else:
+        os.unlink(tmp_path)
+        raise HTTPException(status_code=400, detail="Only CSV, TXT, JPG, JPEG, PNG allowed")
+        
+    # Cleanup temp file if it wasn't already handled inside the specific blocks
+    if os.path.exists(tmp_path):
+        os.unlink(tmp_path)
+
+    if not teachers_to_create:
+        raise HTTPException(status_code=400, detail="No readable names found in the file")
+
+    try:
+        from auth.auth import pwd_context
+    except ImportError:
+        from passlib.context import CryptContext
+        pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+    created_count = 0
+    tenant_domain = db.query(Tenant.domain).filter(Tenant.id == current_user.tenant_id).scalar()
+
+    for t in teachers_to_create:
+        email = t["email"]
+        if "@example.com" in email and tenant_domain:
+            email = email.replace("@example.com", f"@{tenant_domain}")
+
+        existing = db.query(User).filter(User.email == email).first()
+        if existing:
+            continue
+            
+        hashed_pw = pwd_context.hash(t["password"])
+        new_teacher = User(
+            tenant_id=current_user.tenant_id,
+            email=email,
+            full_name=t["name"],
+            role="teacher",
+            hashed_password=hashed_pw,
+            is_active=True
+        )
+        db.add(new_teacher)
+        created_count += 1
+        
+    db.commit()
+    
+    return {
+        "success": True, 
+        "message": f"Successfully onboarded {created_count} teachers.",
+        "created_count": created_count
+    }
+
+
+# ─── Queue Operations ─────────────────────────────────────────
+
+@router.post("/queue/pause")
+async def pause_ai_queue(current_user: User = Depends(require_role("admin"))):
+    """Pause the AI background queue. Workers will stop pulling new jobs."""
+    try:
+        pause_queue()
+        return {"success": True, "message": "Queue paused successfully."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/queue/resume")
+async def resume_ai_queue(current_user: User = Depends(require_role("admin"))):
+    """Resume the AI background queue."""
+    try:
+        resume_queue()
+        return {"success": True, "message": "Queue resumed successfully."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/queue/drain")
+async def drain_ai_queue(current_user: User = Depends(require_role("admin"))):
+    """Drain all pending jobs immediately to dead-letter for this tenant."""
+    try:
+        drained_count = drain_queue(str(current_user.tenant_id))
+        return {"success": True, "message": f"Drained {drained_count} jobs.", "drained_count": drained_count}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 # ─── AI Usage Analytics ─────────────────────────────────────
 @router.get("/ai-usage")

@@ -1,4 +1,4 @@
-name: AIaaS CI/CD
+name: VidyaOS CI/CD
 
 on:
   push:
@@ -20,7 +20,7 @@ jobs:
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: aiaas_test
+          POSTGRES_DB: vidyaos_test
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -57,7 +57,7 @@ jobs:
       - name: Run tests
         working-directory: backend
         env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/aiaas_test
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/vidyaos_test
           JWT_SECRET: test-secret-key-minimum-256-bits-long-enough
           APP_ENV: test
         run: |

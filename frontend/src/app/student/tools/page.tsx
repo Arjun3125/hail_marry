@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
     Brain,
     ChevronLeft,
@@ -16,6 +16,7 @@ import {
 import { api } from "@/lib/api";
 
 type Tool = "quiz" | "flashcards" | "mindmap" | "flowchart" | "concept_map";
+type AIJobStatus = "queued" | "running" | "completed" | "failed";
 
 type QuizQ = { question: string; options: string[]; correct: string; citation?: string | null };
 type Flashcard = { front: string; back: string };
@@ -38,8 +39,65 @@ export default function StudyToolsPage() {
     const [error, setError] = useState<string | null>(null);
     const [result, setResult] = useState<ToolData>(null);
     const [citations, setCitations] = useState<Array<{ source?: string; page?: string }>>([]);
+    const [jobId, setJobId] = useState<string | null>(null);
+    const [jobStatus, setJobStatus] = useState<AIJobStatus | null>(null);
 
     const selectedTool = useMemo(() => tools.find((tool) => tool.id === activeTool) || null, [activeTool]);
+
+    useEffect(() => {
+        if (!jobId) return;
+
+        let cancelled = false;
+        let timer: ReturnType<typeof setTimeout> | null = null;
+
+        const poll = async () => {
+            try {
+                const job = await api.ai.jobStatus(jobId) as {
+                    status: AIJobStatus;
+                    error?: string;
+                    result?: {
+                        data: ToolData;
+                        citations?: Array<{ source?: string; page?: string }>;
+                    };
+                    poll_after_ms?: number;
+                };
+
+                if (cancelled) return;
+                setJobStatus(job.status);
+
+                if (job.status === "completed" && job.result) {
+                    setResult(job.result.data || null);
+                    setCitations(job.result.citations || []);
+                    setLoading(false);
+                    setJobId(null);
+                    return;
+                }
+
+                if (job.status === "failed") {
+                    setError(job.error || "Failed to generate study tool");
+                    setLoading(false);
+                    setJobId(null);
+                    return;
+                }
+
+                timer = setTimeout(() => {
+                    void poll();
+                }, job.poll_after_ms ?? 2000);
+            } catch (err) {
+                if (cancelled) return;
+                setError(err instanceof Error ? err.message : "Failed to load job status");
+                setLoading(false);
+                setJobId(null);
+            }
+        };
+
+        void poll();
+
+        return () => {
+            cancelled = true;
+            if (timer) clearTimeout(timer);
+        };
+    }, [jobId]);
 
     const generateResult = async () => {
         if (!activeTool || !topic.trim()) return;
@@ -47,19 +105,22 @@ export default function StudyToolsPage() {
             setLoading(true);
             setError(null);
             setResult(null);
-            const payload = (await api.student.generateTool({
+            setCitations([]);
+            setJobStatus("queued");
+            const payload = (await api.student.enqueueToolJob({
                 tool: activeTool,
                 topic: topic.trim(),
             })) as {
-                data: ToolData;
-                citations?: Array<{ source?: string; page?: string }>;
+                job_id: string;
+                status: AIJobStatus;
             };
-            setResult(payload.data || null);
-            setCitations(payload.citations || []);
+            setJobId(payload.job_id);
+            setJobStatus(payload.status);
         } catch (err) {
             setError(err instanceof Error ? err.message : "Failed to generate study tool");
-        } finally {
             setLoading(false);
+        } finally {
+            // Job polling clears the loading state on completion/failure.
         }
     };
 
@@ -81,6 +142,7 @@ export default function StudyToolsPage() {
                     <button
                         key={tool.id}
                         onClick={() => {
+                            if (loading) return;
                             setActiveTool(tool.id);
                             setResult(null);
                             setCitations([]);
@@ -89,7 +151,7 @@ export default function StudyToolsPage() {
                             activeTool === tool.id
                                 ? `bg-gradient-to-br ${tool.color} text-white shadow-lg scale-[1.02]`
                                 : "bg-white shadow-[var(--shadow-card)] hover:shadow-md text-[var(--text-primary)]"
-                        }`}
+                        } ${loading ? "opacity-60 cursor-not-allowed" : ""}`}
                     >
                         <tool.icon className={`w-6 h-6 mx-auto mb-2 ${activeTool === tool.id ? "text-white" : "text-[var(--primary)]"}`} />
                         <p className="text-xs font-semibold">{tool.label}</p>
@@ -127,7 +189,9 @@ export default function StudyToolsPage() {
                     {loading ? (
                         <div className="bg-white rounded-[var(--radius)] shadow-[var(--shadow-card)] p-12 text-center">
                             <Loader2 className="w-8 h-8 mx-auto text-[var(--primary)] animate-spin mb-3" />
-                            <p className="text-sm text-[var(--text-secondary)]">Generating {selectedTool?.label}...</p>
+                            <p className="text-sm text-[var(--text-secondary)]">
+                                {jobStatus === "queued" ? `Queued ${selectedTool?.label}...` : `Generating ${selectedTool?.label}...`}
+                            </p>
                         </div>
                     ) : null}
 

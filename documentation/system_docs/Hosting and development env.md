@@ -1,290 +1,130 @@
 # Hosting and Development Environment
 
-**Project:** AIaaS – AI Infrastructure for Educational Institutions  
-**Version:** v0.1 (Pilot → Scale Ready)  
-**Architecture Model:** Hybrid (Cloud Control Plane + Local AI Data Plane)
+**Project:** VidyaOS  
+**Version:** v0.1 current implementation  
+**Current Architecture Model:** Frontend, public API, dedicated AI service, worker, and optional observability stack
 
 ---
 
-## 1. Hosting Strategy Overview
+## 1. Hosting Model Today
 
-| Plane | Location | Purpose |
-|---|---|---|
-| **Control Plane** | Cloud VPS | ERP, API Gateway, Auth, Usage/Billing |
-| **Data Plane** | Local GPU Server | AI Inference, Vector DB, Embedding Engine |
+The current repo supports two practical deployment patterns:
 
-This separation ensures:
-- Low AI cost during pilot (no GPU rental)
-- Secure GPU exposure (no public IP)
-- Cloud migration flexibility (swap data plane without touching control plane)
-- Infrastructure modularity
+### Local / self-hosted development
+- Next.js frontend
+- FastAPI public API
+- FastAPI AI service
+- Redis worker
+- PostgreSQL
+- Redis
+- Ollama available at `OLLAMA_URL`
 
----
+### Containerized stack
+Tracked in `docker-compose.yml`:
+- `postgres`
+- `redis`
+- `api`
+- `ai-service`
+- `worker`
+- `frontend`
+- `nginx`
 
-## 2. Cloud Hosting (Control Plane)
+Optional observability profile:
+- `prometheus`
+- `loki`
+- `promtail`
+- `tempo`
+- `grafana`
 
-### 2.1 VPS Minimum Specs (Pilot)
+Ollama is not included in the compose stack. It must run separately and be reachable from both API-side generation workflows and the AI service.
 
-| Resource | Minimum |
-|---|---|
-| CPU | 2 vCPU |
-| RAM | 4GB |
-| Storage | 80GB SSD |
-| Bandwidth | 2TB/month |
-| OS | Ubuntu 22.04 LTS |
-
-**Cost:** ₹800–₹1500/month  
-**Recommended Providers:** Hetzner, DigitalOcean, Linode
-
-### 2.2 Software Stack on VPS
-
-- Nginx (reverse proxy + TLS termination)
-- FastAPI backend (Uvicorn + Gunicorn)
-- PostgreSQL (primary database)
-- Redis (caching + rate limiting)
-- Let's Encrypt (SSL)
-- UFW firewall
-- Fail2ban (SSH protection)
-
-### 2.3 VPS Responsibilities
-
-- HTTPS termination
-- JWT validation
-- Tenant routing
-- ERP logic
-- Rate limiting
-- API logging
-- Secure forwarding to AI node
-
-**GPU never exposed publicly.**
-
----
-
-## 3. Local AI Server (Data Plane)
-
-### 3.1 Hardware Specification
-
-| Component | Spec |
-|---|---|
-| GPU | RTX 4090 (24GB VRAM) |
-| RAM | 64GB DDR5 |
-| CPU | 12–16 core |
-| Storage | 2TB NVMe |
-| Power | UPS (30 min backup) |
-
-**One-time cost:** ≈ ₹3,00,000
-
-### 3.2 Software Stack
-
-- Ubuntu 22.04
-- Ollama (LLM model runner)
-- nomic-embed-text (embedding model)
-- FAISS / Qdrant (vector database)
-- FastAPI AI microservice
-- Docker (containerized services)
-
-### 3.3 Network Setup
-
-**Never expose raw GPU server IP.**
-
-Secure connection options:
-- Reverse SSH tunnel
-- Tailscale (zero-config VPN)
-- Cloudflare Tunnel
-
-Connection must be: encrypted, IP-restricted, API-key authenticated.
-
----
-
-## 4. Environment Separation
-
-### 4.1 Development Environment
-
-Local machine setup:
-- Python 3.11+
-- Node 20+
-- Docker Desktop
-- PostgreSQL (local)
-- Redis (local)
-- Ollama (optional, small model for testing)
-
-### 4.2 Environment Variables
+## 2. Environment Variables That Matter Now
 
 ```env
-# Database
-DATABASE_URL=postgresql://user:pass@localhost:5432/aiaas
-
-# Redis
+DATABASE_URL=postgresql://user:pass@localhost:5432/vidyaos
 REDIS_URL=redis://localhost:6379
-
-# Auth
-JWT_SECRET=<256-bit-secret>
-GOOGLE_CLIENT_ID=<google-oauth-client-id>
-GOOGLE_CLIENT_SECRET=<google-oauth-secret>
-
-# AI Service
+JWT_SECRET=<strong-secret>
+GOOGLE_CLIENT_ID=<google-client-id>
+GOOGLE_CLIENT_SECRET=<google-client-secret>
+OLLAMA_URL=http://localhost:11434
 AI_SERVICE_URL=http://localhost:8001
-AI_SERVICE_KEY=<internal-api-key>
-
-# Application
-APP_ENV=development
-APP_URL=http://localhost:3000
+AI_SERVICE_KEY=<internal-shared-secret>
+APP_ENV=local
+APP_CORS_ORIGINS=["http://localhost:3000"]
+VidyaOS_STORAGE_ROOT=<optional shared storage root>
+VidyaOS_VECTOR_STORE_DIR=<optional vector path override>
+OBSERVABILITY_OTLP_ENDPOINT=http://localhost:4318/v1/traces
+OBSERVABILITY_LOG_PATH=<service log file path>
+STARTUP_CHECKS_STRICT=true
+WORKER_HEALTH_PORT=8010
 ```
 
-**Never commit `.env` files.** Use `.env.example` as template.
+## 3. Current Config Files
 
-### 4.3 Staging Environment
+Tracked YAML configuration:
+- `backend/settings.yaml`
+- `backend/settings-production.yaml`
 
-- Separate VPS (smaller instance)
-- Mock AI model (for fast integration tests)
-- Test domain (staging.aiaas.app)
-- Used for: integration testing, performance testing, schema migrations
+Behavior:
+- YAML provides defaults
+- environment variables override YAML
+- `APP_ENV=production` loads `settings-production.yaml` when present
 
-### 4.4 Production Environment
+## 4. Current Deployment Units
 
-- Stronger firewall rules
-- Monitoring tools active
-- Automated daily backups
-- Production secrets rotated quarterly
+### Public API
+- entrypoint: `backend/main.py`
+- responsibility: auth, ERP, admin APIs, queue enqueue/status, public AI routes
 
----
+### AI service
+- entrypoint: `backend/ai_service_app.py`
+- responsibility: synchronous generation runtime
 
-## 5. Configuration Management
+### Worker
+- entrypoint: `backend/ai_worker.py`
+- responsibility: queued job execution
+- health/readiness surface: `backend/worker_health_app.py`
 
-YAML-based settings per environment (inspired by PrivateGPT):
+### Frontend
+- application in `frontend/`
+- API base configured through `NEXT_PUBLIC_API_URL`
 
-```
-settings.yaml              # Default configuration
-settings-local.yaml         # Development overrides
-settings-docker.yaml        # Docker Compose deployment
-settings-staging.yaml       # Staging environment
-settings-production.yaml    # Production deployment
-```
+### Nginx
+- optional reverse proxy for local compose use
 
-Each file overrides defaults. Environment variables can override YAML values.
+## 5. Observability Deployment
 
----
+Compose now includes a first-class observability profile:
+- Prometheus scrapes service metrics
+- Loki receives logs through Promtail
+- Tempo receives OpenTelemetry traces
+- Grafana is provisioned with datasources for all three
+- Prometheus also loads prebuilt alert rules
+- Grafana also loads a prebuilt overview dashboard
 
-## 6. Containerization Strategy
+This is tracked in:
+- `ops/observability/prometheus.yml`
+- `ops/observability/loki-config.yml`
+- `ops/observability/promtail-config.yml`
+- `ops/observability/tempo.yml`
+- `ops/observability/grafana/provisioning/`
 
-### Pilot (Docker Compose)
+## 6. Current Operational Guidance
 
-```yaml
-services:
-  api:           # FastAPI backend
-  postgres:      # PostgreSQL database
-  redis:         # Cache + rate limiting
-  ai-service:    # AI inference microservice
-```
+### Development
+- run frontend, API, AI service, and worker directly, or use compose
+- keep Ollama running separately
+- use local settings for iterative work
 
-### Scale Phase (Kubernetes)
+### Production-like deployment
+- deploy API and AI service as separate processes
+- run worker against the same Redis and storage paths
+- provide a strong `JWT_SECRET` and internal `AI_SERVICE_KEY`
+- configure `APP_CORS_ORIGINS`, `NEXT_PUBLIC_API_URL`, and metrics / tracing env vars
 
-Separate pods:
-- API gateway pod
-- Worker pod (background jobs)
-- AI inference pod (GPU node)
-- Vector DB pod
-- Horizontal pod autoscaler
+## 7. Remaining Gaps
 
----
+Still not complete:
+- no built-in email / pager alert transport
 
-## 7. Deployment Workflow
-
-### 7.1 CI/CD Pipeline
-
-```
-Push to main
-    → Run tests (pytest + Playwright)
-    → Lint + type check (mypy + ruff)
-    → Build Docker image
-    → Deploy to staging
-    → Manual approval
-    → Deploy to production
-    → Restart services (zero-downtime)
-```
-
-Tool: GitHub Actions
-
-### 7.2 Database Migrations
-
-Tool: Alembic (Python)
-
-- Never manually modify production schema
-- All changes via versioned migration scripts
-- Migrations tested in staging before production
-
----
-
-## 8. Monitoring & Observability
-
-### On VPS
-
-- **Uptime Kuma** — service health checks
-- **Prometheus** — metrics collection
-- **Grafana** — dashboards
-- **Nginx access logs** — request tracking
-- **Sentry** — error tracking
-
-### On AI Node
-
-- GPU utilization (`nvidia-smi`)
-- VRAM usage
-- Query latency
-- Error rate
-- Queue length
-
----
-
-## 9. Backup Strategy
-
-| Asset | Method | Frequency | Retention |
-|---|---|---|---|
-| PostgreSQL | `pg_dump` → S3-compatible | Daily | 30 days |
-| Vector DB | Snapshot → secondary drive | Every 24h | 14 days |
-| Config files | Git repository | On change | Permanent |
-| Application logs | Log rotation → S3 | Daily | 7 days |
-
-Weekly restore test mandatory.
-
----
-
-## 10. Security Hardening
-
-### VPS
-- Disable root login
-- SSH key only (no passwords)
-- UFW firewall (allow 80/443 + SSH from limited IPs)
-- Fail2ban installed
-- Auto security updates enabled
-
-### AI Node
-- Private network only
-- Firewall allows only VPS IP
-- No public ports exposed
-- API key required for all requests
-
----
-
-## 11. Cost Breakdown (Pilot)
-
-| Item | Monthly Cost |
-|---|---|
-| VPS | ₹1,000 |
-| Internet | ₹2,000 |
-| Electricity | ₹2,500 |
-| Misc | ₹1,000 |
-| **Total** | **≈ ₹6,500/month** |
-
-One-time AI server: ≈ ₹3,00,000
-
----
-
-## 12. Failure Scenarios & Recovery
-
-| Scenario | Action |
-|---|---|
-| Power outage | UPS + auto restart services |
-| GPU crash | Health check + restart Ollama |
-| DB corruption | Restore from daily backup |
-| Tunnel failure | Auto reconnect script (retry every 30s) |
-| VPS outage | DNS failover + alerts |
+This file should be treated as current deployment truth for the repository.

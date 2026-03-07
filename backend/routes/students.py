@@ -25,6 +25,9 @@ from models.academic import Enrollment, Subject
 from models.ai_query import AIQuery
 from models.document import Document
 from models.tenant import Tenant
+from schemas.ai_runtime import InternalStudyToolGenerateRequest, StudyToolGenerateRequest
+from services.ai_gateway import run_study_tool
+from services.ai_queue import JOB_TYPE_STUDY_TOOL, enqueue_job
 from utils.upload_security import (
     UploadValidationError,
     ensure_storage_dir,
@@ -36,20 +39,15 @@ router = APIRouter(prefix="/api/student", tags=["Student"])
 logger = logging.getLogger(__name__)
 
 UPLOAD_DIR = ensure_storage_dir("uploads")
-STUDENT_ALLOWED_EXTENSIONS = {"pdf", "docx"}
+STUDENT_ALLOWED_EXTENSIONS = {"pdf", "docx", "jpg", "jpeg", "png"}
 MAX_FILE_SIZE = 25 * 1024 * 1024  # 25MB for students
 ASSIGNMENT_SUBMISSION_DIR = ensure_storage_dir("uploads", "assignment_submissions")
+OCR_OUTPUT_DIR = ensure_storage_dir("uploads", "ocr_output")
 
 
 class ComplaintCreate(BaseModel):
     category: str = "other"
     description: str
-
-
-class StudyToolGenerateRequest(BaseModel):
-    tool: Literal["quiz", "flashcards", "mindmap", "flowchart", "concept_map"]
-    topic: str
-    subject_id: str | None = None
 
 
 def _parse_uuid(value: str, field_name: str) -> UUID:
@@ -534,10 +532,33 @@ async def submit_assignment(
     if len(content) > MAX_FILE_SIZE:
         raise HTTPException(status_code=400, detail="File exceeds 25MB limit.")
 
-    stored_name = f"{current_user.tenant_id}_{current_user.id}_{assignment_uuid}_{uuid4().hex}_{safe_filename}"
-    file_path = ASSIGNMENT_SUBMISSION_DIR / stored_name
-    with open(file_path, "wb") as f:
-        f.write(content)
+    # OCR: convert image to PDF
+    if ext in ("jpg", "jpeg", "png"):
+        from ai.ocr_service import image_to_pdf, validate_image_size
+        try:
+            validate_image_size(content)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+        # Save temp image, run OCR, produce PDF
+        temp_img = ASSIGNMENT_SUBMISSION_DIR / f"_tmp_{uuid4().hex}.{ext}"
+        with open(temp_img, "wb") as f:
+            f.write(content)
+        pdf_name = f"{current_user.tenant_id}_{current_user.id}_{assignment_uuid}_{uuid4().hex}_ocr.pdf"
+        pdf_path = ASSIGNMENT_SUBMISSION_DIR / pdf_name
+        try:
+            image_to_pdf(str(temp_img), str(pdf_path), title=safe_filename)
+        except Exception as exc:
+            logger.exception("OCR processing failed")
+            raise HTTPException(status_code=500, detail="OCR processing failed.")
+        finally:
+            temp_img.unlink(missing_ok=True)
+        file_path = pdf_path
+        safe_filename = pdf_name
+    else:
+        stored_name = f"{current_user.tenant_id}_{current_user.id}_{assignment_uuid}_{uuid4().hex}_{safe_filename}"
+        file_path = ASSIGNMENT_SUBMISSION_DIR / stored_name
+        with open(file_path, "wb") as f:
+            f.write(content)
 
     now = datetime.now(timezone.utc)
     if existing_submission:
@@ -654,48 +675,43 @@ async def generate_study_tool(
     db: Session = Depends(get_db),
 ):
     """Generate structured study tools from student's grounded materials."""
+    _ = db
     topic = data.topic.strip()
     if not topic:
         raise HTTPException(status_code=400, detail="topic is required")
 
-    from routes.ai import AIQueryRequest, ai_query
-
-    ai_result = await ai_query(
-        AIQueryRequest(query=topic, mode=data.tool, subject_id=data.subject_id),
-        current_user=current_user,
-        db=db,
+    return await run_study_tool(
+        InternalStudyToolGenerateRequest(
+            tool=data.tool,
+            topic=topic,
+            subject_id=data.subject_id,
+            tenant_id=str(current_user.tenant_id),
+        )
     )
 
-    answer = str(ai_result.get("answer", ""))
-    try:
-        structured_data = _normalize_tool_output(data.tool, answer)
-    except HTTPException as exc:
-        # Retry once with a strict JSON formatting instruction for non-flowchart tools.
-        if exc.status_code != 422 or data.tool == "flowchart":
-            raise
 
-        strict_query = (
-            f"{topic}\n\nReturn STRICT valid JSON only for tool mode '{data.tool}'. "
-            "Do not include markdown fences or extra prose."
-        )
-        ai_result = await ai_query(
-            AIQueryRequest(query=strict_query, mode=data.tool, subject_id=data.subject_id),
-            current_user=current_user,
-            db=db,
-        )
-        answer = str(ai_result.get("answer", ""))
-        structured_data = _normalize_tool_output(data.tool, answer)
+@router.post("/tools/generate/jobs")
+async def generate_study_tool_job(
+    data: StudyToolGenerateRequest,
+    current_user: User = Depends(require_role("student")),
+):
+    """Queue structured study tool generation for worker execution."""
+    topic = data.topic.strip()
+    if not topic:
+        raise HTTPException(status_code=400, detail="topic is required")
 
-    return {
-        "tool": data.tool,
-        "topic": topic,
-        "data": structured_data,
-        "citations": ai_result.get("citations", []),
-        "trace_id": ai_result.get("trace_id"),
-        "token_usage": ai_result.get("token_usage", 0),
-        "response_time_ms": ai_result.get("response_time_ms", 0),
-        "citation_valid": ai_result.get("citation_valid", False),
-    }
+    payload = InternalStudyToolGenerateRequest(
+        tool=data.tool,
+        topic=topic,
+        subject_id=data.subject_id,
+        tenant_id=str(current_user.tenant_id),
+    )
+    return enqueue_job(
+        JOB_TYPE_STUDY_TOOL,
+        payload.model_dump(),
+        tenant_id=str(current_user.tenant_id),
+        user_id=str(current_user.id),
+    )
 
 
 @router.post("/upload")
@@ -718,6 +734,7 @@ async def student_upload(
 
     content = await file.read()
     macros_removed = False
+    ocr_processed = False
     if ext == "docx":
         try:
             content, macros_removed = sanitize_docx_bytes(content)
@@ -726,11 +743,34 @@ async def student_upload(
     if len(content) > MAX_FILE_SIZE:
         raise HTTPException(status_code=400, detail="File exceeds 25MB limit.")
 
-    # Save file
-    safe_name = f"{current_user.tenant_id}_{current_user.id}_{uuid4().hex}_{safe_filename}"
-    file_path = UPLOAD_DIR / safe_name
-    with open(file_path, "wb") as f:
-        f.write(content)
+    # OCR: convert image to PDF for RAG ingestion
+    if ext in ("jpg", "jpeg", "png"):
+        from ai.ocr_service import image_to_pdf, validate_image_size
+        try:
+            validate_image_size(content)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+        temp_img = OCR_OUTPUT_DIR / f"_tmp_{uuid4().hex}.{ext}"
+        with open(temp_img, "wb") as f:
+            f.write(content)
+        pdf_name = f"{current_user.tenant_id}_{current_user.id}_{uuid4().hex}_ocr.pdf"
+        file_path = OCR_OUTPUT_DIR / pdf_name
+        try:
+            image_to_pdf(str(temp_img), str(file_path), title=safe_filename)
+        except Exception:
+            logger.exception("OCR processing failed for student upload")
+            raise HTTPException(status_code=500, detail="OCR processing failed.")
+        finally:
+            temp_img.unlink(missing_ok=True)
+        safe_filename = pdf_name
+        ext = "pdf"
+        ocr_processed = True
+    else:
+        # Save file normally
+        safe_name = f"{current_user.tenant_id}_{current_user.id}_{uuid4().hex}_{safe_filename}"
+        file_path = UPLOAD_DIR / safe_name
+        with open(file_path, "wb") as f:
+            f.write(content)
 
     # Track in DB
     doc = Document(
@@ -749,8 +789,7 @@ async def student_upload(
     chunks_count = 0
     try:
         from ai.ingestion import ingest_document
-        from ai.embeddings import generate_embeddings_batch
-        from ai.vector_store import get_vector_store
+        from ai.providers import get_embedding_provider, get_vector_store_provider
 
         chunks = ingest_document(
             file_path=str(file_path),
@@ -760,8 +799,8 @@ async def student_upload(
 
         if chunks:
             texts = [c.text for c in chunks]
-            embeddings = await generate_embeddings_batch(texts)
-            store = get_vector_store(str(current_user.tenant_id))
+            embeddings = await get_embedding_provider().embed_batch(texts)
+            store = get_vector_store_provider(str(current_user.tenant_id))
             chunk_dicts = [{
                 "text": c.text,
                 "document_id": c.document_id,
@@ -779,13 +818,7 @@ async def student_upload(
         logger.exception("Student document ingestion failed", extra={"document_id": str(doc.id)})
         doc.ingestion_status = "failed"
         db.commit()
-        return {
-            "success": False,
-            "document_id": str(doc.id),
-            "file_name": safe_filename,
-            "status": "failed",
-            "error": "Document ingestion failed.",
-        }
+        raise HTTPException(status_code=500, detail="Document ingestion failed.")
 
     return {
         "success": True,
@@ -794,6 +827,7 @@ async def student_upload(
         "file_type": ext,
         "chunks": chunks_count,
         "macros_removed": macros_removed,
+        "ocr_processed": ocr_processed,
         "status": doc.ingestion_status,
     }
 

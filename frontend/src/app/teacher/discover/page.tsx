@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { Search, Globe, Plus, Loader2, CheckCircle, ExternalLink, BookOpen } from "lucide-react";
-import { API_BASE } from "@/lib/api";
+import { api } from "@/lib/api";
 
 type SearchResult = { title: string; url: string; snippet: string };
+type AIJobStatus = "queued" | "running" | "completed" | "failed";
 
 export default function DiscoverSourcesPage() {
     const [query, setQuery] = useState("");
@@ -21,44 +22,60 @@ export default function DiscoverSourcesPage() {
         setResults([]);
         setIngested({});
         try {
-            const res = await fetch(`${API_BASE}/api/ai/discover-sources`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                credentials: "include",
-                body: JSON.stringify({ query: query.trim() }),
-            });
-            if (res.ok) {
-                const data = await res.json();
-                setResults(data.results || []);
-            } else {
-                const err = await res.json().catch(() => ({ detail: "Search failed" }));
-                setError(err.detail || "Failed to search");
-            }
-        } catch {
-            setError("Cannot connect to backend");
+            const data = (await api.ai.discoverSources({ query: query.trim() })) as { results?: SearchResult[] };
+            setResults(data.results || []);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Cannot connect to backend");
         } finally {
             setLoading(false);
+        }
+    };
+
+    const pollIngestJob = async (idx: number, jobId: string) => {
+        try {
+            const job = (await api.ai.jobStatus(jobId)) as {
+                status: AIJobStatus;
+                error?: string;
+                result?: { chunks_created?: number };
+                poll_after_ms?: number;
+            };
+
+            if (job.status === "completed") {
+                setIngested((prev) => ({ ...prev, [idx]: { chunks: job.result?.chunks_created || 0 } }));
+                setIngesting((prev) => ({ ...prev, [idx]: false }));
+                return;
+            }
+
+            if (job.status === "failed") {
+                setError(job.error || "Failed to ingest source");
+                setIngesting((prev) => ({ ...prev, [idx]: false }));
+                return;
+            }
+
+            setTimeout(() => {
+                void pollIngestJob(idx, jobId);
+            }, job.poll_after_ms ?? 2000);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Ingestion failed");
+            setIngesting((prev) => ({ ...prev, [idx]: false }));
         }
     };
 
     const ingestSource = async (idx: number, result: SearchResult) => {
         setIngesting((prev) => ({ ...prev, [idx]: true }));
         try {
-            const res = await fetch(`${API_BASE}/api/ai/ingest-url`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                credentials: "include",
-                body: JSON.stringify({ url: result.url, title: result.title }),
-            });
-            if (res.ok) {
-                const data = await res.json();
-                setIngested((prev) => ({ ...prev, [idx]: { chunks: data.chunks_created } }));
-            } else {
+            const job = (await api.ai.ingestUrl({ url: result.url, title: result.title })) as {
+                job_id: string;
+                status: AIJobStatus;
+            };
+            if (job.status === "failed") {
                 setError("Failed to ingest source");
+                setIngesting((prev) => ({ ...prev, [idx]: false }));
+                return;
             }
-        } catch {
-            setError("Ingestion failed");
-        } finally {
+            void pollIngestJob(idx, job.job_id);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Ingestion failed");
             setIngesting((prev) => ({ ...prev, [idx]: false }));
         }
     };

@@ -1,17 +1,20 @@
 """Common Pydantic schemas used across routes."""
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
+
+class StrictBaseModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
 from typing import Optional, Generic, TypeVar, List
 from uuid import UUID
 
 T = TypeVar("T")
 
 
-class PaginationParams(BaseModel):
+class PaginationParams(StrictBaseModel):
     page: int = 1
     per_page: int = 20
 
 
-class PaginatedResponse(BaseModel, Generic[T]):
+class PaginatedResponse(StrictBaseModel, Generic[T]):
     items: List[T]
     total: int
     page: int
@@ -19,12 +22,12 @@ class PaginatedResponse(BaseModel, Generic[T]):
     total_pages: int
 
 
-class MessageResponse(BaseModel):
+class MessageResponse(StrictBaseModel):
     message: str
     success: bool = True
 
 
-class TenantResponse(BaseModel):
+class TenantResponse(StrictBaseModel):
     id: UUID
     name: str
     plan_tier: str

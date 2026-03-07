@@ -4,10 +4,11 @@ Embedding Engine — generates embeddings via Ollama's nomic-embed-text model.
 import httpx
 from typing import List
 import numpy as np
+from config import settings
 
-OLLAMA_URL = "http://localhost:11434"
-EMBED_MODEL = "nomic-embed-text"
-EMBED_DIM = 768
+OLLAMA_URL = settings.embedding.url
+EMBED_MODEL = settings.embedding.model
+EMBED_DIM = settings.embedding.embed_dim
 
 
 async def generate_embedding(text: str) -> List[float]:

@@ -1,100 +1,265 @@
-# Docker Compose — AIaaS Full Stack (Pilot)
+# Docker Compose - VidyaOS Full Stack (Pilot)
 # Usage: docker-compose up -d
+# Optional observability stack: docker-compose --profile observability up -d
 
 version: "3.9"
 
 services:
-  # ── PostgreSQL Database ──────────────────────────
   postgres:
     image: postgres:15-alpine
-    container_name: aiaas-postgres
+    container_name: vidyaos-postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      POSTGRES_DB: aiaas
+      POSTGRES_DB: vidyaos
     volumes:
       - pgdata:/var/lib/postgresql/data
     ports:
       - "5432:5432"
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  # ── Redis Cache ──────────────────────────────────
   redis:
     image: redis:7-alpine
-    container_name: aiaas-redis
+    container_name: vidyaos-redis
     restart: unless-stopped
     ports:
       - "6379:6379"
     volumes:
       - redisdata:/data
     healthcheck:
-      test: [ "CMD", "redis-cli", "ping" ]
+      test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  # ── FastAPI Backend ──────────────────────────────
   api:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: aiaas-api
+    container_name: vidyaos-api
     restart: unless-stopped
     ports:
       - "8000:8000"
     environment:
-      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/aiaas
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/vidyaos
       REDIS_URL: redis://redis:6379/0
       JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       OLLAMA_URL: http://host.docker.internal:11434
+      AI_SERVICE_URL: http://ai-service:8001
+      AI_SERVICE_KEY: ${AI_SERVICE_KEY:-internal-dev-key}
       APP_ENV: production
+      VidyaOS_STORAGE_ROOT: /app/data
+      VidyaOS_VECTOR_STORE_DIR: /app/data/vector_store
+      OBSERVABILITY_LOG_PATH: /app/logs/api.log
+      OBSERVABILITY_OTLP_ENDPOINT: http://tempo:4318/v1/traces
+      STARTUP_CHECKS_STRICT: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      ai-service:
+        condition: service_started
+    volumes:
+      - uploads:/app/data/uploads
+      - vectordata:/app/data/vector_store
+      - applogs:/app/logs
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/ready', timeout=5).status == 200 else 1)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  ai-service:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: vidyaos-ai-service
+    restart: unless-stopped
+    ports:
+      - "8001:8001"
+    command: ["sh", "/app/start-ai-service.sh"]
+    environment:
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/vidyaos
+      REDIS_URL: redis://redis:6379/0
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      OLLAMA_URL: http://host.docker.internal:11434
+      AI_SERVICE_KEY: ${AI_SERVICE_KEY:-internal-dev-key}
+      APP_ENV: production
+      VidyaOS_STORAGE_ROOT: /app/data
+      VidyaOS_VECTOR_STORE_DIR: /app/data/vector_store
+      OBSERVABILITY_LOG_PATH: /app/logs/ai-service.log
+      OBSERVABILITY_OTLP_ENDPOINT: http://tempo:4318/v1/traces
+      STARTUP_CHECKS_STRICT: "true"
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
     volumes:
-      - uploads:/app/uploads
-      - vectordata:/app/vector_data
+      - uploads:/app/data/uploads
+      - vectordata:/app/data/vector_store
+      - applogs:/app/logs
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8001/ready', timeout=5).status == 200 else 1)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
 
-  # ── Next.js Frontend ─────────────────────────────
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.worker
+    container_name: vidyaos-worker
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/vidyaos
+      REDIS_URL: redis://redis:6379/0
+      OLLAMA_URL: http://host.docker.internal:11434
+      AI_SERVICE_URL: http://ai-service:8001
+      AI_SERVICE_KEY: ${AI_SERVICE_KEY:-internal-dev-key}
+      APP_ENV: production
+      VidyaOS_STORAGE_ROOT: /app/data
+      VidyaOS_VECTOR_STORE_DIR: /app/data/vector_store
+      AI_QUEUE_ENABLED: "true"
+      OBSERVABILITY_LOG_PATH: /app/logs/worker.log
+      OBSERVABILITY_OTLP_ENDPOINT: http://tempo:4318/v1/traces
+      STARTUP_CHECKS_STRICT: "true"
+      WORKER_HEALTH_PORT: 8010
+    depends_on:
+      redis:
+        condition: service_healthy
+      ai-service:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    expose:
+      - "8010"
+    volumes:
+      - uploads:/app/data/uploads
+      - vectordata:/app/data/vector_store
+      - applogs:/app/logs
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8010/ready', timeout=5).status == 200 else 1)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: aiaas-frontend
+    container_name: vidyaos-frontend
     restart: unless-stopped
     ports:
       - "3000:3000"
     environment:
       NEXT_PUBLIC_API_URL: http://api:8000
     depends_on:
-      - api
+      api:
+        condition: service_healthy
 
-  # ── Nginx Reverse Proxy ──────────────────────────
   nginx:
     image: nginx:alpine
-    container_name: aiaas-nginx
+    container_name: vidyaos-nginx
     restart: unless-stopped
     ports:
       - "80:80"
-      - "443:443"
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./ssl:/etc/nginx/ssl:ro
     depends_on:
-      - api
-      - frontend
+      api:
+        condition: service_healthy
+      frontend:
+        condition: service_started
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: vidyaos-prometheus
+    restart: unless-stopped
+    profiles: ["observability"]
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./ops/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./ops/observability/alert_rules.yml:/etc/prometheus/alert_rules.yml:ro
+    depends_on:
+      api:
+        condition: service_healthy
+      ai-service:
+        condition: service_healthy
+      worker:
+        condition: service_healthy
+
+  loki:
+    image: grafana/loki:2.9.8
+    container_name: vidyaos-loki
+    restart: unless-stopped
+    profiles: ["observability"]
+    ports:
+      - "3100:3100"
+    command: ["-config.file=/etc/loki/local-config.yaml"]
+    volumes:
+      - ./ops/observability/loki-config.yml:/etc/loki/local-config.yaml:ro
+      - lokidata:/loki
+
+  tempo:
+    image: grafana/tempo:2.5.0
+    container_name: vidyaos-tempo
+    restart: unless-stopped
+    profiles: ["observability"]
+    ports:
+      - "3200:3200"
+      - "4317:4317"
+      - "4318:4318"
+    command: ["-config.file=/etc/tempo.yml"]
+    volumes:
+      - ./ops/observability/tempo.yml:/etc/tempo.yml:ro
+      - tempodata:/tmp/tempo
+
+  promtail:
+    image: grafana/promtail:2.9.8
+    container_name: vidyaos-promtail
+    restart: unless-stopped
+    profiles: ["observability"]
+    volumes:
+      - ./ops/observability/promtail-config.yml:/etc/promtail/config.yml:ro
+      - applogs:/var/log/vidyaos:ro
+    command: ["-config.file=/etc/promtail/config.yml"]
+    depends_on:
+      - loki
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    container_name: vidyaos-grafana
+    restart: unless-stopped
+    profiles: ["observability"]
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+    volumes:
+      - grafanadata:/var/lib/grafana
+      - ./ops/observability/grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - prometheus
+      - loki
+      - tempo
 
 volumes:
   pgdata:
   redisdata:
   uploads:
   vectordata:
+  applogs:
+  grafanadata:
+  lokidata:
+  tempodata:

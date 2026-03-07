@@ -1,215 +1,219 @@
-# AIaaS — AI Infrastructure for Indian K-12 Education
+# VidyaOS - AI Infrastructure for Indian K-12 Education
 
-> Multi-tenant school ERP + curriculum-grounded AI study assistant, running on local GPU.
+> Multi-tenant school ERP plus curriculum-grounded AI assistant, implemented as a Next.js frontend, a FastAPI API tier, a dedicated AI service, and a Redis-backed worker queue.
 
-![Stack](https://img.shields.io/badge/FastAPI-Backend-009688?style=flat-square&logo=fastapi)
-![Stack](https://img.shields.io/badge/Next.js_16-Frontend-000?style=flat-square&logo=next.js)
-![Stack](https://img.shields.io/badge/PostgreSQL-Database-4169E1?style=flat-square&logo=postgresql)
-![Stack](https://img.shields.io/badge/Ollama-LLM-blue?style=flat-square)
-![Stack](https://img.shields.io/badge/FAISS-Vectors-yellow?style=flat-square)
+## What This Repo Is
 
----
+VidyaOS combines:
+- a role-based school ERP for student, teacher, admin, and parent workflows
+- a retrieval-grounded AI layer for study and teaching assistance
+- governance tooling for AI review, queue operations, tracing, alerts, and webhooks
+- a demo mode with role switching and guided walkthrough
 
-## What is this?
+The ERP remains the system of record. AI reads school context and materials, but does not authoritatively write back ERP facts.
 
-A **school management platform** (ERP) combined with an **AI study assistant** that answers from uploaded curriculum materials — with citations. Think *Google NotebookLM, but purpose-built for Indian K-12 schools*, running locally on affordable hardware.
+## Current Architecture
 
-## Key Features
+```text
+Next.js frontend
+    -> optional nginx reverse proxy
+    -> FastAPI public API
+        -> PostgreSQL
+        -> Redis
+        -> AI gateway
+            -> dedicated FastAPI AI service
+                -> Ollama via OLLAMA_URL
+                -> FAISS vector store
+        -> Redis-backed worker
+            -> queued jobs dispatched to AI service
+```
 
-### 🎓 School ERP
-- **Attendance tracking** — teacher entry, student/parent view
-- **Marks & results** — exam management, grade reports
-- **Assignments** — CRUD + file submission
-- **Timetable engine** — admin-managed schedules
-- **Lecture library** — PDF/YouTube upload with transcript ingestion
-- **Complaint portal** — student submission, admin review
+Current runtime facts:
+- Public synchronous AI endpoints call the dedicated AI service through `backend/services/ai_gateway.py`.
+- Heavy jobs are queued in Redis and processed by `backend/ai_worker.py`.
+- All queued AI-heavy jobs use the AI service boundary.
+- FAISS remains the current vector backend.
+- Ollama remains an external dependency configured through `OLLAMA_URL`.
 
-### 🤖 AI Study Assistant (13 Modes)
-| Mode | Description |
+## Current Feature Scope
+
+### ERP
+- Attendance tracking
+- Marks and results
+- Assignments and file submission
+- Timetable management
+- Lecture library and uploads
+- Complaint portal
+- Parent-child linking and parent reporting
+- Student file upload with RAG ingestion
+- Spaced repetition review cards (SM-2 algorithm)
+- CSV exports for attendance, performance, AI usage
+- Performance heatmap (subjects × classes)
+
+### AI
+- Q&A
+- Study Guide
+- Quiz
+- Concept Map
+- Weak Topic
+- Flowchart
+- Mind Map
+- Flashcards
+- Socratic
+- Perturbation
+- Debate
+- Essay Review
+- Career Simulation
+- Audio overview and video overview
+- Discovery search and URL ingestion
+- Teacher assessment generation
+- Doubt heatmap aggregation
+- Language, response length, and expertise level personalization
+
+### Teacher Tools
+- Class insights with weak topic analysis
+- Doubt heatmap (aggregated student AI queries by subject)
+- Assessment generator (NCERT-aligned formative assessments via RAG + LLM)
+- Source discovery (DuckDuckGo-powered) and URL ingestion
+- YouTube transcript ingestion
+
+### Parent Portal
+- Dashboard with child's performance summary
+- Attendance and results views
+- Downloadable reports and audio report generation
+
+### Governance and Operations
+- Admin KPI dashboard
+- AI usage analytics
+- AI review actions with approve / flag
+- Queue operations with cancel / retry / dead-letter controls
+- Queue metrics and audit history
+- Trace viewer
+- Observability alerts with webhook dispatch
+- Enterprise SSO foundation with tenant-scoped SAML configuration and ACS / metadata endpoints
+- Compliance export and deletion-request tracking APIs
+- Incident routing and acknowledgement / resolution APIs
+- Webhook subscriptions and delivery logs
+- Audit logging for admin and queue actions
+- Demo mode with role switching and data reset
+
+## Deployment Reality
+
+### Application services
+- `frontend`: Next.js app in `frontend/`
+- `api`: public FastAPI app in `backend/main.py`
+- `ai-service`: dedicated AI execution app in `backend/ai_service_app.py`
+- `worker`: Redis queue worker in `backend/ai_worker.py`
+
+### Data and runtime dependencies
+- PostgreSQL for ERP and audit data
+- Redis for queue state, rate limiting, and related ephemeral state
+- Ollama for LLM and embedding access
+- FAISS for tenant-scoped vector retrieval
+
+### Optional observability stack
+The compose stack can also start:
+- Prometheus
+- Loki
+- Promtail
+- Tempo
+- Grafana
+
+Prebuilt observability assets tracked in the repo:
+- Prometheus alert rules in `ops/observability/alert_rules.yml`
+- provisioned Grafana datasources and dashboards in `ops/observability/grafana/provisioning/`
+
+## AI Execution Model Today
+
+### Synchronous public AI request
+```text
+request
+  -> auth / tenant validation in public API
+  -> AI gateway
+  -> dedicated AI service
+      -> embed
+      -> retrieve from FAISS
+      -> rerank / dedup / compress
+      -> prompt assembly with personalization
+      -> Ollama generation
+      -> sanitize + citation validation
+  -> AIQuery log + trace events + optional webhook
+  -> response
+```
+
+### Queued heavy job
+```text
+request
+  -> public API validation
+  -> Redis enqueue
+  -> worker claim
+  -> queued workflow execution through dedicated AI service
+  -> queue metrics + audit trail + trace events
+  -> status/result polling
+```
+
+## Observability Today
+
+Implemented in the repo:
+- structured JSON logging
+- Prometheus-style metrics endpoints on API, AI service, and worker health app
+- OpenTelemetry export hooks
+- Tempo / Loki / Grafana / Prometheus compose integration
+- persistent trace-event recording
+- admin alerts and trace viewer
+- webhook dispatch for active alerts
+
+This is now more than app-local inspection. It is still not a full external incident-management stack with pager/email integrations.
+
+## Enterprise Foundations
+
+Implemented foundations in the repo now include:
+- tenant-scoped SAML SSO configuration and metadata import
+- pluggable vector backend selection with FAISS default and Qdrant provider path
+- compliance export bundles and deletion-request tracking
+- incident routing for webhook, Slack webhook, PagerDuty Events, and Opsgenie-style targets
+- incident acknowledgement, resolution, and timeline events
+
+## Middleware Stack
+
+| Middleware | Purpose |
 |---|---|
-| **Q&A** | Citation-grounded answers from uploaded notes |
-| **Study Guide** | Structured sections with source references |
-| **Quiz** | NCERT-aligned MCQ generation |
-| **Concept Map** | JSON nodes + edges for topic relationships |
-| **Weak Topic** | Performance-aware remediation plans |
-| **Flowchart** | Mermaid.js process diagrams |
-| **Mind Map** | Hierarchical topic trees |
-| **Flashcards** | Front/back card pairs |
-| **Socratic** | Guided hints — never gives direct answers |
-| **Perturbation (Exam Prep)** | Novel variations of existing questions |
-| **Debate** | Devil's advocate for critical thinking |
-| **Essay Review** | Structural feedback on writing |
-| **Career Simulation** | Role-play professional scenarios |
+| `ObservabilityMiddleware` | Structured logging and request metrics |
+| `CORSMiddleware` | Cross-origin request control |
+| `CSRFMiddleware` | CSRF protection (disabled in demo mode) |
+| `TenantMiddleware` | Tenant context injection from JWT |
+| `RateLimitMiddleware` | Request throttling (disabled in demo mode) |
 
-### 👩‍🏫 Teacher Tools
-- **AI Assessment Generator** — generate MCQ assessments from uploaded materials
-- **Doubt Heatmap** — real-time view of where students are struggling (aggregated AI queries)
-- **Class Insights** — performance analytics
+## Roadmap, Not Current Reality
 
-### 👨‍👩‍👧 Parent Portal
-- **Dashboard** — attendance, marks, pending assignments at a glance
-- **🔊 Audio Report** — listen to child's progress summary via browser TTS
-- **Attendance & Results** — detailed views
+These are still open or partial:
+- stronger operator tooling beyond current queue controls
+- dedicated admin UI for SAML SSO, compliance, and incident management
+- service-grade vector backend
+- broader external alert transports such as email / pager integrations
 
-### 📚 Student Features
-- **Spaced Repetition** — SM-2 algorithm for long-term retention with self-rating
-- **Multi-mode AI chat** — 8 pedagogical modes with growth-mindset prompts
-- **Study Tools** — concept maps, flashcards, flowcharts, mind maps
+## Documentation Map
+- `documentation/system_docs/Architecture.md`: current service topology and execution boundaries
+- `documentation/system_docs/System overview.md`: current product scope and operating model
+- `documentation/system_docs/Tech stack.md`: actual runtime stack in the repository
+- `documentation/system_docs/Hosting and development env.md`: current deployment model and compose topology
+- `documentation/system_docs/AI engine deep design.md`: current AI execution and queue model
+- `documentation/system_docs/Database schema.md`: complete database schema with all tables
+- `documentation/system_docs/Sitemap wireframe.md`: full sitemap for all four roles
+- `documentation/system_docs/Admin review dashboard.md`: admin dashboard capabilities
+- `documentation/system_docs/Filtering logic.md`: filtering and security layers
+- `documentation/system_docs/Security checks.md`: pre-launch security checklist
+- `documentation/system_docs/Ui design.md`: UI design system and component patterns
+- `documentation/system_docs/Backup and recovery policy.md`: backup and recovery procedures
 
-### 🔐 Security & Multi-tenancy
-- JWT in HTTP-only cookies with refresh token rotation
-- Tenant isolation at DB + vector store + API layers
-- CSRF protection, rate limiting (Redis-backed), output sanitization
-- AI safety: citation enforcement, prompt injection defense, PII stripping
+## Verification Status
 
-### 🏛️ Admin Governance
-- KPI dashboard, AI usage analytics, quality review panel
-- User management with audit logging
-- Webhook system for integrations
-- Security monitoring (failed logins, role changes)
-
----
-
-## Architecture
-
-```
-                          ┌──────────────────────────┐
-                          │   Next.js 16 Frontend    │
-                          │  (Student/Teacher/Admin/  │
-                          │       Parent portals)     │
-                          └──────────┬───────────────┘
-                                     │
-                          ┌──────────▼───────────────┐
-                          │    Nginx Reverse Proxy    │
-                          │  (TLS, security headers)  │
-                          └──────────┬───────────────┘
-                                     │
-                          ┌──────────▼───────────────┐
-                          │   FastAPI Backend (API)   │
-                          │  Auth │ Routes │ AI Core  │
-                          └──┬─────┬──────┬──────────┘
-                             │     │      │
-                    ┌────────▼┐ ┌──▼───┐ ┌▼──────────┐
-                    │PostgreSQL│ │Redis │ │  Ollama   │
-                    │ (Multi-  │ │(Rate │ │  (LLM +   │
-                    │  tenant) │ │limit)│ │ Embedding)│
-                    └──────────┘ └──────┘ └─────┬─────┘
-                                                │
-                                         ┌──────▼──────┐
-                                         │  FAISS      │
-                                         │ Vector Store│
-                                         └─────────────┘
-```
-
----
-
-## Quick Start
-
-### Prerequisites
-- Python 3.11+
-- Node.js 18+
-- PostgreSQL 15+
-- Redis 7+
-- Ollama (with `llama3.2` and `nomic-embed-text`)
-
-### Backend
-```bash
-cd backend
-pip install -r requirements.txt
-cp .env.example .env  # configure DATABASE_URL, OLLAMA_URL, etc.
-alembic upgrade head
-uvicorn main:app --reload --port 8000
-```
-
-### Frontend
-```bash
-cd frontend
-npm install
-cp .env.example .env.local  # set NEXT_PUBLIC_API_URL
-npm run dev
-```
-
-### Docker (Recommended)
-```bash
-docker compose up -d
-```
-
----
-
-## Tech Stack
-
-| Layer | Technology |
-|---|---|
-| Frontend | Next.js 16, React 19, TypeScript, Tailwind CSS 4 |
-| Backend | FastAPI, Python 3.11+, SQLAlchemy, Pydantic |
-| Database | PostgreSQL 15+ (multi-tenant), Alembic migrations |
-| AI/ML | Ollama (llama3.2), FAISS, sentence-transformers, cross-encoder reranking |
-| Cache | Redis 7 (rate limiting, query caching) |
-| Infrastructure | Docker Compose, Nginx, Let's Encrypt TLS |
-| Auth | Google OAuth 2.0, JWT (HTTP-only cookies) |
-
----
-
-## AI Pipeline
-
-```
-Query → Embed (nomic-embed-text) → FAISS search (top 8, tenant-scoped)
-  → Cross-encoder rerank (ms-marco-MiniLM, top 5)
-  → Jaccard deduplication (0.85 threshold)
-  → Context compression
-  → Prompt template (13 mode-specific)
-  → LLM inference (Ollama, temp=0.1)
-  → Output sanitization
-  → Citation validation
-  → Cache + Log + Webhook → Return
-```
-
----
-
-## Project Structure
-
-```
-proxy_notebooklm/
-├── backend/
-│   ├── ai/              # RAG pipeline (ingestion, retrieval, embeddings, cache, providers)
-│   ├── auth/            # OAuth, JWT, dependencies
-│   ├── middleware/       # CSRF, rate limiting
-│   ├── models/          # 20+ SQLAlchemy models
-│   ├── routes/          # API routes (ai, admin, teacher, student, parent)
-│   ├── services/        # Webhooks, utilities
-│   └── tests/           # Security regression tests
-├── frontend/
-│   └── src/app/         # Next.js app router
-│       ├── admin/       # 12 admin routes
-│       ├── teacher/     # 10 teacher routes
-│       ├── student/     # 12 student routes
-│       └── parent/      # 5 parent routes
-├── docker-compose.yml
-├── nginx/               # Reverse proxy config
-└── documentation/       # Architecture docs, audit reports
-```
-
----
-
-## Documentation
-
-| Document | Description |
-|---|---|
-| `documentation/structural_audit.md` | Deep technical audit (architecture, security, scaling) |
-| `STAR_FEATURES_ANALYSIS.md` | Feature gap analysis vs 5 reference repos |
-| `documentation/AI in Indian K-12 Learning.txt` | K-12 AI pedagogy reference |
-| `raw/` | 11 detailed system design documents |
-
----
-
-## Target Market
-
-- **1.5M+ Indian K-12 schools**
-- Local GPU deployment: ₹3L one-time + ₹6,500/month operational
-- Serves 2-3 pilot schools on single RTX 4090
-
----
+Current local verification target:
+- backend tests: `python -m pytest -q -p no:cacheprovider backend/tests`
+- frontend lint: `npm run lint`
+- frontend production build: `npm run build`
+- frontend e2e: `npm run test:e2e`
 
 ## License
 
-Private — All rights reserved.
+Private - All rights reserved.

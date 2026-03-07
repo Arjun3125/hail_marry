@@ -1,6 +1,6 @@
 # UI Design
 
-**Project:** AIaaS – AI Infrastructure for Educational Institutions  
+**Project:** VidyaOS – AI Infrastructure for Educational Institutions  
 **Version:** v0.1  
 **Design Goal:** Institutional-Grade, Calm, Structured, Academically Aligned
 

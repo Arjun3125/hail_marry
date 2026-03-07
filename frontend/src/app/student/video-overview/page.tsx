@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Presentation, ChevronLeft, ChevronRight, PlayCircle, PauseCircle, Loader2, Volume2 } from "lucide-react";
-import { API_BASE } from "@/lib/api";
+import { api } from "@/lib/api";
 
 type Slide = { title: string; bullets: string[]; narration: string };
 type VideoData = { slides: Slide[]; presentation_title: string; total_slides: number };
+type AIJobStatus = "queued" | "running" | "completed" | "failed";
 
 export default function VideoOverviewPage() {
     const [topic, setTopic] = useState("");
@@ -15,30 +16,76 @@ export default function VideoOverviewPage() {
     const [current, setCurrent] = useState(0);
     const [autoPlaying, setAutoPlaying] = useState(false);
     const [speakingSlide, setSpeakingSlide] = useState(-1);
+    const [jobId, setJobId] = useState<string | null>(null);
+    const [jobStatus, setJobStatus] = useState<AIJobStatus | null>(null);
+
+    useEffect(() => {
+        if (!jobId) return;
+
+        let cancelled = false;
+        let timer: ReturnType<typeof setTimeout> | null = null;
+
+        const poll = async () => {
+            try {
+                const job = await api.ai.jobStatus(jobId) as {
+                    status: AIJobStatus;
+                    error?: string;
+                    result?: VideoData;
+                    poll_after_ms?: number;
+                };
+
+                if (cancelled) return;
+                setJobStatus(job.status);
+
+                if (job.status === "completed" && job.result) {
+                    setData(job.result);
+                    setCurrent(0);
+                    setLoading(false);
+                    setJobId(null);
+                    return;
+                }
+
+                if (job.status === "failed") {
+                    setError(job.error || "Failed to generate video overview");
+                    setLoading(false);
+                    setJobId(null);
+                    return;
+                }
+
+                timer = setTimeout(() => {
+                    void poll();
+                }, job.poll_after_ms ?? 2000);
+            } catch (err) {
+                if (cancelled) return;
+                setError(err instanceof Error ? err.message : "Failed to load job status");
+                setLoading(false);
+                setJobId(null);
+            }
+        };
+
+        void poll();
+
+        return () => {
+            cancelled = true;
+            if (timer) clearTimeout(timer);
+        };
+    }, [jobId]);
 
     const generate = async () => {
         if (!topic.trim() || loading) return;
         setLoading(true);
         setError(null);
         setData(null);
+        setJobStatus("queued");
         try {
-            const res = await fetch(`${API_BASE}/api/ai/video-overview`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                credentials: "include",
-                body: JSON.stringify({ topic: topic.trim(), num_slides: 6 }),
-            });
-            if (res.ok) {
-                const d = await res.json();
-                setData(d);
-                setCurrent(0);
-            } else {
-                const err = await res.json().catch(() => ({ detail: "Failed" }));
-                setError(err.detail || "Failed to generate video overview");
-            }
-        } catch {
-            setError("Cannot connect to backend");
-        } finally {
+            const job = await api.ai.enqueueVideoOverviewJob({
+                topic: topic.trim(),
+                num_slides: 6,
+            }) as { job_id: string; status: AIJobStatus };
+            setJobId(job.job_id);
+            setJobStatus(job.status);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Cannot connect to backend");
             setLoading(false);
         }
     };
@@ -142,8 +189,14 @@ export default function VideoOverviewPage() {
                     <div className="w-14 h-14 mx-auto mb-4 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center animate-pulse">
                         <Presentation className="w-7 h-7 text-white" />
                     </div>
-                    <p className="text-sm font-medium">Generating slides...</p>
-                    <p className="text-xs text-[var(--text-muted)] mt-1">Creating narrated presentation from your materials</p>
+                    <p className="text-sm font-medium">
+                        {jobStatus === "queued" ? "Queued for presentation generation..." : "Generating slides..."}
+                    </p>
+                    <p className="text-xs text-[var(--text-muted)] mt-1">
+                        {jobStatus === "queued"
+                            ? "Waiting for the AI worker to start this job"
+                            : "Creating narrated presentation from your materials"}
+                    </p>
                 </div>
             )}
 

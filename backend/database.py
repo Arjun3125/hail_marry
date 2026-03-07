@@ -31,20 +31,19 @@ sqlite3.register_adapter(uuid.UUID, lambda u: u.hex)
 sqlite3.register_converter("CHAR(32)", lambda b: uuid.UUID(b.decode()))
 
 
-# In DEMO_MODE, use SQLite for zero-config operation
-if settings.app.demo_mode:
-    _db_url = os.getenv("DATABASE_URL", "sqlite:///./demo.db")
+_db_url = os.getenv("DATABASE_URL", settings.database.url)
+if "sqlite" in _db_url:
     engine = create_engine(
         _db_url,
         echo=settings.database.echo,
-        connect_args={"check_same_thread": False} if "sqlite" in _db_url else {},
+        connect_args={"check_same_thread": False},
     )
     # Disable RETURNING clause — pysqlite can't handle it with server_default timestamps
     engine.dialect.insert_returning = False
     engine.dialect.update_returning = False
 else:
     engine = create_engine(
-        settings.database.url,
+        _db_url,
         echo=settings.database.echo,
         pool_pre_ping=True,
         pool_size=10,

@@ -1,6 +1,6 @@
 # Backup and Recovery Policy
 
-**Project:** AIaaS – AI Infrastructure for Educational Institutions  
+**Project:** VidyaOS – AI Infrastructure for Educational Institutions  
 **Version:** v0.1  
 **Applies To:** ERP Database + AI Vector Store + Configuration
 
@@ -57,17 +57,17 @@ Older backups auto-deleted by cleanup cron job.
 
 ```bash
 # 1. Stop the API service
-sudo systemctl stop aiaas-api
+sudo systemctl stop vidyaos-api
 
 # 2. Drop and recreate database
-psql -U postgres -c "DROP DATABASE aiaas_prod;"
-psql -U postgres -c "CREATE DATABASE aiaas_prod;"
+psql -U postgres -c "DROP DATABASE vidyaos_prod;"
+psql -U postgres -c "CREATE DATABASE vidyaos_prod;"
 
 # 3. Restore from backup
-gunzip -c /backups/aiaas_2026-03-02.sql.gz | psql -U postgres -d aiaas_prod
+gunzip -c /backups/vidyaos_2026-03-02.sql.gz | psql -U postgres -d vidyaos_prod
 
 # 4. Restart API service
-sudo systemctl start aiaas-api
+sudo systemctl start vidyaos-api
 
 # 5. Verify data integrity
 python scripts/verify_restore.py
@@ -77,7 +77,7 @@ python scripts/verify_restore.py
 
 ```bash
 # 1. Stop AI service
-sudo systemctl stop aiaas-ai
+sudo systemctl stop vidyaos-ai
 
 # 2. Remove current vector data
 rm -rf /data/vector_db/*
@@ -86,7 +86,7 @@ rm -rf /data/vector_db/*
 cp -r /backups/vector_db_2026-03-02/* /data/vector_db/
 
 # 4. Restart AI service
-sudo systemctl start aiaas-ai
+sudo systemctl start vidyaos-ai
 ```
 
 ---

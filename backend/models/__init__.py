@@ -9,11 +9,14 @@ from models.complaint import Complaint
 from models.lecture import Lecture
 from models.document import Document
 from models.ai_query import AIQuery
+from models.ai_job import AIJob, AIJobEvent
 from models.audit_log import AuditLog
 from models.subject_performance import SubjectPerformance
 from models.webhook import WebhookSubscription, WebhookDelivery
 from models.parent_link import ParentLink
 from models.review_schedule import ReviewSchedule
+from models.compliance import ComplianceExport, DeletionRequest
+from models.incident import IncidentRoute, Incident, IncidentEvent
 
 __all__ = [
     "Tenant", "User",
@@ -26,11 +29,18 @@ __all__ = [
     "Lecture",
     "Document",
     "AIQuery",
+    "AIJob",
+    "AIJobEvent",
     "AuditLog",
     "SubjectPerformance",
     "WebhookSubscription",
     "WebhookDelivery",
     "ParentLink",
     "ReviewSchedule",
+    "ComplianceExport",
+    "DeletionRequest",
+    "IncidentRoute",
+    "Incident",
+    "IncidentEvent",
 ]
 

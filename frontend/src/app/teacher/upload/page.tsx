@@ -23,6 +23,7 @@ type UploadActivity = {
     status: "processing" | "completed" | "failed";
     detail?: string;
 };
+type AIJobStatus = "queued" | "running" | "completed" | "failed";
 
 const ALLOWED_EXTENSIONS = ["pdf", "docx"];
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
@@ -79,6 +80,39 @@ export default function UploadPage() {
         setActivities((prev) => prev.map((item) => (item.id === id ? { ...item, ...patch } : item)));
     };
 
+    const pollJob = async (activityId: string, jobId: string, onComplete: (result?: Record<string, unknown>) => void) => {
+        try {
+            const job = (await api.ai.jobStatus(jobId)) as {
+                status: AIJobStatus;
+                error?: string;
+                result?: Record<string, unknown>;
+                poll_after_ms?: number;
+            };
+
+            if (job.status === "completed") {
+                onComplete(job.result);
+                return;
+            }
+
+            if (job.status === "failed") {
+                updateActivity(activityId, {
+                    status: "failed",
+                    detail: job.error || "Ingestion failed",
+                });
+                return;
+            }
+
+            setTimeout(() => {
+                void pollJob(activityId, jobId, onComplete);
+            }, job.poll_after_ms ?? 2000);
+        } catch (err) {
+            updateActivity(activityId, {
+                status: "failed",
+                detail: err instanceof Error ? err.message : "Ingestion failed",
+            });
+        }
+    };
+
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const fileList = e.target.files;
         if (!fileList) return;
@@ -115,7 +149,8 @@ export default function UploadPage() {
 
                 const payload = (await api.teacher.uploadDocument(formData)) as {
                     success?: boolean;
-                    chunks?: number;
+                    job_id?: string;
+                    status?: AIJobStatus;
                     error?: string;
                 };
 
@@ -123,9 +158,20 @@ export default function UploadPage() {
                     throw new Error(payload.error || "Upload failed");
                 }
 
+                if (!payload.job_id) {
+                    throw new Error("Upload job was not created");
+                }
+
                 updateActivity(id, {
-                    status: "completed",
-                    detail: `Ingested (${payload?.chunks ?? 0} chunks)`,
+                    status: "processing",
+                    detail: "Queued for ingestion",
+                });
+
+                void pollJob(id, payload.job_id, (result) => {
+                    updateActivity(id, {
+                        status: "completed",
+                        detail: `Ingested (${Number(result?.chunks ?? 0)} chunks)`,
+                    });
                 });
             } catch (err) {
                 updateActivity(id, {
@@ -161,15 +207,26 @@ export default function UploadPage() {
                 url: youtubeUrl.trim(),
                 title: youtubeTitle.trim(),
                 subject_id: subjectId,
-            })) as { success?: boolean; chunks?: number; error?: string };
+            })) as { success?: boolean; job_id?: string; status?: AIJobStatus; error?: string };
 
             if (payload?.success === false) {
                 throw new Error(payload.error || "YouTube ingestion failed");
             }
 
+            if (!payload.job_id) {
+                throw new Error("YouTube ingestion job was not created");
+            }
+
             updateActivity(id, {
-                status: "completed",
-                detail: `Transcript ingested (${payload?.chunks ?? 0} chunks)`,
+                status: "processing",
+                detail: "Queued transcript ingestion",
+            });
+
+            void pollJob(id, payload.job_id, (result) => {
+                updateActivity(id, {
+                    status: "completed",
+                    detail: `Transcript ingested (${Number(result?.chunks ?? 0)} chunks)`,
+                });
             });
 
             setYoutubeUrl("");

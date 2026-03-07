@@ -5,6 +5,9 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from pydantic import BaseModel
 from typing import List, Optional
+import csv
+import io
+import re
 from pathlib import Path
 from uuid import UUID, uuid4
 
@@ -621,6 +624,116 @@ async def ingest_youtube_video(
         return {"success": True, "lecture_id": str(lecture.id), "chunks": len(chunks)}
     except Exception as e:
         return {"success": False, "error": str(e)}
+
+
+# ─── Onboarding ──────────────────────────────────────────────
+@router.post("/onboard/students")
+async def onboard_students(
+    file: UploadFile = File(...),
+    current_user: User = Depends(require_role("teacher", "admin")),
+    db: Session = Depends(get_db),
+):
+    """
+    Teacher can onboard a list of students via CSV or Image.
+    Format is same as admin teacher onboarding: name (email/password generated).
+    """
+    safe_filename = file.filename or ""
+    ext = safe_filename.split(".")[-1].lower() if "." in safe_filename else ""
+    import tempfile
+    import shutil
+    import os
+
+    with tempfile.NamedTemporaryFile(suffix=f".{ext}", delete=False) as tmp:
+        shutil.copyfileobj(file.file, tmp)
+        tmp_path = tmp.name
+
+    students_to_create = []
+
+    if ext in ("csv", "txt"):
+        try:
+            with open(tmp_path, "r", encoding="utf-8") as f:
+                text = f.read()
+        except UnicodeDecodeError:
+            raise HTTPException(status_code=400, detail="Invalid encoding. Use UTF-8.")
+        
+        reader = csv.reader(io.StringIO(text))
+        for row in reader:
+            if not row or not any(row):
+                continue
+            name = row[0].strip()
+            email = row[1].strip() if len(row) > 1 else f"{re.sub(r'[^a-zA-Z0-9]', '.', name.lower())}@example.com"
+            password = row[2].strip() if len(row) > 2 else "Student123!"
+            students_to_create.append({"name": name, "email": email, "password": password})
+            
+    elif ext in ("jpg", "jpeg", "png"):
+        from ai.ocr_service import extract_text_from_image, validate_image_size
+        try:
+            with open(tmp_path, "rb") as f:
+                validate_image_size(f.read())
+        except ValueError as exc:
+            os.unlink(tmp_path)
+            raise HTTPException(status_code=400, detail=str(exc))
+        
+        try:
+            extracted_text = extract_text_from_image(tmp_path)
+            for line in extracted_text.splitlines():
+                name = line.strip()
+                if len(name) > 2:
+                    email = f"{re.sub(r'[^a-zA-Z0-9]', '.', name.lower())}@example.com"
+                    students_to_create.append({"name": name, "email": email, "password": "Student123!"})
+        except Exception:
+            os.unlink(tmp_path)
+            raise HTTPException(status_code=500, detail="OCR processing failed")
+    else:
+        os.unlink(tmp_path)
+        raise HTTPException(status_code=400, detail="Only CSV, TXT, JPG, JPEG, PNG allowed")
+        
+    # Cleanup temp file
+    if os.path.exists(tmp_path):
+        os.unlink(tmp_path)
+        raise HTTPException(status_code=400, detail="Only CSV, TXT, JPG, JPEG, PNG allowed")
+
+    if not students_to_create:
+        raise HTTPException(status_code=400, detail="No readable names found in the file")
+
+    try:
+        from auth.auth import pwd_context
+    except ImportError:
+        from passlib.context import CryptContext
+        pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+    created_count = 0
+    from models.tenant import Tenant
+    tenant_domain = db.query(Tenant.domain).filter(Tenant.id == current_user.tenant_id).scalar()
+
+    for s in students_to_create:
+        email = s["email"]
+        if "@example.com" in email and tenant_domain:
+            email = email.replace("@example.com", f"@{tenant_domain}")
+
+        existing = db.query(User).filter(User.email == email).first()
+        if existing:
+            continue
+            
+        hashed_pw = pwd_context.hash(s["password"])
+        new_student = User(
+            tenant_id=current_user.tenant_id,
+            email=email,
+            full_name=s["name"],
+            role="student",
+            hashed_password=hashed_pw,
+            is_active=True
+        )
+        db.add(new_student)
+        created_count += 1
+        
+    db.commit()
+    
+    return {
+        "success": True, 
+        "message": f"Successfully onboarded {created_count} students.",
+        "created_count": created_count
+    }
 
 
 # ─── Classes ─────────────────────────────────────────────────

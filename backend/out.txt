@@ -1,0 +1,109 @@
+============================= test session starts =============================
+platform win32 -- Python 3.14.2, pytest-9.0.2, pluggy-1.6.0
+rootdir: C:\Users\naren\Work\Projects\proxy_notebooklm
+configfile: pytest.ini
+plugins: anyio-4.12.1, asyncio-1.3.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 8 items
+
+tests\test_auth_security.py .FF                                          [ 37%]
+tests\test_queue_resiliency.py ..                                        [ 62%]
+tests\test_file_uploads.py FF                                            [ 87%]
+tests\test_ai_gateway_errors.py F                                        [100%]
+
+================================== FAILURES ===================================
+______________________ test_jwt_none_algorithm_rejection ______________________
+tests\test_auth_security.py:53: in test_jwt_none_algorithm_rejection
+    assert resp.status_code == 401
+E   assert 404 == 401
+E    +  where 404 = <Response [404 Not Found]>.status_code
+---------------------------- Captured stdout setup ----------------------------
+{"timestamp": "2026-03-07T01:55:38.823946+00:00", "level": "WARNING", "service": "VidyaOS-api", "logger": "startup-checks", "message": "Startup dependency checks failed for api: {'database': {'ok': True, 'detail': 'ok'}, 'redis': {'ok': False, 'detail': 'redis unavailable: Error 10061 connecting to localhost:6379. No connection could be made because the target machine actively refused it.'}, 'ai_service': {'ok': False, 'detail': '[WinError 10061] No connection could be made because the target machine actively refused it'}}"}
+----------------------------- Captured log setup ------------------------------
+WARNING  startup-checks:startup_checks.py:87 Startup dependency checks failed for api: {'database': {'ok': True, 'detail': 'ok'}, 'redis': {'ok': False, 'detail': 'redis unavailable: Error 10061 connecting to localhost:6379. No connection could be made because the target machine actively refused it.'}, 'ai_service': {'ok': False, 'detail': '[WinError 10061] No connection could be made because the target machine actively refused it'}}
+---------------------------- Captured stdout call -----------------------------
+{"timestamp": "2026-03-07T01:55:38.826256+00:00", "level": "INFO", "service": "VidyaOS-api", "logger": "httpx", "message": "HTTP Request: GET http://testserver/api/users/me \"HTTP/1.1 404 Not Found\""}
+------------------------------ Captured log call ------------------------------
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/users/me "HTTP/1.1 404 Not Found"
+_________________ test_student_cannot_access_admin_endpoints __________________
+tests\test_auth_security.py:84: in test_student_cannot_access_admin_endpoints
+    assert resp_admin.status_code == 403
+E   assert 503 == 403
+E    +  where 503 = <Response [503 Service Unavailable]>.status_code
+---------------------------- Captured stdout setup ----------------------------
+{"timestamp": "2026-03-07T01:55:47.371745+00:00", "level": "WARNING", "service": "VidyaOS-api", "logger": "startup-checks", "message": "Startup dependency checks failed for api: {'database': {'ok': True, 'detail': 'ok'}, 'redis': {'ok': False, 'detail': 'redis unavailable: Error 10061 connecting to localhost:6379. No connection could be made because the target machine actively refused it.'}, 'ai_service': {'ok': False, 'detail': '[WinError 10061] No connection could be made because the target machine actively refused it'}}"}
+----------------------------- Captured log setup ------------------------------
+WARNING  startup-checks:startup_checks.py:87 Startup dependency checks failed for api: {'database': {'ok': True, 'detail': 'ok'}, 'redis': {'ok': False, 'detail': 'redis unavailable: Error 10061 connecting to localhost:6379. No connection could be made because the target machine actively refused it.'}, 'ai_service': {'ok': False, 'detail': '[WinError 10061] No connection could be made because the target machine actively refused it'}}
+---------------------------- Captured stdout call -----------------------------
+{"timestamp": "2026-03-07T01:55:47.779290+00:00", "level": "INFO", "service": "VidyaOS-api", "logger": "httpx", "message": "HTTP Request: POST http://testserver/api/auth/login \"HTTP/1.1 200 OK\""}
+{"timestamp": "2026-03-07T01:55:47.784582+00:00", "level": "INFO", "service": "VidyaOS-api", "logger": "httpx", "message": "HTTP Request: POST http://testserver/api/admin/onboard/teachers \"HTTP/1.1 503 Service Unavailable\""}
+------------------------------ Captured log call ------------------------------
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/auth/login "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/admin/onboard/teachers "HTTP/1.1 503 Service Unavailable"
+________________ test_admin_onboard_teachers_rejects_empty_csv ________________
+tests\test_file_uploads.py:35: in test_admin_onboard_teachers_rejects_empty_csv
+    assert resp_empty.status_code == 400
+E   assert 503 == 400
+E    +  where 503 = <Response [503 Service Unavailable]>.status_code
+---------------------------- Captured stdout setup ----------------------------
+{"timestamp": "2026-03-07T01:55:56.224407+00:00", "level": "WARNING", "service": "VidyaOS-api", "logger": "startup-checks", "message": "Startup dependency checks failed for api: {'database': {'ok': True, 'detail': 'ok'}, 'redis': {'ok': False, 'detail': 'redis unavailable: Error 10061 connecting to localhost:6379. No connection could be made because the target machine actively refused it.'}, 'ai_service': {'ok': False, 'detail': '[WinError 10061] No connection could be made because the target machine actively refused it'}}"}
+----------------------------- Captured log setup ------------------------------
+WARNING  startup-checks:startup_checks.py:87 Startup dependency checks failed for api: {'database': {'ok': True, 'detail': 'ok'}, 'redis': {'ok': False, 'detail': 'redis unavailable: Error 10061 connecting to localhost:6379. No connection could be made because the target machine actively refused it.'}, 'ai_service': {'ok': False, 'detail': '[WinError 10061] No connection could be made because the target machine actively refused it'}}
+---------------------------- Captured stdout call -----------------------------
+{"timestamp": "2026-03-07T01:55:56.640931+00:00", "level": "INFO", "service": "VidyaOS-api", "logger": "httpx", "message": "HTTP Request: POST http://testserver/api/auth/login \"HTTP/1.1 200 OK\""}
+{"timestamp": "2026-03-07T01:55:56.644653+00:00", "level": "INFO", "service": "VidyaOS-api", "logger": "httpx", "message": "HTTP Request: POST http://testserver/api/admin/onboard/teachers \"HTTP/1.1 503 Service Unavailable\""}
+------------------------------ Captured log call ------------------------------
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/auth/login "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/admin/onboard/teachers "HTTP/1.1 503 Service Unavailable"
+______________ test_admin_onboard_teachers_rejects_random_binary ______________
+tests\test_file_uploads.py:57: in test_admin_onboard_teachers_rejects_random_binary
+    assert resp_malformed.status_code == 400
+E   assert 503 == 400
+E    +  where 503 = <Response [503 Service Unavailable]>.status_code
+---------------------------- Captured stdout setup ----------------------------
+{"timestamp": "2026-03-07T01:56:05.075323+00:00", "level": "WARNING", "service": "VidyaOS-api", "logger": "startup-checks", "message": "Startup dependency checks failed for api: {'database': {'ok': True, 'detail': 'ok'}, 'redis': {'ok': False, 'detail': 'redis unavailable: Error 10061 connecting to localhost:6379. No connection could be made because the target machine actively refused it.'}, 'ai_service': {'ok': False, 'detail': '[WinError 10061] No connection could be made because the target machine actively refused it'}}"}
+----------------------------- Captured log setup ------------------------------
+WARNING  startup-checks:startup_checks.py:87 Startup dependency checks failed for api: {'database': {'ok': True, 'detail': 'ok'}, 'redis': {'ok': False, 'detail': 'redis unavailable: Error 10061 connecting to localhost:6379. No connection could be made because the target machine actively refused it.'}, 'ai_service': {'ok': False, 'detail': '[WinError 10061] No connection could be made because the target machine actively refused it'}}
+---------------------------- Captured stdout call -----------------------------
+{"timestamp": "2026-03-07T01:56:05.080615+00:00", "level": "INFO", "service": "VidyaOS-api", "logger": "httpx", "message": "HTTP Request: POST http://testserver/api/auth/login \"HTTP/1.1 401 Unauthorized\""}
+{"timestamp": "2026-03-07T01:56:05.083138+00:00", "level": "INFO", "service": "VidyaOS-api", "logger": "httpx", "message": "HTTP Request: POST http://testserver/api/admin/onboard/teachers \"HTTP/1.1 503 Service Unavailable\""}
+------------------------------ Captured log call ------------------------------
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/auth/login "HTTP/1.1 401 Unauthorized"
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/admin/onboard/teachers "HTTP/1.1 503 Service Unavailable"
+___________________ test_ai_gateway_handles_503_gracefully ____________________
+tests\test_ai_gateway_errors.py:27: in test_ai_gateway_handles_503_gracefully
+    await _post_to_ai_service("/internal/ai/query", mock_request.model_dump())
+services\ai_gateway.py:56: in _post_to_ai_service
+    response = await client.post(url, json=payload, headers=_service_headers(trace_id=trace_id))
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\test_ai_gateway_errors.py:23: in post
+    raise httpx.HTTPError("Simulated Network Connection Refused", request=httpx.Request("POST", url))
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: HTTPError.__init__() got an unexpected keyword argument 'request'
+============================== warnings summary ===============================
+main.py:79
+  C:\Users\naren\Work\Projects\proxy_notebooklm\backend\main.py:79: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("startup")
+
+..\..\..\..\AppData\Roaming\Python\Python314\site-packages\fastapi\applications.py:4599
+  C:\Users\naren\AppData\Roaming\Python\Python314\site-packages\fastapi\applications.py:4599: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    return self.router.on_event(event_type)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests\test_auth_security.py::test_jwt_none_algorithm_rejection - asser...
+FAILED tests\test_auth_security.py::test_student_cannot_access_admin_endpoints
+FAILED tests\test_file_uploads.py::test_admin_onboard_teachers_rejects_empty_csv
+FAILED tests\test_file_uploads.py::test_admin_onboard_teachers_rejects_random_binary
+FAILED tests\test_ai_gateway_errors.py::test_ai_gateway_handles_503_gracefully
+============= 5 failed, 3 passed, 2 warnings in 64.66s (0:01:04) ==============

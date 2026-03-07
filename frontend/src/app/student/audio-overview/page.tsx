@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
-import { Headphones, PlayCircle, PauseCircle, StopCircle, Loader2, Mic, MessageSquare, Volume2 } from "lucide-react";
-import { API_BASE } from "@/lib/api";
+import { useEffect, useState } from "react";
+import { Headphones, PlayCircle, StopCircle, Loader2, Mic, Volume2 } from "lucide-react";
+import { api } from "@/lib/api";
 
 type DialogueLine = { speaker: string; text: string };
 type AudioData = { dialogue: DialogueLine[]; title: string; duration_estimate: string };
+type AIJobStatus = "queued" | "running" | "completed" | "failed";
 
 const formats = [
     { id: "deep_dive", label: "🎧 Deep Dive", desc: "2 hosts discuss in-depth" },
@@ -21,28 +22,75 @@ export default function AudioOverviewPage() {
     const [error, setError] = useState<string | null>(null);
     const [playing, setPlaying] = useState(false);
     const [currentLine, setCurrentLine] = useState(-1);
+    const [jobId, setJobId] = useState<string | null>(null);
+    const [jobStatus, setJobStatus] = useState<AIJobStatus | null>(null);
+
+    useEffect(() => {
+        if (!jobId) return;
+
+        let cancelled = false;
+        let timer: ReturnType<typeof setTimeout> | null = null;
+
+        const poll = async () => {
+            try {
+                const job = await api.ai.jobStatus(jobId) as {
+                    status: AIJobStatus;
+                    error?: string;
+                    result?: AudioData;
+                    poll_after_ms?: number;
+                };
+
+                if (cancelled) return;
+                setJobStatus(job.status);
+
+                if (job.status === "completed" && job.result) {
+                    setData(job.result);
+                    setLoading(false);
+                    setJobId(null);
+                    return;
+                }
+
+                if (job.status === "failed") {
+                    setError(job.error || "Failed to generate audio overview");
+                    setLoading(false);
+                    setJobId(null);
+                    return;
+                }
+
+                timer = setTimeout(() => {
+                    void poll();
+                }, job.poll_after_ms ?? 2000);
+            } catch (err) {
+                if (cancelled) return;
+                setError(err instanceof Error ? err.message : "Failed to load job status");
+                setLoading(false);
+                setJobId(null);
+            }
+        };
+
+        void poll();
+
+        return () => {
+            cancelled = true;
+            if (timer) clearTimeout(timer);
+        };
+    }, [jobId]);
 
     const generate = async () => {
         if (!topic.trim() || loading) return;
         setLoading(true);
         setError(null);
         setData(null);
+        setJobStatus("queued");
         try {
-            const res = await fetch(`${API_BASE}/api/ai/audio-overview`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                credentials: "include",
-                body: JSON.stringify({ topic: topic.trim(), format }),
-            });
-            if (res.ok) {
-                setData(await res.json());
-            } else {
-                const err = await res.json().catch(() => ({ detail: "Request failed" }));
-                setError(err.detail || "Failed to generate audio overview");
-            }
-        } catch {
-            setError("Cannot connect to backend");
-        } finally {
+            const job = await api.ai.enqueueAudioOverviewJob({
+                topic: topic.trim(),
+                format,
+            }) as { job_id: string; status: AIJobStatus };
+            setJobId(job.job_id);
+            setJobStatus(job.status);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Cannot connect to backend");
             setLoading(false);
         }
     };
@@ -139,8 +187,14 @@ export default function AudioOverviewPage() {
                     <div className="w-14 h-14 mx-auto mb-4 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center animate-pulse">
                         <Headphones className="w-7 h-7 text-white" />
                     </div>
-                    <p className="text-sm font-medium text-[var(--text-primary)]">Generating podcast script...</p>
-                    <p className="text-xs text-[var(--text-muted)] mt-1">The AI hosts are preparing to discuss your topic</p>
+                    <p className="text-sm font-medium text-[var(--text-primary)]">
+                        {jobStatus === "queued" ? "Queued for generation..." : "Generating podcast script..."}
+                    </p>
+                    <p className="text-xs text-[var(--text-muted)] mt-1">
+                        {jobStatus === "queued"
+                            ? "Waiting for the AI worker to pick up your request"
+                            : "The AI hosts are preparing to discuss your topic"}
+                    </p>
                 </div>
             )}
 

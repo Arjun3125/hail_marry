@@ -1,0 +1,22 @@
+server:
+  http_listen_port: 3200
+
+receivers:
+  otlp:
+    protocols:
+      http:
+      grpc:
+
+storage:
+  trace:
+    backend: local
+    local:
+      path: /tmp/tempo/traces
+
+compactor:
+  compaction:
+    block_retention: 48h
+
+metrics_generator:
+  storage:
+    path: /tmp/tempo/generator

@@ -1,369 +1,186 @@
 # AI Engine Deep Design
 
-**Project:** AIaaS – AI Infrastructure for Educational Institutions  
-**Version:** v0.1 (Pilot → Cloud-Scale Ready)  
-**Deployment:** Local GPU (Pilot) → Distributed GPU Cluster (Scale)
+**Project:** VidyaOS  
+**Version:** v0.1 current implementation  
+**Status:** Updated to match the repository runtime on 2026-03-06
 
 ---
 
 ## 1. Design Objectives
 
-The AI Engine must:
+The current AI engine is designed to:
+- provide retrieval-grounded answers from school materials
+- preserve tenant isolation across retrieval, queueing, and usage tracking
+- support multiple educational task modes through structured prompts
+- keep ERP records authoritative and read-only from the AI layer
+- expose a service boundary for public synchronous generation
 
-1. Provide **NotebookLM-level** grounded document intelligence
-2. Operate in **strict multi-tenant isolation**
-3. Enforce **citation-first outputs** — no ungrounded claims
-4. Optimize **GPU utilization** for cost efficiency
-5. Remain **cloud-migration ready** from day one
-6. **Never modify** authoritative ERP records
-7. Support **provider abstraction** for LLM/embedding swapping
+## 2. Current AI Runtime Architecture
 
-> AI is augmentation layer only. It reads, retrieves, and reasons. It does not write to ERP.
+There are now two execution paths.
 
----
-
-## 2. AI System Architecture
-
-```
-User Query
-    │
-    ▼
-Query Router (task mode detection)
-    │
-    ▼
-Embedding Layer (nomic-embed-text, 768-dim)
-    │
-    ▼
-Vector Search (Top 8–12, namespace-isolated)
-    │
-    ▼
-Reranker (cross-encoder, optional)
-    │
-    ▼
-Context Builder (dedup + compression)
-    │
-    ▼
-Prompt Template Engine (per task mode)
-    │
-    ▼
-LLM Inference (Qwen 14B, 4-bit quantized)
-    │
-    ▼
-Response Formatter + Citation Injector
-    │
-    ▼
-Output Sanitization + Logging
+### Synchronous public AI path
+```text
+public API request
+  -> AI gateway
+  -> dedicated AI service
+      -> embed
+      -> retrieve from tenant-scoped FAISS store
+      -> rerank / dedup / compress
+      -> prompt template assembly
+      -> apply language, response length, and expertise level personalization
+      -> Ollama generation
+      -> sanitize + citation validation / source fallback
+  -> AIQuery log + trace events + webhook
 ```
 
----
-
-## 3. Multi-Tenant Isolation
-
-Each tenant has:
-- Unique `tenant_id`
-- Isolated vector namespace: `tenant_{tenant_id}`
-- Independent document index
-- Independent usage tracking
-
-**Hard constraint:** No cross-namespace retrieval permitted.
-
----
-
-## 4. Document Ingestion Pipeline
-
-### 4.1 Supported Sources
-
-| Source | Parser | Status |
-|---|---|---|
-| PDF notes | PyMuPDF (fitz) | ✅ Pilot |
-| DOCX files | python-docx | ✅ Pilot |
-| YouTube transcripts | YouTube Transcript API | ✅ Pilot |
-| Text uploads | Direct text ingestion | ✅ Pilot |
-| Google Docs | API connector | 🔮 Phase 2 |
-| PPTX slides | python-pptx | 🔮 Phase 2 |
-
-### 4.2 Preprocessing Pipeline
-
-```
-Raw Document
-    → Text Extraction
-    → Cleaning (remove headers, noise, boilerplate)
-    → Hierarchical Segmentation
-    → Metadata Attachment
-    → Chunk Storage + Embedding Generation
+### Queued heavy-work path
+```text
+request
+  -> Redis enqueue
+  -> worker claim
+  -> dispatch queued workflow to dedicated AI service
+  -> queue metrics + audit history + trace events
+  -> result polling
 ```
 
-### 4.3 Hierarchical Chunking Strategy
+## 3. Supported Sources
+
+Implemented now:
+- PDF
+- DOCX
+- YouTube transcript ingestion
+- URL ingestion (via discovery or direct URL)
+- DuckDuckGo-powered educational source discovery
+
+Not yet implemented:
+- Google Docs connector
+- PPTX connector
+- OCR-heavy parsing pipeline
+
+## 4. Chunking and Retrieval
+
+### Chunking
+- hierarchical chunking for parsed content
+- metadata includes document, page, subject, and source details where available
+
+### Retrieval
+- query embedding with `nomic-embed-text`
+- FAISS semantic search over tenant-specific vector files
+- optional cross-encoder reranking when dependencies are available
+- deduplication and context compression before prompting
+
+## 5. Current Task Surface
+
+### Text generation modes (13)
+- Q&A
+- Study Guide
+- Quiz
+- Concept Map
+- Weak Topic
+- Flowchart
+- Mind Map
+- Flashcards
+- Socratic
+- Perturbation
+- Debate
+- Essay Review
+- Career Simulation
+
+### Additional AI outputs
+- Audio overview (podcast-style dialogue between two hosts)
+- Video overview (narrated slide presentation)
+
+### Teacher-specific AI workflows
+- Assessment generation (NCERT-aligned formative assessments via RAG + LLM)
+- Doubt heatmap data aggregation
+
+### Personalization controls
+All text generation modes support:
+- **Language** — response language selection
+- **Response length** — short / medium / detailed
+- **Expertise level** — beginner / intermediate / advanced
+
+Applied via `_apply_language_and_style()` before prompt submission.
+
+### Queued generation
+Used in the product for:
+- student study-tool generation
+- audio overview
+- video overview
+- teacher assessment generation
+- ingestion-heavy flows (document, YouTube, URL)
+
+## 6. Model Configuration
+
+Current default configuration comes from `backend/settings.yaml` and environment overrides.
+
+### LLM
+- provider path: Ollama over HTTP
+- default model: `llama3.2`
+- fallback model: configurable, default currently also `llama3.2`
+
+### Embeddings
+- model: `nomic-embed-text`
+- dimension: 768
+
+## 7. Citation Behavior
+
+Current behavior is grounded and citation-aware, but not a universal hard-reject policy.
+
+What happens now:
+- retrieved chunks are formatted with citation markers
+- responses are checked for citations
+- when citations are missing but grounded sources exist, the system can append source fallback text rather than reject every response outright
+
+## 8. Queueing and Control Plane
+
+Implemented now:
+- Redis-backed queue
+- tenant-fair scheduling
+- static priority ordering by job type
+- queue admission limits
+- cancel / retry / dead-letter controls
+- admin queue metrics and audit history
+
+Current durability model:
+- live queue state lives in Redis
+- durable lifecycle state is mirrored into relational `ai_jobs` and `ai_job_events`
+- queue lifecycle actions are also written to `audit_logs`
 
-**Flat chunking is insufficient.** Instead:
+## 9. Spaced Repetition Integration
 
-Document → Section → Subsection → Paragraph
+Implemented now:
+- SM-2 algorithm for review card scheduling
+- Students create review cards tied to topics and subjects
+- Quality self-rating (1=Again to 5=Perfect) adjusts interval and ease factor
+- Next review date calculated from interval and ease factor
+- Due and upcoming cards surfaced in student UI
 
-Each chunk stores:
-- `tenant_id`, `document_id`, `chunk_id`
-- `page_number`, `section_title`
-- `subject`, `class_id`, `teacher_id`
-- `academic_year`
+## 10. Logging, Tracing, and Reviewability
 
-**Chunk size:** 300–600 tokens  
-**Overlap:** 50–100 tokens
+Current query and job observability includes:
+- structured logs
+- per-job event timelines
+- `trace_id` propagation across API, queue, worker, and AI service
+- persistent trace events
+- admin trace viewer
+- alert evaluation plus webhook dispatch
 
----
+Current limitation:
+- this is a practical observability stack, not yet a fully managed external incident pipeline with email / pager escalation
 
-## 5. Embedding Engine
+## 11. Execution Limits
 
-**Model:** nomic-embed-text (768-dim, local)
+Important current limits:
+- FAISS is still local-file based and suited to pilot or modest single-node deployments
+- queue results remain Redis TTL-based even though lifecycle state and event history are durable
 
-```
-Chunk → Embedding Model → 768-dim Vector → Vector DB
-```
+## 12. Roadmap, Not Current Implementation
 
-Embeddings generated:
-- On document upload (async background job)
-- On transcript ingestion
-- Batch processing for bulk imports
+Still future-state:
+- broader operator tooling for queue replay / pause / drain
+- service-grade vector backend
+- deeper trace explorer with prompt and retrieval replay
 
-Stored in tenant namespace.
-
----
-
-## 6. Retrieval Pipeline
-
-### 6.1 Query Flow
-```
-Student Query → Query Embedding → Vector Search (Top 8–12)
-```
-
-### 6.2 Reranking (Recommended)
-- Cross-encoder model: `cross-encoder/ms-marco-MiniLM-L-2-v2`
-- Scores semantic relevance of retrieved chunks
-- Select top 5–8 chunks post-rerank
-- Significantly improves answer quality
-
-### 6.3 Context Deduplication
-Remove: redundant chunks, near-identical overlaps, cross-page repetition
-
-### 6.4 Context Compression
-If context exceeds LLM token limit:
-- Summarize lower-ranked chunks
-- Keep highest semantic weight chunks raw
-- Goal: maintain relevance under token budget
-
-### 6.5 Query Transform (Advanced)
-- **HyDE** (Hypothetical Document Embedding): generate hypothetical answer, embed it, search against that
-- **Sub-question decomposition**: break complex queries into atomic sub-questions
-- Configurable via settings YAML
-
----
-
-## 7. Prompt Template Engine
-
-AI must NOT operate in free-form mode. All responses pass through structured templates.
-
-### Task Modes
-
-| Mode | Description | Output Format |
-|---|---|---|
-| Q&A | Grounded question answering | Text + citations |
-| Study Guide | Structured topic summary | Sections + citations |
-| Quiz | Question generation | JSON (questions, options, correct answer) |
-| Concept Map | Graph structure | JSON (nodes, edges) |
-| Weak Topic | Performance-based insight | Text + targeted recommendations |
-
-### Example Q&A Template
-
-```
-You are an academic assistant for {subject}.
-Answer ONLY using the provided context.
-Cite using [Document_Page] format.
-If the answer is not in the context, say: "Not found in provided materials."
-Do not speculate or make up information.
-```
-
----
-
-## 8. LLM Inference Layer
-
-### 8.1 Model Selection
-
-| Priority | Model | VRAM | Speed |
-|---|---|---|---|
-| Primary | Qwen 14B (4-bit quantized) | ~12GB | Moderate |
-| Fallback | Llama 3 8B (4-bit) | ~6GB | Fast |
-
-### 8.2 Token Budget
-
-| Component | Tokens |
-|---|---|
-| Query | ~200 |
-| Context | ~3000 |
-| Output | ~600 |
-| **Total** | **~3800** |
-
-Strict caps enforced. Over-budget requests → context trimmed automatically.
-
-### 8.3 GPU Utilization Strategy
-- Queue-based request handling (Redis queue)
-- Max concurrency limit (configurable)
-- Timeout protection (30s default)
-- Batch embedding generation (off-peak hours)
-
----
-
-## 9. Citation Enforcement Layer
-
-Post-processing step on every Q&A response:
-
-1. Detect claim spans in the response
-2. Attach citation markers from source chunks
-3. Validate citation presence
-4. **Reject output if no citation** (for Q&A mode)
-
-Example output:
-```
-Photosynthesis occurs in chloroplasts. [Bio_Ch3_p12]
-Light reactions happen in the thylakoid membrane. [Bio_Ch3_p14]
-```
-
----
-
-## 10. Structured Output Engine
-
-### Quiz Mode
-```json
-{
-  "questions": [
-    {
-      "question": "What organelle is responsible for photosynthesis?",
-      "options": ["Mitochondria", "Chloroplast", "Nucleus", "Ribosome"],
-      "correct": "B",
-      "citation": "Bio_Ch3_p12"
-    }
-  ]
-}
-```
-
-### Concept Map Mode
-```json
-{
-  "nodes": [
-    {"id": "1", "label": "Photosynthesis"},
-    {"id": "2", "label": "Chloroplast"},
-    {"id": "3", "label": "Light Reactions"}
-  ],
-  "edges": [
-    {"from": "1", "to": "2", "label": "occurs in"},
-    {"from": "1", "to": "3", "label": "includes"}
-  ]
-}
-```
-
----
-
-## 11. Weak Topic Intelligence
-
-Uses ERP data (marks, subject performance, attendance) to personalize:
-
-```
-Low Algebra Score (from ERP)
-    → Fetch Algebra documents (from vector DB)
-    → Generate Focused Study Guide
-    → Generate Targeted Quiz
-    → Deliver to student dashboard
-```
-
-This is the key differentiator over generic NotebookLM or ChatGPT.
-
----
-
-## 12. Caching Strategy
-
-| Cache Target | TTL | Backend |
-|---|---|---|
-| Embeddings | Permanent (until doc update) | Disk |
-| Top 20 frequent queries per subject | 24h | Redis |
-| Study guides per chapter | 7 days | Redis |
-| Quiz templates | 7 days | Redis |
-
----
-
-## 13. Rate Limiting
-
-Per student:
-- X queries per day (plan-dependent)
-- Burst limit: 5 per minute
-- Token usage tracking per query
-
-Prevents GPU overload and abuse.
-
----
-
-## 14. AI Query Tracing
-
-Every AI query gets a `trace_id` that links:
-- Query text
-- Embedding vector
-- Retrieved chunks (with scores)
-- Reranked results
-- Final prompt sent to LLM
-- Raw LLM response
-- Post-processed response
-- Citations injected
-- Response time + token usage
-
-Admins can view traces via the AI Quality Review panel.
-
----
-
-## 15. Configuration (YAML-based)
-
-```yaml
-rag:
-  similarity_top_k: 8
-  rerank:
-    enabled: true
-    model: cross-encoder/ms-marco-MiniLM-L-2-v2
-    top_n: 5
-
-llm:
-  mode: ollama
-  model: qwen:14b
-  max_new_tokens: 600
-  context_window: 3900
-  temperature: 0.1
-
-embedding:
-  mode: local
-  model: nomic-embed-text
-  embed_dim: 768
-
-vectorstore:
-  database: faiss
-  # Scale: qdrant
-```
-
-Override per environment via `settings-{env}.yaml`.
-
----
-
-## 16. Failure Handling
-
-| Scenario | Action |
-|---|---|
-| No relevant chunks found | Return controlled fallback: "Not found in materials" |
-| GPU overload | Queue request, notify user of wait time |
-| Timeout (>30s) | Retry once, then return error |
-| Hallucination detected | Reject output, log for review |
-| Embedding service down | Queue documents, retry when available |
-
-**Never return an ungrounded answer silently.**
-
----
-
-## 17. Scaling Path
-
-| Phase | Infrastructure |
-|---|---|
-| Pilot | Single GPU, single vector DB |
-| Growth | Multiple inference workers, load balancer |
-| Enterprise | Kubernetes GPU pods, auto-scaling, distributed vector DB, model specialization per subject |
+Use this document as the source of truth for the current AI runtime.

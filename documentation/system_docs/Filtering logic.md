@@ -1,10 +1,11 @@
 # Filtering Logic
 
-**Project:** AIaaS – AI Infrastructure for Educational Institutions  
+**Project:** VidyaOS – AI Infrastructure for Educational Institutions  
 **Version:** v0.1  
 **Applies To:** ERP + AI Layer  
 **Database:** PostgreSQL  
-**Vector DB:** Namespace-Isolated
+**Vector DB:** Namespace-Isolated  
+**Status:** Updated to match the repository on 2026-03-06
 
 ---
 
@@ -32,7 +33,7 @@ WHERE tenant_id = :tenant_id
 **Middleware enforcement flow:**
 1. Extract JWT from request
 2. Parse `tenant_id` from token claims
-3. Inject `tenant_id` into request context
+3. Inject `tenant_id` into request context via `TenantMiddleware`
 4. Enforce in repository/query layer
 
 **Hard rules:**
@@ -45,7 +46,7 @@ WHERE tenant_id = :tenant_id
 ## 3. Layer 2 — Role-Based Filtering
 
 ### Student
-- View only their own: attendance, marks, assignments, AI queries
+- View only their own: attendance, marks, assignments, AI queries, uploads, review cards
 ```sql
 WHERE tenant_id = :tenant_id AND student_id = :user_id
 ```
@@ -56,26 +57,29 @@ WHERE tenant_id = :tenant_id AND student_id = :user_id
 ```sql
 WHERE tenant_id = :tenant_id
 AND class_id IN (
-    SELECT class_id FROM teacher_assignments
+    SELECT class_id FROM timetable
     WHERE teacher_id = :user_id
 )
 ```
 - Cannot access admin-level analytics or financial data
+- Teacher class access derived via `get_teacher_class_ids` dependency
 
 ### Admin
 - Access all data within own tenant
-- Manage users, view AI usage, export reports
+- Manage users, view AI usage, export reports, operate queue
 - Still constrained by `tenant_id`
 
-### Parent (Phase 2)
+### Parent
 - View only linked child's data
 ```sql
 WHERE tenant_id = :tenant_id
 AND student_id IN (
     SELECT child_id FROM parent_links
     WHERE parent_id = :user_id
+    AND tenant_id = :tenant_id
 )
 ```
+- Parent-child links managed by admin through `parent_links` table
 
 ---
 
@@ -142,9 +146,25 @@ if daily_count >= plan_limit:
 ```
 Plan-based filtering must execute **before** GPU call.
 
+Additional rate limiting is enforced by `RateLimitMiddleware` (disabled in demo mode).
+
 ---
 
-## 7. Pagination
+## 7. Middleware Stack
+
+The API enforces filtering through a middleware chain (last added executes first):
+
+| Middleware | Purpose | Demo Mode |
+|---|---|---|
+| `ObservabilityMiddleware` | Structured logging and metrics | Active |
+| `CORSMiddleware` | Cross-origin request control | Active |
+| `CSRFMiddleware` | State-changing request protection | Disabled |
+| `TenantMiddleware` | Tenant context injection | Active |
+| `RateLimitMiddleware` | Request throttling | Disabled |
+
+---
+
+## 8. Pagination
 
 Large datasets must use pagination:
 ```sql
@@ -156,17 +176,17 @@ Never allow unbounded `SELECT *` queries.
 
 ---
 
-## 8. Data Sanitization
+## 9. Data Sanitization
 
 Before returning any API response:
-- Remove internal UUIDs
+- Remove internal UUIDs where appropriate
 - Remove sensitive system fields
 - Mask unnecessary metadata
 - Students should not see other student UUIDs or internal audit data
 
 ---
 
-## 9. AI Output Filtering
+## 10. AI Output Filtering
 
 Before returning AI response, validate:
 - Citation present (for Q&A mode)
@@ -179,10 +199,20 @@ If violation detected → block response.
 
 ---
 
-## 10. API-Level Filtering Flow
+## 11. API-Level Filtering Flow
 
 ```
 Request
+  ↓
+ObservabilityMiddleware (logging)
+  ↓
+CORSMiddleware
+  ↓
+CSRFMiddleware (if not demo)
+  ↓
+TenantMiddleware (inject tenant_id)
+  ↓
+RateLimitMiddleware (if not demo)
   ↓
 JWT Validation
   ↓
@@ -201,7 +231,7 @@ Return to client
 
 ---
 
-## 11. Common Filtering Vulnerabilities
+## 12. Common Filtering Vulnerabilities
 
 | ❌ Avoid | Why |
 |---|---|
@@ -213,7 +243,7 @@ Return to client
 
 ---
 
-## 12. Performance Optimization
+## 13. Performance Optimization
 
 Index these columns for fast filtering at scale:
 
