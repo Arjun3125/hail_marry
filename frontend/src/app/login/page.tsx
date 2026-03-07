@@ -97,7 +97,7 @@ export default function LoginPage() {
                     <div className="flex flex-col items-center justify-center mt-4">
                         <span className="font-black text-3xl tracking-tighter text-[var(--text-primary)] leading-none mb-1">VidyaOS</span>
                         <span className="text-xs font-bold leading-none">
-                            By <span className="text-[#000000]">Modern</span><span className="text-[#ff3b1f]">Hustlers</span>
+                            By <span className="text-black dark:text-white">Modern</span><span className="text-[#ff3b1f]">Hustlers</span>
                         </span>
                     </div>
                     <p className="text-sm text-[var(--text-secondary)] mt-2">
@@ -106,7 +106,7 @@ export default function LoginPage() {
                 </div>
 
                 {/* Login Card */}
-                <div className="bg-white rounded-[var(--radius)] shadow-[var(--shadow-card)] p-8">
+                <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-[var(--radius)] shadow-[var(--shadow-card)] p-8">
                     {loading ? (
                         <div className="flex flex-col items-center py-8">
                             <Loader2 className="w-8 h-8 text-[var(--primary)] animate-spin mb-3" />
@@ -135,19 +135,19 @@ export default function LoginPage() {
                                             </button>
                                             <button
                                                 onClick={() => void runDemoLogin("teacher", "/teacher/dashboard")}
-                                                className="w-full py-3 border border-[var(--border)] text-[var(--text-secondary)] rounded-[var(--radius-sm)] font-medium hover:border-[var(--primary)] hover:text-[var(--primary)] hover:bg-[#eff6ff] transition-colors mb-3"
+                                                className="w-full py-3 border border-[var(--border)] text-[var(--text-secondary)] rounded-[var(--radius-sm)] font-medium hover:border-[var(--primary)] hover:text-[var(--primary)] hover:bg-[var(--primary-light)] transition-colors mb-3"
                                             >
                                                 Demo: Login as Teacher
                                             </button>
                                             <button
                                                 onClick={() => void runDemoLogin("admin", "/admin/dashboard")}
-                                                className="w-full py-3 border border-[var(--border)] text-[var(--text-secondary)] rounded-[var(--radius-sm)] font-medium hover:border-[var(--primary)] hover:text-[var(--primary)] hover:bg-[#eff6ff] transition-colors"
+                                                className="w-full py-3 border border-[var(--border)] text-[var(--text-secondary)] rounded-[var(--radius-sm)] font-medium hover:border-[var(--primary)] hover:text-[var(--primary)] hover:bg-[var(--primary-light)] transition-colors"
                                             >
                                                 Demo: Login as Admin
                                             </button>
                                             <button
                                                 onClick={() => void runDemoLogin("parent", "/parent/dashboard")}
-                                                className="w-full py-3 border border-[var(--border)] text-[var(--text-secondary)] rounded-[var(--radius-sm)] font-medium hover:border-[var(--primary)] hover:text-[var(--primary)] hover:bg-[#eff6ff] transition-colors mt-3"
+                                                className="w-full py-3 border border-[var(--border)] text-[var(--text-secondary)] rounded-[var(--radius-sm)] font-medium hover:border-[var(--primary)] hover:text-[var(--primary)] hover:bg-[var(--primary-light)] transition-colors mt-3"
                                             >
                                                 Demo: Login as Parent
                                             </button>
