@@ -132,19 +132,19 @@ export default function LoginPage() {
                                             </button>
                                             <button
                                                 onClick={() => void runDemoLogin("teacher", "/teacher/dashboard")}
-                                                className="w-full py-3 border border-[var(--border)] text-[var(--text-secondary)] rounded-[var(--radius-sm)] font-medium hover:border-[var(--primary)] hover:text-[var(--primary)] hover:bg-slate-50 transition-colors mb-3"
+                                                className="w-full py-3 border border-[var(--border)] text-[var(--text-secondary)] rounded-[var(--radius-sm)] font-medium hover:border-[var(--primary)] hover:text-[var(--primary)] hover:bg-[#eff6ff] transition-colors mb-3"
                                             >
                                                 Demo: Login as Teacher
                                             </button>
                                             <button
                                                 onClick={() => void runDemoLogin("admin", "/admin/dashboard")}
-                                                className="w-full py-3 border border-[var(--border)] text-[var(--text-secondary)] rounded-[var(--radius-sm)] font-medium hover:border-[var(--primary)] hover:text-[var(--primary)] hover:bg-slate-50 transition-colors"
+                                                className="w-full py-3 border border-[var(--border)] text-[var(--text-secondary)] rounded-[var(--radius-sm)] font-medium hover:border-[var(--primary)] hover:text-[var(--primary)] hover:bg-[#eff6ff] transition-colors"
                                             >
                                                 Demo: Login as Admin
                                             </button>
                                             <button
                                                 onClick={() => void runDemoLogin("parent", "/parent/dashboard")}
-                                                className="w-full py-3 border border-[var(--border)] text-[var(--text-secondary)] rounded-[var(--radius-sm)] font-medium hover:border-[var(--primary)] hover:text-[var(--primary)] hover:bg-slate-50 transition-colors mt-3"
+                                                className="w-full py-3 border border-[var(--border)] text-[var(--text-secondary)] rounded-[var(--radius-sm)] font-medium hover:border-[var(--primary)] hover:text-[var(--primary)] hover:bg-[#eff6ff] transition-colors mt-3"
                                             >
                                                 Demo: Login as Parent
                                             </button>
