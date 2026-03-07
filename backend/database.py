@@ -32,6 +32,9 @@ sqlite3.register_converter("CHAR(32)", lambda b: uuid.UUID(b.decode()))
 
 
 _db_url = os.getenv("DATABASE_URL", settings.database.url)
+if _db_url and _db_url.startswith("postgres://"):
+    _db_url = _db_url.replace("postgres://", "postgresql://", 1)
+
 if "sqlite" in _db_url:
     engine = create_engine(
         _db_url,

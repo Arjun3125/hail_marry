@@ -33,6 +33,17 @@ from services.telemetry import configure_telemetry, instrument_sqlalchemy_engine
 
 configure_structured_logging(service_name="vidyaos-api")
 
+import subprocess
+import sys
+
+# Auto-run database migrations before starting the FastAPI app
+try:
+    if not os.environ.get("TESTING"):
+        print("Running automatic database migrations...", flush=True)
+        subprocess.run([sys.executable, "-m", "alembic", "upgrade", "head"], check=True)
+except Exception as e:
+    print(f"Failed to run database migrations: {e}", flush=True)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
