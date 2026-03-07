@@ -103,7 +103,7 @@ export default function LandingPage() {
             <Network className="w-4 h-4 text-[var(--text-primary)]" />
             VidyaOS: The Digital Nervous System for Education
           </div>
-          <h1 className="text-4xl md:text-6xl font-extrabold text-[var(--text-primary)] tracking-tight leading-[1.1] mb-6">
+          <h1 className="text-4xl md:text-6xl font-extrabold text-[var(--primary)] tracking-tight leading-[1.1] mb-6">
             AI Infrastructure for
             <span className="text-[var(--text-muted)] block mt-2"> Educational Institutions</span>
           </h1>
@@ -113,7 +113,7 @@ export default function LandingPage() {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
               href="/login"
-              className="inline-flex items-center gap-2 px-8 py-3.5 bg-[var(--text-primary)] text-[var(--bg-page)] font-medium rounded-full hover:opacity-90 transition-all shadow-md"
+              className="inline-flex items-center gap-2 px-8 py-3.5 bg-[var(--primary)] text-[var(--bg-page)] font-medium rounded-full hover:bg-[var(--primary-hover)] transition-all shadow-md"
             >
               Access Platform
               <ArrowRight className="w-4 h-4" />
@@ -146,7 +146,7 @@ export default function LandingPage() {
                 className="bg-[var(--bg-page)] p-8 rounded-2xl border border-[var(--border)] hover:border-[var(--text-muted)] transition-colors"
               >
                 <div className="w-12 h-12 bg-[var(--bg-card)] border border-[var(--border)] rounded-xl flex items-center justify-center mb-6">
-                  <tier.icon className="w-6 h-6 text-[var(--text-primary)]" />
+                  <tier.icon className="w-6 h-6 text-[var(--primary)]" />
                 </div>
                 <h3 className="text-xl font-bold text-[var(--text-primary)] mb-3 tracking-tight">
                   {tier.title}
@@ -178,7 +178,7 @@ export default function LandingPage() {
                 className={`bg-[var(--bg-card)] p-8 rounded-2xl border border-[var(--border)] transition-all ${i === 4 ? "md:col-span-2 lg:col-span-1" : ""}`}
               >
                 <div className="w-10 h-10 bg-[var(--bg-page)] border border-[var(--border)] rounded-lg flex items-center justify-center mb-6">
-                  <f.icon className="w-5 h-5 text-[var(--text-primary)]" />
+                  <f.icon className="w-5 h-5 text-[var(--primary)]" />
                 </div>
                 <h3 className="text-lg font-bold text-[var(--text-primary)] mb-3 tracking-tight">
                   {f.title}
@@ -227,7 +227,7 @@ export default function LandingPage() {
             ].map((s) => (
               <div key={s.step} className="text-center">
                 <div className="w-16 h-16 bg-[var(--bg-page)] border border-[var(--border)] rounded-full flex items-center justify-center mx-auto mb-6">
-                  <s.icon className="w-7 h-7 text-[var(--text-primary)]" />
+                  <s.icon className="w-7 h-7 text-[var(--primary)]" />
                 </div>
                 <div className="text-xs font-black text-[var(--text-muted)] tracking-widest mb-3">
                   STAGE {s.step}
