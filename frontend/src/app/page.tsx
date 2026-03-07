@@ -14,7 +14,8 @@ import {
   School,
   Building,
   Library,
-  Network
+  Network,
+  CheckCircle2
 } from "lucide-react";
 
 const features = [
