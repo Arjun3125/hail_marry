@@ -97,9 +97,10 @@ export default function LoginPage() {
                     <h1 className="text-2xl font-bold text-[var(--text-primary)]">
                         Welcome to VidyaOS
                     </h1>
-                    <p className="text-xs font-bold text-orange-600 tracking-wider mt-1 uppercase">
-                        By ModernHustlers
-                    </p>
+                    <div className="flex items-center justify-center gap-1.5 mt-2">
+                        <span className="text-xs font-medium text-[var(--text-muted)]">by</span>
+                        <img src="/images/mh-logo.png" alt="ModernHustlers" className="h-4 object-contain" />
+                    </div>
                     <p className="text-sm text-[var(--text-secondary)] mt-2">
                         Sign in with your school Google account
                     </p>

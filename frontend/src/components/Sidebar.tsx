@@ -57,7 +57,10 @@ export default function Sidebar({ items, role, userName }: SidebarProps) {
                                 {role}
                             </span>
                         </div>
-                        <span className="text-[9px] font-bold text-orange-600 tracking-wider uppercase">By ModernHustlers</span>
+                        <div className="flex items-center gap-1 mt-0.5">
+                            <span className="text-[9px] font-medium text-slate-500 tracking-wide">by</span>
+                            <img src="/images/mh-logo.png" alt="ModernHustlers" className="h-3 object-contain" />
+                        </div>
                     </div>
                 )}
             </div>
@@ -119,7 +122,9 @@ export default function Sidebar({ items, role, userName }: SidebarProps) {
                 <GraduationCap className="h-5 w-5 text-blue-700" />
                 <div className="flex flex-col justify-center leading-none">
                     <span className="font-semibold text-slate-900 text-sm">VidyaOS</span>
-                    <span className="text-[9px] font-bold text-orange-600 tracking-wider uppercase mt-0.5">By ModernHustlers</span>
+                    <div className="flex items-center gap-1 mt-0.5">
+                        <img src="/images/mh-logo.png" alt="ModernHustlers" className="h-[10px] object-contain" />
+                    </div>
                 </div>
                 <span className="ml-auto rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold capitalize text-blue-700">
                     {role}

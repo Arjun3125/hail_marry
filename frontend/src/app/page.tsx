@@ -95,9 +95,10 @@ export default function LandingPage() {
               <span className="text-xl font-semibold text-[var(--text-primary)]">
                 VidyaOS
               </span>
-              <span className="text-[10px] font-bold text-orange-600 tracking-wider uppercase mt-0.5">
-                By ModernHustlers
-              </span>
+              <div className="flex items-center gap-1 mt-1">
+                <span className="text-[10px] font-medium text-[var(--text-muted)] tracking-wide">by</span>
+                <img src="/images/mh-logo.png" alt="ModernHustlers" className="h-3 object-contain" />
+              </div>
             </div>
           </div>
           <div className="hidden md:flex items-center gap-8">
@@ -289,7 +290,10 @@ export default function LandingPage() {
             <GraduationCap className="w-5 h-5 text-[var(--primary)]" />
             <div className="flex flex-col justify-center leading-none">
               <span className="font-semibold text-[var(--text-primary)]">VidyaOS</span>
-              <span className="text-[10px] font-bold text-orange-600 tracking-wider uppercase mt-1">By ModernHustlers</span>
+              <div className="flex items-center gap-1 mt-1">
+                <span className="text-[10px] font-medium text-[var(--text-muted)] tracking-wide">by</span>
+                <img src="/images/mh-logo.png" alt="ModernHustlers" className="h-3 object-contain" />
+              </div>
             </div>
           </div>
           <p className="text-sm text-[var(--text-muted)]">
