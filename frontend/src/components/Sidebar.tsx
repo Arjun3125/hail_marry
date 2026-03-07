@@ -53,7 +53,7 @@ export default function Sidebar({ items, role, userName }: SidebarProps) {
                     <div className="flex flex-col justify-center">
                         <div className="flex items-center gap-2">
                             <span className="font-bold tracking-tight text-slate-900">ModernHustlers</span>
-                            <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold capitalize text-blue-700">
+                            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold capitalize text-slate-700">
                                 {role}
                             </span>
                         </div>
@@ -118,14 +118,14 @@ export default function Sidebar({ items, role, userName }: SidebarProps) {
                 >
                     <Menu className="h-5 w-5" />
                 </button>
-                <GraduationCap className="h-5 w-5 text-blue-700" />
+                <GraduationCap className="h-5 w-5 text-slate-900" />
                 <div className="flex flex-col justify-center leading-none">
                     <span className="font-bold text-slate-900 text-sm tracking-tight">ModernHustlers</span>
                     <div className="flex items-center gap-1 mt-0.5">
                         <img src="/brand/logo-mark.png" alt="ModernHustlers" className="h-[10px] object-contain" />
                     </div>
                 </div>
-                <span className="ml-auto rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold capitalize text-blue-700">
+                <span className="ml-auto rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold capitalize text-slate-700">
                     {role}
                 </span>
             </div>
