@@ -153,7 +153,7 @@ export default function AIReviewPage() {
                             <p className="text-xs font-medium text-[var(--text-secondary)] mb-1">Q: {item.query}</p>
                             <p className="text-xs text-[var(--text-muted)] line-clamp-3 mb-3">{item.response}</p>
                             {item.review_note ? (
-                                <p className="mb-3 rounded-xl bg-slate-50 px-3 py-2 text-xs text-[var(--text-secondary)]">
+                                <p className="mb-3 rounded-xl bg-[var(--bg-page)] px-3 py-2 text-xs text-[var(--text-secondary)]">
                                     Review note: {item.review_note}
                                 </p>
                             ) : null}
@@ -176,7 +176,7 @@ export default function AIReviewPage() {
                                     <button
                                         type="button"
                                         onClick={() => void loadDetail(item.id)}
-                                        className="text-xs px-3 py-1.5 bg-slate-100 text-[var(--text-secondary)] rounded-full font-medium flex items-center gap-1 hover:bg-slate-200 transition-colors"
+                                        className="text-xs px-3 py-1.5 bg-[var(--bg-hover)] text-[var(--text-secondary)] rounded-full font-medium flex items-center gap-1 hover:bg-[var(--border)] transition-colors"
                                     >
                                         <Search className="w-3 h-3" /> Details
                                     </button>
@@ -224,19 +224,19 @@ export default function AIReviewPage() {
                             <p className="text-[var(--text-secondary)] whitespace-pre-wrap">{detail.response}</p>
                         </div>
                         <div className="grid grid-cols-2 gap-3 text-xs">
-                            <div className="rounded-xl bg-slate-50 p-3">
+                            <div className="rounded-xl bg-[var(--bg-page)] p-3">
                                 <p className="text-[var(--text-muted)] mb-1">Trace ID</p>
                                 <p className="font-medium text-[var(--text-primary)]">{detail.trace_id || "—"}</p>
                             </div>
-                            <div className="rounded-xl bg-slate-50 p-3">
+                            <div className="rounded-xl bg-[var(--bg-page)] p-3">
                                 <p className="text-[var(--text-muted)] mb-1">Token Usage</p>
                                 <p className="font-medium text-[var(--text-primary)]">{detail.token_usage ?? "—"}</p>
                             </div>
-                            <div className="rounded-xl bg-slate-50 p-3">
+                            <div className="rounded-xl bg-[var(--bg-page)] p-3">
                                 <p className="text-[var(--text-muted)] mb-1">Status</p>
                                 <p className="font-medium text-[var(--text-primary)]">{detail.review_status}</p>
                             </div>
-                            <div className="rounded-xl bg-slate-50 p-3">
+                            <div className="rounded-xl bg-[var(--bg-page)] p-3">
                                 <p className="text-[var(--text-muted)] mb-1">Reviewed At</p>
                                 <p className="font-medium text-[var(--text-primary)]">{formatDateTime(detail.reviewed_at)}</p>
                             </div>
@@ -247,7 +247,7 @@ export default function AIReviewPage() {
                                 {detail.review_history.length === 0 ? (
                                     <p className="text-xs text-[var(--text-muted)]">No review actions yet.</p>
                                 ) : detail.review_history.map((entry, index) => (
-                                    <div key={`${entry.created_at}-${index}`} className="rounded-xl border border-slate-200 px-3 py-2">
+                                    <div key={`${entry.created_at}-${index}`} className="rounded-xl border border-[var(--border)] px-3 py-2">
                                         <p className="text-xs font-medium text-[var(--text-primary)]">{entry.action}</p>
                                         <p className="text-xs text-[var(--text-muted)]">{formatDateTime(entry.created_at)} by {entry.reviewed_by || "Unknown reviewer"}</p>
                                         {entry.note ? <p className="text-xs text-[var(--text-secondary)] mt-1">{entry.note}</p> : null}

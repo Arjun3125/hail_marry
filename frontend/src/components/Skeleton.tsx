@@ -14,7 +14,7 @@ interface SkeletonProps {
 }
 
 export function Skeleton({ className = "", variant = "line" }: SkeletonProps) {
-    const base = "animate-pulse rounded-[var(--radius-sm)] bg-slate-200";
+    const base = "animate-pulse rounded-[var(--radius-sm)] bg-[var(--border)]";
 
     if (variant === "circle") {
         return <div className={`${base} rounded-full ${className}`} />;

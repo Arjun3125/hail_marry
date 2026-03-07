@@ -103,7 +103,7 @@ const statusClasses: Record<QueueStatus, string> = {
     running: "bg-blue-50 text-blue-700",
     completed: "bg-green-50 text-green-700",
     failed: "bg-red-50 text-red-700",
-    cancelled: "bg-slate-100 text-slate-700",
+    cancelled: "bg-[var(--bg-hover)] text-[var(--text-secondary)]",
     dead_letter: "bg-violet-50 text-violet-700",
 };
 
@@ -305,7 +305,7 @@ export default function AdminQueuePage() {
                             <select
                                 value={statusFilter}
                                 onChange={(event) => setStatusFilter(event.target.value)}
-                                className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700"
+                                className="rounded-xl border border-[var(--border)] px-3 py-2 text-sm text-[var(--text-secondary)]"
                             >
                                 {STATUS_OPTIONS.map((option) => (
                                     <option key={option} value={option}>{option}</option>
@@ -314,7 +314,7 @@ export default function AdminQueuePage() {
                             <select
                                 value={jobTypeFilter}
                                 onChange={(event) => setJobTypeFilter(event.target.value)}
-                                className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700"
+                                className="rounded-xl border border-[var(--border)] px-3 py-2 text-sm text-[var(--text-secondary)]"
                             >
                                 {JOB_TYPE_OPTIONS.map((option) => (
                                     <option key={option} value={option}>{option}</option>
@@ -352,7 +352,7 @@ export default function AdminQueuePage() {
                                             <tr
                                                 key={job.job_id}
                                                 onClick={() => void loadDetail(job.job_id)}
-                                                className={`transition-colors hover:bg-slate-50 ${selectedId === job.job_id ? "bg-blue-50/60" : ""}`}
+                                                className={`transition-colors hover:bg-[var(--bg-page)] ${selectedId === job.job_id ? "bg-blue-50/60" : ""}`}
                                             >
                                                 <td className="py-3 pr-4 align-top cursor-pointer">
                                                     <div className="font-medium text-[var(--text-primary)]">{job.job_type}</div>
@@ -389,7 +389,7 @@ export default function AdminQueuePage() {
                                                                     event.stopPropagation();
                                                                     void runAction(job.job_id, "cancel");
                                                                 }}
-                                                                className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-200 disabled:opacity-60"
+                                                                className="inline-flex items-center gap-1 rounded-full bg-[var(--bg-hover)] px-3 py-1 text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--border)] disabled:opacity-60"
                                                                 disabled={actionLoading === `cancel:${actionKeyBase}`}
                                                             >
                                                                 {actionLoading === `cancel:${actionKeyBase}` ? <Loader2 className="h-3 w-3 animate-spin" /> : <Ban className="h-3 w-3" />} Cancel
@@ -441,7 +441,7 @@ export default function AdminQueuePage() {
                         {history.length === 0 ? (
                             <p className="text-sm text-[var(--text-muted)]">No historical queue audit events yet.</p>
                         ) : history.map((entry, index) => (
-                            <div key={`${entry.job_id}-${entry.created_at}-${index}`} className="rounded-xl border border-slate-200 px-3 py-2">
+                            <div key={`${entry.job_id}-${entry.created_at}-${index}`} className="rounded-xl border border-[var(--border)] px-3 py-2">
                                 <div className="flex items-center justify-between gap-3">
                                     <p className="text-xs font-medium text-[var(--text-primary)]">{entry.action}</p>
                                     <span className="text-[11px] text-[var(--text-muted)]">{formatDateTime(entry.created_at)}</span>
@@ -468,19 +468,19 @@ export default function AdminQueuePage() {
                 ) : (
                     <div className="space-y-4 text-sm min-w-0">
                         <div className="grid gap-3 sm:grid-cols-2">
-                            <div className="rounded-xl bg-slate-50 p-3">
+                            <div className="rounded-xl bg-[var(--bg-page)] p-3">
                                 <p className="text-xs text-[var(--text-muted)]">Job Type</p>
                                 <p className="font-medium text-[var(--text-primary)] break-words">{detail.job_type}</p>
                             </div>
-                            <div className="rounded-xl bg-slate-50 p-3">
+                            <div className="rounded-xl bg-[var(--bg-page)] p-3">
                                 <p className="text-xs text-[var(--text-muted)]">Trace ID</p>
                                 <p className="font-medium text-[var(--text-primary)] break-all">{detail.trace_id || "-"}</p>
                             </div>
-                            <div className="rounded-xl bg-slate-50 p-3">
+                            <div className="rounded-xl bg-[var(--bg-page)] p-3">
                                 <p className="text-xs text-[var(--text-muted)]">Requester</p>
                                 <p className="font-medium text-[var(--text-primary)]">{detail.user_name || "Unknown"}</p>
                             </div>
-                            <div className="rounded-xl bg-slate-50 p-3">
+                            <div className="rounded-xl bg-[var(--bg-page)] p-3">
                                 <p className="text-xs text-[var(--text-muted)]">Worker</p>
                                 <p className="font-medium text-[var(--text-primary)] break-all">{detail.worker_id || "-"}</p>
                             </div>
@@ -501,7 +501,7 @@ export default function AdminQueuePage() {
                                 {detail.events.length === 0 ? (
                                     <p className="text-xs text-[var(--text-muted)]">No trace events recorded.</p>
                                 ) : detail.events.map((event, index) => (
-                                    <div key={`${event.timestamp}-${index}`} className="rounded-xl border border-slate-200 px-3 py-2">
+                                    <div key={`${event.timestamp}-${index}`} className="rounded-xl border border-[var(--border)] px-3 py-2">
                                         <div className="flex items-center justify-between gap-3">
                                             <p className="text-xs font-medium text-[var(--text-primary)]">{event.stage}</p>
                                             <span className="text-[11px] text-[var(--text-muted)]">{event.source}</span>
@@ -517,7 +517,7 @@ export default function AdminQueuePage() {
                             <p className="mb-2 text-xs uppercase tracking-wide text-[var(--text-muted)]">Audit History</p>
                             <div className="space-y-2">
                                 {detail.audit_history && detail.audit_history.length > 0 ? detail.audit_history.map((entry, index) => (
-                                    <div key={`${entry.action}-${entry.created_at}-${index}`} className="rounded-xl border border-slate-200 px-3 py-2">
+                                    <div key={`${entry.action}-${entry.created_at}-${index}`} className="rounded-xl border border-[var(--border)] px-3 py-2">
                                         <p className="text-xs font-medium text-[var(--text-primary)]">{entry.action}</p>
                                         <p className="text-xs text-[var(--text-muted)]">{formatDateTime(entry.created_at)} by {entry.actor || "System"}</p>
                                         {entry.metadata?.detail ? <p className="mt-1 text-xs text-[var(--text-secondary)]">{String(entry.metadata.detail)}</p> : null}

@@ -63,7 +63,7 @@ export default function AdminTracesPage() {
                         value={traceId}
                         onChange={(event) => setTraceId(event.target.value)}
                         placeholder="Paste a trace id"
-                        className="flex-1 rounded-xl border border-slate-200 px-4 py-2 text-sm text-slate-800"
+                        className="flex-1 rounded-xl border border-[var(--border)] px-4 py-2 text-sm text-[var(--text-primary)]"
                     />
                     <button
                         type="submit"
@@ -84,7 +84,7 @@ export default function AdminTracesPage() {
                     {events.length === 0 ? (
                         <p className="text-sm text-[var(--text-muted)]">No trace events loaded.</p>
                     ) : events.map((event, index) => (
-                        <div key={`${event.created_at}-${event.action}-${index}`} className="rounded-xl border border-slate-200 px-4 py-3">
+                        <div key={`${event.created_at}-${event.action}-${index}`} className="rounded-xl border border-[var(--border)] px-4 py-3">
                             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                                 <div>
                                     <p className="text-sm font-medium text-[var(--text-primary)]">{event.action}</p>

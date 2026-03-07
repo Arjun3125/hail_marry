@@ -51,7 +51,7 @@ export default function DoubtHeatmapPage() {
     };
 
     const getHeatText = (intensity: number) => {
-        return intensity >= 0.4 ? "text-white" : "text-gray-800";
+        return intensity >= 0.4 ? "text-white" : "text-[var(--text-primary)]";
     };
 
     return (

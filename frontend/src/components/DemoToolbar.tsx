@@ -82,7 +82,7 @@ export default function DemoToolbar() {
 
             {/* Panel */}
             {open && (
-                <div className="fixed bottom-14 right-4 z-50 w-[calc(100vw-2rem)] sm:w-72 max-w-72 bg-[var(--bg-card)] rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-[fadeIn_0.15s_ease-out]">
+                <div className="fixed bottom-14 right-4 z-50 w-[calc(100vw-2rem)] sm:w-72 max-w-72 bg-[var(--bg-card)] rounded-2xl shadow-2xl border border-[var(--border)] overflow-hidden animate-[fadeIn_0.15s_ease-out]">
                     <div className="bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-3 flex items-center justify-between">
                         <span className="text-xs font-bold text-white">Demo Controls</span>
                         <button onClick={() => setOpen(false)} className="text-white/70 hover:text-white">
@@ -90,7 +90,7 @@ export default function DemoToolbar() {
                         </button>
                     </div>
                     <div className="p-3 space-y-2">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Switch Role</p>
+                        <p className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">Switch Role</p>
                         {roles.map((role) => (
                             <button
                                 key={role.id}
@@ -98,7 +98,7 @@ export default function DemoToolbar() {
                                 disabled={switching !== null}
                                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium transition-all ${currentRole.id === role.id
                                     ? "bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200"
-                                    : "text-slate-600 hover:bg-slate-50"
+                                    : "text-[var(--text-secondary)] hover:bg-[var(--bg-page)]"
                                     }`}
                             >
                                 <role.icon className="w-4 h-4" />
@@ -107,7 +107,7 @@ export default function DemoToolbar() {
                                 {currentRole.id === role.id && <span className="ml-auto text-[9px] text-indigo-400">Active</span>}
                             </button>
                         ))}
-                        <hr className="border-slate-100" />
+                        <hr className="border-[var(--border)]" />
                         <button
                             onClick={() => void resetDemo()}
                             disabled={resetting}

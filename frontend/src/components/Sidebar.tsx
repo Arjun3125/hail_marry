@@ -48,7 +48,7 @@ export default function Sidebar({ items, role, userName }: SidebarProps) {
     const sidebarContent = (
         <>
             {/* Logo */}
-            <div className={`flex h-14 items-center border-b border-slate-200 px-4 ${collapsed ? "justify-center" : "gap-2.5"}`}>
+            <div className={`flex h-14 items-center border-b border-[var(--border)] px-4 ${collapsed ? "justify-center" : "gap-2.5"}`}>
                 <GraduationCap className="h-6 w-6 flex-shrink-0 text-blue-700" />
                 {!collapsed && (
                     <div className="flex flex-col justify-center">
@@ -80,7 +80,7 @@ export default function Sidebar({ items, role, userName }: SidebarProps) {
                             className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-all duration-150 ${collapsed ? "justify-center" : ""
                                 } ${isActive
                                     ? "bg-blue-50 font-semibold text-blue-700 shadow-sm"
-                                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                                    : "text-[var(--text-secondary)] hover:bg-[var(--bg-page)] hover:text-[var(--text-primary)]"
                                 }`}
                         >
                             <item.icon className="h-[18px] w-[18px] flex-shrink-0" />
@@ -91,17 +91,17 @@ export default function Sidebar({ items, role, userName }: SidebarProps) {
             </nav>
 
             {/* User & Settings */}
-            <div className="border-t border-slate-200 p-2 flex items-center justify-between">
+            <div className="border-t border-[var(--border)] p-2 flex items-center justify-between">
                 <div className="flex flex-col min-w-0 flex-1">
                     {userName && !collapsed && (
-                        <p className="mb-1 truncate px-3 text-xs text-slate-400">
+                        <p className="mb-1 truncate px-3 text-xs text-[var(--text-muted)]">
                             {userName}
                         </p>
                     )}
                     <button
                         onClick={handleLogout}
                         title={collapsed ? "Logout" : undefined}
-                        className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-slate-600 transition-colors hover:bg-red-50 hover:text-red-600 ${collapsed ? "justify-center" : ""
+                        className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-[var(--text-secondary)] transition-colors hover:bg-red-50 hover:text-red-600 ${collapsed ? "justify-center" : ""
                             }`}
                     >
                         <LogOut className="h-[18px] w-[18px] flex-shrink-0" />
@@ -120,15 +120,15 @@ export default function Sidebar({ items, role, userName }: SidebarProps) {
     return (
         <>
             {/* ── Mobile top bar ── */}
-            <div className="fixed left-0 right-0 top-0 z-50 flex h-14 items-center gap-3 border-b border-slate-200 bg-[var(--bg-card)] px-4 lg:hidden">
+            <div className="fixed left-0 right-0 top-0 z-50 flex h-14 items-center gap-3 border-b border-[var(--border)] bg-[var(--bg-card)] px-4 lg:hidden">
                 <button
                     onClick={() => setMobileOpen(true)}
-                    className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 active:bg-slate-200"
+                    className="rounded-lg p-2 text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] active:bg-[var(--border)]"
                     aria-label="Open menu"
                 >
                     <Menu className="h-5 w-5" />
                 </button>
-                <GraduationCap className="h-5 w-5 text-slate-900" />
+                <GraduationCap className="h-5 w-5 text-[var(--text-primary)]" />
                 <div className="flex items-center gap-2 max-w-[130px] sm:max-w-[200px]">
                     <div className="flex flex-col">
                         <span className="font-bold text-lg tracking-tight text-[var(--text-primary)] leading-tight">VidyaOS</span>
@@ -158,7 +158,7 @@ export default function Sidebar({ items, role, userName }: SidebarProps) {
                 <div className="flex items-center justify-end p-2">
                     <button
                         onClick={() => setMobileOpen(false)}
-                        className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                        className="rounded-lg p-2 text-[var(--text-muted)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-secondary)]"
                     >
                         <X className="h-5 w-5" />
                     </button>
@@ -168,13 +168,13 @@ export default function Sidebar({ items, role, userName }: SidebarProps) {
 
             {/* ── Desktop sidebar ── */}
             <aside
-                className={`fixed left-0 top-0 z-40 hidden h-screen flex-col border-r border-slate-200 bg-[var(--bg-card)] transition-all duration-200 lg:flex ${sidebarWidth}`}
+                className={`fixed left-0 top-0 z-40 hidden h-screen flex-col border-r border-[var(--border)] bg-[var(--bg-card)] transition-all duration-200 lg:flex ${sidebarWidth}`}
             >
                 {sidebarContent}
                 {/* Collapse toggle */}
                 <button
                     onClick={() => setCollapsed(!collapsed)}
-                    className="absolute -right-3 top-20 z-50 flex h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-[var(--bg-card)] text-slate-400 shadow-sm hover:text-slate-600 hover:shadow-md transition-all"
+                    className="absolute -right-3 top-20 z-50 flex h-6 w-6 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-muted)] shadow-sm hover:text-[var(--text-secondary)] hover:shadow-md transition-all"
                     aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
                 >
                     <ChevronLeft className={`h-3 w-3 transition-transform duration-200 ${collapsed ? "rotate-180" : ""}`} />
