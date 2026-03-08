@@ -75,7 +75,7 @@ export default function LandingPage() {
             <div className="flex flex-col justify-center h-full">
               <span className="font-black text-xl tracking-tighter text-[var(--text-primary)] leading-none">VidyaOS</span>
               <span className="text-[10px] font-bold leading-none mt-1">
-                By <span className="text-[#000000] [-webkit-text-stroke:1px_#ffffff]">Modern</span><span className="text-[#ff3b1f]">Hustlers</span>
+                By <span className="text-black dark:text-white">Modern</span><span className="text-[#ff3b1f]">Hustlers</span>
               </span>
             </div>
           </div>
@@ -282,7 +282,7 @@ export default function LandingPage() {
             <div className="flex flex-col justify-center h-full">
               <span className="font-bold text-lg tracking-tight text-[var(--text-primary)] opacity-80 leading-none">VidyaOS</span>
               <span className="text-[10px] font-bold leading-none mt-1 opacity-80">
-                By <span className="text-[#000000] [-webkit-text-stroke:1px_#ffffff]">Modern</span><span className="text-[#ff3b1f]">Hustlers</span>
+                By <span className="text-black dark:text-white">Modern</span><span className="text-[#ff3b1f]">Hustlers</span>
               </span>
             </div>
           </div>

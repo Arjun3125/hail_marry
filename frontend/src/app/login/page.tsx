@@ -97,7 +97,7 @@ export default function LoginPage() {
                     <div className="flex flex-col items-center justify-center mt-4">
                         <span className="font-black text-3xl tracking-tighter text-[var(--text-primary)] leading-none mb-1">VidyaOS</span>
                         <span className="text-xs font-bold leading-none">
-                            By <span className="text-[#000000] dark:text-[#000000] [-webkit-text-stroke:1px_#ffffff]">Modern</span><span className="text-[#ff3b1f]">Hustlers</span>
+                            By <span className="text-black dark:text-white">Modern</span><span className="text-[#ff3b1f]">Hustlers</span>
                         </span>
                     </div>
                     <p className="text-sm text-[var(--text-secondary)] mt-2">
