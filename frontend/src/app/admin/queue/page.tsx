@@ -99,12 +99,12 @@ const JOB_TYPE_OPTIONS = [
 ];
 
 const statusClasses: Record<QueueStatus, string> = {
-    queued: "bg-amber-50 text-amber-700",
-    running: "bg-blue-50 text-blue-700",
-    completed: "bg-green-50 text-green-700",
-    failed: "bg-red-50 text-red-700",
+    queued: "bg-warning-subtle text-status-amber",
+    running: "bg-info-subtle text-status-blue",
+    completed: "bg-success-subtle text-status-green",
+    failed: "bg-error-subtle text-status-red",
     cancelled: "bg-[var(--bg-hover)] text-[var(--text-secondary)]",
-    dead_letter: "bg-violet-50 text-violet-700",
+    dead_letter: "bg-violet-badge text-status-violet",
 };
 
 function formatDateTime(value?: string | null) {
@@ -232,14 +232,14 @@ export default function AdminQueuePage() {
                     <button
                         type="button"
                         onClick={() => void loadData(true)}
-                        className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
+                        className="inline-flex items-center gap-2 rounded-xl bg-code-block px-4 py-2 text-sm font-medium text-white hover:bg-[var(--bg-hover)]"
                     >
                         <RefreshCcw className="h-4 w-4" /> Refresh
                     </button>
                 </div>
 
                 {error ? (
-                    <div className="rounded-[var(--radius)] border border-[var(--error)]/30 bg-red-50 px-4 py-3 text-sm text-[var(--error)]">
+                    <div className="rounded-[var(--radius)] border border-[var(--error)]/30 bg-error-subtle px-4 py-3 text-sm text-[var(--error)]">
                         {error}
                     </div>
                 ) : null}
@@ -331,7 +331,7 @@ export default function AdminQueuePage() {
                         <p className="mt-4 text-sm text-[var(--text-muted)]">No jobs found for the current filters.</p>
                     ) : (
                         <div className="mt-4 overflow-x-auto">
-                            <table className="min-w-full divide-y divide-slate-200 text-sm">
+                            <table className="min-w-full divide-y divide-[var(--border)] text-sm">
                                 <thead>
                                     <tr className="text-left text-xs uppercase tracking-wide text-[var(--text-muted)]">
                                         <th className="py-3 pr-4">Job</th>
@@ -352,7 +352,7 @@ export default function AdminQueuePage() {
                                             <tr
                                                 key={job.job_id}
                                                 onClick={() => void loadDetail(job.job_id)}
-                                                className={`transition-colors hover:bg-[var(--bg-page)] ${selectedId === job.job_id ? "bg-blue-50/60" : ""}`}
+                                                className={`transition-colors hover:bg-[var(--bg-page)] ${selectedId === job.job_id ? "bg-info-subtle/60" : ""}`}
                                             >
                                                 <td className="py-3 pr-4 align-top cursor-pointer">
                                                     <div className="font-medium text-[var(--text-primary)]">{job.job_type}</div>
@@ -402,7 +402,7 @@ export default function AdminQueuePage() {
                                                                     event.stopPropagation();
                                                                     void runAction(job.job_id, "retry");
                                                                 }}
-                                                                className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-60"
+                                                                className="inline-flex items-center gap-1 rounded-full bg-info-subtle px-3 py-1 text-xs font-medium text-status-blue hover:bg-info-badge disabled:opacity-60"
                                                                 disabled={actionLoading === `retry:${actionKeyBase}`}
                                                             >
                                                                 {actionLoading === `retry:${actionKeyBase}` ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />} Retry
@@ -415,7 +415,7 @@ export default function AdminQueuePage() {
                                                                     event.stopPropagation();
                                                                     void runAction(job.job_id, "deadLetter");
                                                                 }}
-                                                                className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-3 py-1 text-xs font-medium text-violet-700 hover:bg-violet-100 disabled:opacity-60"
+                                                                className="inline-flex items-center gap-1 rounded-full bg-violet-badge px-3 py-1 text-xs font-medium text-status-violet hover:bg-violet-badge disabled:opacity-60"
                                                                 disabled={actionLoading === `deadLetter:${actionKeyBase}`}
                                                             >
                                                                 {actionLoading === `deadLetter:${actionKeyBase}` ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />} Dead Letter
@@ -487,7 +487,7 @@ export default function AdminQueuePage() {
                         </div>
 
                         {detail.error ? (
-                            <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-[var(--error)]">
+                            <div className="rounded-xl border border-error-subtle bg-error-subtle px-3 py-2 text-sm text-[var(--error)]">
                                 <div className="flex items-start gap-2">
                                     <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                                     <span>{detail.error}</span>
@@ -528,12 +528,12 @@ export default function AdminQueuePage() {
 
                         <div>
                             <p className="mb-2 text-xs uppercase tracking-wide text-[var(--text-muted)]">Request Snapshot</p>
-                            <pre className="overflow-x-auto rounded-xl bg-slate-950 p-3 text-xs text-slate-100">{JSON.stringify(detail.request ?? {}, null, 2)}</pre>
+                            <pre className="overflow-x-auto rounded-xl bg-code-block p-3 text-xs text-code-block">{JSON.stringify(detail.request ?? {}, null, 2)}</pre>
                         </div>
 
                         <div>
                             <p className="mb-2 text-xs uppercase tracking-wide text-[var(--text-muted)]">Result Snapshot</p>
-                            <pre className="overflow-x-auto rounded-xl bg-slate-950 p-3 text-xs text-slate-100">{JSON.stringify(detail.result ?? {}, null, 2)}</pre>
+                            <pre className="overflow-x-auto rounded-xl bg-code-block p-3 text-xs text-code-block">{JSON.stringify(detail.result ?? {}, null, 2)}</pre>
                         </div>
                     </div>
                 )}

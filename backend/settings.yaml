@@ -26,11 +26,22 @@ observability:
   metrics_token: ""
   queue_depth_warn_threshold_pct: 80
   queue_failure_warn_pct: 20
+  alert_email_recipients: []
+  alert_sms_recipients: []
   otlp_endpoint: ""
   trace_sample_ratio: 1.0
 
+sentry:
+  enabled: false
+  dsn: ""
+  environment: ""
+  traces_sample_rate: 0.05
+  profiles_sample_rate: 0.0
+  send_default_pii: false
+
 ai_service:
   url: "http://localhost:8001"
+  urls: []
   api_key: ""
 
 ai_queue:
@@ -102,3 +113,31 @@ cache:
   query_ttl_seconds: 86400      # 24h for frequent queries
   study_guide_ttl_seconds: 604800  # 7 days
   quiz_ttl_seconds: 604800        # 7 days
+
+doc_watch:
+  enabled: false
+  dirs: []
+  poll_interval_seconds: 30
+  tenant_id: ""
+  uploader_id: ""
+
+email:
+  enabled: false
+  host: ""
+  port: 587
+  username: ""
+  password: ""
+  use_tls: true
+  from_email: "no-reply@vidyaos.local"
+  from_name: "VidyaOS"
+
+digest_email:
+  enabled: false
+  interval_minutes: 10080
+
+sms:
+  enabled: false
+  provider: "twilio"
+  account_sid: ""
+  auth_token: ""
+  from_number: ""

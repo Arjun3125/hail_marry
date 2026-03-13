@@ -113,6 +113,37 @@ async def _deliver_incident(route: IncidentRoute, incident: Incident, *, escalat
                         "details": payload,
                     },
                 )
+            elif channel_type == "email":
+                from services.emailer import send_email
+
+                subject = f"[VidyaOS] {incident.title} ({incident.severity})"
+                text_body = (
+                    f"Incident: {incident.title}\n"
+                    f"Severity: {incident.severity}\n"
+                    f"Status: {incident.status}\n"
+                    f"Summary: {incident.summary}\n"
+                    f"Trace ID: {incident.trace_id or '-'}\n"
+                )
+                html_body = (
+                    f"<h3>{incident.title}</h3>"
+                    f"<p><strong>Severity:</strong> {incident.severity}</p>"
+                    f"<p><strong>Status:</strong> {incident.status}</p>"
+                    f"<p><strong>Summary:</strong> {incident.summary}</p>"
+                    f"<p><strong>Trace ID:</strong> {incident.trace_id or '-'}</p>"
+                )
+                send_email(
+                    to_address=target,
+                    subject=subject,
+                    html_body=html_body,
+                    text_body=text_body,
+                )
+                return True
+            elif channel_type == "sms":
+                from services.sms import send_sms
+
+                sms_message = f"[{incident.severity.upper()}] {incident.title}: {incident.summary}"
+                result = send_sms(to_number=target, message=sms_message)
+                return bool(result.get("sent"))
             else:
                 response = await client.post(target, json=payload, headers=headers)
         return 200 <= response.status_code < 300

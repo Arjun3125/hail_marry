@@ -28,6 +28,7 @@ const teacherNav = [
     { label: "Source Discovery", href: "/teacher/discover", icon: Globe },
     { label: "Profile", href: "/teacher/profile", icon: User },
 ];
+import GuidedTour, { teacherTourSteps } from "@/components/GuidedTour";
 
 export default function TeacherLayout({ children }: { children: React.ReactNode }) {
     return (
@@ -36,6 +37,7 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
             <main className="flex-1 min-w-0 p-4 pt-16 sm:p-5 sm:pt-16 lg:p-6 lg:pt-6">
                 <div className="mx-auto max-w-7xl">{children}</div>
             </main>
+            <GuidedTour steps={teacherTourSteps} storageKey="teacher-tour" />
         </div>
     );
 }

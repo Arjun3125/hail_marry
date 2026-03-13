@@ -180,7 +180,7 @@ export default function InteractiveMindMapPage() {
                 </div>
             )}
 
-            {error && <div className="mb-4 rounded-xl border border-[var(--error)]/30 bg-red-50 px-4 py-3 text-sm text-[var(--error)]">{error}</div>}
+            {error && <div className="mb-4 rounded-xl border border-[var(--error)]/30 bg-error-subtle px-4 py-3 text-sm text-[var(--error)]">{error}</div>}
 
             {loading && (
                 <div className="bg-[var(--bg-card)] rounded-2xl p-12 shadow-[var(--shadow-card)] text-center border border-[var(--border)]/50">

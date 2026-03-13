@@ -16,11 +16,15 @@ import {
     Calendar,
     FileText,
     Webhook,
+    Sparkles,
+    QrCode,
 } from "lucide-react";
 
 const adminNav = [
+    { label: "Setup Wizard", href: "/admin/setup-wizard", icon: Sparkles },
     { label: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
     { label: "Users", href: "/admin/users", icon: Users },
+    { label: "QR Cards", href: "/admin/qr-cards", icon: QrCode },
     { label: "Classes", href: "/admin/classes", icon: BookOpen },
     { label: "Timetable", href: "/admin/timetable", icon: Calendar },
     { label: "AI Usage", href: "/admin/ai-usage", icon: BarChart3 },
@@ -35,6 +39,8 @@ const adminNav = [
     { label: "Settings", href: "/admin/settings", icon: Settings },
 ];
 
+import GuidedTour, { adminTourSteps } from "@/components/GuidedTour";
+
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
     return (
         <div className="flex min-h-screen bg-[var(--bg-page)]">
@@ -42,6 +48,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <main className="flex-1 min-w-0 p-4 pt-16 sm:p-5 sm:pt-16 lg:p-6 lg:pt-6">
                 <div className="mx-auto max-w-7xl">{children}</div>
             </main>
+            <GuidedTour steps={adminTourSteps} storageKey="admin-tour" />
         </div>
     );
 }

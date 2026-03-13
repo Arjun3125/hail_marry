@@ -1,0 +1,112 @@
+{
+  "app_name": "विद्याOS",
+  "nav": {
+    "dashboard": "डैशबोर्ड",
+    "attendance": "उपस्थिति",
+    "results": "परिणाम",
+    "assignments": "असाइनमेंट",
+    "complaints": "शिकायतें",
+    "ai_assistant": "AI सहायक",
+    "settings": "सेटिंग्स",
+    "logout": "लॉग आउट",
+    "profile": "प्रोफ़ाइल",
+    "notifications": "सूचनाएं",
+    "billing": "बिलिंग",
+    "admission": "प्रवेश"
+  },
+  "roles": {
+    "student": "छात्र",
+    "teacher": "शिक्षक",
+    "admin": "प्रशासक",
+    "parent": "अभिभावक"
+  },
+  "dashboard": {
+    "welcome": "स्वागत है, {name}",
+    "total_students": "कुल छात्र",
+    "total_teachers": "कुल शिक्षक",
+    "attendance_today": "आज की उपस्थिति",
+    "ai_queries_today": "आज के AI प्रश्न",
+    "performance": "प्रदर्शन",
+    "recent_activity": "हालिया गतिविधि"
+  },
+  "attendance": {
+    "present": "उपस्थित",
+    "absent": "अनुपस्थित",
+    "late": "देरी से",
+    "mark_attendance": "उपस्थिति दर्ज करें",
+    "attendance_rate": "उपस्थिति दर",
+    "export_csv": "CSV निर्यात करें"
+  },
+  "results": {
+    "subject": "विषय",
+    "marks": "अंक",
+    "total": "कुल",
+    "grade": "ग्रेड",
+    "rank": "रैंक",
+    "percentage": "प्रतिशत",
+    "report_card": "रिपोर्ट कार्ड"
+  },
+  "ai": {
+    "ask_question": "एक प्रश्न पूछें...",
+    "generating": "उत्तर तैयार हो रहा है...",
+    "no_sources": "अभी तक कोई स्रोत अपलोड नहीं हुआ",
+    "upload_documents": "दस्तावेज़ अपलोड करें",
+    "modes": {
+      "qa": "प्रश्न-उत्तर",
+      "quiz": "क्विज़",
+      "study_guide": "अध्ययन गाइड",
+      "flashcards": "फ्लैशकार्ड",
+      "mindmap": "माइंड मैप"
+    }
+  },
+  "notifications": {
+    "attendance_alert": "{student_name} को आज {status} चिह्नित किया गया",
+    "exam_result": "{subject} के परीक्षा परिणाम प्रकाशित हुए",
+    "new_assignment": "नया असाइनमेंट: {title}",
+    "complaint_update": "शिकायत की स्थिति {status} में बदली",
+    "weekly_digest": "{student_name} का साप्ताहिक सारांश"
+  },
+  "errors": {
+    "unauthorized": "आपको यह कार्य करने की अनुमति नहीं है",
+    "not_found": "संसाधन नहीं मिला",
+    "invalid_input": "अमान्य इनपुट",
+    "server_error": "कुछ गलत हो गया। कृपया पुनः प्रयास करें।",
+    "file_too_large": "फ़ाइल का आकार सीमा से अधिक है",
+    "invalid_file_type": "फ़ाइल प्रकार समर्थित नहीं है"
+  },
+  "billing": {
+    "current_plan": "वर्तमान योजना",
+    "upgrade": "अपग्रेड करें",
+    "payment_history": "भुगतान इतिहास",
+    "amount": "राशि",
+    "status": "स्थिति",
+    "date": "तारीख"
+  },
+  "admission": {
+    "apply": "प्रवेश के लिए आवेदन करें",
+    "student_name": "छात्र का नाम",
+    "parent_email": "अभिभावक ईमेल",
+    "parent_phone": "अभिभावक फ़ोन",
+    "applied_class": "आवेदित कक्षा",
+    "status_pending": "लंबित",
+    "status_under_review": "समीक्षाधीन",
+    "status_accepted": "स्वीकृत",
+    "status_rejected": "अस्वीकृत",
+    "status_enrolled": "नामांकित"
+  },
+  "common": {
+    "save": "सहेजें",
+    "cancel": "रद्द करें",
+    "delete": "हटाएं",
+    "edit": "संपादित करें",
+    "search": "खोजें",
+    "filter": "फ़िल्टर",
+    "loading": "लोड हो रहा है...",
+    "no_data": "कोई डेटा उपलब्ध नहीं",
+    "confirm": "क्या आप सुनिश्चित हैं?",
+    "success": "सफलतापूर्वक सहेजा गया",
+    "download": "डाउनलोड करें",
+    "submit": "जमा करें",
+    "back": "वापस जाएं"
+  }
+}

@@ -7,6 +7,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 import time
 import os
+from constants import RATE_LIMIT_WINDOW_SECONDS
 
 
 # ─── Redis Client (lazy init) ────────────────
@@ -39,7 +40,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
     AI_PATHS = ("/api/ai/", "/api/student/tools/")
     MAX_REQUESTS = int(os.getenv("BURST_LIMIT_PER_MINUTE", "5"))
-    WINDOW_SECONDS = 60
+    WINDOW_SECONDS = RATE_LIMIT_WINDOW_SECONDS
 
     async def dispatch(self, request: Request, call_next):
         if not any(request.url.path.startswith(p) for p in self.AI_PATHS):

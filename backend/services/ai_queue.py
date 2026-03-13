@@ -36,6 +36,7 @@ from services.ai_gateway import (
     run_url_ingestion,
     run_video_overview,
 )
+from services.ai_grading import run_ai_grade
 from services.telemetry import extract_context_from_traceparent, get_current_traceparent, get_tracer
 
 _redis = None
@@ -60,6 +61,7 @@ JOB_TYPE_TEACHER_ASSESSMENT = "teacher_assessment"
 JOB_TYPE_URL_INGEST = "url_ingest"
 JOB_TYPE_TEACHER_DOCUMENT_INGEST = "teacher_document_ingest"
 JOB_TYPE_TEACHER_YOUTUBE_INGEST = "teacher_youtube_ingest"
+JOB_TYPE_AI_GRADE = "ai_grade"
 STATUS_QUEUED = "queued"
 STATUS_RUNNING = "running"
 STATUS_COMPLETED = "completed"
@@ -76,6 +78,7 @@ AI_SERVICE_JOB_TYPES = {
     JOB_TYPE_URL_INGEST,
     JOB_TYPE_TEACHER_DOCUMENT_INGEST,
     JOB_TYPE_TEACHER_YOUTUBE_INGEST,
+    JOB_TYPE_AI_GRADE,
 }
 JOB_PRIORITIES = {
     JOB_TYPE_QUERY: 30,
@@ -86,6 +89,7 @@ JOB_PRIORITIES = {
     JOB_TYPE_URL_INGEST: 50,
     JOB_TYPE_TEACHER_DOCUMENT_INGEST: 60,
     JOB_TYPE_TEACHER_YOUTUBE_INGEST: 60,
+    JOB_TYPE_AI_GRADE: 40,
 }
 TERMINAL_STATUSES = {STATUS_COMPLETED, STATUS_FAILED, STATUS_CANCELLED, STATUS_DEAD_LETTER}
 
@@ -437,6 +441,47 @@ def _current_jobs_from_index(client, tenant_id: str, limit: int | None = None) -
     return jobs
 
 
+def _queue_position(client, tenant_id: str, job_id: str) -> int | None:
+    if not tenant_id or not job_id:
+        return None
+    try:
+        rank = client.zrank(_tenant_queue_key(tenant_id), job_id)
+    except Exception:
+        return None
+    if rank is None:
+        return None
+    return int(rank) + 1
+
+
+def _queue_depth(client, tenant_id: str) -> int:
+    if not tenant_id:
+        return 0
+    try:
+        return int(client.zcard(_tenant_queue_key(tenant_id)))
+    except Exception:
+        return 0
+
+
+def _attach_queue_metadata(job: dict[str, Any], response: dict[str, Any]) -> None:
+    status = job.get("status")
+    if status not in {STATUS_QUEUED, STATUS_RUNNING}:
+        return
+
+    client = _get_redis_client()
+    if not client:
+        return
+
+    tenant_id = job.get("tenant_id")
+    if not tenant_id:
+        return
+
+    response["queue_pending_depth"] = _metric_getint(client, _tenant_metrics_key(tenant_id), "pending_depth")
+    response["queue_processing_depth"] = _metric_getint(client, _tenant_metrics_key(tenant_id), "processing_depth")
+    response["queue_depth"] = _queue_depth(client, tenant_id)
+    if status == STATUS_QUEUED:
+        response["queue_position"] = _queue_position(client, tenant_id, job.get("job_id", ""))
+
+
 def build_public_job_response(job: dict[str, Any]) -> dict[str, Any]:
     status = job.get("status", "unknown")
     response = {
@@ -453,6 +498,7 @@ def build_public_job_response(job: dict[str, Any]) -> dict[str, Any]:
         "error": job.get("error"),
         "priority": job.get("priority"),
     }
+    _attach_queue_metadata(job, response)
     if status == STATUS_COMPLETED:
         response["result"] = job.get("result")
     if status in {STATUS_QUEUED, STATUS_RUNNING}:
@@ -803,6 +849,8 @@ async def _execute_job(job: dict[str, Any]) -> dict[str, Any]:
         return await run_teacher_document_ingestion(InternalTeacherDocumentIngestRequest(**payload), trace_id=trace_id)
     if job_type == JOB_TYPE_TEACHER_YOUTUBE_INGEST:
         return await run_teacher_youtube_ingestion(InternalTeacherYoutubeIngestRequest(**payload), trace_id=trace_id)
+    if job_type == JOB_TYPE_AI_GRADE:
+        return await run_ai_grade(payload, trace_id=trace_id, tenant_id=job.get("tenant_id"))
 
     raise HTTPException(status_code=400, detail=f"Unsupported AI job type: {job_type}")
 

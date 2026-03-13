@@ -23,6 +23,7 @@ type Flashcard = { front: string; back: string };
 type MindNode = { label: string; children?: MindNode[] };
 type ConceptMap = { nodes: { id: string; label: string }[]; edges: { from: string; to: string; label: string }[] };
 type ToolData = QuizQ[] | Flashcard[] | MindNode | ConceptMap | string | null;
+type Citation = { source?: string; page?: string | null; url?: string | null; text?: string; clickable?: boolean };
 
 const tools: { id: Tool; label: string; icon: typeof Brain; desc: string; color: string }[] = [
     { id: "quiz", label: "Quiz", icon: HelpCircle, desc: "MCQ quiz from your notes", color: "from-violet-500 to-pink-600" },
@@ -38,7 +39,7 @@ export default function StudyToolsPage() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [result, setResult] = useState<ToolData>(null);
-    const [citations, setCitations] = useState<Array<{ source?: string; page?: string }>>([]);
+    const [citations, setCitations] = useState<Citation[]>([]);
     const [jobId, setJobId] = useState<string | null>(null);
     const [jobStatus, setJobStatus] = useState<AIJobStatus | null>(null);
 
@@ -57,7 +58,7 @@ export default function StudyToolsPage() {
                     error?: string;
                     result?: {
                         data: ToolData;
-                        citations?: Array<{ source?: string; page?: string }>;
+                        citations?: Citation[];
                     };
                     poll_after_ms?: number;
                 };
@@ -132,7 +133,7 @@ export default function StudyToolsPage() {
             </div>
 
             {error ? (
-                <div className="mb-4 rounded-[var(--radius)] border border-[var(--error)]/30 bg-red-50 px-4 py-3 text-sm text-[var(--error)]">
+                <div className="mb-4 rounded-[var(--radius)] border border-[var(--error)]/30 bg-error-subtle px-4 py-3 text-sm text-[var(--error)]">
                     {error}
                 </div>
             ) : null}
@@ -205,11 +206,27 @@ export default function StudyToolsPage() {
                         <div className="mt-4 bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] p-4">
                             <p className="text-xs font-semibold text-[var(--text-secondary)] mb-2">Sources</p>
                             <div className="flex flex-wrap gap-2">
-                                {citations.map((citation, idx) => (
-                                    <span key={`${citation.source || "src"}-${citation.page || "page"}-${idx}`} className="text-[10px] px-2 py-1 rounded-full bg-[var(--bg-page)] text-[var(--text-secondary)]">
-                                        {citation.source || "Document"} p.{citation.page || "?"}
-                                    </span>
-                                ))}
+                                {citations.map((citation, idx) => {
+                                    const label = citation.text || `${citation.source || "Document"}${citation.page ? ` p.${citation.page}` : ""}`;
+                                    if (citation.url) {
+                                        return (
+                                            <a
+                                                key={`${citation.source || "src"}-${citation.page || "page"}-${idx}`}
+                                                href={citation.url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-[10px] px-2 py-1 rounded-full bg-[var(--bg-page)] text-[var(--text-secondary)] hover:text-[var(--primary)] transition"
+                                            >
+                                                {label}
+                                            </a>
+                                        );
+                                    }
+                                    return (
+                                        <span key={`${citation.source || "src"}-${citation.page || "page"}-${idx}`} className="text-[10px] px-2 py-1 rounded-full bg-[var(--bg-page)] text-[var(--text-secondary)]">
+                                            {label}
+                                        </span>
+                                    );
+                                })}
                             </div>
                         </div>
                     ) : null}
@@ -276,7 +293,7 @@ function FlashcardsView({ cards }: { cards: Flashcard[] }) {
 
             <button
                 onClick={() => setFlipped((prev) => !prev)}
-                className="w-full text-left p-5 rounded-[var(--radius-sm)] bg-[var(--primary-light)] hover:bg-blue-100 transition-colors"
+                className="w-full text-left p-5 rounded-[var(--radius-sm)] bg-[var(--primary-light)] hover:bg-info-badge transition-colors"
             >
                 <p className="text-[10px] uppercase tracking-wider text-[var(--text-muted)] mb-2">{flipped ? "Answer" : "Prompt"}</p>
                 <p className="text-sm text-[var(--text-primary)]">{flipped ? card.back : card.front}</p>
@@ -297,8 +314,8 @@ function MindMapView({ data }: { data: MindNode }) {
 function MindNodeView({ node, depth }: { node: MindNode; depth: number }) {
     const colors = [
         "bg-[var(--primary)] text-white",
-        "bg-blue-100 text-blue-800",
-        "bg-green-100 text-green-800",
+        "bg-info-badge text-status-blue",
+        "bg-success-badge text-status-green",
         "bg-orange-100 text-orange-800",
     ];
     return (

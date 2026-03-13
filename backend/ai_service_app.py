@@ -30,6 +30,7 @@ from schemas.ai_runtime import (
     InternalVideoOverviewRequest,
 )
 from services.metrics_registry import export_prometheus_text
+from services.sentry_config import configure_sentry
 from services.startup_checks import collect_dependency_status, enforce_startup_dependencies
 from services.structured_logging import configure_structured_logging
 from services.telemetry import configure_telemetry, instrument_sqlalchemy_engine
@@ -48,6 +49,7 @@ configure_telemetry(service_name="vidyaos-ai-service", app=app)
 instrument_sqlalchemy_engine(engine)
 logger = logging.getLogger("ai-service")
 app.add_middleware(ObservabilityMiddleware, service_name="vidyaos-ai-service")
+configure_sentry(service_name="vidyaos-ai-service", app=app)
 
 
 def require_ai_service_key(x_ai_service_key: str | None = Header(default=None)) -> None:

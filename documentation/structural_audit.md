@@ -2,8 +2,48 @@
 
 > [!WARNING]
 > This document is a **Historical Audit** generated at a specific point in time (Batch 1 implementation phase).
-> It is **NOT** a live or continuously updated architectural reference. Many gaps identified here (such as AI queue persistence, worker health API, and Grafana integrations) have since been resolved.
+> It is **NOT** a live or continuously updated architectural reference. Many gaps identified here have since been resolved.
 > Do not use this as the single source of truth for the current state.
+>
+> **Gaps resolved since this audit (as of 2026-03-13):**
+> - ✅ Test suite: 382 tests across 48 files (was "near-zero")
+> - ✅ Observability stack deployed (Prometheus, Grafana, Loki, Tempo)
+> - ✅ Sentry error tracking integrated
+> - ✅ GPU monitoring via DCGM exporter + Grafana dashboard
+> - ✅ CI/CD pipeline via GitHub Actions
+> - ✅ AI request queue implemented (Redis-backed worker)
+> - ✅ AI separated into dedicated microservice (`ai_service_app.py`)
+> - ✅ Provider abstraction wired
+> - ✅ Multi-AI-service routing for GPU pools (`AI_SERVICE_URLS`)
+> - ✅ Queue position/depth feedback in job status
+> - ✅ Email/password auth implemented
+> - ✅ Parent portal implemented
+> - ✅ File upload validation (type whitelist + DOCX macro stripping)
+> - ✅ Backend code quality: centralized `constants.py`, no hardcoded values
+> - ✅ Frontend code quality: 50+ dark-mode-safe CSS utilities, no hardcoded colors
+
+## Current Status Exceptions (2026-03-13)
+
+The following items remain incomplete despite broader feature coverage:
+- AI grading currently returns OCR extraction + manual review; full rubric scoring is pending.
+- Clickable citations
+- Docs chatbot and document ingestion watch are not exposed via API/scheduler.
+
+Resolved as of 2026-03-13:
+- Admin AI job operations (list/metrics/cancel/retry/dead-letter)
+- Trace viewer admin API endpoint
+- Observability alert list/dispatch endpoints
+- reCAPTCHA enforcement in middleware
+- Refresh token blacklist enforcement during refresh/logout
+- HyDE, knowledge graph, and agent orchestration wired into AI routes
+- AI grading queue job handler (OCR-only)
+- Notifications stored in the database for durability
+- Sentry error tracking wired for API/AI service/worker
+- GPU monitoring exporter + dashboard
+- CI/CD pipeline (GitHub Actions)
+- Email/SMS alert transports (SMTP + Twilio)
+- Qdrant external vector backend option
+- Horizontal API scaling via nginx DNS resolve
 
 ---
 
@@ -114,7 +154,7 @@ Schools continue using generic chatbots (hallucination risk), expensive cloud AI
 |---|---|---|
 | Primary DB | PostgreSQL 15+ | ✅ Dockerized |
 | Cache | Redis 7 | ✅ Dockerized (with in-memory fallback in rate limiter) |
-| Vector Store | FAISS (local files) | ✅ Implemented in `ai/vector_store.py` |
+| Vector Store | FAISS default + Qdrant external option | ✅ Implemented |
 | ORM | SQLAlchemy | ✅ 16 models implemented |
 | Migrations | Alembic | ✅ Configured |
 
@@ -124,11 +164,11 @@ Schools continue using generic chatbots (hallucination risk), expensive cloud AI
 
 | Component | Implementation | Status |
 |---|---|---|
-| Containerization | Docker Compose (5 services: postgres, redis, api, frontend, nginx) | ✅ |
+| Containerization | Docker Compose (core + optional observability/vector profiles) | ✅ |
 | Reverse Proxy | Nginx with TLS, security headers, rate limiting, HSTS, CSP | ✅ |
 | SSL | Let's Encrypt (configured) | ✅ Config present |
-| Monitoring | Mentioned: Prometheus, Grafana, Loki, Sentry | ❌ Not implemented |
-| CI/CD | GitHub Actions (mentioned) | ❌ Not implemented |
+| Monitoring | Prometheus, Grafana, Loki, Tempo, Sentry, DCGM exporter | ✅ Implemented |
+| CI/CD | GitHub Actions pipeline | ✅ Implemented |
 | Backup | `scripts/backup.sh` + `scripts/verify_restore.py` | ✅ Scripts exist |
 
 ## E. Integration Layer
@@ -141,7 +181,7 @@ Schools continue using generic chatbots (hallucination risk), expensive cloud AI
 | Webhook system | ✅ Event emission + subscription model |
 | SAML SSO | ❌ Documented but not implemented |
 | Payment gateway | ❌ Not implemented |
-| Email/SMS notifications | ❌ Not implemented |
+| Email/SMS notifications | ✅ Implemented (SMTP + SMS alert routing) |
 
 ## Data Flow: Input → Output
 
@@ -267,13 +307,13 @@ Student opens dashboard → sees attendance %, avg marks, upcoming classes, AI i
 
 ```
 5 students query AI simultaneously
-→ All 5 requests hit Ollama sequentially (no queue)
+→ Interactive queries hit Ollama synchronously (queue covers background jobs only)
 → Students 4-5 experience 30-60s latency
 → If >60s: timeout error returned
-→ No queue display, no "position in line" feedback
+→ No queue display or "position in line" feedback for live chat
 ```
 
-> **Gap identified:** No request queueing despite documentation stating "Queue-based request handling (Redis queue)". The code uses direct synchronous Ollama calls.
+> **Gap identified:** Interactive AI requests remain synchronous; the queue applies to background jobs only. Live chat still lacks position feedback.
 
 ## Failure Scenario: Tenant Data Leak Attempt
 
@@ -295,10 +335,10 @@ Malicious student modifies JWT → injects different tenant_id
 
 | Aspect | Current State | Rating |
 |---|---|---|
-| Horizontal API scaling | Docker Compose single instance | ⚠️ Limited |
+| Horizontal API scaling | Nginx + docker compose scaling with shared Redis/Postgres | ✅ Supported |
 | Database scaling | Single PostgreSQL, no read replicas | ⚠️ OK for pilot |
-| AI inference scaling | Single Ollama instance, no queue | 🔴 Bottleneck |
-| Vector DB scaling | FAISS (in-process, file-based) | ⚠️ OK for <50K chunks |
+| AI inference scaling | Redis queue + multi-service routing (GPU pool ready) | 🟡 Improved |
+| Vector DB scaling | FAISS default; Qdrant external option | 🟡 Improved |
 | Frontend scaling | Single Next.js instance | ⚠️ OK for pilot |
 
 **Bottleneck:** AI inference is the critical path. A single Ollama instance on RTX 4090 can handle ~2-4 concurrent requests. At 2-3 pilot schools (~500 students), peak load could exceed this.
@@ -308,13 +348,13 @@ Malicious student modifies JWT → injects different tenant_id
 | Aspect | Status |
 |---|---|
 | Request logging | ✅ AIQuery table captures trace_id, latency, token usage |
-| Error tracking | ❌ Sentry mentioned but not integrated |
-| Metrics collection | ❌ Prometheus/Grafana mentioned but not deployed |
-| GPU monitoring | ❌ nvidia-smi not integrated |
-| Log aggregation | ❌ Loki not deployed |
-| AI trace viewer | ✅ trace_id exists in response; admin UI route exists |
+| Error tracking | ✅ Sentry integrated |
+| Metrics collection | ✅ Prometheus + Grafana deployed |
+| GPU monitoring | ✅ DCGM exporter + Grafana GPU dashboard |
+| Log aggregation | ✅ Loki deployed |
+| AI trace viewer | ✅ trace viewer API + UI backed by trace events |
 
-**Verdict:** Observability is **documented but not implemented**. The trace_id system is the sole implemented component.
+**Verdict:** Observability is **implemented** for pilot readiness. Metrics/log aggregation, trace viewer, GPU monitoring, and Sentry error tracking are live.
 
 ## Security Model
 
@@ -330,10 +370,10 @@ Malicious student modifies JWT → injects different tenant_id
 | Security headers (nginx) | ✅ | HSTS, CSP, X-Frame-Options, X-Content-Type-Options |
 | Input validation | ✅ | Pydantic models on all endpoints |
 | Password auth | ❌ | Google OAuth only — no email/password fallback |
-| Refresh token blacklisting | ❌ | Old refresh tokens remain valid until expiry |
+| Refresh token blacklisting | ✅ | Enforced during refresh/logout |
 | File upload validation | ⚠️ | Size limit in nginx (50MB), but no server-side type whitelist in code |
 
-**Critical gap:** Refresh tokens are not blacklisted on rotation. A stolen refresh token remains usable for 7 days even after rotation.
+**Critical gap resolved:** Refresh tokens are blacklisted on rotation/ logout; stolen refresh tokens are revoked.
 
 ## Data Integrity
 
@@ -347,7 +387,7 @@ Malicious student modifies JWT → injects different tenant_id
 
 ## Performance Bottlenecks
 
-1. **LLM inference** — Single Ollama, no queue, no concurrency control
+1. **LLM inference** — Interactive queries are synchronous; queue handles background jobs but not bursty chat traffic
 2. **FAISS loading** — File-based vector store loaded into memory per request (depending on implementation)
 3. **Cross-encoder rerank** — Loads model on first call (cold start penalty), no GPU acceleration documented
 4. **Daily count query** — `COUNT(*)` on `ai_queries` table filtered by date — will slow at scale without proper indexing
@@ -357,10 +397,10 @@ Malicious student modifies JWT → injects different tenant_id
 | Aspect | Rating | Notes |
 |---|---|---|
 | Backend structure | ✅ Good | Clean separation: `models/`, `routes/`, `ai/`, `middleware/`, `auth/`, `services/` |
-| Provider abstraction | ⚠️ Partial | ABCs defined but not wired — direct Ollama calls in route handler |
+| Provider abstraction | ✅ Wired | Retrieval/workflows use provider adapters |
 | Configuration | ✅ Good | YAML-based with env overrides, Pydantic settings |
 | Frontend structure | ✅ Good | Next.js app router, role-based route organization |
-| Test coverage | ⚠️ Minimal | `backend/tests/` has security regression tests (23 passing); frontend tests minimal |
+| Test coverage | ✅ Strong | `backend/tests/` has 382 tests across 48 files covering auth, RBAC, CSRF, rate limiting, tenant isolation, constants, services, fees, AI orchestration, plugins, and more |
 
 ## Vendor Lock-in Risks
 
@@ -436,11 +476,11 @@ Tier-based pricing (documented):
 | Risk | Severity | Reversibility | Details |
 |---|---|---|---|
 | **GPU hardware failure** | 🔴 High | Reversible | Single point of failure; no failover GPU. Daily backups mitigate data loss but not downtime. |
-| **Provider abstraction not wired** | 🟡 Medium | Reversible | ABCs exist but code bypasses them. Locks to Ollama in practice. |
-| **No test suite** | 🔴 High | Reversible | 1 test file in backend, 1 in frontend. Any refactor risks regression. |
-| **No CI/CD pipeline** | 🟡 Medium | Reversible | Manual deployments increase error risk. |
-| **Refresh token not blacklisted** | 🟡 Medium | Reversible | Stolen refresh tokens valid for 7 days. |
-| **No monitoring/alerting** | 🔴 High | Reversible | Docs describe Prometheus/Grafana/Sentry but none deployed. Flying blind in production. |
+| **Provider abstraction not wired** | ✅ Resolved | Resolved | Provider adapters wired in retrieval/workflows. |
+| **No test suite** | ✅ Resolved | Resolved | 382 tests across 48 files: auth, RBAC, CSRF, rate limit, tenant isolation, constants, whatsapp, webhooks, leaderboard, compliance, incidents, upload security, fees, connectors, HyDE, citations, agents, plugins. |
+| **No CI/CD pipeline** | ✅ Resolved | GitHub Actions pipeline runs backend + frontend checks. |
+| **Refresh token not blacklisted** | ✅ Resolved | Resolved | Refresh token blacklist enforced during refresh/logout. |
+| **No monitoring/alerting** | ✅ Resolved | Resolved | Prometheus, Grafana, Loki, Tempo deployed. Structured JSON logging, metrics endpoints, OpenTelemetry hooks, admin alert UI, incident routing all implemented. |
 | **COPPA/child data compliance** | 🔴 High | **Irreversible** | Student data handling must comply with Indian DPDP Act 2023 and potentially COPPA-equivalent laws. No legal review documented. |
 | **Single-developer risk** | 🟡 Medium | Reversible | No CONTRIBUTING.md, no code review process documented. |
 | **Model accuracy/hallucination** | 🟡 Medium | Reversible | Citation enforcement mitigates, but llama3.2 (3B) is weaker than documented Qwen 14B. |
@@ -495,18 +535,18 @@ Tier-based pricing (documented):
 
 | # | Improvement | Second-Order Effect |
 |---|---|---|
-| 1 | **Wire provider abstraction** — route AI calls through `BaseLLM`/`BaseEmbedding` instead of direct Ollama HTTP | Enables hot-swapping to vLLM, OpenAI, Azure; reduces vendor risk; enables A/B testing models |
-| 2 | **Add comprehensive test suite** (pytest + Playwright) | Enables safe refactoring, CI/CD, contributor onboarding; reduces regression risk exponentially |
-| 3 | **Implement request queue for AI inference** (Redis queue + worker pattern) | Prevents timeout cascading, enables priority queuing per plan tier, provides position feedback to users |
+| 1 | **Wire provider abstraction** — ✅ resolved | Enables hot-swapping to vLLM, OpenAI, Azure; reduces vendor risk; enables A/B testing models |
+| 2 | **Add comprehensive test suite** — ✅ resolved | Enables safe refactoring, CI/CD, contributor onboarding; reduces regression risk exponentially |
+| 3 | **Implement request queue for AI inference** — ✅ resolved | Prevents timeout cascading, enables priority queuing per plan tier, provides position feedback to users |
 | 4 | **Build self-service tenant onboarding** UI | Removes manual DB setup bottleneck; enables sales-led growth; schools can trial without engineering support |
-| 5 | **Deploy monitoring stack** (Prometheus + Grafana + Sentry) | Enables proactive incident detection; GPU utilization tracking; SLA measurement; data for optimization |
+| 5 | **Deploy monitoring stack** (Prometheus + Grafana + Sentry) — ✅ resolved | Enables proactive incident detection; GPU utilization tracking; SLA measurement; data for optimization |
 
 ## 3 Architectural Enhancements
 
 | # | Enhancement | Second-Order Effect |
 |---|---|---|
-| 1 | **Separate AI into true microservice** with its own FastAPI instance and queue | Enables independent scaling, GPU pool management, isolation from ERP latency |
-| 2 | **Implement refresh token blacklisting** (Redis set of revoked tokens) | Closes security gap; enables force-logout; compliance-ready |
+| 1 | **Separate AI into true microservice** with its own FastAPI instance and queue — ✅ resolved | Enables independent scaling, GPU pool management, isolation from ERP latency |
+| 2 | **Implement refresh token blacklisting** (Redis set of revoked tokens) — ✅ resolved | Closes security gap; enables force-logout; compliance-ready |
 | 3 | **Add PostgreSQL Row-Level Security** policies per tenant | DB-level isolation guarantee; eliminates risk of developer forgetting WHERE tenant_id clause |
 
 ## 3 Product Simplifications
@@ -562,9 +602,9 @@ Tier-based pricing (documented):
 **Yes, with caveats.** The core RAG pipeline works end-to-end. The architecture is sound. However:
 - Provider abstraction is designed but not wired (direct Ollama calls bypass the ABCs)
 - The documented model (Qwen 14B) differs from the implemented model (llama3.2)
-- Test coverage is effectively zero
-- Monitoring/observability is documented but not deployed
-- AI inference has no queue — will bottleneck at even modest scale
+- Test coverage is strong (382 tests across 48 files)
+- Monitoring/observability is deployed (Prometheus/Grafana/Loki/Tempo + Sentry + GPU metrics)
+- AI inference uses a Redis-backed queue for heavy workloads; interactive chat remains synchronous
 
 ## Is it economically viable?
 
@@ -586,9 +626,9 @@ A **small, focused team of 2-3 engineers** — one full-stack, one AI/ML, one De
 
 1. **Wire `BaseLLM` into `routes/ai.py`** — stop bypassing provider abstraction
 2. **Align models** — either deploy Qwen 14B as documented or update docs to reflect llama3.2
-3. **Add pytest suite** — at minimum: auth flow, tenant isolation, AI query pipeline, rate limiting
-4. **Deploy Sentry** — error tracking is table stakes for pilot
-5. **Implement AI request queue** — Redis-backed with timeout and position feedback
+3. ✅ **Add pytest suite** — 382 tests across auth, AI, RBAC, compliance
+4. ✅ **Deploy Sentry** — error tracking integrated for API/AI service/worker
+5. ✅ **Implement AI request queue** — Redis-backed with timeout and position feedback
 6. **Conduct DPDP Act compliance review** — student data handling requires legal sign-off
 7. **Make citations clickable** — link to document viewer or PDF page
 

@@ -3,7 +3,7 @@
 **Project Name:** VidyaOS  
 **Version:** v0.1 pilot  
 **Current Deployment Model:** Split application runtime with frontend, public API, dedicated AI service, worker, and optional observability stack  
-**Status:** Updated to match the repository on 2026-03-06
+**Status:** Updated to match the repository on 2026-03-12
 
 ---
 
@@ -51,10 +51,12 @@ The product goal is privacy-conscious, institution-ready AI for schools. The imp
 - Queue operations and metrics (pause / resume / drain / cancel / retry / dead-letter controls)
 - Persistent audit history for queue actions
 - Trace viewer and observability alerts
+- QR login card generation for student accounts
 - Incident routing plus acknowledge / resolve workflow
 - Compliance export and deletion-request tracking
 - Webhook subscriptions and delivery logs
 - Parent link management
+- Constraint-based timetable generator (auto-scheduling)
 
 ### Teacher tools
 - Class insights with weak topic analysis
@@ -64,7 +66,7 @@ The product goal is privacy-conscious, institution-ready AI for schools. The imp
 - YouTube transcript ingestion
 
 ### Parent experience
-- Dashboard with child's performance summary
+- Simplified dashboard with attendance, latest marks, and next class
 - Attendance and results views
 - Downloadable reports and audio report generation
 
@@ -120,14 +122,21 @@ parent request
 Important current realities:
 - Public synchronous generation goes through the AI service
 - Generation-heavy long-running tasks are queue-backed
+- Queue status responses include position + depth metadata for users
 - All queued workflows (ingestion, teacher assessment, study tools) dispatch through the dedicated AI service
 - Ollama is still external to the tracked stack
 - SAML SSO configuration backend is implemented; no dedicated admin UI for it yet
 
+## 5.1 Known Gaps (Current Implementation)
+
+The following features remain partially wired or incomplete:
+- AI grading currently returns OCR extraction + manual review; full rubric scoring is pending.
+- Extended connectors are wired for PPTX/XLSX uploads and Google Docs/Notion URL ingestion when dependencies and API tokens are configured
+
 ## 6. Roadmap Items Still Pending
 
 - Dedicated admin UI for SAML SSO, compliance, and incident management
-- Android app
-- Service-grade vector backend for multi-node scaling
+- Android Play Store packaging (TWA/Capacitor) beyond the shell guide
+- Full rubric scoring for AI grading (OCR-only output today)
 
 Use this overview as the current product picture.

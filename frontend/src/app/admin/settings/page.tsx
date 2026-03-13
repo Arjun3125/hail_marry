@@ -62,12 +62,12 @@ export default function AdminSettingsPage() {
             </div>
 
             {error ? (
-                <div className="rounded-[var(--radius)] border border-[var(--error)]/30 bg-red-50 px-4 py-3 text-sm text-[var(--error)] mb-4">
+                <div className="rounded-[var(--radius)] border border-[var(--error)]/30 bg-error-subtle px-4 py-3 text-sm text-[var(--error)] mb-4">
                     {error}
                 </div>
             ) : null}
             {success ? (
-                <div className="rounded-[var(--radius)] border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700 mb-4">
+                <div className="rounded-[var(--radius)] border border-success-subtle bg-success-subtle px-4 py-3 text-sm text-status-green mb-4">
                     {success}
                 </div>
             ) : null}

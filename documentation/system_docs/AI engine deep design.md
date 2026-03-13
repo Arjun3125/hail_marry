@@ -2,7 +2,7 @@
 
 **Project:** VidyaOS  
 **Version:** v0.1 current implementation  
-**Status:** Updated to match the repository runtime on 2026-03-06
+**Status:** Updated to match the repository runtime on 2026-03-13
 
 ---
 
@@ -46,17 +46,19 @@ request
 
 ## 3. Supported Sources
 
-Implemented now:
+Implemented in the active ingestion pipeline:
 - PDF
 - DOCX
 - YouTube transcript ingestion
 - URL ingestion (via discovery or direct URL)
 - DuckDuckGo-powered educational source discovery
+- Image OCR to PDF for student uploads (image-to-PDF preprocessing)
 
-Not yet implemented:
-- Google Docs connector
+Present in code but not yet wired into ingestion workflows:
 - PPTX connector
-- OCR-heavy parsing pipeline
+- Excel connector
+- Google Docs connector
+- Notion connector
 
 ## 4. Chunking and Retrieval
 
@@ -95,6 +97,12 @@ Not yet implemented:
 - Assessment generation (NCERT-aligned formative assessments via RAG + LLM)
 - Doubt heatmap data aggregation
 
+### Integrated into Main Query Flow
+The primary AI request pipeline now applies:
+- HyDE query transform
+- Knowledge graph context retrieval
+- Agent orchestration workflows (via /api/ai/workflows)
+
 ### Personalization controls
 All text generation modes support:
 - **Language** — response language selection
@@ -132,6 +140,7 @@ What happens now:
 - retrieved chunks are formatted with citation markers
 - responses are checked for citations
 - when citations are missing but grounded sources exist, the system can append source fallback text rather than reject every response outright
+- citation enrichment to clickable document URLs exists as a helper but is not applied in the main response flow
 
 ## 8. Queueing and Control Plane
 
@@ -147,6 +156,9 @@ Current durability model:
 - live queue state lives in Redis
 - durable lifecycle state is mirrored into relational `ai_jobs` and `ai_job_events`
 - queue lifecycle actions are also written to `audit_logs`
+
+Current limitation:
+- `ai_grade` jobs return OCR extraction + review_required output; automated rubric scoring is not implemented yet
 
 ## 9. Spaced Repetition Integration
 
@@ -168,19 +180,18 @@ Current query and job observability includes:
 - alert evaluation plus webhook dispatch
 
 Current limitation:
-- this is a practical observability stack, not yet a fully managed external incident pipeline with email / pager escalation
+- observability includes email/SMS alert transports, but full pager escalation is still external
 
 ## 11. Execution Limits
 
 Important current limits:
-- FAISS is still local-file based and suited to pilot or modest single-node deployments
+- FAISS is still local-file based (Qdrant is available for larger, multi-node deployments)
 - queue results remain Redis TTL-based even though lifecycle state and event history are durable
 
 ## 12. Roadmap, Not Current Implementation
 
 Still future-state:
-- broader operator tooling for queue replay / pause / drain
-- service-grade vector backend
 - deeper trace explorer with prompt and retrieval replay
+- automated rubric scoring for AI grading
 
 Use this document as the source of truth for the current AI runtime.

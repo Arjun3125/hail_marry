@@ -1,6 +1,6 @@
 """
 Document Ingestion Service
-Handles PDF, DOCX, TXT, CSV, HTML, and YouTube transcript parsing with hierarchical chunking.
+Handles PDF, DOCX, PPTX, XLSX, TXT, CSV, HTML, and YouTube transcript parsing with hierarchical chunking.
 """
 import re
 from pathlib import Path
@@ -21,6 +21,26 @@ class Chunk:
     class_id: Optional[str] = None
     source_file: Optional[str] = None
     metadata: Dict = field(default_factory=dict)
+
+
+def _pages_from_connector(result: Dict, *, label: str) -> List[Dict]:
+    metadata = result.get("metadata") or {}
+    error = metadata.get("error")
+    if error:
+        raise ValueError(f"{label} ingestion failed: {error}")
+
+    chunks = result.get("chunks") or []
+    if chunks:
+        return [
+            {"text": chunk, "page_number": idx + 1}
+            for idx, chunk in enumerate(chunks)
+            if str(chunk).strip()
+        ]
+
+    text = (result.get("text") or "").strip()
+    if not text:
+        raise ValueError(f"{label} ingestion failed: no text extracted")
+    return [{"text": text, "page_number": 1}]
 
 
 def extract_text_from_pdf(file_path: str) -> List[Dict]:
@@ -238,6 +258,14 @@ def ingest_document(
         pages = extract_text_from_pdf(file_path)
     elif ext in (".docx", ".doc"):
         pages = extract_text_from_docx(file_path)
+    elif ext == ".pptx":
+        from ai.connectors import extract_pptx
+        connector_result = extract_pptx(file_path)
+        pages = _pages_from_connector(connector_result, label="PPTX")
+    elif ext in (".xlsx", ".xls"):
+        from ai.connectors import extract_excel
+        connector_result = extract_excel(file_path)
+        pages = _pages_from_connector(connector_result, label="Excel")
     elif ext in (".txt", ".md"):
         text = path.read_text(encoding="utf-8")
         pages = [{"text": text, "page_number": 1}]
@@ -258,7 +286,10 @@ def ingest_document(
         text = re.sub(r"\s+", " ", text).strip()
         pages = [{"text": text, "page_number": 1}]
     else:
-        raise ValueError(f"Unsupported file type: {ext}. Supported: .pdf, .docx, .txt, .md, .csv, .html")
+        raise ValueError(
+            "Unsupported file type: "
+            f"{ext}. Supported: .pdf, .docx, .pptx, .xlsx, .txt, .md, .csv, .html"
+        )
 
     return hierarchical_chunk(
         pages=pages,

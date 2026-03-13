@@ -12,6 +12,7 @@ from models.assignment import Assignment, AssignmentSubmission
 from models.attendance import Attendance
 from models.marks import Exam, Mark
 from models.parent_link import ParentLink
+from models.timetable import Timetable
 from models.user import User
 
 router = APIRouter(prefix="/api/parent", tags=["Parent"])
@@ -87,6 +88,63 @@ def _get_child_results(db: Session, tenant_id, child_id) -> list[dict]:
     return result
 
 
+def _get_latest_mark(db: Session, tenant_id, child_id) -> dict | None:
+    mark_row = db.query(Mark, Exam).join(Exam, Mark.exam_id == Exam.id).filter(
+        Mark.tenant_id == tenant_id,
+        Mark.student_id == child_id,
+    ).order_by(
+        Exam.exam_date.desc().nullslast(),
+        Exam.created_at.desc(),
+    ).first()
+    if not mark_row:
+        return None
+    mark, exam = mark_row
+    subject = db.query(Subject).filter(
+        Subject.id == exam.subject_id,
+        Subject.tenant_id == tenant_id,
+    ).first()
+    percentage = round(mark.marks_obtained / exam.max_marks * 100) if exam.max_marks else 0
+    return {
+        "subject": subject.name if subject else "Unknown",
+        "exam": exam.name,
+        "percentage": percentage,
+        "marks": mark.marks_obtained,
+        "max_marks": exam.max_marks,
+        "date": str(exam.exam_date or exam.created_at.date() if exam.created_at else None),
+    }
+
+
+def _get_next_class(db: Session, tenant_id, class_id) -> dict | None:
+    from datetime import datetime
+
+    now = datetime.now()
+    start_day = now.weekday()
+    current_time = now.time()
+
+    for offset in range(0, 7):
+        day = (start_day + offset) % 7
+        query = db.query(Timetable).filter(
+            Timetable.tenant_id == tenant_id,
+            Timetable.class_id == class_id,
+            Timetable.day_of_week == day,
+        )
+        if offset == 0:
+            query = query.filter(Timetable.start_time > current_time)
+        slot = query.order_by(Timetable.start_time.asc()).first()
+        if slot:
+            subject = db.query(Subject).filter(
+                Subject.id == slot.subject_id,
+                Subject.tenant_id == tenant_id,
+            ).first()
+            return {
+                "day": slot.day_of_week,
+                "start_time": slot.start_time.strftime("%H:%M"),
+                "end_time": slot.end_time.strftime("%H:%M"),
+                "subject": subject.name if subject else "Unknown",
+            }
+    return None
+
+
 @router.get("/dashboard")
 async def parent_dashboard(
     child_id: str | None = None,
@@ -139,6 +197,9 @@ async def parent_dashboard(
         ).count()
         pending_assignments = max(0, total_assignments - submitted)
 
+    latest_mark = _get_latest_mark(db, current_user.tenant_id, child.id)
+    next_class = _get_next_class(db, current_user.tenant_id, enrollment.class_id) if enrollment else None
+
     return {
         "child": {
             "id": str(child.id),
@@ -149,6 +210,8 @@ async def parent_dashboard(
         "attendance_pct": attendance_pct,
         "avg_marks": avg_marks,
         "pending_assignments": pending_assignments,
+        "latest_mark": latest_mark,
+        "next_class": next_class,
     }
 
 
@@ -263,3 +326,63 @@ async def parent_audio_report(
         "attendance_pct": attendance_pct,
         "subject_count": len(results),
     }
+
+
+# ─── Weekly Digest Preview ──────────────────────────────────
+
+@router.get("/digest-preview")
+async def parent_digest_preview(
+    current_user: User = Depends(require_role("parent")),
+    db: Session = Depends(get_db),
+):
+    """Preview the weekly digest email that would be sent to this parent."""
+    from services.digest_email import generate_digest, render_digest_html
+    digest = generate_digest(
+        db,
+        parent_id=current_user.id,
+        tenant_id=current_user.tenant_id,
+    )
+    return {
+        "digest": digest,
+        "html_preview": render_digest_html(digest),
+    }
+
+
+# ─── Report Card PDF ────────────────────────────────────────
+
+@router.get("/report-card")
+async def parent_report_card(
+    current_user: User = Depends(require_role("parent")),
+    db: Session = Depends(get_db),
+):
+    """Download the report card PDF for the parent's linked child."""
+    from starlette.responses import Response as StarletteResponse
+    from services.report_card import generate_report_card_pdf
+    from models.parent_link import ParentLink
+    from models.tenant import Tenant
+
+    link = db.query(ParentLink).filter(
+        ParentLink.tenant_id == current_user.tenant_id,
+        ParentLink.parent_id == current_user.id,
+    ).first()
+    if not link:
+        raise HTTPException(status_code=404, detail="No linked child found")
+
+    tenant = db.query(Tenant).filter(Tenant.id == current_user.tenant_id).first()
+    school_name = tenant.name if tenant and hasattr(tenant, "name") else "VidyaOS School"
+
+    try:
+        pdf_bytes = generate_report_card_pdf(
+            db,
+            student_id=str(link.child_id),
+            tenant_id=str(current_user.tenant_id),
+            school_name=school_name,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    return StarletteResponse(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": "attachment; filename=report_card.pdf"},
+    )

@@ -1,0 +1,21 @@
+{
+    "name": "VidyaOS",
+    "short_name": "VidyaOS",
+    "description": "AI-Powered Learning Infrastructure for Indian K-12 Education",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#0f172a",
+    "theme_color": "#0f172a",
+    "orientation": "portrait-primary",
+    "icons": [
+        {
+            "src": "/favicon.ico",
+            "sizes": "64x64",
+            "type": "image/x-icon"
+        }
+    ],
+    "categories": [
+        "education",
+        "productivity"
+    ]
+}

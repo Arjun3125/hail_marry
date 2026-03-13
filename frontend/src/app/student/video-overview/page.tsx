@@ -182,7 +182,7 @@ export default function VideoOverviewPage() {
                 </div>
             )}
 
-            {error && <div className="mb-4 rounded-xl border border-[var(--error)]/30 bg-red-50 px-4 py-3 text-sm text-[var(--error)]">{error}</div>}
+            {error && <div className="mb-4 rounded-xl border border-[var(--error)]/30 bg-error-subtle px-4 py-3 text-sm text-[var(--error)]">{error}</div>}
 
             {loading && (
                 <div className="bg-[var(--bg-card)] rounded-2xl p-12 shadow-[var(--shadow-card)] text-center border border-[var(--border)]/50">
@@ -238,7 +238,7 @@ export default function VideoOverviewPage() {
                             <button
                                 onClick={() => setCurrent(Math.max(0, current - 1))}
                                 disabled={current === 0}
-                                className="p-2 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-30 transition-all"
+                                className="p-2 rounded-lg bg-[var(--bg-card)]/10 hover:bg-white/20 disabled:opacity-30 transition-all"
                             >
                                 <ChevronLeft className="w-5 h-5" />
                             </button>
@@ -253,7 +253,7 @@ export default function VideoOverviewPage() {
                             <button
                                 onClick={() => setCurrent(Math.min(data.slides.length - 1, current + 1))}
                                 disabled={current === data.slides.length - 1}
-                                className="p-2 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-30 transition-all"
+                                className="p-2 rounded-lg bg-[var(--bg-card)]/10 hover:bg-white/20 disabled:opacity-30 transition-all"
                             >
                                 <ChevronRight className="w-5 h-5" />
                             </button>

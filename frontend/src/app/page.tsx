@@ -9,7 +9,6 @@ import {
   GraduationCap,
   BarChart3,
   FileText,
-  Sparkles,
   ArrowRight,
   School,
   Building,

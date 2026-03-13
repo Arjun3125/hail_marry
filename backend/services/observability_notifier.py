@@ -24,13 +24,74 @@ def _dedupe_key(tenant_id: str, alert: dict[str, Any]) -> str:
     return f"{ALERT_DEDUPE_PREFIX}{tenant_id}:{signature}"
 
 
+def _dispatch_alert_email(tenant_id: str, alert: dict[str, Any]) -> int:
+    recipients = [email for email in settings.observability.alert_email_recipients if email]
+    if not recipients:
+        return 0
+
+    from services.emailer import send_email
+
+    alert_name = alert.get("alertname", "Unknown Alert")
+    severity = alert.get("severity", "warning")
+    subject = f"[VidyaOS] {alert_name} ({severity})"
+    text_body = (
+        f"Alert: {alert_name}\n"
+        f"Severity: {severity}\n"
+        f"Tenant: {tenant_id}\n"
+        f"Message: {alert.get('message', '-')}\n"
+        f"Trace ID: {alert.get('trace_id', '-')}\n"
+    )
+    html_body = (
+        f"<h3>{alert_name}</h3>"
+        f"<p><strong>Severity:</strong> {severity}</p>"
+        f"<p><strong>Tenant:</strong> {tenant_id}</p>"
+        f"<p><strong>Message:</strong> {alert.get('message', '-')}</p>"
+        f"<p><strong>Trace ID:</strong> {alert.get('trace_id', '-')}</p>"
+    )
+
+    delivered = 0
+    for recipient in recipients:
+        try:
+            send_email(
+                to_address=recipient,
+                subject=subject,
+                html_body=html_body,
+                text_body=text_body,
+            )
+            delivered += 1
+        except Exception:
+            logger.exception("Alert email dispatch failed to %s", recipient)
+    return delivered
+
+
+def _dispatch_alert_sms(tenant_id: str, alert: dict[str, Any]) -> int:
+    recipients = [number for number in settings.observability.alert_sms_recipients if number]
+    if not recipients:
+        return 0
+
+    from services.sms import send_sms
+
+    alert_name = alert.get("alertname", "Alert")
+    severity = alert.get("severity", "warning")
+    message = alert.get("message", "") or ""
+    sms_body = f"[VidyaOS {severity.upper()}] {alert_name}: {message}".strip()
+    delivered = 0
+    for number in recipients:
+        result = send_sms(to_number=number, message=sms_body)
+        if result.get("sent"):
+            delivered += 1
+    return delivered
+
+
 async def dispatch_alerts(db: Session, tenant_id: str, alerts: list[dict[str, Any]], force: bool = False) -> dict[str, int]:
     if not alerts:
-        return {"alerts": 0, "delivered": 0}
+        return {"alerts": 0, "delivered": 0, "email_delivered": 0, "sms_delivered": 0}
 
     client = _get_redis_client()
     delivered = 0
     dispatched = 0
+    email_delivered = 0
+    sms_delivered = 0
     for alert in alerts:
         key = _dedupe_key(tenant_id, alert)
         if client and not force and client.get(key):
@@ -46,13 +107,18 @@ async def dispatch_alerts(db: Session, tenant_id: str, alerts: list[dict[str, An
             data={"alert": alert},
         )
         
-        # Simulated Email Pipeline (for Superadmins/Operators)
-        _mock_dispatch_email(tenant_id, alert)
-        
+        email_delivered += _dispatch_alert_email(tenant_id, alert)
+        sms_delivered += _dispatch_alert_sms(tenant_id, alert)
+
         dispatched += 1
         delivered += int(result.get("delivered", 0))
 
-    return {"alerts": dispatched, "delivered": delivered}
+    return {
+        "alerts": dispatched,
+        "delivered": delivered,
+        "email_delivered": email_delivered,
+        "sms_delivered": sms_delivered,
+    }
 
 
 def _mock_dispatch_email(tenant_id: str, alert: dict[str, Any]) -> None:

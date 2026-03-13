@@ -4,9 +4,17 @@ import { useEffect, useState } from "react";
 import { Bot, Send, Loader2, FileText, Sparkles, HelpCircle, BookOpen, MessageSquare, Shuffle, Swords, PenLine, Briefcase, Globe, Settings2 } from "lucide-react";
 import { api } from "@/lib/api";
 
+type Citation = {
+    source?: string;
+    page?: string | null;
+    url?: string | null;
+    text?: string;
+    clickable?: boolean;
+};
+
 interface AIResponse {
     answer: string;
-    citations: Array<{ source: string; page: string }>;
+    citations: Citation[];
     mode: string;
 }
 
@@ -75,7 +83,7 @@ export default function AIAssistant() {
                     error?: string;
                     result?: {
                         answer: string;
-                        citations?: Array<{ source: string; page: string }>;
+                        citations?: Citation[];
                         mode: string;
                     };
                     poll_after_ms?: number;
@@ -176,7 +184,7 @@ export default function AIAssistant() {
                     language,
                     response_length: responseLength,
                     expertise_level: expertiseLevel,
-                }) as { answer?: string; response_text?: string; citations?: Array<{ source: string; page: string }> };
+                }) as { answer?: string; response_text?: string; citations?: Citation[] };
                 const aiResponse: AIResponse = {
                     answer: data.answer || data.response_text || "No response received.",
                     citations: data.citations || [],
@@ -325,11 +333,33 @@ export default function AIAssistant() {
                                     <div className="mt-4 pt-3 border-t border-[var(--border)]/50">
                                         <p className="text-[10px] font-semibold text-[var(--text-muted)] mb-2 uppercase tracking-wider">Sources</p>
                                         <div className="flex flex-wrap gap-1.5">
-                                            {item.response.citations.map((c, j) => (
-                                                <span key={j} className="inline-flex items-center gap-1 text-[10px] bg-[var(--bg-page)] text-[var(--text-secondary)] px-2 py-1 rounded-lg border border-[var(--border)]/30">
-                                                    <FileText className="w-2.5 h-2.5" />{c.source} p.{c.page}
-                                                </span>
-                                            ))}
+                                            {item.response.citations.map((c, j) => {
+                                                const label = c.text || `${c.source || "Document"}${c.page ? ` p.${c.page}` : ""}`;
+                                                const content = (
+                                                    <>
+                                                        <FileText className="w-2.5 h-2.5" />
+                                                        {label}
+                                                    </>
+                                                );
+                                                if (c.url) {
+                                                    return (
+                                                        <a
+                                                            key={j}
+                                                            href={c.url}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="inline-flex items-center gap-1 text-[10px] bg-[var(--bg-page)] text-[var(--text-secondary)] px-2 py-1 rounded-lg border border-[var(--border)]/30 hover:text-[var(--primary)] hover:border-[var(--primary)]/40 transition"
+                                                        >
+                                                            {content}
+                                                        </a>
+                                                    );
+                                                }
+                                                return (
+                                                    <span key={j} className="inline-flex items-center gap-1 text-[10px] bg-[var(--bg-page)] text-[var(--text-secondary)] px-2 py-1 rounded-lg border border-[var(--border)]/30">
+                                                        {content}
+                                                    </span>
+                                                );
+                                            })}
                                         </div>
                                     </div>
                                 )}

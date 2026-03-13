@@ -38,7 +38,7 @@ export default function ParentResultsPage() {
                 <p className="text-sm text-[var(--text-secondary)]">Subject-wise academic performance.</p>
             </div>
             {error ? (
-                <div className="rounded-[var(--radius)] border border-[var(--error)]/30 bg-red-50 px-4 py-3 text-sm text-[var(--error)]">
+                <div className="rounded-[var(--radius)] border border-[var(--error)]/30 bg-error-subtle px-4 py-3 text-sm text-[var(--error)]">
                     {error}
                 </div>
             ) : null}

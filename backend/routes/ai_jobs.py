@@ -2,8 +2,11 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
 
 from auth.dependencies import get_current_user
+from ai.citation_linker import make_citations_clickable
+from database import get_db
 from models.user import User
 from schemas.ai_runtime import (
     AIQueryRequest,
@@ -91,9 +94,14 @@ async def enqueue_video_overview_job(
 async def get_ai_job_status(
     job_id: str,
     current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     job = get_job(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found.")
     _authorize_job_access(job, current_user)
-    return build_public_job_response(job)
+    response = build_public_job_response(job)
+    result = response.get("result")
+    if isinstance(result, dict) and result.get("citations"):
+        response["result"] = make_citations_clickable(result, current_user.tenant_id, db)
+    return response

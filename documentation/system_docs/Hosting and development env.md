@@ -35,6 +35,10 @@ Optional observability profile:
 - `promtail`
 - `tempo`
 - `grafana`
+- `dcgm-exporter`
+
+Optional vector profile:
+- `qdrant`
 
 Ollama is not included in the compose stack. It must run separately and be reachable from both API-side generation workflows and the AI service.
 
@@ -48,13 +52,29 @@ GOOGLE_CLIENT_ID=<google-client-id>
 GOOGLE_CLIENT_SECRET=<google-client-secret>
 OLLAMA_URL=http://localhost:11434
 AI_SERVICE_URL=http://localhost:8001
+AI_SERVICE_URLS=http://localhost:8001
 AI_SERVICE_KEY=<internal-shared-secret>
 APP_ENV=local
 APP_CORS_ORIGINS=["http://localhost:3000"]
 VidyaOS_STORAGE_ROOT=<optional shared storage root>
 VidyaOS_VECTOR_STORE_DIR=<optional vector path override>
+VECTOR_BACKEND_PROVIDER=faiss
+QDRANT_URL=http://localhost:6333
+QDRANT_API_KEY=
 OBSERVABILITY_OTLP_ENDPOINT=http://localhost:4318/v1/traces
 OBSERVABILITY_LOG_PATH=<service log file path>
+OBSERVABILITY_ALERT_EMAILS=ops@example.com
+OBSERVABILITY_ALERT_SMS=+15551234567
+SENTRY_DSN=https://examplePublicKey@o0.ingest.sentry.io/0
+SENTRY_ENVIRONMENT=local
+SENTRY_TRACES_SAMPLE_RATE=0.05
+SENTRY_PROFILES_SAMPLE_RATE=0.0
+SENTRY_SEND_PII=false
+SMS_ENABLED=false
+SMS_PROVIDER=twilio
+SMS_ACCOUNT_SID=
+SMS_AUTH_TOKEN=
+SMS_FROM_NUMBER=
 STARTUP_CHECKS_STRICT=true
 WORKER_HEALTH_PORT=8010
 ```
@@ -125,6 +145,6 @@ This is tracked in:
 ## 7. Remaining Gaps
 
 Still not complete:
-- no built-in email / pager alert transport
+- admin UI for enterprise SSO + incident routing (APIs exist, UI pending)
 
 This file should be treated as current deployment truth for the repository.

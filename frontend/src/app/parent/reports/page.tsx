@@ -39,7 +39,7 @@ export default function ParentReportsPage() {
                 <p className="text-sm text-[var(--text-secondary)]">Consolidated monthly snapshot.</p>
             </div>
             {error ? (
-                <div className="rounded-[var(--radius)] border border-[var(--error)]/30 bg-red-50 px-4 py-3 text-sm text-[var(--error)]">
+                <div className="rounded-[var(--radius)] border border-[var(--error)]/30 bg-error-subtle px-4 py-3 text-sm text-[var(--error)]">
                     {error}
                 </div>
             ) : null}
@@ -54,7 +54,7 @@ export default function ParentReportsPage() {
                         <p className="text-sm text-[var(--text-secondary)] mb-2">Weak Subjects</p>
                         <div className="flex flex-wrap gap-2">
                             {report.weak_subjects.length > 0 ? report.weak_subjects.map((s) => (
-                                <span key={s} className="px-2 py-1 text-xs rounded-full bg-orange-50 text-orange-700">{s}</span>
+                                <span key={s} className="px-2 py-1 text-xs rounded-full bg-orange-subtle text-status-orange">{s}</span>
                             )) : (
                                 <span className="text-xs text-[var(--text-muted)]">No weak subjects identified.</span>
                             )}

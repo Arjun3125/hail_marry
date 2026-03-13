@@ -4,7 +4,7 @@
 **Version:** v0.1 (Current Implementation)  
 **Database:** PostgreSQL 15+  
 **Architecture:** Multi-Tenant (Shared DB, Logical Isolation)  
-**Status:** Updated to match the repository models on 2026-03-06
+**Status:** Updated to match the repository models on 2026-03-12
 
 ---
 
@@ -453,6 +453,27 @@ CREATE INDEX idx_audit_tenant_action ON audit_logs(tenant_id, action);
 
 ---
 
+### 16.2 Notifications
+
+```sql
+CREATE TABLE notifications (
+    id UUID PRIMARY KEY,
+    user_id UUID REFERENCES users(id) NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    body TEXT NOT NULL,
+    category VARCHAR(50) NOT NULL DEFAULT 'info',
+    data JSONB,
+    read BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX idx_notifications_user ON notifications(user_id);
+CREATE INDEX idx_notifications_user_read ON notifications(user_id, read);
+CREATE INDEX idx_notifications_created ON notifications(created_at);
+```
+
+---
+
 ## 17. Webhook Subscriptions & Deliveries
 
 ```sql
@@ -693,6 +714,23 @@ Vector DB is NOT inside PostgreSQL. It stores:
 | `chunk_id` | Unique chunk identifier |
 | `embedding_vector` | 768-dim float array |
 | `metadata` | JSON: page_number, section_title, subject, class, teacher, academic_year |
+
+---
+
+## 21.1 Additional Implemented Tables (Current Codebase)
+
+These tables are implemented in `backend/models/` but are not fully expanded above:
+
+- `admission_applications` — admission workflow pipeline
+- `fee_structures`, `fee_invoices`, `fee_payments` — fee management
+- `billing_plans`, `tenant_subscriptions`, `payment_records` — Razorpay billing
+- `library_books`, `library_lendings` — library catalog and lending
+- `login_streaks` — student streak tracking
+- `test_series`, `mock_test_attempts` — leaderboard/test series
+- `kg_concepts`, `kg_relationships` — knowledge graph index
+- `blacklisted_tokens` — refresh token blacklist (enforced during refresh/logout)
+
+If you need full SQL for these, generate it from the SQLAlchemy models.
 
 ---
 

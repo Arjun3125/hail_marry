@@ -2,7 +2,7 @@
 
 **Project:** VidyaOS  
 **Version:** v0.1 current implementation  
-**Status:** Source of truth for the repo as implemented on 2026-03-06
+**Status:** Source of truth for the repo as implemented on 2026-03-12
 
 ---
 
@@ -19,7 +19,8 @@ Current implementation is a split runtime with four practical service roles:
 Core data services:
 - PostgreSQL
 - Redis
-- FAISS vector storage
+- FAISS vector storage (default)
+- Qdrant vector store (optional external backend)
 - Ollama over HTTP
 
 ## 2. Current System Topology
@@ -64,6 +65,13 @@ Implemented in `backend/main.py` and `backend/routes/`:
 - demo management APIs (role switching, data reset)
 - enterprise APIs (SSO, compliance, incidents)
 
+### Shared Backend Constants
+Implemented in `backend/constants.py`:
+- centralized grading thresholds and `compute_grade()` helper
+- attendance/performance thresholds with `attendance_emoji()` and `performance_color()` helpers
+- file upload limits and allowed extensions per role
+- rate limiting window, PDF color constants, test defaults
+
 ### Dedicated AI service
 Implemented in `backend/ai_service_app.py`:
 - query generation
@@ -92,6 +100,8 @@ Implemented in `backend/ai_worker.py` and `backend/services/ai_queue.py`:
 ### Queued AI jobs
 - Worker claims jobs from Redis.
 - Worker dispatches all AI-heavy job types to the dedicated AI service.
+- Job status responses include queue depth + position metadata for interactive UI feedback.
+- AI service routing supports multiple endpoints via `AI_SERVICE_URLS` for multi-GPU pools.
 
 ## 5. Data Flow
 
@@ -139,6 +149,7 @@ Implemented in app code:
 - metrics endpoints on API, AI service, and worker
 - OpenTelemetry instrumentation hooks
 - persistent trace-event recording
+- Sentry error tracking (API, AI service, worker)
 
 Implemented in compose:
 - Prometheus
@@ -146,6 +157,7 @@ Implemented in compose:
 - Promtail
 - Tempo
 - Grafana
+- DCGM exporter for GPU metrics
 - prebuilt alert rules and Grafana dashboards provisioned from `ops/observability/`
 
 ## 8. Deployment Model
@@ -161,14 +173,23 @@ Tracked services in `docker-compose.yml`:
 - `nginx`
 
 Optional compose profile:
+Observability profile:
 - `prometheus`
 - `loki`
 - `promtail`
 - `tempo`
 - `grafana`
+- `dcgm-exporter`
+
+Vector profile:
+- `qdrant`
 
 ### External dependency
 - Ollama is still external to the compose stack and is reached through `OLLAMA_URL`.
+
+### Horizontal scaling
+- Nginx upstreams resolve Docker DNS, enabling `docker compose up --scale api=2 --scale worker=2`.
+- Shared Postgres/Redis/Qdrant backends keep API instances stateless.
 
 ## 9. Middleware Stack
 
@@ -179,12 +200,30 @@ The public API applies these middleware layers (last added executes first):
 - `TenantMiddleware` — tenant context injection from JWT
 - `RateLimitMiddleware` — request throttling (disabled in demo mode)
 
-## 10. Remaining Architectural Gaps
+## 10. Test Suite
+
+382 tests across 48 files covering:
+- auth security, RBAC, JWT validation
+- CSRF middleware, tenant isolation
+- AI queue, alerting, gamification
+- file uploads, upload security (DOCX macro stripping)
+- constants validation, grading logic
+- whatsapp notifications, webhooks
+- leaderboard, rate limiting
+- compliance, incident management
+- structured logging, pagination
+
+## 11. Remaining Architectural Gaps
 
 Still not fully closed:
 - enterprise features are backend-first; there is not yet a dedicated admin UI for the SAML, compliance, and incident routes
+- AI grading currently returns OCR extraction + manual review; full rubric scoring is pending
+- Clickable citations
+- Docs-as-AI chatbot API
+- Document ingestion watch scheduler
+- Extended connectors are wired for PPTX/XLSX uploads and Google Docs/Notion URL ingestion when dependencies and API tokens are configured
 
-## 11. Convergence Rule
+## 12. Convergence Rule
 
 Use this file as the source of truth for current runtime topology. Older references to:
 - fully monolithic AI execution

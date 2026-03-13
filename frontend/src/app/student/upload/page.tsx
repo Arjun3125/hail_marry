@@ -139,7 +139,7 @@ export default function StudentUploadPage() {
             </div>
 
             {error ? (
-                <div className="mb-4 rounded-[var(--radius)] border border-[var(--error)]/30 bg-red-50 px-4 py-3 text-sm text-[var(--error)]">
+                <div className="mb-4 rounded-[var(--radius)] border border-[var(--error)]/30 bg-error-subtle px-4 py-3 text-sm text-[var(--error)]">
                     {error}
                 </div>
             ) : null}
@@ -147,7 +147,7 @@ export default function StudentUploadPage() {
             <div
                 className={`border-2 border-dashed rounded-[var(--radius)] p-10 text-center transition-colors cursor-pointer ${isDragging
                         ? "border-[var(--primary)] bg-[var(--primary-light)]"
-                        : "border-[var(--border)] bg-[var(--bg-card)] hover:border-[var(--primary)] hover:bg-blue-50/30"
+                        : "border-[var(--border)] bg-[var(--bg-card)] hover:border-[var(--primary)] hover:bg-info-subtle/30"
                     }`}
                 onDragOver={(e) => {
                     e.preventDefault();
@@ -258,10 +258,10 @@ export default function StudentUploadPage() {
                                         <td className="px-5 py-3 text-xs">
                                             <span
                                                 className={`px-2 py-1 rounded-full font-medium capitalize ${upload.status === "completed"
-                                                        ? "bg-green-50 text-[var(--success)]"
+                                                        ? "bg-success-subtle text-[var(--success)]"
                                                         : upload.status === "processing"
-                                                            ? "bg-blue-50 text-[var(--primary)]"
-                                                            : "bg-red-50 text-[var(--error)]"
+                                                            ? "bg-info-subtle text-[var(--primary)]"
+                                                            : "bg-error-subtle text-[var(--error)]"
                                                     }`}
                                             >
                                                 {upload.status}

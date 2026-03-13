@@ -74,7 +74,7 @@ export default function DoubtHeatmapPage() {
             </div>
 
             {error ? (
-                <div className="mb-4 rounded-xl border border-[var(--error)]/30 bg-red-50 px-4 py-3 text-sm text-[var(--error)]">
+                <div className="mb-4 rounded-xl border border-[var(--error)]/30 bg-error-subtle px-4 py-3 text-sm text-[var(--error)]">
                     {error}
                 </div>
             ) : null}

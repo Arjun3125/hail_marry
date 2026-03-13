@@ -67,7 +67,7 @@ export default function AdminTracesPage() {
                     />
                     <button
                         type="submit"
-                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
+                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-code-block px-4 py-2 text-sm font-medium text-white hover:bg-[var(--bg-hover)]"
                     >
                         {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />} Load Trace
                     </button>
@@ -92,7 +92,7 @@ export default function AdminTracesPage() {
                                 </div>
                                 <span className="text-xs text-[var(--text-muted)]">{new Date(event.created_at).toLocaleString()}</span>
                             </div>
-                            <pre className="mt-3 overflow-x-auto rounded-xl bg-slate-950 p-3 text-xs text-slate-100">{JSON.stringify(event.metadata, null, 2)}</pre>
+                            <pre className="mt-3 overflow-x-auto rounded-xl bg-code-block p-3 text-xs text-code-block">{JSON.stringify(event.metadata, null, 2)}</pre>
                         </div>
                     ))}
                 </div>

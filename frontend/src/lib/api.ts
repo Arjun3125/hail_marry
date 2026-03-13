@@ -79,6 +79,16 @@ export const api = {
             }
             return payload;
         },
+        qrLogin: async (token: string) => {
+            const payload = await apiFetch("/api/auth/qr", {
+                method: "POST",
+                body: JSON.stringify({ token }),
+            }) as { access_token?: string };
+            if (payload?.access_token) {
+                setStoredAccessToken(payload.access_token);
+            }
+            return payload;
+        },
         me: () => apiFetch("/api/auth/me"),
         updateProfile: (data: { full_name?: string; avatar_url?: string }) =>
             apiFetch("/api/auth/profile", {
@@ -95,6 +105,7 @@ export const api = {
     },
     student: {
         dashboard: () => apiFetch("/api/student/dashboard"),
+        streaks: () => apiFetch("/api/student/streaks"),
         attendance: (params?: string) => apiFetch(`/api/student/attendance${params ? `?${params}` : ""}`),
         results: () => apiFetch("/api/student/results"),
         resultsTrends: () => apiFetch("/api/student/results/trends"),
@@ -130,6 +141,14 @@ export const api = {
             }),
         completeReview: (id: string, data: { rating: number }) =>
             apiFetch(`/api/student/reviews/${id}/complete`, {
+                method: "POST",
+                body: JSON.stringify(data),
+            }),
+        testSeries: () => apiFetch("/api/student/test-series"),
+        leaderboard: (seriesId: string) => apiFetch(`/api/student/test-series/${seriesId}/leaderboard`),
+        myRank: (seriesId: string) => apiFetch(`/api/student/test-series/${seriesId}/my-rank`),
+        submitMockTest: (seriesId: string, data: { marks_obtained: number; time_taken_minutes?: number }) =>
+            apiFetch(`/api/student/test-series/${seriesId}/submit`, {
                 method: "POST",
                 body: JSON.stringify(data),
             }),
@@ -176,6 +195,7 @@ export const api = {
     admin: {
         dashboard: () => apiFetch("/api/admin/dashboard"),
         users: () => apiFetch("/api/admin/users"),
+        students: () => apiFetch("/api/admin/students"),
         changeUserRole: (id: string, role: string) =>
             apiFetch(`/api/admin/users/${id}/role`, {
                 method: "PATCH",
@@ -216,6 +236,11 @@ export const api = {
                 method: "PATCH",
                 body: JSON.stringify({ status, resolution_note }),
             }),
+        generateQrTokens: (data?: { student_ids?: string[]; class_id?: string; expires_in_days?: number; regenerate?: boolean }) =>
+            apiFetch("/api/admin/generate-qr-tokens", {
+                method: "POST",
+                body: JSON.stringify(data || {}),
+            }),
         classes: () => apiFetch("/api/admin/classes"),
         createClass: (data: { name: string; grade_level: string; academic_year?: string }) =>
             apiFetch("/api/admin/classes", {
@@ -237,6 +262,11 @@ export const api = {
             end_time: string;
         }) =>
             apiFetch("/api/admin/timetable", {
+                method: "POST",
+                body: JSON.stringify(data),
+            }),
+        generateTimetable: (data: Record<string, unknown>) =>
+            apiFetch("/api/admin/timetable/generate", {
                 method: "POST",
                 body: JSON.stringify(data),
             }),

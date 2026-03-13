@@ -21,17 +21,16 @@ From docs, the intended system is a multi-tenant school ERP plus citation-ground
 - MVP wireframe says pilot should ship only Q&A and parent deferred to phase 2: `Sitemap wireframe.md:216`, `Sitemap wireframe.md:221`, `Sitemap wireframe.md:229`.
 
 ## 2. Actual System Architecture
-Implemented architecture is a monolithic FastAPI app plus Next.js UI, with direct Ollama/FAISS calls from API routes:
+Implemented architecture is a split runtime: API gateway + dedicated AI service + background worker + Next.js UI.
 
-- Single FastAPI process wires all ERP + AI + admin routes: `backend/main.py:22`, `backend/main.py:52`.
-- AI inference is direct HTTP from route handlers to Ollama at hardcoded localhost:
-- `backend/routes/ai.py:22`, `backend/routes/ai.py:333`, `backend/routes/ai.py:337`.
-- `backend/routes/audio.py:15`, `backend/routes/video.py:14`.
-- RAG stack exists and is functional in-process:
+- API gateway wires ERP/admin routes and forwards AI work through the service gateway: `backend/main.py:55`, `backend/services/ai_gateway.py:1`.
+- Dedicated AI service executes AI workflows and trace events: `backend/ai_service_app.py:40`, `backend/ai_service_app.py:87`.
+- Dedicated AI worker processes queued jobs: `backend/ai_worker.py:1`, `backend/services/ai_queue.py:1`.
+- RAG stack exists and is functional inside AI workflows:
 - ingestion/chunking: `backend/ai/ingestion.py:140`.
 - retrieval/rerank/dedup/compress: `backend/ai/retrieval.py:143`.
 - FAISS store: `backend/ai/vector_store.py:17`.
-- Provider abstraction classes exist but are not used by runtime path: `backend/ai/providers.py:9`, and no references outside that file.
+- Provider abstraction is wired across retrieval/workflows/ingestion: `backend/ai/providers.py:1`, `backend/ai/retrieval.py:6`, `backend/ai/workflows.py:327`.
 - Frontend is broad role-based Next app-router with many implemented pages: `frontend/src/app`.
 - Data layer is SQLAlchemy + PostgreSQL models with tenant scoping fields across key tables: `backend/models`.
 
@@ -44,23 +43,24 @@ Implemented architecture is a monolithic FastAPI app plus Next.js UI, with direc
 | Parent portal | Implemented (despite some docs marking phase 2) | `backend/routes/parent.py`, `frontend/src/app/parent/dashboard/page.tsx` |
 | AI modes (13 in README) | Implemented | `backend/routes/ai.py:27` |
 | Citation-first enforcement | Partially implemented | Injects fallback "Sources:" instead of strict reject: `backend/ai/retrieval.py:123` |
-| Provider abstraction usage | Stubbed/unused | Interfaces only: `backend/ai/providers.py:9` |
-| Independent AI microservice boundary | Missing | In-process direct calls in route handlers: `backend/routes/ai.py:333` |
-| Queue-based AI request handling | Missing | No queue worker framework; synchronous request path |
-| AI quality review actions (approve/flag) | Stubbed in UI | Disabled buttons: `frontend/src/app/admin/ai-review/page.tsx:85` |
-| AI trace viewer (deep pipeline trace UI) | Partial | `trace_id` logged/returned: `backend/routes/admin.py:172`, no full trace endpoint/view model |
+| Provider abstraction usage | Implemented | Wired into retrieval/workflows/ingestion: `backend/ai/providers.py:1`, `backend/ai/retrieval.py:6`, `backend/ai/workflows.py:327` |
+| Independent AI microservice boundary | Implemented | API gateway calls AI service: `backend/services/ai_gateway.py:1`, `backend/ai_service_app.py:40` |
+| Queue-based AI request handling | Implemented (async jobs) | Queue + worker + job routes: `backend/services/ai_queue.py:1`, `backend/ai_worker.py:1`, `backend/routes/ai_jobs.py:1` |
+| AI quality review actions (approve/flag) | Implemented | Review endpoints + UI actions: `backend/routes/admin.py:509`, `frontend/src/app/admin/ai-review/page.tsx:94` |
+| AI trace viewer (pipeline trace UI) | Implemented | Trace event API + UI page: `backend/routes/admin.py:496`, `backend/services/trace_backend.py:1`, `frontend/src/app/admin/traces/page.tsx:1` |
 | Webhooks (subscriptions + delivery logs) | Implemented | `backend/routes/admin.py:648`, `backend/services/webhooks.py:20` |
 | Environment-specific YAML config set | Partial/misaligned | Loader supports it: `backend/config.py:37`, but only `settings.yaml` exists in backend root |
 | Docker full stack usability | Partial/broken | Missing `frontend/Dockerfile` and `ssl` dir expected by compose: `docker-compose.yml:71`, `docker-compose.yml:91` |
-| Discovery source ingestion | Partially broken | imports missing funcs, silently ignores: `backend/routes/discovery.py:142`, `backend/routes/discovery.py:146` |
+| Discovery source ingestion | Implemented | Queued ingestion + provider-backed embeddings: `backend/routes/discovery.py:67`, `backend/ai/discovery_workflows.py:50` |
 | SAML SSO | Missing | Documented target, no SAML implementation in codebase |
 
 ## 4. Documentation vs Code Comparison
-High-impact mismatches:
+Recent alignment updates:
 
-- AI microservice architecture mismatch.
-- Docs: separate AI microservice/data plane (`Architecture.md:132`, `Hosting and development env.md:177`).
-- Code: monolithic API process directly invokes Ollama (`backend/routes/ai.py:333`).
+- Split runtime architecture (API + AI service + worker + frontend) matches docs: `backend/main.py:55`, `backend/ai_service_app.py:40`, `backend/ai_worker.py:1`.
+
+Remaining high-impact mismatches:
+
 - Model strategy mismatch.
 - Docs: Qwen 14B + Llama 3 8B fallback.
 - Code/config: `llama3.2` for primary and fallback (`backend/settings.yaml:44`, `backend/settings.yaml:49`).
@@ -78,34 +78,29 @@ High-impact mismatches:
 
 ## 5. Integrity Issues Discovered
 
-- Broken dependency path in discovery ingestion.
-- Calls missing `embed_chunks`/`store_chunks` and swallows import failure: `backend/routes/discovery.py:142`, `backend/routes/discovery.py:146`.
-- Dead/unused abstraction code.
-- `backend/ai/providers.py` and `settings.ai_service` are effectively unused.
 - Deployment integrity issues.
 - Missing `frontend/Dockerfile` expected by compose.
 - Missing `ssl/` path expected by nginx compose mount.
-- Hardcoded infra endpoints ignore env.
-- `OLLAMA_URL` constants hardcoded in AI modules, no `os.getenv("OLLAMA_URL")` usage.
 - Error-handling inconsistency.
 - Several workflows return `{success: false}` with HTTP 200 rather than proper status codes (teacher/student ingestion paths): `backend/routes/teacher.py:558`, `backend/routes/students.py:778`.
 - Test/lint integrity gaps.
 - Root pytest broken by vendored third-party suite collection.
 - Frontend lint currently failing with two blocking errors in `DemoToolbar.tsx:45` and `Sidebar.tsx:29`.
 
-## 6. Gap Analysis
+## 6. Gap Analysis (Impact and Effort)
 
 | Gap | Why It Matters | Impact | Difficulty |
 |---|---|---|---|
-| Documented microservice split vs monolith runtime | Core architecture drift; scaling and fault boundaries differ | High | Medium-High |
-| Provider abstraction not wired | Cannot swap LLM/embed/vector providers as promised | High | Medium |
+| Model strategy mismatch (docs vs config) | Confuses performance expectations and deployment sizing | Medium-High | Low |
 | Production security posture depends on debug default | Risky cookies/CSRF behavior in production deployments | High | Low |
 | Storage path mismatch (uploads/vectors/backup) | Data durability and restore reliability at risk | High | Low-Medium |
-| Discovery ingestion silent partial failure | Users can receive false success on ingestion | High | Low |
-| Admin governance features partly cosmetic | Review actions and trace diagnostics incomplete | Medium | Medium |
-| Queueing/worker pipeline absent | Throughput and latency under concurrent load | Medium-High | Medium |
-| Observability stack largely documented-only | Harder incident response and SLO enforcement | Medium | Medium |
-| Documentation set internally inconsistent | Team misalignment, wrong implementation assumptions | Medium | Low |
+| Docker compose stack incomplete (missing frontend Dockerfile/ssl assets) | Hard to reproduce the full stack in deployment | Medium | Medium |
+| Admin KPI semantics mismatch (`active_today`, `ai_queries_30d`) | Misleading governance dashboards | Medium | Low |
+| Documentation set internally inconsistent (phase claims, counts) | Team misalignment and onboarding confusion | Medium | Low |
+| AI grading limited to OCR + manual review | Manual scoring prevents full automation | Medium | Medium |
+| Clickable citations missing | Undermines citation-first trust loop | Medium | Low-Medium |
+| Doc watcher not scheduled | “Auto-ingest” not automatic | Low-Medium | Medium |
+| Docs chatbot not exposed | Feature exists but unusable | Low | Low |
 
 ## 7. System Maturity Assessment
 Current maturity: Functional MVP (pilot-capable), not production-ready.
@@ -113,46 +108,43 @@ Current maturity: Functional MVP (pilot-capable), not production-ready.
 Reasoning:
 
 - Core domain workflows exist end-to-end for student/teacher/admin/parent.
-- RAG pipeline is implemented and integrated with ERP context.
+- RAG pipeline is implemented and integrated with ERP context; advanced AI (HyDE/KG/orchestration) is wired.
+- Governance tooling (queue controls, trace viewer, alerts, review actions) is now operational.
 - Security and tenancy foundations are present, but production hardening/config discipline is inconsistent.
-- Architectural claims in docs materially diverge from implementation.
-- Operational readiness (deploy fidelity, observability completeness, CI signal quality) is incomplete.
+- Operational readiness remains blocked by deployment gaps and incomplete “auto-ingest”/citation UX.
 
 ## 8. Risk Analysis
 
 - Security risk: production may run with `debug: true`, affecting cookie security and CSRF strictness.
 - Data integrity risk: backup and mounted volumes may not contain actual active vector/upload data.
-- Reliability risk: no queue/backpressure for AI requests; direct synchronous inference path.
-- Governance risk: admin quality review is read-only in UI; corrective workflow incomplete.
+- Reliability risk: real-time AI queries remain synchronous; background queue covers jobs but not interactive bursts.
 - Operability risk: compose stack not reproducible as-is (missing frontend Dockerfile/ssl assets).
 - Testing risk: global test command is noisy/broken due vendored repo collection; can mask regressions.
-- Maintainability risk: stale docs and unused abstraction layers create false confidence and onboarding friction.
+- Maintainability risk: documentation drift on models/config can create onboarding friction.
 
 ## 9. Recommended Improvement Roadmap
 Immediate fixes (0-7 days):
 
 - Add `settings-production.yaml` with `app.debug: false`; verify secure cookies and CSRF behavior.
 - Align storage paths via config/env for uploads and vectors; update backup script and compose volumes to same canonical paths.
-- Fix discovery ingestion to call existing embedding/vector APIs and return explicit failure on ingest-store failure.
 - Fix frontend lint blockers and fail CI on lint/test errors.
 - Make compose runnable: add frontend Dockerfile or remove frontend build step; resolve `ssl` mount assumptions.
 
 Short-term improvements (1-3 weeks):
 
-- Remove hardcoded Ollama/model values; source from config consistently.
+- Align model strategy across docs/config (Qwen vs llama3.2) and update defaults.
 - Correct admin metrics semantics (`active_today`, `ai_queries_30d`) and label definitions.
-- Implement AI review actions (approve/flag) with persistent backend status.
+- Wire clickable citations into the primary AI ingestion/query UX.
+- Expose docs chatbot endpoints and schedule document ingestion watch (cron/worker).
 - Add `pytest.ini` to scope tests and ignore `repo/` by default.
 
 Medium-term architectural upgrades (1-2 months):
 
-- Either implement true AI service boundary (separate process/service contracts) or rewrite docs to the intentional monolith architecture.
-- Wire provider abstraction with concrete adapters and dependency injection.
-- Introduce async job queue for ingestion/heavy generation and request load smoothing.
-- Add observability baseline: structured logs, metrics, trace correlation by `trace_id`, alerting.
+- Introduce queue/backpressure for interactive AI queries (priority tiers, position feedback).
+- Add CI validation for config/env parity and docker compose consistency.
 
 Long-term evolution (2+ months):
 
 - Move from local FAISS to service-grade vector backend for multi-node scaling.
-- Complete governance/audit capabilities (full trace viewer, moderation workflows, exportable compliance reports).
+- Expand governance/audit exports (compliance reports, retention policies).
 - Harden enterprise roadmap items only after architecture convergence: SAML SSO, advanced billing, policy automation.

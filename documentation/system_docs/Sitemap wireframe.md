@@ -4,7 +4,10 @@
 **Version:** v0.1 (Current Implementation)  
 **Primary Platform:** Web (Next.js)  
 **Roles:** Student / Teacher / Admin / Parent  
-**Status:** Updated to match `frontend/src/app/` on 2026-03-06
+**Status:** Updated to match `frontend/src/app/` on 2026-03-12
+
+**Current status note:** Admin queue operations, trace viewer, and observability alerts now have matching backend
+endpoints. See `documentation/system_docs/Admin review dashboard.md` for the latest implementation notes.
 
 ---
 

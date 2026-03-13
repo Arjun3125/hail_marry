@@ -17,6 +17,13 @@ from models.parent_link import ParentLink
 from models.review_schedule import ReviewSchedule
 from models.compliance import ComplianceExport, DeletionRequest
 from models.incident import IncidentRoute, Incident, IncidentEvent
+from models.billing import BillingPlan, TenantSubscription, PaymentRecord
+from models.admission import AdmissionApplication
+from models.fee import FeeStructure, FeeInvoice, FeePayment
+from models.knowledge_graph import KGConcept, KGRelationship
+from auth.token_blacklist import BlacklistedToken
+from models.library import Book, BookLending
+from models.notification import Notification
 
 __all__ = [
     "Tenant", "User",
@@ -42,5 +49,18 @@ __all__ = [
     "IncidentRoute",
     "Incident",
     "IncidentEvent",
+    "BillingPlan",
+    "TenantSubscription",
+    "PaymentRecord",
+    "AdmissionApplication",
+    "FeeStructure",
+    "FeeInvoice",
+    "FeePayment",
+    "KGConcept",
+    "KGRelationship",
+    "BlacklistedToken",
+    "Book",
+    "BookLending",
+    "Notification",
 ]
 

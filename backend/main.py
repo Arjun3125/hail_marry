@@ -2,6 +2,7 @@
 import os
 import subprocess
 import sys
+import asyncio
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import PlainTextResponse
@@ -16,6 +17,7 @@ from middleware.observability import ObservabilityMiddleware
 from middleware.tenant import TenantMiddleware
 from middleware.rate_limit import RateLimitMiddleware
 from middleware.csrf import CSRFMiddleware
+from middleware.captcha import CaptchaMiddleware
 from routes import auth as auth_routes
 from routes import demo as demo_routes
 from routes import students as student_routes
@@ -27,14 +29,24 @@ from routes import ai_jobs as ai_job_routes
 from routes import audio as audio_routes
 from routes import video as video_routes
 from routes import discovery as discovery_routes
+from routes import documents as document_routes
 from routes import demo_management as demo_mgmt_routes
 from routes import enterprise as enterprise_routes
 from routes import superadmin as superadmin_routes
+from routes import billing as billing_routes
+from routes import i18n as i18n_routes
+from routes import onboarding as onboarding_routes
+from routes import admission as admission_routes
+from routes import fees as fee_routes
+from routes import openai_compat as openai_compat_routes
+from routes import support as support_routes
 from services.alerting import get_active_alerts
 from services.metrics_registry import export_prometheus_text
 from services.startup_checks import collect_dependency_status, enforce_startup_dependencies
 from services.structured_logging import configure_structured_logging
+from services.sentry_config import configure_sentry
 from services.telemetry import configure_telemetry, instrument_sqlalchemy_engine
+from services.runtime_scheduler import run_doc_watch_loop, run_digest_loop
 
 configure_structured_logging(service_name="vidyaos-api")
 
@@ -43,7 +55,19 @@ configure_structured_logging(service_name="vidyaos-api")
 async def lifespan(app: FastAPI):
     if not os.environ.get("TESTING"):
         enforce_startup_dependencies("api")
+    stop_event = asyncio.Event()
+    tasks: list[asyncio.Task] = []
+    if not os.environ.get("TESTING"):
+        if settings.doc_watch.enabled:
+            tasks.append(asyncio.create_task(run_doc_watch_loop(stop_event)))
+        if settings.digest_email.enabled:
+            tasks.append(asyncio.create_task(run_digest_loop(stop_event)))
     yield
+    stop_event.set()
+    for task in tasks:
+        task.cancel()
+    if tasks:
+        await asyncio.gather(*tasks, return_exceptions=True)
 
 app = FastAPI(
     title=settings.app.name,
@@ -73,6 +97,8 @@ if not settings.app.demo_mode or os.environ.get("TESTING") == "true":
 app.add_middleware(TenantMiddleware)
 if not settings.app.demo_mode or os.environ.get("TESTING") == "true":
     app.add_middleware(CSRFMiddleware, allowed_origins=_allowed_origins)
+if not settings.app.demo_mode or os.environ.get("TESTING") == "true":
+    app.add_middleware(CaptchaMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_allowed_origins,
@@ -82,6 +108,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.add_middleware(ObservabilityMiddleware, service_name="vidyaos-api")
+configure_sentry(service_name="vidyaos-api", app=app)
 
 
 @app.get("/health")
@@ -118,9 +145,26 @@ app.include_router(ai_job_routes.router)
 app.include_router(audio_routes.router)
 app.include_router(video_routes.router)
 app.include_router(discovery_routes.router)
+app.include_router(document_routes.router)
 app.include_router(demo_mgmt_routes.router)
 app.include_router(enterprise_routes.router)
 app.include_router(superadmin_routes.router)
+app.include_router(billing_routes.router)
+app.include_router(i18n_routes.router)
+app.include_router(onboarding_routes.router)
+app.include_router(admission_routes.router)
+app.include_router(fee_routes.router)
+app.include_router(openai_compat_routes.router)
+app.include_router(support_routes.router)
+
+from routes import library as library_routes
+from routes import invitations as invitation_routes
+app.include_router(library_routes.router)
+app.include_router(invitation_routes.router)
+
+# ── Enhancement: Real-time notifications ──
+from routes import notifications as notification_routes
+app.include_router(notification_routes.router)
 
 
 # ── Auto-seed in DEMO_MODE ──

@@ -5,12 +5,28 @@
 > It is **NOT** a continuously updated source of truth. Features like email-based local logins, queue draining, and AI observability logic have been added beyond this scope. 
 > Do not rely on this document to represent the exact live state of the codebase.
 
+## Current Status Notes (2026-03-12)
+
+The following items were resolved in the current implementation:
+- reCAPTCHA middleware is enforced when configured.
+- Refresh token blacklisting is enforced during refresh/logout.
+- Admin observability APIs (trace viewer + alert dispatch) are exposed.
+- AI grading `ai_grade` jobs are handled (OCR + review output).
+
 ---
 
 **Project:** VidyaOS – AI Infrastructure for Educational Institutions  
 **Version:** v0.1 (Current Implementation)  
 **Threat Model:** Multi-tenant SaaS handling student academic data  
-**Status:** Updated to match the repository on 2026-03-06
+**Status:** Updated to match the repository on 2026-03-12
+
+> [!NOTE]
+> **Codebase-wide security audit completed 2026-03-11:**
+> - All hardcoded magic numbers, thresholds, and configuration values centralized in `backend/constants.py`
+> - Grep scan of 91 backend Python files confirmed: no secrets, API keys, or passwords hardcoded in source
+> - All test fixtures use mock tokens only
+> - All `localhost` URLs in dev configs are fallback defaults overridden by environment variables
+> - 223 automated tests pass across 27 test files, including security regression tests
 
 > [!IMPORTANT]  
 > This is a checkbox document. Every item must be verified before pilot launch. Anything not verified = not launched.

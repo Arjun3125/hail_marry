@@ -117,7 +117,7 @@ export default function AdminWebhooksPage() {
             </div>
 
             {error ? (
-                <div className="rounded-[var(--radius)] border border-[var(--error)]/30 bg-red-50 px-4 py-3 text-sm text-[var(--error)]">
+                <div className="rounded-[var(--radius)] border border-[var(--error)]/30 bg-error-subtle px-4 py-3 text-sm text-[var(--error)]">
                     {error}
                 </div>
             ) : null}
@@ -177,7 +177,7 @@ export default function AdminWebhooksPage() {
                                         </button>
                                         <button
                                             onClick={() => handleDelete(item.id)}
-                                            className="px-3 py-1.5 text-xs rounded bg-red-50 text-[var(--error)]"
+                                            className="px-3 py-1.5 text-xs rounded bg-error-subtle text-[var(--error)]"
                                         >
                                             Delete
                                         </button>

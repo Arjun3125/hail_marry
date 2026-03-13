@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from auth.dependencies import get_current_user
 from auth.jwt import create_access_token, create_refresh_token, decode_refresh_token
 from auth.oauth import verify_google_token
+from auth.token_blacklist import blacklist_token, is_blacklisted
 from config import settings
 from database import get_db
 from sqlalchemy.orm import Session
@@ -34,6 +35,47 @@ def _cookie_policy() -> tuple[bool, str]:
     if app_env in {"production", "prod", "staging"}:
         return True, "none"
     return (not settings.app.debug), "lax"
+
+
+def _refresh_expiry(payload: dict) -> datetime | None:
+    exp = payload.get("exp")
+    if not exp:
+        return None
+    try:
+        return datetime.fromtimestamp(int(exp), tz=timezone.utc)
+    except (TypeError, ValueError):
+        return None
+
+
+def _issue_login_tokens(user: User, response: Response) -> str:
+    token_data = {
+        "user_id": str(user.id),
+        "tenant_id": str(user.tenant_id),
+        "email": user.email,
+        "role": user.role,
+    }
+    access_token = create_access_token(token_data)
+    refresh_token = create_refresh_token(token_data)
+    cookie_secure, cookie_samesite = _cookie_policy()
+
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        secure=cookie_secure,
+        samesite=cookie_samesite,
+        max_age=3600,
+    )
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        secure=cookie_secure,
+        samesite=cookie_samesite,
+        max_age=7 * 24 * 3600,
+        path="/api/auth/refresh",
+    )
+    return access_token
 
 
 @router.post("/google", response_model=TokenResponse)
@@ -188,6 +230,57 @@ async def local_login(
     return TokenResponse(access_token=access_token)
 
 
+class QrLoginRequest(BaseModel):
+    token: str
+
+
+def _consume_qr_token(db: Session, token: str) -> User:
+    token_value = token.strip()
+    if not token_value:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="QR token required")
+
+    user = db.query(User).filter(
+        User.qr_login_token == token_value,
+        User.is_active == True,
+        User.is_deleted == False,
+    ).first()
+    if not user or user.role != "student":
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid QR token")
+
+    now = datetime.now(timezone.utc)
+    if user.qr_login_expires_at and user.qr_login_expires_at <= now:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="QR token expired")
+
+    user.qr_login_token = None
+    user.qr_login_expires_at = None
+    user.last_login = now
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+@router.post("/qr", response_model=TokenResponse)
+async def qr_login(
+    request: QrLoginRequest,
+    response: Response,
+    db: Session = Depends(get_db),
+):
+    user = _consume_qr_token(db, request.token)
+    access_token = _issue_login_tokens(user, response)
+    return TokenResponse(access_token=access_token)
+
+
+@router.get("/qr-login/{token}")
+async def qr_login_redirect(
+    token: str,
+    db: Session = Depends(get_db),
+):
+    user = _consume_qr_token(db, token)
+    response = RedirectResponse(url="/student/overview")
+    _issue_login_tokens(user, response)
+    return response
+
+
 class RefreshRequest(BaseModel):
     refresh_token: str | None = None
 
@@ -207,10 +300,17 @@ async def refresh_tokens(
     if not payload:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired refresh token")
 
+    jti = payload.get("jti")
+    if jti and is_blacklisted(db, jti):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token revoked")
+
     user_id = payload.get("user_id")
     user = db.query(User).filter(User.id == user_id, User.is_active == True).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+
+    if jti:
+        blacklist_token(db, jti, user_id=str(user_id), expires_at=_refresh_expiry(payload))
 
     token_data = {
         "user_id": str(user.id),
@@ -328,8 +428,79 @@ async def update_profile(
 
 
 @router.post("/logout")
-async def logout(response: Response):
+async def logout(
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+):
+    token = request.cookies.get("refresh_token")
+    if token:
+        payload = decode_refresh_token(token)
+        if payload and payload.get("jti"):
+            blacklist_token(
+                db,
+                payload["jti"],
+                user_id=str(payload.get("user_id") or ""),
+                expires_at=_refresh_expiry(payload),
+            )
     cookie_secure, cookie_samesite = _cookie_policy()
     response.delete_cookie("access_token", secure=cookie_secure, samesite=cookie_samesite)
     response.delete_cookie("refresh_token", path="/api/auth/refresh", secure=cookie_secure, samesite=cookie_samesite)
     return {"message": "Logged out", "success": True}
+
+
+# ─── QR Code Auto-Login ─────────────────────────────────────
+
+@router.get("/qr-login/{token}")
+async def qr_login(
+    token: str,
+    response: Response,
+    db: Session = Depends(get_db),
+):
+    """Auto-login via QR code token. Redirects to student dashboard on success."""
+    if not token or len(token) < 10:
+        raise HTTPException(status_code=400, detail="Invalid QR token")
+
+    user = db.query(User).filter(
+        User.qr_login_token == token,
+        User.is_active == True,
+    ).first()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="Invalid or expired QR token")
+
+    # Update last login
+    user.last_login = datetime.now(timezone.utc)
+    # Invalidate the token after first use for security
+    user.qr_login_token = None
+    db.commit()
+
+    token_data = {
+        "user_id": str(user.id),
+        "tenant_id": str(user.tenant_id),
+        "email": user.email,
+        "role": user.role,
+    }
+    access_token = create_access_token(token_data)
+    refresh_token_val = create_refresh_token(token_data)
+    cookie_secure, cookie_samesite = _cookie_policy()
+
+    response = RedirectResponse(url="/student/overview", status_code=302)
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        secure=cookie_secure,
+        samesite=cookie_samesite,
+        max_age=3600,
+    )
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token_val,
+        httponly=True,
+        secure=cookie_secure,
+        samesite=cookie_samesite,
+        max_age=7 * 24 * 3600,
+        path="/api/auth/refresh",
+    )
+    return response

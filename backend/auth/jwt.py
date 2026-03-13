@@ -1,5 +1,6 @@
 """JWT token creation and validation — access + refresh tokens."""
 from datetime import datetime, timedelta, timezone
+from uuid import uuid4
 from jose import JWTError, jwt
 from config import settings
 
@@ -15,11 +16,12 @@ def create_access_token(data: dict) -> str:
 
 
 def create_refresh_token(data: dict) -> str:
-    """Create a JWT refresh token (long-lived, 7 days)."""
+    """Create a JWT refresh token (long-lived, 7 days) with unique JTI for blacklisting."""
     to_encode = {
         "user_id": data.get("user_id"),
         "tenant_id": data.get("tenant_id"),
         "type": "refresh",
+        "jti": str(uuid4()),  # unique token ID for blacklisting
     }
     expire = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
     to_encode.update({"exp": expire, "iat": datetime.now(timezone.utc)})

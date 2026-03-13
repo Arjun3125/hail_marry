@@ -37,6 +37,16 @@ services:
       timeout: 5s
       retries: 5
 
+  qdrant:
+    image: qdrant/qdrant:v1.9.4
+    container_name: vidyaos-qdrant
+    restart: unless-stopped
+    profiles: ["vector"]
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrantdata:/qdrant/storage
+
   api:
     build:
       context: ./backend
@@ -53,10 +63,14 @@ services:
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       OLLAMA_URL: http://host.docker.internal:11434
       AI_SERVICE_URL: http://ai-service:8001
+      AI_SERVICE_URLS: ${AI_SERVICE_URLS:-http://ai-service:8001}
       AI_SERVICE_KEY: ${AI_SERVICE_KEY:-internal-dev-key}
       APP_ENV: production
       VidyaOS_STORAGE_ROOT: /app/data
       VidyaOS_VECTOR_STORE_DIR: /app/data/vector_store
+      VECTOR_BACKEND_PROVIDER: ${VECTOR_BACKEND_PROVIDER:-faiss}
+      QDRANT_URL: ${QDRANT_URL:-http://qdrant:6333}
+      QDRANT_API_KEY: ${QDRANT_API_KEY:-}
       OBSERVABILITY_LOG_PATH: /app/logs/api.log
       OBSERVABILITY_OTLP_ENDPOINT: http://tempo:4318/v1/traces
       STARTUP_CHECKS_STRICT: "true"
@@ -95,6 +109,9 @@ services:
       APP_ENV: production
       VidyaOS_STORAGE_ROOT: /app/data
       VidyaOS_VECTOR_STORE_DIR: /app/data/vector_store
+      VECTOR_BACKEND_PROVIDER: ${VECTOR_BACKEND_PROVIDER:-faiss}
+      QDRANT_URL: ${QDRANT_URL:-http://qdrant:6333}
+      QDRANT_API_KEY: ${QDRANT_API_KEY:-}
       OBSERVABILITY_LOG_PATH: /app/logs/ai-service.log
       OBSERVABILITY_OTLP_ENDPOINT: http://tempo:4318/v1/traces
       STARTUP_CHECKS_STRICT: "true"
@@ -124,10 +141,14 @@ services:
       REDIS_URL: redis://redis:6379/0
       OLLAMA_URL: http://host.docker.internal:11434
       AI_SERVICE_URL: http://ai-service:8001
+      AI_SERVICE_URLS: ${AI_SERVICE_URLS:-http://ai-service:8001}
       AI_SERVICE_KEY: ${AI_SERVICE_KEY:-internal-dev-key}
       APP_ENV: production
       VidyaOS_STORAGE_ROOT: /app/data
       VidyaOS_VECTOR_STORE_DIR: /app/data/vector_store
+      VECTOR_BACKEND_PROVIDER: ${VECTOR_BACKEND_PROVIDER:-faiss}
+      QDRANT_URL: ${QDRANT_URL:-http://qdrant:6333}
+      QDRANT_API_KEY: ${QDRANT_API_KEY:-}
       AI_QUEUE_ENABLED: "true"
       OBSERVABILITY_LOG_PATH: /app/logs/worker.log
       OBSERVABILITY_OTLP_ENDPOINT: http://tempo:4318/v1/traces
@@ -198,6 +219,21 @@ services:
       worker:
         condition: service_healthy
 
+  dcgm-exporter:
+    image: nvidia/dcgm-exporter:3.3.5-3.1.8-ubuntu22.04
+    container_name: vidyaos-dcgm-exporter
+    restart: unless-stopped
+    profiles: ["observability"]
+    ports:
+      - "9400:9400"
+    environment:
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+    device_requests:
+      - driver: nvidia
+        count: all
+        capabilities: [gpu]
+
   loki:
     image: grafana/loki:2.9.8
     container_name: vidyaos-loki
@@ -263,3 +299,4 @@ volumes:
   grafanadata:
   lokidata:
   tempodata:
+  qdrantdata:

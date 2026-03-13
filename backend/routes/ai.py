@@ -1,13 +1,25 @@
 """AI query route orchestrating cache, quotas, logging, and AI execution."""
 import time
 import uuid
+from uuid import UUID
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from ai.agent_orchestrator import (
+    get_next_step,
+    get_workflow,
+    get_workflow_state,
+    list_workflows,
+    record_step_result,
+    start_workflow,
+)
+from ai.hyde import hyde_transform
 from ai.cache import cache_response, get_cached_response
+from ai.citation_linker import make_citations_clickable
 from auth.dependencies import get_current_user
 from database import get_db
 from models.ai_query import AIQuery
@@ -15,9 +27,47 @@ from models.tenant import Tenant
 from models.user import User
 from schemas.ai_runtime import AIQueryRequest, InternalAIQueryRequest
 from services.ai_gateway import run_text_query
+from services.knowledge_graph import get_concept_context
 from services.webhooks import emit_webhook_event
 
 router = APIRouter(prefix="/api/ai", tags=["AI"])
+
+
+def _format_knowledge_graph_context(context: list[dict]) -> str:
+    if not context:
+        return ""
+    lines = []
+    for entry in context:
+        concept = entry.get("concept")
+        if not concept:
+            continue
+        related = entry.get("related") or []
+        related_names = ", ".join(
+            rel.get("concept") for rel in related if rel.get("concept")
+        )
+        if related_names:
+            lines.append(f"- {concept}: {related_names}")
+        else:
+            lines.append(f"- {concept}")
+    if not lines:
+        return ""
+    return "Relevant concepts:\n" + "\n".join(lines)
+
+
+def _prepare_ai_query(
+    *,
+    db: Session,
+    tenant_id: str | UUID,
+    query: str,
+    mode: str,
+) -> tuple[str, list[dict], str]:
+    knowledge_context = get_concept_context(db, tenant_id, query)
+    hyde_query = hyde_transform(query, mode)
+    knowledge_text = _format_knowledge_graph_context(knowledge_context)
+    prepared_query = hyde_query
+    if knowledge_text:
+        prepared_query = f"{prepared_query}\n\n{knowledge_text}"
+    return prepared_query, knowledge_context, hyde_query
 
 
 @router.post("/query")
@@ -46,18 +96,27 @@ async def ai_query(
         )
 
     cached = get_cached_response(
-        tenant_id=str(current_user.tenant_id),
+        tenant_id=current_user.tenant_id,
         query=request.query,
         mode=request.mode,
         subject_id=request.subject_id or "",
     )
     if cached:
         cached["cached"] = True
+        if cached.get("citations"):
+            cached = make_citations_clickable(cached, current_user.tenant_id, db)
         return cached
+
+    prepared_query, knowledge_context, hyde_query = _prepare_ai_query(
+        db=db,
+        tenant_id=current_user.tenant_id,
+        query=request.query,
+        mode=request.mode,
+    )
 
     ai_result = await run_text_query(
         InternalAIQueryRequest(
-            **request.model_dump(),
+            **{**request.model_dump(), "query": prepared_query},
             tenant_id=str(current_user.tenant_id),
         ),
         trace_id=trace_id,
@@ -88,7 +147,11 @@ async def ai_query(
         "mode": ai_result["mode"],
         "has_context": ai_result.get("has_context", True),
         "citation_valid": ai_result.get("citation_valid", False),
+        "hyde_used": hyde_query != request.query,
+        "hyde_query": hyde_query if hyde_query != request.query else None,
+        "knowledge_graph": knowledge_context,
     }
+    result = make_citations_clickable(result, current_user.tenant_id, db)
 
     try:
         await emit_webhook_event(
@@ -116,3 +179,77 @@ async def ai_query(
     )
 
     return result
+
+
+class WorkflowStartRequest(BaseModel):
+    workflow_type: str
+    topic: str
+    subject_id: str | None = None
+    language: str = "english"
+    response_length: str = "default"
+    expertise_level: str = "standard"
+
+
+@router.get("/workflows")
+async def list_ai_workflows(current_user: User = Depends(get_current_user)):
+    return list_workflows()
+
+
+@router.post("/workflows")
+async def start_ai_workflow(
+    request: WorkflowStartRequest,
+    current_user: User = Depends(get_current_user),
+):
+    state = start_workflow(request.workflow_type, {
+        "topic": request.topic,
+        "subject_id": request.subject_id,
+        "language": request.language,
+        "response_length": request.response_length,
+        "expertise_level": request.expertise_level,
+    })
+    return {"workflow": state.to_dict()}
+
+
+@router.post("/workflows/{workflow_id}/next")
+async def run_ai_workflow_step(
+    workflow_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    state = get_workflow_state(workflow_id)
+    if not state:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+
+    step = get_next_step(workflow_id)
+    if not step:
+        return {"workflow": get_workflow(workflow_id), "completed": True}
+
+    prepared_query, knowledge_context, hyde_query = _prepare_ai_query(
+        db=db,
+        tenant_id=str(current_user.tenant_id),
+        query=step["prompt"],
+        mode=step["mode"],
+    )
+
+    ai_result = await run_text_query(
+        InternalAIQueryRequest(
+            query=prepared_query,
+            mode=step["mode"],
+            subject_id=state.params.get("subject_id"),
+            language=state.params.get("language", "english"),
+            response_length=state.params.get("response_length", "default"),
+            expertise_level=state.params.get("expertise_level", "standard"),
+            tenant_id=str(current_user.tenant_id),
+        ),
+        trace_id=str(uuid.uuid4())[:8],
+    )
+
+    ai_result = make_citations_clickable(ai_result, current_user.tenant_id, db)
+    record_step_result(workflow_id, ai_result)
+    return {
+        "workflow": get_workflow(workflow_id),
+        "step": step,
+        "result": ai_result,
+        "hyde_used": hyde_query != step["prompt"],
+        "knowledge_graph": knowledge_context,
+    }

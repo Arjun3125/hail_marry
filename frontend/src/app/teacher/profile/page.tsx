@@ -65,13 +65,13 @@ export default function TeacherProfilePage() {
             </div>
 
             {error ? (
-                <div className="mb-4 rounded-[var(--radius)] border border-[var(--error)]/30 bg-red-50 px-4 py-3 text-sm text-[var(--error)]">
+                <div className="mb-4 rounded-[var(--radius)] border border-[var(--error)]/30 bg-error-subtle px-4 py-3 text-sm text-[var(--error)]">
                     {error}
                 </div>
             ) : null}
 
             {message ? (
-                <div className="mb-4 rounded-[var(--radius)] border border-[var(--success)]/30 bg-green-50 px-4 py-3 text-sm text-[var(--success)]">
+                <div className="mb-4 rounded-[var(--radius)] border border-[var(--success)]/30 bg-success-subtle px-4 py-3 text-sm text-[var(--success)]">
                     {message}
                 </div>
             ) : null}

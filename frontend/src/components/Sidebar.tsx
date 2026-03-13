@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { GraduationCap, LogOut, Menu, X, ChevronLeft } from "lucide-react";
 import { ThemeToggle } from "./theme/ThemeToggle";
+import { LanguageToggle } from "@/i18n/LanguageProvider";
 import { LucideIcon } from "lucide-react";
 import { API_BASE, clearStoredAccessToken } from "@/lib/api";
 
@@ -49,7 +50,7 @@ export default function Sidebar({ items, role, userName }: SidebarProps) {
         <>
             {/* Logo */}
             <div className={`flex h-14 items-center border-b border-[var(--border)] px-4 ${collapsed ? "justify-center" : "gap-2.5"}`}>
-                <GraduationCap className="h-6 w-6 flex-shrink-0 text-blue-700" />
+                <GraduationCap className="h-6 w-6 flex-shrink-0 text-status-blue" />
                 {!collapsed && (
                     <div className="flex flex-col justify-center">
                         <div className="flex items-center gap-2">
@@ -59,7 +60,7 @@ export default function Sidebar({ items, role, userName }: SidebarProps) {
                                     By <span className="text-black dark:text-white">Modern</span><span className="text-[#ff3b1f]">Hustlers</span>
                                 </span>
                             </div>
-                            <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold capitalize text-blue-700 h-fit">
+                            <span className="rounded-full bg-info-badge px-2 py-0.5 text-[10px] font-semibold capitalize text-status-blue h-fit">
                                 {role}
                             </span>
                         </div>
@@ -79,7 +80,7 @@ export default function Sidebar({ items, role, userName }: SidebarProps) {
                             title={collapsed ? item.label : undefined}
                             className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-all duration-150 ${collapsed ? "justify-center" : ""
                                 } ${isActive
-                                    ? "bg-blue-50 font-semibold text-blue-700 shadow-sm"
+                                    ? "bg-info-subtle font-semibold text-status-blue shadow-sm"
                                     : "text-[var(--text-secondary)] hover:bg-[var(--bg-page)] hover:text-[var(--text-primary)]"
                                 }`}
                         >
@@ -101,7 +102,7 @@ export default function Sidebar({ items, role, userName }: SidebarProps) {
                     <button
                         onClick={handleLogout}
                         title={collapsed ? "Logout" : undefined}
-                        className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-[var(--text-secondary)] transition-colors hover:bg-red-50 hover:text-red-600 ${collapsed ? "justify-center" : ""
+                        className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-[var(--text-secondary)] transition-colors hover:bg-error-subtle hover:text-status-red ${collapsed ? "justify-center" : ""
                             }`}
                     >
                         <LogOut className="h-[18px] w-[18px] flex-shrink-0" />
@@ -109,7 +110,8 @@ export default function Sidebar({ items, role, userName }: SidebarProps) {
                     </button>
                 </div>
                 {!collapsed && (
-                    <div className="px-2">
+                    <div className="px-2 flex items-center gap-1">
+                        <LanguageToggle />
                         <ThemeToggle />
                     </div>
                 )}
@@ -137,7 +139,7 @@ export default function Sidebar({ items, role, userName }: SidebarProps) {
                         </span>
                     </div>
                 </div>
-                <span className="ml-auto rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold capitalize text-blue-700">
+                <span className="ml-auto rounded-full bg-info-badge px-2 py-0.5 text-[10px] font-semibold capitalize text-status-blue">
                     {role}
                 </span>
             </div>

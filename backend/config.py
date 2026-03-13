@@ -100,6 +100,19 @@ def _parse_cors_origins(value: Any, fallback: list[str] | None = None) -> list[s
     raise ValueError("APP_CORS_ORIGINS must be a list or string")
 
 
+def _parse_csv_list(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return [str(item).strip() for item in value if str(item).strip()]
+    if isinstance(value, str):
+        raw = value.strip()
+        if not raw:
+            return []
+        return [part.strip() for part in raw.split(",") if part.strip()]
+    return []
+
+
 class DatabaseSettings(BaseSettings):
     url: str = Field(
         default=os.getenv(
@@ -165,6 +178,11 @@ class AIServiceSettings(BaseSettings):
             ),
         )
     )
+    urls: list[str] = Field(
+        default_factory=lambda: _parse_csv_list(
+            os.getenv("AI_SERVICE_URLS") or _yaml_config.get("ai_service", {}).get("urls", [])
+        )
+    )
     api_key: str = Field(
         default=os.getenv(
             "AI_SERVICE_KEY",
@@ -174,6 +192,12 @@ class AIServiceSettings(BaseSettings):
     timeout_seconds: int = Field(
         default=int(_yaml_config.get("ai_service", {}).get("timeout_seconds", 90))
     )
+
+    def resolved_urls(self) -> list[str]:
+        urls = [url for url in self.urls if url]
+        if not urls and self.url:
+            urls = [self.url]
+        return urls
 
 
 class AIQueueSettings(BaseSettings):
@@ -437,6 +461,143 @@ class ComplianceSettings(BaseSettings):
     )
 
 
+class EmailSettings(BaseSettings):
+    enabled: bool = Field(
+        default=os.getenv(
+            "EMAIL_ENABLED",
+            str(_yaml_config.get("email", {}).get("enabled", False)),
+        ).lower() in ("true", "1", "yes")
+    )
+    host: str = Field(
+        default=os.getenv(
+            "SMTP_HOST",
+            _yaml_config.get("email", {}).get("host", ""),
+        )
+    )
+    port: int = Field(
+        default=int(
+            os.getenv(
+                "SMTP_PORT",
+                _yaml_config.get("email", {}).get("port", 587),
+            )
+        )
+    )
+    username: str = Field(
+        default=os.getenv(
+            "SMTP_USERNAME",
+            _yaml_config.get("email", {}).get("username", ""),
+        )
+    )
+    password: str = Field(
+        default=os.getenv(
+            "SMTP_PASSWORD",
+            _yaml_config.get("email", {}).get("password", ""),
+        )
+    )
+    use_tls: bool = Field(
+        default=os.getenv(
+            "SMTP_USE_TLS",
+            str(_yaml_config.get("email", {}).get("use_tls", True)),
+        ).lower() in ("true", "1", "yes")
+    )
+    from_email: str = Field(
+        default=os.getenv(
+            "SMTP_FROM_EMAIL",
+            _yaml_config.get("email", {}).get("from_email", "no-reply@vidyaos.local"),
+        )
+    )
+    from_name: str = Field(
+        default=os.getenv(
+            "SMTP_FROM_NAME",
+            _yaml_config.get("email", {}).get("from_name", "VidyaOS"),
+        )
+    )
+
+
+class DigestEmailSettings(BaseSettings):
+    enabled: bool = Field(
+        default=os.getenv(
+            "DIGEST_EMAIL_ENABLED",
+            str(_yaml_config.get("digest_email", {}).get("enabled", False)),
+        ).lower() in ("true", "1", "yes")
+    )
+    interval_minutes: int = Field(
+        default=int(
+            os.getenv(
+                "DIGEST_EMAIL_INTERVAL_MINUTES",
+                _yaml_config.get("digest_email", {}).get("interval_minutes", 10080),
+            )
+        )
+    )
+
+
+class SmsSettings(BaseSettings):
+    enabled: bool = Field(
+        default=os.getenv(
+            "SMS_ENABLED",
+            str(_yaml_config.get("sms", {}).get("enabled", False)),
+        ).lower() in ("true", "1", "yes")
+    )
+    provider: str = Field(
+        default=os.getenv(
+            "SMS_PROVIDER",
+            _yaml_config.get("sms", {}).get("provider", "twilio"),
+        )
+    )
+    account_sid: str = Field(
+        default=os.getenv(
+            "SMS_ACCOUNT_SID",
+            _yaml_config.get("sms", {}).get("account_sid", ""),
+        )
+    )
+    auth_token: str = Field(
+        default=os.getenv(
+            "SMS_AUTH_TOKEN",
+            _yaml_config.get("sms", {}).get("auth_token", ""),
+        )
+    )
+    from_number: str = Field(
+        default=os.getenv(
+            "SMS_FROM_NUMBER",
+            _yaml_config.get("sms", {}).get("from_number", ""),
+        )
+    )
+
+
+class DocWatchSettings(BaseSettings):
+    enabled: bool = Field(
+        default=os.getenv(
+            "DOC_WATCH_ENABLED",
+            str(_yaml_config.get("doc_watch", {}).get("enabled", False)),
+        ).lower() in ("true", "1", "yes")
+    )
+    dirs: list[str] = Field(
+        default_factory=lambda: _parse_csv_list(
+            os.getenv("DOC_WATCH_DIRS") or _yaml_config.get("doc_watch", {}).get("dirs", [])
+        )
+    )
+    poll_interval_seconds: int = Field(
+        default=int(
+            os.getenv(
+                "DOC_WATCH_INTERVAL",
+                _yaml_config.get("doc_watch", {}).get("poll_interval_seconds", 30),
+            )
+        )
+    )
+    tenant_id: str = Field(
+        default=os.getenv(
+            "DOC_WATCH_TENANT_ID",
+            _yaml_config.get("doc_watch", {}).get("tenant_id", ""),
+        )
+    )
+    uploader_id: str = Field(
+        default=os.getenv(
+            "DOC_WATCH_UPLOADER_ID",
+            _yaml_config.get("doc_watch", {}).get("uploader_id", ""),
+        )
+    )
+
+
 class IncidentSettings(BaseSettings):
     auto_create_from_alerts: bool = Field(
         default=os.getenv("INCIDENT_AUTO_CREATE_FROM_ALERTS", "true").lower() in ("true", "1", "yes")
@@ -501,6 +662,18 @@ class ObservabilitySettings(BaseSettings):
             )
         )
     )
+    alert_email_recipients: list[str] = Field(
+        default_factory=lambda: _parse_csv_list(
+            os.getenv("OBSERVABILITY_ALERT_EMAILS")
+            or _yaml_config.get("observability", {}).get("alert_email_recipients", [])
+        )
+    )
+    alert_sms_recipients: list[str] = Field(
+        default_factory=lambda: _parse_csv_list(
+            os.getenv("OBSERVABILITY_ALERT_SMS")
+            or _yaml_config.get("observability", {}).get("alert_sms_recipients", [])
+        )
+    )
     tracing_enabled: bool = Field(
         default=os.getenv("OBSERVABILITY_TRACING_ENABLED", "true").lower() in ("true", "1", "yes")
     )
@@ -520,6 +693,49 @@ class ObservabilitySettings(BaseSettings):
                 _yaml_config.get("observability", {}).get("trace_sample_ratio", 1.0),
             )
         )
+    )
+
+
+class SentrySettings(BaseSettings):
+    enabled: bool = Field(
+        default=os.getenv(
+            "SENTRY_ENABLED",
+            str(_yaml_config.get("sentry", {}).get("enabled", False)),
+        ).lower() in ("true", "1", "yes")
+    )
+    dsn: str = Field(
+        default=os.getenv(
+            "SENTRY_DSN",
+            _yaml_config.get("sentry", {}).get("dsn", ""),
+        )
+    )
+    environment: str = Field(
+        default=os.getenv(
+            "SENTRY_ENVIRONMENT",
+            _yaml_config.get("sentry", {}).get("environment", ""),
+        )
+    )
+    traces_sample_rate: float = Field(
+        default=float(
+            os.getenv(
+                "SENTRY_TRACES_SAMPLE_RATE",
+                _yaml_config.get("sentry", {}).get("traces_sample_rate", 0.05),
+            )
+        )
+    )
+    profiles_sample_rate: float = Field(
+        default=float(
+            os.getenv(
+                "SENTRY_PROFILES_SAMPLE_RATE",
+                _yaml_config.get("sentry", {}).get("profiles_sample_rate", 0.0),
+            )
+        )
+    )
+    send_default_pii: bool = Field(
+        default=os.getenv(
+            "SENTRY_SEND_PII",
+            str(_yaml_config.get("sentry", {}).get("send_default_pii", False)),
+        ).lower() in ("true", "1", "yes")
     )
 
 
@@ -568,8 +784,13 @@ class Settings:
         self.storage = StorageSettings()
         self.vector_backend = VectorBackendSettings()
         self.compliance = ComplianceSettings()
+        self.email = EmailSettings()
+        self.digest_email = DigestEmailSettings()
+        self.sms = SmsSettings()
+        self.doc_watch = DocWatchSettings()
         self.incidents = IncidentSettings()
         self.observability = ObservabilitySettings()
+        self.sentry = SentrySettings()
         self._validate_security_defaults()
 
     def _validate_security_defaults(self):

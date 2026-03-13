@@ -119,6 +119,15 @@ export default function LoginPage() {
                                 <div ref={initGoogle} />
                             </div>
 
+                            <div className="text-center mb-6">
+                                <a
+                                    href="/qr-login"
+                                    className="text-xs font-semibold text-[var(--primary)] hover:text-[var(--primary-hover)]"
+                                >
+                                    Login with QR code
+                                </a>
+                            </div>
+
                             {/* Fallback for when Google client ID is not set */}
                             {!process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID && (
                                 <div className="text-center">
@@ -161,7 +170,7 @@ export default function LoginPage() {
                             )}
 
                             {error && (
-                                <div className="mt-4 p-3 bg-red-50 text-[var(--error)] text-sm rounded-[var(--radius-sm)] text-center">
+                                <div className="mt-4 p-3 bg-error-subtle text-[var(--error)] text-sm rounded-[var(--radius-sm)] text-center">
                                     {error}
                                 </div>
                             )}

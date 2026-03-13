@@ -18,9 +18,9 @@ type ComplaintItem = {
 };
 
 const statusConfig = {
-    open: { icon: Clock, color: "text-[var(--warning)]", bg: "bg-yellow-50" },
-    in_review: { icon: AlertCircle, color: "text-[var(--primary)]", bg: "bg-blue-50" },
-    resolved: { icon: CheckCircle2, color: "text-[var(--success)]", bg: "bg-green-50" },
+    open: { icon: Clock, color: "text-[var(--warning)]", bg: "bg-warning-subtle" },
+    in_review: { icon: AlertCircle, color: "text-[var(--primary)]", bg: "bg-info-subtle" },
+    resolved: { icon: CheckCircle2, color: "text-[var(--success)]", bg: "bg-success-subtle" },
 };
 
 export default function AdminComplaintsPage() {
@@ -76,7 +76,7 @@ export default function AdminComplaintsPage() {
             </div>
 
             {error ? (
-                <div className="rounded-[var(--radius)] border border-[var(--error)]/30 bg-red-50 px-4 py-3 text-sm text-[var(--error)] mb-4">
+                <div className="rounded-[var(--radius)] border border-[var(--error)]/30 bg-error-subtle px-4 py-3 text-sm text-[var(--error)] mb-4">
                     {error}
                 </div>
             ) : null}
@@ -135,7 +135,7 @@ export default function AdminComplaintsPage() {
                                             Mark Resolved
                                         </button>
                                         <button
-                                            className="text-xs px-3 py-1.5 bg-yellow-50 text-[var(--warning)] rounded-[var(--radius-sm)] font-medium disabled:opacity-60"
+                                            className="text-xs px-3 py-1.5 bg-warning-subtle text-[var(--warning)] rounded-[var(--radius-sm)] font-medium disabled:opacity-60"
                                             onClick={() => void updateStatus(item.id, "in_review")}
                                             disabled={busyId === item.id}
                                         >

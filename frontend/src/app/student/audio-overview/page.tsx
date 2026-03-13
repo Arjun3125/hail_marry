@@ -179,7 +179,7 @@ export default function AudioOverviewPage() {
             </div>
 
             {error && (
-                <div className="mb-4 rounded-xl border border-[var(--error)]/30 bg-red-50 px-4 py-3 text-sm text-[var(--error)]">{error}</div>
+                <div className="mb-4 rounded-xl border border-[var(--error)]/30 bg-error-subtle px-4 py-3 text-sm text-[var(--error)]">{error}</div>
             )}
 
             {loading && (
@@ -229,7 +229,7 @@ export default function AudioOverviewPage() {
                             return (
                                 <div
                                     key={i}
-                                    className={`flex gap-3 p-3 rounded-xl transition-all duration-300 ${isActive ? "bg-violet-50 ring-2 ring-violet-300 scale-[1.01]" : "hover:bg-[var(--bg-page)]"
+                                    className={`flex gap-3 p-3 rounded-xl transition-all duration-300 ${isActive ? "bg-violet-badge ring-2 ring-violet-300 scale-[1.01]" : "hover:bg-[var(--bg-page)]"
                                         }`}
                                 >
                                     <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-xs text-white shadow-sm ${isAnika ? "bg-gradient-to-br from-pink-500 to-rose-600" : "bg-gradient-to-br from-blue-500 to-indigo-600"
@@ -237,7 +237,7 @@ export default function AudioOverviewPage() {
                                         {line.speaker[0]}
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <p className={`text-[10px] font-bold uppercase tracking-wider mb-1 ${isAnika ? "text-pink-600" : "text-blue-600"}`}>
+                                        <p className={`text-[10px] font-bold uppercase tracking-wider mb-1 ${isAnika ? "text-pink-500" : "text-[var(--primary)]"}`}>
                                             {line.speaker}
                                             {isActive && <Volume2 className="w-3 h-3 inline ml-1 animate-pulse" />}
                                         </p>

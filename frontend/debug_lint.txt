@@ -1,0 +1,10 @@
+﻿
+> frontend@0.1.0 lint
+> eslint
+
+
+C:\Users\naren\Work\Projects\proxy_notebooklm\frontend\src\app\page.tsx
+  12:3  warning  'Sparkles' is defined but never used  @typescript-eslint/no-unused-vars
+
+Γ£û 1 problem (0 errors, 1 warning)
+

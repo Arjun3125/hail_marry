@@ -1,0 +1,72 @@
+﻿
+> frontend@0.1.0 build
+> next build
+
+Γû▓ Next.js 16.1.6 (Turbopack)
+
+  Creating an optimized production build ...
+Γ£ô Compiled successfully in 13.3s
+  Running TypeScript ...
+  Collecting page data using 27 workers ...
+  Generating static pages using 27 workers (0/52) ...
+  Generating static pages using 27 workers (13/52) 
+  Generating static pages using 27 workers (26/52) 
+  Generating static pages using 27 workers (39/52) 
+Γ£ô Generating static pages using 27 workers (52/52) in 1043.1ms
+  Finalizing page optimization ...
+
+Route (app)
+Γöî Γùï /
+Γö£ Γùï /_not-found
+Γö£ Γùï /admin/ai-review
+Γö£ Γùï /admin/ai-usage
+Γö£ Γùï /admin/billing
+Γö£ Γùï /admin/classes
+Γö£ Γùï /admin/complaints
+Γö£ Γùï /admin/dashboard
+Γö£ Γùï /admin/queue
+Γö£ Γùï /admin/reports
+Γö£ Γùï /admin/security
+Γö£ Γùï /admin/settings
+Γö£ Γùï /admin/setup-wizard
+Γö£ Γùï /admin/timetable
+Γö£ Γùï /admin/traces
+Γö£ Γùï /admin/users
+Γö£ Γùï /admin/webhooks
+Γö£ Γùï /demo
+Γö£ Γùï /login
+Γö£ Γùï /parent
+Γö£ Γùï /parent/attendance
+Γö£ Γùï /parent/dashboard
+Γö£ Γùï /parent/reports
+Γö£ Γùï /parent/results
+Γö£ Γùï /student/ai
+Γö£ Γùï /student/assignments
+Γö£ Γùï /student/attendance
+Γö£ Γùï /student/audio-overview
+Γö£ Γùï /student/complaints
+Γö£ Γùï /student/lectures
+Γö£ Γùï /student/mind-map
+Γö£ Γùï /student/overview
+Γö£ Γùï /student/profile
+Γö£ Γùï /student/results
+Γö£ Γùï /student/reviews
+Γö£ Γùï /student/timetable
+Γö£ Γùï /student/tools
+Γö£ Γùï /student/upload
+Γö£ Γùï /student/video-overview
+Γö£ Γùï /teacher/assignments
+Γö£ Γùï /teacher/attendance
+Γö£ Γùï /teacher/classes
+Γö£ Γùï /teacher/dashboard
+Γö£ Γùï /teacher/discover
+Γö£ Γùï /teacher/doubt-heatmap
+Γö£ Γùï /teacher/generate-assessment
+Γö£ Γùï /teacher/insights
+Γö£ Γùï /teacher/marks
+Γö£ Γùï /teacher/profile
+Γöö Γùï /teacher/upload
+
+
+Γùï  (Static)  prerendered as static content
+

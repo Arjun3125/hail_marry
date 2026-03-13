@@ -10,6 +10,18 @@
 
 This report analyzes the raw documentation for VidyaOS (`proxy_notebooklm/raw`) against **5 industry-leading repositories** to identify "star features" — capabilities that are either **missing**, **under-documented**, or could be **significantly enhanced** by learning from production-grade open-source projects.
 
+### Current Status Corrections (2026-03-12)
+- Agent orchestration, HyDE, and knowledge graph enhancements are now wired into AI routes.
+- Observability includes trace viewer APIs and admin alert dispatch endpoints.
+- Provider abstraction and the split AI service/worker runtime are implemented.
+- Admin queue controls and AI review actions are operational.
+- Extended connectors are wired for PPTX/XLSX uploads and Google Docs/Notion URL ingestion when dependencies and API tokens are configured.
+
+Remaining gaps worth tracking:
+- Clickable citations.
+- Docs chatbot exposure and scheduled document ingestion.
+- AI grading remains OCR-only pending rubric scoring.
+
 ### Reference Repositories Analyzed
 
 | Repository | Domain | Key Strength |
@@ -64,7 +76,7 @@ All 11 raw docs were analyzed in full:
 
 | Star Feature | Description | VidyaOS Gap |
 |---|---|---|
-| **Data Connectors (LlamaHub)** | 300+ connectors for diverse data sources | VidyaOS supports PDF, DOCX, YouTube only; lacks **Google Docs, Notion, Slides, Excel, PPTX** |
+| **Data Connectors (LlamaHub)** | 300+ connectors for diverse data sources | ✅ Resolved — connectors now cover PPTX/XLSX uploads and Google Docs/Notion URL ingestion (token-gated) |
 | **Advanced Indexing (VectorStoreIndex, KnowledgeGraph)** | Multiple index types for different query needs | VidyaOS uses flat vector index only; lacks **knowledge graph index** or **summary index** |
 | **LlamaParse (Agentic OCR)** | Advanced document parsing with 130+ format support | VidyaOS uses basic PyMuPDF; lacks **table extraction**, **image OCR**, **form parsing** |
 | **Instrumentation & Observability** | Built-in instrumentation module (`llama-index-instrumentation`) | VidyaOS monitoring is infrastructure-level; lacks **AI pipeline instrumentation** |

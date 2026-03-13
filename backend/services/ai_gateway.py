@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from typing import Any
+import threading
 
 import httpx
 from fastapi import HTTPException
@@ -18,6 +19,10 @@ from schemas.ai_runtime import (
     InternalVideoOverviewRequest,
 )
 from services.trace_backend import record_trace_event
+
+_service_urls: list[str] = []
+_service_index = 0
+_service_lock = threading.Lock()
 
 
 def _service_headers(trace_id: str | None = None) -> dict[str, str]:
@@ -40,15 +45,31 @@ def _extract_error_detail(exc: httpx.HTTPStatusError) -> str:
     return exc.response.text or "Dedicated AI service request failed."
 
 
+def _pick_ai_service_url() -> str:
+    urls = settings.ai_service.resolved_urls()
+    if not urls:
+        raise HTTPException(status_code=503, detail="No AI service endpoint configured.")
+
+    global _service_urls, _service_index
+    with _service_lock:
+        if urls != _service_urls:
+            _service_urls = urls
+            _service_index = 0
+        url = _service_urls[_service_index % len(_service_urls)]
+        _service_index = (_service_index + 1) % len(_service_urls)
+    return url
+
+
 async def _post_to_ai_service(path: str, payload: dict[str, Any], trace_id: str | None = None) -> dict[str, Any]:
-    url = f"{settings.ai_service.url.rstrip('/')}{path}"
+    base_url = _pick_ai_service_url()
+    url = f"{base_url.rstrip('/')}{path}"
     tenant_id = payload.get("tenant_id")
     record_trace_event(
         trace_id=trace_id,
         tenant_id=tenant_id,
         source="api-gateway",
         stage="ai_service.requested",
-        metadata={"path": path},
+        metadata={"path": path, "service_url": base_url},
     )
 
     try:

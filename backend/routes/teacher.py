@@ -22,20 +22,22 @@ from models.marks import Exam, Mark
 from models.assignment import Assignment, AssignmentSubmission
 from models.document import Document
 from models.lecture import Lecture
+from models.timetable import Timetable
 from utils.upload_security import (
     UploadValidationError,
     ensure_storage_dir,
     sanitize_docx_bytes,
 )
+from constants import TEACHER_ALLOWED_EXTENSIONS, TEACHER_MAX_FILE_SIZE
 
 router = APIRouter(prefix="/api/teacher", tags=["Teacher"])
 
 logger = logging.getLogger(__name__)
 
 UPLOAD_DIR = ensure_storage_dir("uploads")
-ALLOWED_EXTENSIONS = {"pdf", "docx"}
+ALLOWED_EXTENSIONS = TEACHER_ALLOWED_EXTENSIONS
 ALLOWED_ATTENDANCE_STATUSES = {"present", "absent", "late"}
-MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
+MAX_FILE_SIZE = TEACHER_MAX_FILE_SIZE
 
 
 # ─── Pydantic Schemas ────────────────────────────────────────
@@ -184,7 +186,56 @@ async def teacher_dashboard(
         ).scalar() if exam_ids else None
         classes.append({"id": str(cls.id), "name": cls.name, "students": student_count, "avg_attendance": avg_att, "avg_marks": round(float(avg_m)) if avg_m else 0})
 
-    return {"classes": classes}
+    # Today's timetable for quick access
+    from datetime import datetime
+    today = datetime.now().weekday()
+    today_slots = db.query(Timetable).filter(
+        Timetable.tenant_id == current_user.tenant_id,
+        Timetable.teacher_id == current_user.id,
+        Timetable.day_of_week == today,
+    ).order_by(Timetable.start_time.asc()).all()
+
+    subject_ids = list({slot.subject_id for slot in today_slots})
+    class_ids_for_slots = list({slot.class_id for slot in today_slots})
+    subjects = db.query(Subject).filter(
+        Subject.tenant_id == current_user.tenant_id,
+        Subject.id.in_(subject_ids),
+    ).all() if subject_ids else []
+    classes_for_slots = db.query(Class).filter(
+        Class.tenant_id == current_user.tenant_id,
+        Class.id.in_(class_ids_for_slots),
+    ).all() if class_ids_for_slots else []
+
+    subject_by_id = {s.id: s.name for s in subjects}
+    class_by_id = {c.id: c.name for c in classes_for_slots}
+
+    today_classes = [{
+        "class_id": str(slot.class_id),
+        "class_name": class_by_id.get(slot.class_id, "Unknown"),
+        "subject": subject_by_id.get(slot.subject_id, "Unknown"),
+        "start_time": slot.start_time.strftime("%H:%M"),
+        "end_time": slot.end_time.strftime("%H:%M"),
+    } for slot in today_slots]
+
+    pending_reviews = db.query(AssignmentSubmission).join(
+        Assignment, AssignmentSubmission.assignment_id == Assignment.id
+    ).filter(
+        Assignment.tenant_id == current_user.tenant_id,
+        Assignment.created_by == current_user.id,
+        AssignmentSubmission.grade == None,
+    ).count()
+
+    open_assignments = db.query(Assignment).filter(
+        Assignment.tenant_id == current_user.tenant_id,
+        Assignment.created_by == current_user.id,
+    ).count()
+
+    return {
+        "classes": classes,
+        "today_classes": today_classes,
+        "pending_reviews": pending_reviews,
+        "open_assignments": open_assignments,
+    }
 
 
 # ─── Attendance Entry ────────────────────────────────────────
@@ -468,7 +519,7 @@ async def upload_document(
     current_user: User = Depends(require_role("teacher", "admin")),
     db: Session = Depends(get_db),
 ):
-    """Upload a PDF/DOCX for AI ingestion with RAG pipeline."""
+    """Upload a PDF/DOCX/PPTX/XLSX for AI ingestion with RAG pipeline."""
     safe_filename = Path(file.filename or "").name
     if not safe_filename:
         raise HTTPException(status_code=400, detail="Filename is required.")
@@ -965,3 +1016,326 @@ async def teacher_doubt_heatmap(
         "total_queries": len(queries),
         "student_count": len(student_ids),
     }
+
+
+# ─── Bulk CSV Import / Export ────────────────────────────────
+
+class CSVAttendanceImport(BaseModel):
+    class_id: str
+    date: str  # YYYY-MM-DD
+
+class CSVMarksImport(BaseModel):
+    exam_id: str
+
+
+@router.post("/attendance/csv-import")
+async def import_attendance_csv(
+    file: UploadFile = File(...),
+    class_id: str = "",
+    date: str = "",
+    current_user: User = Depends(require_role("teacher", "admin")),
+    teacher_class_ids: list = Depends(get_teacher_class_ids),
+    db: Session = Depends(get_db),
+):
+    """Import attendance from CSV. Columns: student_id,status"""
+    from datetime import datetime
+
+    if not class_id or not date:
+        raise HTTPException(status_code=400, detail="class_id and date are required query params")
+
+    allowed_class_ids = set(teacher_class_ids)
+    class_uuid = _parse_uuid(class_id, "class_id")
+    _ensure_class_access(current_user, class_uuid, allowed_class_ids)
+
+    try:
+        att_date = datetime.strptime(date, "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date. Expected YYYY-MM-DD.")
+
+    content = await file.read()
+    try:
+        text = content.decode("utf-8")
+    except UnicodeDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid encoding. Use UTF-8 CSV.")
+
+    reader = csv.DictReader(io.StringIO(text))
+    count = 0
+    errors = []
+    for row_num, row in enumerate(reader, start=2):
+        sid = (row.get("student_id") or "").strip()
+        status = (row.get("status") or "").strip().lower()
+        if not sid or not status:
+            errors.append(f"Row {row_num}: missing student_id or status")
+            continue
+        if status not in ALLOWED_ATTENDANCE_STATUSES:
+            errors.append(f"Row {row_num}: invalid status '{status}'")
+            continue
+        try:
+            student_uuid = _validate_student_in_class(db, current_user, sid, class_uuid)
+        except HTTPException:
+            errors.append(f"Row {row_num}: student {sid} not in class")
+            continue
+
+        existing = db.query(Attendance).filter(
+            Attendance.tenant_id == current_user.tenant_id,
+            Attendance.student_id == student_uuid,
+            Attendance.class_id == class_uuid,
+            Attendance.date == att_date,
+        ).first()
+        if existing:
+            existing.status = status
+        else:
+            db.add(Attendance(
+                tenant_id=current_user.tenant_id,
+                student_id=student_uuid,
+                class_id=class_uuid,
+                date=att_date,
+                status=status,
+            ))
+        count += 1
+
+    db.commit()
+    return {"success": True, "imported": count, "errors": errors}
+
+
+@router.get("/attendance/csv-export/{class_id}")
+async def export_attendance_csv(
+    class_id: str,
+    current_user: User = Depends(require_role("teacher", "admin")),
+    teacher_class_ids: list = Depends(get_teacher_class_ids),
+    db: Session = Depends(get_db),
+):
+    """Export class attendance as CSV."""
+    from starlette.responses import StreamingResponse
+
+    allowed_class_ids = set(teacher_class_ids)
+    class_uuid = _parse_uuid(class_id, "class_id")
+    _ensure_class_access(current_user, class_uuid, allowed_class_ids)
+
+    records = db.query(Attendance).filter(
+        Attendance.tenant_id == current_user.tenant_id,
+        Attendance.class_id == class_uuid,
+    ).order_by(Attendance.date.desc()).all()
+
+    student_ids = list({r.student_id for r in records})
+    users = db.query(User).filter(User.id.in_(student_ids)).all() if student_ids else []
+    name_map = {u.id: u.full_name for u in users}
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["student_id", "student_name", "date", "status"])
+    for r in records:
+        writer.writerow([str(r.student_id), name_map.get(r.student_id, ""), str(r.date), r.status])
+
+    output.seek(0)
+    return StreamingResponse(
+        output,
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename=attendance_{class_id}.csv"},
+    )
+
+
+@router.post("/marks/csv-import")
+async def import_marks_csv(
+    file: UploadFile = File(...),
+    exam_id: str = "",
+    current_user: User = Depends(require_role("teacher", "admin")),
+    teacher_class_ids: list = Depends(get_teacher_class_ids),
+    db: Session = Depends(get_db),
+):
+    """Import marks from CSV. Columns: student_id,marks_obtained"""
+    if not exam_id:
+        raise HTTPException(status_code=400, detail="exam_id is required")
+
+    allowed_class_ids = set(teacher_class_ids)
+    exam, subject = _get_exam_with_subject_in_scope(db, current_user, exam_id, allowed_class_ids)
+
+    content = await file.read()
+    try:
+        text = content.decode("utf-8")
+    except UnicodeDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid encoding. Use UTF-8 CSV.")
+
+    reader = csv.DictReader(io.StringIO(text))
+    count = 0
+    errors = []
+    for row_num, row in enumerate(reader, start=2):
+        sid = (row.get("student_id") or "").strip()
+        marks_str = (row.get("marks_obtained") or "").strip()
+        if not sid or not marks_str:
+            errors.append(f"Row {row_num}: missing data")
+            continue
+        try:
+            marks_val = int(marks_str)
+        except ValueError:
+            errors.append(f"Row {row_num}: invalid marks '{marks_str}'")
+            continue
+        if marks_val < 0 or marks_val > exam.max_marks:
+            errors.append(f"Row {row_num}: marks out of range [0, {exam.max_marks}]")
+            continue
+        try:
+            student_uuid = _validate_student_in_class(db, current_user, sid, subject.class_id)
+        except HTTPException:
+            errors.append(f"Row {row_num}: student {sid} not in class")
+            continue
+
+        existing = db.query(Mark).filter(
+            Mark.tenant_id == current_user.tenant_id,
+            Mark.exam_id == exam.id,
+            Mark.student_id == student_uuid,
+        ).first()
+        if existing:
+            existing.marks_obtained = marks_val
+        else:
+            db.add(Mark(
+                tenant_id=current_user.tenant_id,
+                student_id=student_uuid,
+                exam_id=exam.id,
+                marks_obtained=marks_val,
+            ))
+        count += 1
+
+    db.commit()
+    return {"success": True, "imported": count, "errors": errors}
+
+
+@router.get("/marks/csv-export/{exam_id}")
+async def export_marks_csv(
+    exam_id: str,
+    current_user: User = Depends(require_role("teacher", "admin")),
+    teacher_class_ids: list = Depends(get_teacher_class_ids),
+    db: Session = Depends(get_db),
+):
+    """Export exam marks as CSV."""
+    from starlette.responses import StreamingResponse
+
+    allowed_class_ids = set(teacher_class_ids)
+    exam, subject = _get_exam_with_subject_in_scope(db, current_user, exam_id, allowed_class_ids)
+
+    marks = db.query(Mark).filter(
+        Mark.tenant_id == current_user.tenant_id,
+        Mark.exam_id == exam.id,
+    ).all()
+
+    student_ids = [m.student_id for m in marks]
+    users = db.query(User).filter(User.id.in_(student_ids)).all() if student_ids else []
+    name_map = {u.id: u.full_name for u in users}
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["student_id", "student_name", "marks_obtained", "max_marks"])
+    for m in marks:
+        writer.writerow([str(m.student_id), name_map.get(m.student_id, ""), m.marks_obtained, exam.max_marks])
+
+    output.seek(0)
+    return StreamingResponse(
+        output,
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename=marks_{exam_id}.csv"},
+    )
+
+
+# ─── AI Grading Co-Pilot ────────────────────────────────────
+
+@router.post("/ai-grade")
+async def ai_grade_answer_sheet(
+    file: UploadFile = File(...),
+    current_user: User = Depends(require_role("teacher", "admin")),
+    db: Session = Depends(get_db),
+):
+    """Upload a student answer sheet image for AI-assisted grading.
+    Returns a job ID that can be polled for results.
+    """
+    safe_filename = Path(file.filename or "").name
+    if not safe_filename:
+        raise HTTPException(status_code=400, detail="Filename is required.")
+
+    ext = safe_filename.split(".")[-1].lower() if "." in safe_filename else ""
+    if ext not in {"jpg", "jpeg", "png", "pdf"}:
+        raise HTTPException(status_code=400, detail="Only JPG, JPEG, PNG, PDF files allowed.")
+
+    content = await file.read()
+    if len(content) > MAX_FILE_SIZE:
+        raise HTTPException(status_code=400, detail="File exceeds 50MB limit.")
+
+    file_path = UPLOAD_DIR / f"{current_user.tenant_id}_grade_{uuid4().hex}_{safe_filename}"
+    with open(file_path, "wb") as f:
+        f.write(content)
+
+    from services.ai_queue import enqueue_job
+
+    job = enqueue_job(
+        job_type="ai_grade",
+        payload={
+            "file_path": str(file_path),
+            "file_name": safe_filename,
+            "teacher_id": str(current_user.id),
+        },
+        tenant_id=str(current_user.tenant_id),
+        user_id=str(current_user.id),
+    )
+
+    return {
+        "success": True,
+        "message": "Answer sheet queued for AI grading.",
+        "job_id": job.get("job_id"),
+        "file_name": safe_filename,
+    }
+
+
+# ─── Test Series Management ─────────────────────────────────
+
+class TestSeriesCreate(BaseModel):
+    name: str
+    description: str = ""
+    total_marks: int = 100
+    duration_minutes: int = 60
+    class_id: str | None = None
+    subject_id: str | None = None
+
+
+@router.post("/test-series")
+async def create_test_series(
+    data: TestSeriesCreate,
+    current_user: User = Depends(require_role("teacher", "admin")),
+    db: Session = Depends(get_db),
+):
+    """Create a new test series / mock test."""
+    from models.test_series import TestSeries
+
+    series = TestSeries(
+        tenant_id=current_user.tenant_id,
+        name=data.name,
+        description=data.description,
+        total_marks=data.total_marks,
+        duration_minutes=data.duration_minutes,
+        class_id=data.class_id,
+        subject_id=data.subject_id,
+        created_by=current_user.id,
+    )
+    db.add(series)
+    db.commit()
+    db.refresh(series)
+    return {"success": True, "series_id": str(series.id), "name": series.name}
+
+
+@router.get("/test-series")
+async def list_teacher_test_series(
+    current_user: User = Depends(require_role("teacher", "admin")),
+    db: Session = Depends(get_db),
+):
+    """List all test series created by this teacher."""
+    from services.leaderboard import get_all_series
+    return get_all_series(db, tenant_id=str(current_user.tenant_id))
+
+
+@router.get("/test-series/{series_id}/leaderboard")
+async def teacher_leaderboard(
+    series_id: str,
+    current_user: User = Depends(require_role("teacher", "admin")),
+    db: Session = Depends(get_db),
+):
+    """View the leaderboard for a test series (teacher view)."""
+    from services.leaderboard import get_leaderboard
+    return get_leaderboard(db, test_series_id=series_id, tenant_id=str(current_user.tenant_id))
+

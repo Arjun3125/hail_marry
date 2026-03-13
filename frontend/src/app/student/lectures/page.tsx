@@ -61,7 +61,7 @@ export default function LecturesPage() {
             </div>
 
             {error ? (
-                <div className="mb-4 rounded-[var(--radius)] border border-[var(--error)]/30 bg-red-50 px-4 py-3 text-sm text-[var(--error)]">
+                <div className="mb-4 rounded-[var(--radius)] border border-[var(--error)]/30 bg-error-subtle px-4 py-3 text-sm text-[var(--error)]">
                     {error}
                 </div>
             ) : null}
@@ -104,7 +104,7 @@ export default function LecturesPage() {
 
                                 <div className="flex items-center justify-between gap-2">
                                     {lecture.has_transcript ? (
-                                        <span className="text-[10px] font-medium text-[var(--success)] bg-green-50 px-2 py-0.5 rounded-full">
+                                        <span className="text-[10px] font-medium text-[var(--success)] bg-success-subtle px-2 py-0.5 rounded-full">
                                             Transcript available
                                         </span>
                                     ) : (

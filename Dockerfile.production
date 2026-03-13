@@ -1,0 +1,65 @@
+# Multi-stage production Dockerfile for VidyaOS Backend
+# Optimized for minimal image size (~120MB vs ~800MB single-stage)
+
+# ── Stage 1: Build dependencies ──────────────────────────────
+FROM python:3.12-slim AS builder
+
+WORKDIR /build
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements first (Docker layer caching)
+COPY backend/requirements.txt .
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+
+
+# ── Stage 2: Production runtime ──────────────────────────────
+FROM python:3.12-slim AS runtime
+
+# Security: run as non-root user
+RUN groupadd -r vidyaos && useradd -r -g vidyaos -d /app vidyaos
+
+# Install only runtime dependencies (no gcc/build tools)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq5 \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy installed Python packages from builder
+COPY --from=builder /install /usr/local
+
+# Copy application code
+COPY backend/ .
+
+# Create necessary directories
+RUN mkdir -p /app/uploads /app/logs && \
+    chown -R vidyaos:vidyaos /app
+
+# Switch to non-root user
+USER vidyaos
+
+# Environment defaults
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    APP_ENV=production \
+    PORT=8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:${PORT}/api/health || exit 1
+
+EXPOSE ${PORT}
+
+# Use gunicorn for production (uvicorn workers)
+CMD ["gunicorn", "main:app", \
+     "--worker-class", "uvicorn.workers.UvicornWorker", \
+     "--workers", "4", \
+     "--bind", "0.0.0.0:8000", \
+     "--timeout", "120", \
+     "--access-logfile", "-"]

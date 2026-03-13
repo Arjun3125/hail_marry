@@ -82,7 +82,7 @@ export default function AssignmentsPage() {
             </div>
 
             {error ? (
-                <div className="mb-4 rounded-[var(--radius)] border border-[var(--error)]/30 bg-red-50 px-4 py-3 text-sm text-[var(--error)]">
+                <div className="mb-4 rounded-[var(--radius)] border border-[var(--error)]/30 bg-error-subtle px-4 py-3 text-sm text-[var(--error)]">
                     {error}
                 </div>
             ) : null}
@@ -119,10 +119,10 @@ export default function AssignmentsPage() {
                                 <div
                                     className={`w-10 h-10 rounded-[var(--radius-sm)] flex items-center justify-center ${
                                         item.status === "graded"
-                                            ? "bg-green-50"
+                                            ? "bg-success-subtle"
                                             : item.status === "submitted"
-                                              ? "bg-blue-50"
-                                              : "bg-yellow-50"
+                                              ? "bg-info-subtle"
+                                              : "bg-warning-subtle"
                                     }`}
                                 >
                                     {item.status === "graded" ? (
@@ -152,10 +152,10 @@ export default function AssignmentsPage() {
                                 <span
                                     className={`text-xs font-medium px-2.5 py-1 rounded-full capitalize ${
                                         item.status === "graded"
-                                            ? "bg-green-50 text-[var(--success)]"
+                                            ? "bg-success-subtle text-[var(--success)]"
                                             : item.status === "submitted"
-                                              ? "bg-blue-50 text-[var(--primary)]"
-                                              : "bg-yellow-50 text-[var(--warning)]"
+                                              ? "bg-info-subtle text-[var(--primary)]"
+                                              : "bg-warning-subtle text-[var(--warning)]"
                                     }`}
                                 >
                                     {item.status}

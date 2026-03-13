@@ -1,0 +1,112 @@
+{
+  "app_name": "VidyaOS",
+  "nav": {
+    "dashboard": "Dashboard",
+    "attendance": "Attendance",
+    "results": "Results",
+    "assignments": "Assignments",
+    "complaints": "Complaints",
+    "ai_assistant": "AI Assistant",
+    "settings": "Settings",
+    "logout": "Logout",
+    "profile": "Profile",
+    "notifications": "Notifications",
+    "billing": "Billing",
+    "admission": "Admissions"
+  },
+  "roles": {
+    "student": "Student",
+    "teacher": "Teacher",
+    "admin": "Admin",
+    "parent": "Parent"
+  },
+  "dashboard": {
+    "welcome": "Welcome, {name}",
+    "total_students": "Total Students",
+    "total_teachers": "Total Teachers",
+    "attendance_today": "Attendance Today",
+    "ai_queries_today": "AI Queries Today",
+    "performance": "Performance",
+    "recent_activity": "Recent Activity"
+  },
+  "attendance": {
+    "present": "Present",
+    "absent": "Absent",
+    "late": "Late",
+    "mark_attendance": "Mark Attendance",
+    "attendance_rate": "Attendance Rate",
+    "export_csv": "Export CSV"
+  },
+  "results": {
+    "subject": "Subject",
+    "marks": "Marks",
+    "total": "Total",
+    "grade": "Grade",
+    "rank": "Rank",
+    "percentage": "Percentage",
+    "report_card": "Report Card"
+  },
+  "ai": {
+    "ask_question": "Ask a question...",
+    "generating": "Generating response...",
+    "no_sources": "No sources uploaded yet",
+    "upload_documents": "Upload Documents",
+    "modes": {
+      "qa": "Q&A",
+      "quiz": "Quiz",
+      "study_guide": "Study Guide",
+      "flashcards": "Flashcards",
+      "mindmap": "Mind Map"
+    }
+  },
+  "notifications": {
+    "attendance_alert": "{student_name} was marked {status} today",
+    "exam_result": "Exam results published for {subject}",
+    "new_assignment": "New assignment: {title}",
+    "complaint_update": "Complaint status updated to {status}",
+    "weekly_digest": "Weekly digest for {student_name}"
+  },
+  "errors": {
+    "unauthorized": "You are not authorized to perform this action",
+    "not_found": "Resource not found",
+    "invalid_input": "Invalid input provided",
+    "server_error": "Something went wrong. Please try again.",
+    "file_too_large": "File size exceeds the limit",
+    "invalid_file_type": "File type not supported"
+  },
+  "billing": {
+    "current_plan": "Current Plan",
+    "upgrade": "Upgrade",
+    "payment_history": "Payment History",
+    "amount": "Amount",
+    "status": "Status",
+    "date": "Date"
+  },
+  "admission": {
+    "apply": "Apply for Admission",
+    "student_name": "Student Name",
+    "parent_email": "Parent Email",
+    "parent_phone": "Parent Phone",
+    "applied_class": "Applied Class",
+    "status_pending": "Pending",
+    "status_under_review": "Under Review",
+    "status_accepted": "Accepted",
+    "status_rejected": "Rejected",
+    "status_enrolled": "Enrolled"
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "search": "Search",
+    "filter": "Filter",
+    "loading": "Loading...",
+    "no_data": "No data available",
+    "confirm": "Are you sure?",
+    "success": "Saved successfully",
+    "download": "Download",
+    "submit": "Submit",
+    "back": "Back"
+  }
+}

@@ -103,7 +103,7 @@ export default function ReviewsPage() {
             </div>
 
             {error ? (
-                <div className="mb-4 rounded-xl border border-[var(--error)]/30 bg-red-50 px-4 py-3 text-sm text-[var(--error)]">
+                <div className="mb-4 rounded-xl border border-[var(--error)]/30 bg-error-subtle px-4 py-3 text-sm text-[var(--error)]">
                     {error}
                 </div>
             ) : null}
@@ -233,7 +233,7 @@ export default function ReviewsPage() {
                                                 Due {new Date(review.next_review_at).toLocaleDateString()} · {review.review_count}× reviewed
                                             </p>
                                         </div>
-                                        <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full">
+                                        <span className="text-[10px] font-semibold text-status-emerald bg-emerald-subtle px-2.5 py-1 rounded-full">
                                             {review.interval_days}d
                                         </span>
                                     </div>

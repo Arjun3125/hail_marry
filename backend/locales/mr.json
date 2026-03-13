@@ -1,0 +1,112 @@
+{
+  "app_name": "विद्याOS",
+  "nav": {
+    "dashboard": "डॅशबोर्ड",
+    "attendance": "उपस्थिती",
+    "results": "निकाल",
+    "assignments": "असाइनमेंट",
+    "complaints": "तक्रारी",
+    "ai_assistant": "AI सहाय्यक",
+    "settings": "सेटिंग्ज",
+    "logout": "लॉग आउट",
+    "profile": "प्रोफाइल",
+    "notifications": "सूचना",
+    "billing": "बिलिंग",
+    "admission": "प्रवेश"
+  },
+  "roles": {
+    "student": "विद्यार्थी",
+    "teacher": "शिक्षक",
+    "admin": "प्रशासक",
+    "parent": "पालक"
+  },
+  "dashboard": {
+    "welcome": "स्वागत, {name}",
+    "total_students": "एकूण विद्यार्थी",
+    "total_teachers": "एकूण शिक्षक",
+    "attendance_today": "आजची उपस्थिती",
+    "ai_queries_today": "आजचे AI प्रश्न",
+    "performance": "कामगिरी",
+    "recent_activity": "अलीकडील क्रियाकलाप"
+  },
+  "attendance": {
+    "present": "उपस्थित",
+    "absent": "अनुपस्थित",
+    "late": "उशीरा",
+    "mark_attendance": "उपस्थिती नोंदवा",
+    "attendance_rate": "उपस्थिती दर",
+    "export_csv": "CSV निर्यात करा"
+  },
+  "results": {
+    "subject": "विषय",
+    "marks": "गुण",
+    "total": "एकूण",
+    "grade": "श्रेणी",
+    "rank": "क्रमांक",
+    "percentage": "टक्केवारी",
+    "report_card": "गुणपत्रिका"
+  },
+  "ai": {
+    "ask_question": "एक प्रश्न विचारा...",
+    "generating": "उत्तर तयार होत आहे...",
+    "no_sources": "अद्याप कोणतेही स्रोत अपलोड नाहीत",
+    "upload_documents": "कागदपत्रे अपलोड करा",
+    "modes": {
+      "qa": "प्रश्न-उत्तर",
+      "quiz": "क्विझ",
+      "study_guide": "अभ्यास मार्गदर्शक",
+      "flashcards": "फ्लॅशकार्ड",
+      "mindmap": "माइंड मॅप"
+    }
+  },
+  "notifications": {
+    "attendance_alert": "{student_name} ला आज {status} म्हणून नोंदवले",
+    "exam_result": "{subject} चे परीक्षा निकाल प्रकाशित झाले",
+    "new_assignment": "नवीन असाइनमेंट: {title}",
+    "complaint_update": "तक्रारीची स्थिती {status} मध्ये बदलली",
+    "weekly_digest": "{student_name} चा साप्ताहिक सारांश"
+  },
+  "errors": {
+    "unauthorized": "तुम्हाला ही क्रिया करण्याची परवानगी नाही",
+    "not_found": "संसाधन सापडले नाही",
+    "invalid_input": "अवैध इनपुट",
+    "server_error": "काहीतरी चूक झाली. कृपया पुन्हा प्रयत्न करा.",
+    "file_too_large": "फाइलचा आकार मर्यादेपेक्षा जास्त आहे",
+    "invalid_file_type": "फाइल प्रकार समर्थित नाही"
+  },
+  "billing": {
+    "current_plan": "सध्याची योजना",
+    "upgrade": "अपग्रेड करा",
+    "payment_history": "पेमेंट इतिहास",
+    "amount": "रक्कम",
+    "status": "स्थिती",
+    "date": "तारीख"
+  },
+  "admission": {
+    "apply": "प्रवेशासाठी अर्ज करा",
+    "student_name": "विद्यार्थ्याचे नाव",
+    "parent_email": "पालक ईमेल",
+    "parent_phone": "पालक फोन",
+    "applied_class": "अर्ज केलेला वर्ग",
+    "status_pending": "प्रलंबित",
+    "status_under_review": "पुनरावलोकनाधीन",
+    "status_accepted": "स्वीकृत",
+    "status_rejected": "नाकारले",
+    "status_enrolled": "नावनोंदणी झाली"
+  },
+  "common": {
+    "save": "जतन करा",
+    "cancel": "रद्द करा",
+    "delete": "हटवा",
+    "edit": "संपादित करा",
+    "search": "शोधा",
+    "filter": "फिल्टर",
+    "loading": "लोड होत आहे...",
+    "no_data": "कोणताही डेटा उपलब्ध नाही",
+    "confirm": "तुम्हाला खात्री आहे?",
+    "success": "यशस्वीपणे जतन केले",
+    "download": "डाउनलोड करा",
+    "submit": "सबमिट करा",
+    "back": "मागे जा"
+  }
+}

@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import {
     LayoutDashboard,
@@ -17,7 +18,10 @@ import {
     Headphones,
     Presentation,
     Network,
+    Trophy,
 } from "lucide-react";
+import GuidedTour, { studentTourSteps } from "@/components/GuidedTour";
+import { MobileBottomNav } from "@/components/ui/SharedUI";
 
 const studentNav = [
     { label: "Overview", href: "/student/overview", icon: LayoutDashboard },
@@ -34,6 +38,15 @@ const studentNav = [
     { label: "Video Overview", href: "/student/video-overview", icon: Presentation },
     { label: "Reviews", href: "/student/reviews", icon: RotateCcw },
     { label: "Complaints", href: "/student/complaints", icon: MessageSquare },
+    { label: "Leaderboard", href: "/student/leaderboard", icon: Trophy },
+    { label: "Profile", href: "/student/profile", icon: User },
+];
+
+const mobileNav = [
+    { label: "Home", href: "/student/overview", icon: LayoutDashboard },
+    { label: "Attendance", href: "/student/attendance", icon: CalendarCheck },
+    { label: "AI", href: "/student/ai", icon: Bot },
+    { label: "Ranks", href: "/student/leaderboard", icon: Trophy },
     { label: "Profile", href: "/student/profile", icon: User },
 ];
 
@@ -42,12 +55,15 @@ export default function StudentLayout({
 }: {
     children: React.ReactNode;
 }) {
+    const pathname = usePathname();
     return (
         <div className="flex min-h-screen bg-[var(--bg-page)]">
             <Sidebar items={studentNav} role="student" />
-            <main className="flex-1 min-w-0 p-4 pt-16 sm:p-5 sm:pt-16 lg:p-6 lg:pt-6">
+            <main className="flex-1 min-w-0 p-4 pt-16 sm:p-5 sm:pt-16 lg:p-6 lg:pt-6 has-bottom-nav">
                 <div className="mx-auto max-w-7xl">{children}</div>
             </main>
+            <GuidedTour steps={studentTourSteps} storageKey="student-tour" />
+            <MobileBottomNav items={mobileNav} currentPath={pathname} />
         </div>
     );
 }

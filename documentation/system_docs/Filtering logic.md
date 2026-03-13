@@ -5,7 +5,7 @@
 **Applies To:** ERP + AI Layer  
 **Database:** PostgreSQL  
 **Vector DB:** Namespace-Isolated  
-**Status:** Updated to match the repository on 2026-03-06
+**Status:** Updated to match the repository on 2026-03-12
 
 ---
 
@@ -161,6 +161,9 @@ The API enforces filtering through a middleware chain (last added executes first
 | `CSRFMiddleware` | State-changing request protection | Disabled |
 | `TenantMiddleware` | Tenant context injection | Active |
 | `RateLimitMiddleware` | Request throttling | Disabled |
+| `CaptchaMiddleware` | reCAPTCHA v3 bot protection on public endpoints | Disabled if secret missing |
+
+Note: reCAPTCHA middleware is enabled when `RECAPTCHA_SECRET_KEY` is configured.
 
 ---
 
@@ -195,7 +198,10 @@ Before returning AI response, validate:
 - No system configuration leakage
 - No file paths or API keys
 
-If violation detected → block response.
+**Current implementation behavior:**
+- Response text is sanitized (file paths, key-like strings, prompt injection patterns).
+- If citations are missing but grounded context exists, sources are appended to the response.
+- There is no universal hard-block for these checks in the current pipeline; sanitization is applied and responses may still be returned.
 
 ---
 

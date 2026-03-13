@@ -7,10 +7,10 @@ import { API_BASE, setStoredAccessToken } from "@/lib/api";
 import { useToast } from "./Toast";
 
 const roles = [
-    { id: "student", label: "Student", icon: GraduationCap, path: "/student/overview", color: "bg-blue-500" },
+    { id: "student", label: "Student", icon: GraduationCap, path: "/student/overview", color: "bg-info-subtle0" },
     { id: "teacher", label: "Teacher", icon: BookOpen, path: "/teacher/dashboard", color: "bg-emerald-500" },
-    { id: "admin", label: "Admin", icon: Shield, path: "/admin/dashboard", color: "bg-violet-500" },
-    { id: "parent", label: "Parent", icon: Users, path: "/parent/dashboard", color: "bg-amber-500" },
+    { id: "admin", label: "Admin", icon: Shield, path: "/admin/dashboard", color: "bg-violet-badge0" },
+    { id: "parent", label: "Parent", icon: Users, path: "/parent/dashboard", color: "bg-warning-subtle0" },
 ];
 
 export default function DemoToolbar() {
@@ -97,21 +97,21 @@ export default function DemoToolbar() {
                                 onClick={() => void switchRole(role)}
                                 disabled={switching !== null}
                                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium transition-all ${currentRole.id === role.id
-                                    ? "bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200"
+                                    ? "bg-indigo-badge text-status-indigo ring-1 ring-[var(--primary)]/30"
                                     : "text-[var(--text-secondary)] hover:bg-[var(--bg-page)]"
                                     }`}
                             >
                                 <role.icon className="w-4 h-4" />
                                 {role.label}
                                 {switching === role.id && <Loader2 className="w-3 h-3 animate-spin ml-auto" />}
-                                {currentRole.id === role.id && <span className="ml-auto text-[9px] text-indigo-400">Active</span>}
+                                {currentRole.id === role.id && <span className="ml-auto text-[9px] text-status-indigo">Active</span>}
                             </button>
                         ))}
                         <hr className="border-[var(--border)]" />
                         <button
                             onClick={() => void resetDemo()}
                             disabled={resetting}
-                            className="w-full flex items-center justify-center gap-2 px-3 py-2.5 text-xs font-bold text-red-600 bg-red-50 rounded-xl hover:bg-red-100 transition-all disabled:opacity-50"
+                            className="w-full flex items-center justify-center gap-2 px-3 py-2.5 text-xs font-bold text-status-red bg-error-subtle rounded-xl hover:bg-error-badge transition-all disabled:opacity-50"
                         >
                             {resetting ? <Loader2 className="w-3 h-3 animate-spin" /> : <RotateCcw className="w-3 h-3" />}
                             Reset Demo Data

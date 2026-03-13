@@ -27,10 +27,10 @@ type ParentLinkItem = {
 };
 
 const roleColors: Record<string, string> = {
-    student: "bg-blue-50 text-[var(--primary)]",
-    teacher: "bg-green-50 text-[var(--success)]",
+    student: "bg-info-subtle text-[var(--primary)]",
+    teacher: "bg-success-subtle text-[var(--success)]",
     admin: "bg-purple-50 text-purple-700",
-    parent: "bg-orange-50 text-orange-700",
+    parent: "bg-orange-subtle text-status-orange",
 };
 
 export default function UsersPage() {
@@ -170,7 +170,7 @@ export default function UsersPage() {
             </div>
 
             {error ? (
-                <div className="rounded-[var(--radius)] border border-[var(--error)]/30 bg-red-50 px-4 py-3 text-sm text-[var(--error)] mb-4">
+                <div className="rounded-[var(--radius)] border border-[var(--error)]/30 bg-error-subtle px-4 py-3 text-sm text-[var(--error)] mb-4">
                     {error}
                 </div>
             ) : null}
@@ -336,7 +336,7 @@ export default function UsersPage() {
                                     </div>
                                     <button
                                         onClick={() => void handleDeleteParentLink(link.id)}
-                                        className="px-3 py-1.5 text-xs rounded bg-red-50 text-[var(--error)] flex items-center gap-1"
+                                        className="px-3 py-1.5 text-xs rounded bg-error-subtle text-[var(--error)] flex items-center gap-1"
                                         disabled={linkBusy}
                                     >
                                         <Unlink className="w-3.5 h-3.5" />

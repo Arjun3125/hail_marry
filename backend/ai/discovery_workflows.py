@@ -1,6 +1,7 @@
 """Discovery and URL-ingestion workflows for queued execution."""
 from __future__ import annotations
 
+import os
 import re
 import socket
 import ipaddress
@@ -11,6 +12,7 @@ import httpx
 from fastapi import HTTPException
 
 from ai.ingestion import hierarchical_chunk
+from ai.connectors import extract_google_doc, extract_notion_page
 from ai.providers import get_embedding_provider, get_vector_store_provider
 from schemas.ai_runtime import InternalIngestURLRequest
 
@@ -47,32 +49,81 @@ def is_safe_url(url: str) -> bool:
         return False
 
 
+def _pages_from_connector(result: dict, *, label: str) -> list[dict]:
+    metadata = result.get("metadata") or {}
+    error = metadata.get("error")
+    if error:
+        raise HTTPException(status_code=422, detail=f"{label} ingestion failed: {error}")
+
+    chunks = result.get("chunks") or []
+    pages = [
+        {"text": str(chunk), "page_number": idx + 1}
+        for idx, chunk in enumerate(chunks)
+        if str(chunk).strip()
+    ]
+    if pages:
+        return pages
+
+    text = (result.get("text") or "").strip()
+    if not text:
+        raise HTTPException(status_code=422, detail=f"{label} ingestion failed: no text extracted")
+    return [{"text": text, "page_number": 1}]
+
+
+def _extract_notion_page_id(url: str) -> str | None:
+    sanitized = url.replace("-", "")
+    match = re.search(r"([0-9a-fA-F]{32})", sanitized)
+    if not match:
+        return None
+    return match.group(1)
+
+
 async def execute_url_ingestion(request: InternalIngestURLRequest) -> dict:
     if not is_safe_url(request.url):
         raise HTTPException(status_code=403, detail="URL ingestion rejected. Destination must be a public IP.")
-        
-    try:
-        async with httpx.AsyncClient(timeout=20.0, follow_redirects=True) as client:
-            response = await client.get(
-                request.url,
-                headers={"User-Agent": "Mozilla/5.0 (educational content ingestion)"},
-            )
-            if response.status_code != 200:
-                raise HTTPException(status_code=400, detail=f"Failed to fetch URL (HTTP {response.status_code})")
-            content = response.text
-    except httpx.ConnectError as exc:
-        raise HTTPException(status_code=400, detail="Cannot connect to URL") from exc
-    except httpx.TimeoutException as exc:
-        raise HTTPException(status_code=400, detail="URL request timed out") from exc
 
-    text = strip_html(content)
-    if len(text) < 50:
-        raise HTTPException(status_code=422, detail="Not enough text content found at this URL")
-
-    text = text[:50000]
+    pages: list[dict]
     title = request.title or request.url.split("/")[-1][:100] or "Web Source"
+
+    if "docs.google.com/document" in request.url:
+        token = os.getenv("GOOGLE_DOCS_ACCESS_TOKEN")
+        credentials = {"access_token": token} if token else None
+        result = extract_google_doc(request.url, credentials=credentials)
+        pages = _pages_from_connector(result, label="Google Doc")
+        title = request.title or result.get("metadata", {}).get("doc_id") or title
+    elif "notion.so" in request.url or "notion.site" in request.url:
+        api_key = os.getenv("NOTION_API_KEY")
+        if not api_key:
+            raise HTTPException(status_code=400, detail="Notion API key not configured.")
+        page_id = _extract_notion_page_id(request.url)
+        if not page_id:
+            raise HTTPException(status_code=400, detail="Invalid Notion URL.")
+        result = extract_notion_page(page_id, api_key)
+        pages = _pages_from_connector(result, label="Notion")
+        title = request.title or result.get("metadata", {}).get("page_id") or title
+    else:
+        try:
+            async with httpx.AsyncClient(timeout=20.0, follow_redirects=True) as client:
+                response = await client.get(
+                    request.url,
+                    headers={"User-Agent": "Mozilla/5.0 (educational content ingestion)"},
+                )
+                if response.status_code != 200:
+                    raise HTTPException(status_code=400, detail=f"Failed to fetch URL (HTTP {response.status_code})")
+                content = response.text
+        except httpx.ConnectError as exc:
+            raise HTTPException(status_code=400, detail="Cannot connect to URL") from exc
+        except httpx.TimeoutException as exc:
+            raise HTTPException(status_code=400, detail="URL request timed out") from exc
+
+        text = strip_html(content)
+        if len(text) < 50:
+            raise HTTPException(status_code=422, detail="Not enough text content found at this URL")
+
+        text = text[:50000]
+        pages = [{"page_number": 1, "text": text}]
+
     doc_id = str(uuid.uuid4())
-    pages = [{"page_number": 1, "text": text}]
 
     chunks = hierarchical_chunk(
         pages=pages,

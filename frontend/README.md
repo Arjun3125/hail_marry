@@ -1,36 +1,65 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# VidyaOS — Frontend
 
-## Getting Started
+**Framework:** Next.js 16 · **UI:** React 19 · **Language:** TypeScript · **Styling:** Tailwind CSS 4  
+**Last updated:** 2026-03-11
 
-First, run the development server:
+---
+
+## Quick Start
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev          # Development server at http://localhost:3000
+npm run lint         # ESLint check (0 errors expected)
+npm run build        # Production build (50 pages)
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Project Structure
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```
+frontend/src/app/
+├── student/         # 12 routes — AI assistant, attendance, results, reviews, etc.
+├── teacher/         # 10 routes — dashboard, insights, assessment generator, etc.
+├── admin/           # 12 routes — dashboard, AI review, queue ops, webhooks, etc.
+├── parent/          # 5 routes — dashboard, attendance, results, audio reports
+├── login/           # Google OAuth + email/password
+├── demo/            # Demo mode with role switching
+├── globals.css      # 50+ dark-mode-safe semantic CSS utilities
+├── layout.tsx       # Root layout with ThemeProvider, PWA manifest, skip nav
+└── page.tsx         # Landing page
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Design System
 
-## Learn More
+All components use **semantic CSS utility classes** instead of hardcoded Tailwind colors. This ensures automatic dark mode support.
 
-To learn more about Next.js, take a look at the following resources:
+| Utility Class | Light | Dark |
+|---|---|---|
+| `.bg-card` | `#FFFFFF` | `#1F2937` |
+| `.text-primary` | `#1F2937` | `#F9FAFB` |
+| `.text-muted` | `#6B7280` | `#9CA3AF` |
+| `.border-default` | `#E5E7EB` | `#374151` |
+| `.bg-surface` | `#F3F4F6` | `#111827` |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+50+ utilities defined in `globals.css`. No raw `text-gray-*`, `bg-white`, or `border-gray-*` in TSX files.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Environment Variables
 
-## Deploy on Vercel
+```env
+NEXT_PUBLIC_API_URL=http://localhost:8000     # Backend API base URL
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Key Features
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **Role-based routing** — 4 portals (student, teacher, admin, parent)
+- **Dark mode** — Persistent via `next-themes` with `localStorage`
+- **PWA** — Installable, offline-capable via service worker
+- **Real-time notifications** — WebSocket-based
+- **Demo mode** — Role switching + guided walkthrough
+- **Accessibility** — Skip navigation, ARIA labels, focus management
+
+## Related Docs
+
+- [UI Design System](../documentation/system_docs/Ui%20design.md)
+- [Sitemap & Wireframe](../documentation/system_docs/Sitemap%20wireframe.md)
+- [Architecture](../documentation/system_docs/Architecture.md)

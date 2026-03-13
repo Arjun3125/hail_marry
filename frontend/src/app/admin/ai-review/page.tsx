@@ -33,9 +33,9 @@ type ReviewDetail = ReviewItem & {
 };
 
 const statusClasses: Record<ReviewItem["review_status"], string> = {
-    pending: "bg-amber-50 text-amber-700",
-    approved: "bg-green-50 text-green-700",
-    flagged: "bg-red-50 text-red-700",
+    pending: "bg-warning-subtle text-status-amber",
+    approved: "bg-success-subtle text-status-green",
+    flagged: "bg-error-subtle text-status-red",
 };
 
 export default function AIReviewPage() {
@@ -120,7 +120,7 @@ export default function AIReviewPage() {
                 </div>
 
                 {error ? (
-                    <div className="mb-4 rounded-[var(--radius)] border border-[var(--error)]/30 bg-red-50 px-4 py-3 text-sm text-[var(--error)]">
+                    <div className="mb-4 rounded-[var(--radius)] border border-[var(--error)]/30 bg-error-subtle px-4 py-3 text-sm text-[var(--error)]">
                         {error}
                     </div>
                 ) : null}
@@ -183,7 +183,7 @@ export default function AIReviewPage() {
                                     <button
                                         type="button"
                                         onClick={() => void handleReviewAction(item, "approve")}
-                                        className="text-xs px-3 py-1.5 bg-green-50 text-[var(--success)] rounded-full font-medium flex items-center gap-1 hover:bg-green-100 transition-colors disabled:opacity-60"
+                                        className="text-xs px-3 py-1.5 bg-success-subtle text-[var(--success)] rounded-full font-medium flex items-center gap-1 hover:bg-success-badge transition-colors disabled:opacity-60"
                                         disabled={actioningId === item.id}
                                     >
                                         {actioningId === item.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3" />} Approve
@@ -191,7 +191,7 @@ export default function AIReviewPage() {
                                     <button
                                         type="button"
                                         onClick={() => void handleReviewAction(item, "flag")}
-                                        className="text-xs px-3 py-1.5 bg-red-50 text-[var(--error)] rounded-full font-medium flex items-center gap-1 hover:bg-red-100 transition-colors disabled:opacity-60"
+                                        className="text-xs px-3 py-1.5 bg-error-subtle text-[var(--error)] rounded-full font-medium flex items-center gap-1 hover:bg-error-badge transition-colors disabled:opacity-60"
                                         disabled={actioningId === item.id}
                                     >
                                         {actioningId === item.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Flag className="w-3 h-3" />} Flag

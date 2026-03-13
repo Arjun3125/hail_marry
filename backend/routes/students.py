@@ -28,10 +28,15 @@ from models.tenant import Tenant
 from schemas.ai_runtime import InternalStudyToolGenerateRequest, StudyToolGenerateRequest
 from services.ai_gateway import run_study_tool
 from services.ai_queue import JOB_TYPE_STUDY_TOOL, enqueue_job
+from ai.citation_linker import make_citations_clickable
 from utils.upload_security import (
     UploadValidationError,
     ensure_storage_dir,
     sanitize_docx_bytes,
+)
+from constants import (
+    STUDENT_ALLOWED_EXTENSIONS as STUDENT_ALLOWED_EXTENSIONS_CONST,
+    STUDENT_MAX_FILE_SIZE,
 )
 
 router = APIRouter(prefix="/api/student", tags=["Student"])
@@ -39,8 +44,8 @@ router = APIRouter(prefix="/api/student", tags=["Student"])
 logger = logging.getLogger(__name__)
 
 UPLOAD_DIR = ensure_storage_dir("uploads")
-STUDENT_ALLOWED_EXTENSIONS = {"pdf", "docx", "jpg", "jpeg", "png"}
-MAX_FILE_SIZE = 25 * 1024 * 1024  # 25MB for students
+STUDENT_ALLOWED_EXTENSIONS = STUDENT_ALLOWED_EXTENSIONS_CONST
+MAX_FILE_SIZE = STUDENT_MAX_FILE_SIZE
 ASSIGNMENT_SUBMISSION_DIR = ensure_storage_dir("uploads", "assignment_submissions")
 OCR_OUTPUT_DIR = ensure_storage_dir("uploads", "ocr_output")
 
@@ -680,7 +685,7 @@ async def generate_study_tool(
     if not topic:
         raise HTTPException(status_code=400, detail="topic is required")
 
-    return await run_study_tool(
+    result = await run_study_tool(
         InternalStudyToolGenerateRequest(
             tool=data.tool,
             topic=topic,
@@ -688,6 +693,7 @@ async def generate_study_tool(
             tenant_id=str(current_user.tenant_id),
         )
     )
+    return make_citations_clickable(result, current_user.tenant_id, db)
 
 
 @router.post("/tools/generate/jobs")
@@ -721,7 +727,7 @@ async def student_upload(
     db: Session = Depends(get_db),
 ):
     """
-    Student uploads study materials (PDF, DOCX).
+    Student uploads study materials (PDF, DOCX, PPTX, XLSX, or OCR images).
     Uploaded files are ingested into the RAG pipeline.
     """
     safe_filename = Path(file.filename or "").name
@@ -1056,4 +1062,132 @@ async def complete_review(
         "new_ease_factor": round(new_ef, 2),
         "next_review_at": str(review.next_review_at),
         "review_count": review.review_count,
+    }
+
+
+# ─── Gamification: Streaks & Badges ────────────────────────
+
+@router.get("/streaks")
+async def student_streaks(
+    current_user: User = Depends(require_role("student")),
+    db: Session = Depends(get_db),
+):
+    """Get student's login streak, longest streak, and earned badges."""
+    from services.gamification import get_streak_info, record_login
+    # Record this login
+    record_login(db, current_user.id, current_user.tenant_id)
+    return get_streak_info(db, current_user.id, current_user.tenant_id)
+
+
+# ─── Smart Weakness Alerts ──────────────────────────────────
+
+@router.get("/weakness-alerts")
+async def student_weakness_alerts(
+    current_user: User = Depends(require_role("student")),
+    db: Session = Depends(get_db),
+):
+    """Get proactive alerts for subjects where the student is below 60%."""
+    from services.weakness_alerts import generate_weakness_alerts
+    return generate_weakness_alerts(
+        db,
+        user_id=current_user.id,
+        tenant_id=current_user.tenant_id,
+    )
+
+
+# ─── Test Series & Leaderboard ──────────────────────────────
+
+@router.get("/test-series")
+async def list_test_series(
+    current_user: User = Depends(require_role("student")),
+    db: Session = Depends(get_db),
+):
+    """List all active test series available to the student."""
+    from services.leaderboard import get_all_series
+    return get_all_series(db, tenant_id=str(current_user.tenant_id))
+
+
+@router.get("/test-series/{series_id}/leaderboard")
+async def view_leaderboard(
+    series_id: str,
+    current_user: User = Depends(require_role("student")),
+    db: Session = Depends(get_db),
+):
+    """View the leaderboard for a test series."""
+    from services.leaderboard import get_leaderboard
+    return get_leaderboard(db, test_series_id=series_id, tenant_id=str(current_user.tenant_id))
+
+
+@router.get("/test-series/{series_id}/my-rank")
+async def my_rank(
+    series_id: str,
+    current_user: User = Depends(require_role("student")),
+    db: Session = Depends(get_db),
+):
+    """Get the student's rank in a test series."""
+    from services.leaderboard import get_student_rank
+    return get_student_rank(
+        db,
+        test_series_id=series_id,
+        student_id=str(current_user.id),
+        tenant_id=str(current_user.tenant_id),
+    )
+
+
+class MockTestSubmission(BaseModel):
+    marks_obtained: float
+    time_taken_minutes: int | None = None
+
+
+@router.post("/test-series/{series_id}/submit")
+async def submit_mock_test(
+    series_id: str,
+    data: MockTestSubmission,
+    current_user: User = Depends(require_role("student")),
+    db: Session = Depends(get_db),
+):
+    """Submit a mock test attempt and get updated rankings."""
+    from models.test_series import TestSeries, MockTestAttempt
+    from services.leaderboard import calculate_rankings
+
+    series = db.query(TestSeries).filter(
+        TestSeries.id == series_id,
+        TestSeries.tenant_id == current_user.tenant_id,
+        TestSeries.is_active == True,
+    ).first()
+    if not series:
+        raise HTTPException(status_code=404, detail="Test series not found")
+
+    # Check if already attempted
+    existing = db.query(MockTestAttempt).filter(
+        MockTestAttempt.test_series_id == series_id,
+        MockTestAttempt.student_id == current_user.id,
+        MockTestAttempt.tenant_id == current_user.tenant_id,
+    ).first()
+    if existing:
+        raise HTTPException(status_code=409, detail="You have already attempted this test")
+
+    attempt = MockTestAttempt(
+        tenant_id=current_user.tenant_id,
+        test_series_id=series.id,
+        student_id=current_user.id,
+        marks_obtained=data.marks_obtained,
+        total_marks=series.total_marks,
+        time_taken_minutes=data.time_taken_minutes,
+    )
+    db.add(attempt)
+    db.commit()
+
+    # Recalculate rankings
+    rankings = calculate_rankings(db, test_series_id=series_id, tenant_id=str(current_user.tenant_id))
+
+    # Find this student's rank
+    my_rank = next((r for r in rankings if r["student_id"] == str(current_user.id)), None)
+
+    return {
+        "success": True,
+        "attempt_id": str(attempt.id),
+        "rank": my_rank["rank"] if my_rank else None,
+        "percentile": my_rank["percentile"] if my_rank else None,
+        "total_students": len(rankings),
     }

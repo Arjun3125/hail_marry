@@ -36,6 +36,24 @@ type TimetableSlot = {
     end_time: string;
 };
 
+type GeneratorResult = {
+    success: boolean;
+    status?: string;
+    class_balance_score?: number;
+    assignments?: Array<{
+        class_id: string;
+        subject_id: string;
+        teacher_id: string;
+        day: number;
+        period: number;
+        start_time?: string;
+        end_time?: string;
+    }>;
+    conflicts?: Record<string, unknown>;
+    applied?: boolean;
+    created?: number;
+};
+
 const DAYS: Array<{ value: number; label: string }> = [
     { value: 0, label: "Monday" },
     { value: 1, label: "Tuesday" },
@@ -62,6 +80,13 @@ export default function AdminTimetablePage() {
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+    const [generatorJson, setGeneratorJson] = useState("");
+    const [generatorInitialized, setGeneratorInitialized] = useState(false);
+    const [generatorLoading, setGeneratorLoading] = useState(false);
+    const [generatorError, setGeneratorError] = useState<string | null>(null);
+    const [generatorResult, setGeneratorResult] = useState<GeneratorResult | null>(null);
+    const [applyGenerated, setApplyGenerated] = useState(false);
+
     const currentClass = useMemo(
         () => classes.find((c) => c.id === selectedClassId) || null,
         [classes, selectedClassId],
@@ -70,6 +95,39 @@ export default function AdminTimetablePage() {
         () => users.filter((u) => (u.role === "teacher" || u.role === "admin") && u.is_active),
         [users],
     );
+
+    const buildGeneratorTemplate = () => {
+        const teacherIds = teachers.map((teacher) => teacher.id);
+        return {
+            time_grid: {
+                days_per_week: 5,
+                periods_per_day: 7,
+                day_start_time: "09:00",
+                period_minutes: 45,
+                breaks: [],
+            },
+            teachers: teachers.map((teacher) => ({
+                id: teacher.id,
+                name: teacher.name,
+                max_periods_per_week: 25,
+                max_periods_per_day: 5,
+            })),
+            requirements: classes.flatMap((cls) =>
+                (cls.subjects || []).map((subject) => ({
+                    class_id: cls.id,
+                    subject_id: subject.id,
+                    required_periods_per_week: 0,
+                    allowed_teachers: teacherIds,
+                })),
+            ),
+            fixed_lessons: [],
+            rules: {
+                no_back_to_back_classes: true,
+                no_back_to_back_teachers: true,
+            },
+            apply_to_db: false,
+        };
+    };
 
     const loadTimetable = async (classId: string) => {
         if (!classId) {
@@ -104,6 +162,13 @@ export default function AdminTimetablePage() {
         };
         void load();
     }, []);
+
+    useEffect(() => {
+        if (!generatorInitialized && classes.length > 0 && teachers.length > 0) {
+            setGeneratorJson(JSON.stringify(buildGeneratorTemplate(), null, 2));
+            setGeneratorInitialized(true);
+        }
+    }, [classes, teachers, generatorInitialized]);
 
     useEffect(() => {
         if (!selectedClassId) return;
@@ -174,6 +239,38 @@ export default function AdminTimetablePage() {
         }
     };
 
+    const resetGeneratorTemplate = () => {
+        setGeneratorJson(JSON.stringify(buildGeneratorTemplate(), null, 2));
+        setGeneratorResult(null);
+        setGeneratorError(null);
+    };
+
+    const runGenerator = async () => {
+        try {
+            setGeneratorLoading(true);
+            setGeneratorError(null);
+            let payload: Record<string, unknown>;
+            try {
+                payload = JSON.parse(generatorJson || "{}");
+            } catch {
+                setGeneratorError("Invalid JSON in generator input");
+                return;
+            }
+            if (applyGenerated) {
+                payload.apply_to_db = true;
+            }
+            const result = await api.admin.generateTimetable(payload);
+            setGeneratorResult(result as GeneratorResult);
+            if ((result as GeneratorResult).applied && selectedClassId) {
+                await loadTimetable(selectedClassId);
+            }
+        } catch (err) {
+            setGeneratorError(err instanceof Error ? err.message : "Failed to generate timetable");
+        } finally {
+            setGeneratorLoading(false);
+        }
+    };
+
     return (
         <div>
             <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -200,10 +297,76 @@ export default function AdminTimetablePage() {
             </div>
 
             {error ? (
-                <div className="rounded-[var(--radius)] border border-[var(--error)]/30 bg-red-50 px-4 py-3 text-sm text-[var(--error)] mb-4">
+                <div className="rounded-[var(--radius)] border border-[var(--error)]/30 bg-error-subtle px-4 py-3 text-sm text-[var(--error)] mb-4">
                     {error}
                 </div>
             ) : null}
+
+            <div className="bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] p-4 mb-6 space-y-4">
+                <div>
+                    <h2 className="text-sm font-semibold text-[var(--text-primary)]">Auto-generate timetable</h2>
+                    <p className="text-xs text-[var(--text-muted)]">
+                        Edit the JSON payload below to set teacher availability and weekly requirements. Required periods per week should be set per class/subject.
+                    </p>
+                </div>
+                {generatorError ? (
+                    <div className="rounded-[var(--radius-sm)] border border-[var(--error)]/30 bg-error-subtle px-3 py-2 text-xs text-[var(--error)]">
+                        {generatorError}
+                    </div>
+                ) : null}
+                <textarea
+                    value={generatorJson}
+                    onChange={(e) => setGeneratorJson(e.target.value)}
+                    rows={12}
+                    className="w-full text-xs font-mono rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--bg-page)] p-3"
+                />
+                <div className="flex flex-wrap items-center gap-3">
+                    <label className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
+                        <input
+                            type="checkbox"
+                            checked={applyGenerated}
+                            onChange={(e) => setApplyGenerated(e.target.checked)}
+                        />
+                        Apply generated schedule to timetable
+                    </label>
+                    <button
+                        onClick={resetGeneratorTemplate}
+                        className="px-3 py-2 text-xs border border-[var(--border)] rounded-[var(--radius-sm)] hover:bg-[var(--bg-hover)]"
+                        disabled={generatorLoading}
+                    >
+                        Reset Template
+                    </button>
+                    <button
+                        onClick={() => void runGenerator()}
+                        className="px-3 py-2 text-xs bg-[var(--primary)] text-white rounded-[var(--radius-sm)] hover:bg-[var(--primary-hover)] disabled:opacity-60"
+                        disabled={generatorLoading}
+                    >
+                        {generatorLoading ? "Generating..." : "Generate Timetable"}
+                    </button>
+                </div>
+                {generatorResult ? (
+                    <div className="rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--bg-page)] p-3 text-xs space-y-2">
+                        {generatorResult.success ? (
+                            <>
+                                <div className="font-semibold text-[var(--text-primary)]">
+                                    Generated {generatorResult.assignments?.length || 0} slots
+                                    {generatorResult.applied ? " and applied to timetable." : "."}
+                                </div>
+                                <div className="text-[var(--text-muted)]">
+                                    Class balance score: {generatorResult.class_balance_score?.toFixed(2) || "0.00"}
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                <div className="font-semibold text-[var(--text-primary)]">No feasible timetable found</div>
+                                <pre className="text-[10px] text-[var(--text-muted)] whitespace-pre-wrap">
+                                    {JSON.stringify(generatorResult.conflicts, null, 2)}
+                                </pre>
+                            </>
+                        )}
+                    </div>
+                ) : null}
+            </div>
 
             <div className="bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] p-4 mb-6">
                 <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-3">Add Slot</h2>

@@ -10,6 +10,7 @@ import socket
 from config import settings
 from database import engine
 from services.ai_queue import claim_next_job, process_job, recover_processing_jobs
+from services.sentry_config import configure_sentry
 from services.startup_checks import collect_dependency_status, enforce_startup_dependencies
 from services.structured_logging import configure_structured_logging
 from services.telemetry import configure_telemetry, instrument_sqlalchemy_engine
@@ -22,6 +23,7 @@ from services.worker_runtime import (
 )
 
 configure_structured_logging(service_name="vidyaos-ai-worker")
+configure_sentry(service_name="vidyaos-ai-worker")
 configure_telemetry(service_name="vidyaos-ai-worker")
 instrument_sqlalchemy_engine(engine)
 logger = logging.getLogger("ai-worker")

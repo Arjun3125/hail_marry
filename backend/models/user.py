@@ -20,8 +20,11 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     is_deleted = Column(Boolean, default=False)
     last_login = Column(DateTime(timezone=True), nullable=True)
+    qr_login_token = Column(String(64), nullable=True, index=True)
+    qr_login_expires_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    preferred_locale = Column(String(10), default="en", server_default="en")
 
     # Relationships
     tenant = relationship("Tenant", back_populates="users")

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Check, X, Clock, Save } from "lucide-react";
 
 import { api } from "@/lib/api";
@@ -24,6 +25,7 @@ type AttendanceRow = {
 };
 
 export default function TeacherAttendancePage() {
+    const searchParams = useSearchParams();
     const [classes, setClasses] = useState<TeacherClass[]>([]);
     const [selectedClassId, setSelectedClassId] = useState("");
     const [entries, setEntries] = useState<Record<string, "present" | "absent" | "late">>({});
@@ -52,8 +54,11 @@ export default function TeacherAttendancePage() {
                 const list = (payload || []) as TeacherClass[];
                 setClasses(list);
                 if (list.length > 0) {
-                    setSelectedClassId((prev) => prev || list[0].id);
-                    if (!selectedClassId) initializeEntries(list[0].students || []);
+                    const preferred = searchParams.get("classId");
+                    const target = preferred && list.some((cls) => cls.id === preferred) ? preferred : list[0].id;
+                    setSelectedClassId(target);
+                    const selected = list.find((cls) => cls.id === target);
+                    if (selected) initializeEntries(selected.students || []);
                 }
             } catch (err) {
                 setError(err instanceof Error ? err.message : "Failed to load classes");
@@ -62,7 +67,7 @@ export default function TeacherAttendancePage() {
             }
         };
         void loadClasses();
-    }, [selectedClassId]);
+    }, [searchParams]);
 
     useEffect(() => {
         const loadExisting = async () => {
@@ -113,9 +118,9 @@ export default function TeacherAttendancePage() {
     };
 
     const statusConfig = {
-        present: { icon: Check, color: "text-[var(--success)]", bg: "bg-green-50" },
-        absent: { icon: X, color: "text-[var(--error)]", bg: "bg-red-50" },
-        late: { icon: Clock, color: "text-[var(--warning)]", bg: "bg-yellow-50" },
+        present: { icon: Check, color: "text-[var(--success)]", bg: "bg-success-subtle" },
+        absent: { icon: X, color: "text-[var(--error)]", bg: "bg-error-subtle" },
+        late: { icon: Clock, color: "text-[var(--warning)]", bg: "bg-warning-subtle" },
     };
 
     return (
@@ -145,7 +150,7 @@ export default function TeacherAttendancePage() {
             </div>
 
             {error ? (
-                <div className="rounded-[var(--radius)] border border-[var(--error)]/30 bg-red-50 px-4 py-3 text-sm text-[var(--error)] mb-4">
+                <div className="rounded-[var(--radius)] border border-[var(--error)]/30 bg-error-subtle px-4 py-3 text-sm text-[var(--error)] mb-4">
                     {error}
                 </div>
             ) : null}

@@ -163,7 +163,7 @@ export default function DemoPage() {
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white">
             <div className="max-w-5xl mx-auto px-6 pt-16 pb-8 text-center">
-                <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-white/10 rounded-full text-xs font-medium mb-6 backdrop-blur-sm border border-white/10">
+                <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-[var(--bg-card)]/10 rounded-full text-xs font-medium mb-6 backdrop-blur-sm border border-white/10">
                     <Play className="w-3 h-3 text-emerald-400" />
                     Interactive Demo - All features live
                 </div>
@@ -182,7 +182,7 @@ export default function DemoPage() {
             <div className="max-w-5xl mx-auto px-6 mb-12">
                 <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
                     {highlights.map((h) => (
-                        <div key={h.label} className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-3 text-center hover:bg-white/10 transition-all">
+                        <div key={h.label} className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-3 text-center hover:bg-[var(--bg-card)]/10 transition-all">
                             <h.icon className="w-5 h-5 mx-auto mb-1.5 text-blue-400" />
                             <p className="text-[10px] font-bold text-white">{h.label}</p>
                             <p className="text-[9px] text-slate-400">{h.desc}</p>
@@ -199,7 +199,7 @@ export default function DemoPage() {
                             key={role.id}
                             onClick={() => void enterAs(role)}
                             disabled={loading !== null}
-                            className="group relative bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-6 text-left hover:bg-white/10 hover:border-white/20 transition-all duration-300 hover:scale-[1.02] disabled:opacity-50 overflow-hidden"
+                            className="group relative bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-6 text-left hover:bg-[var(--bg-card)]/10 hover:border-white/20 transition-all duration-300 hover:scale-[1.02] disabled:opacity-50 overflow-hidden"
                         >
                             <div className={`absolute inset-0 bg-gradient-to-br ${role.gradient} opacity-0 group-hover:opacity-10 transition-opacity duration-500 rounded-2xl`} />
 
@@ -257,7 +257,7 @@ export default function DemoPage() {
                                             <p className="text-[11px] font-semibold text-slate-300 mb-2 uppercase tracking-wide">Function Showcase</p>
                                             <div className="flex flex-wrap gap-2">
                                                 {profile.feature_showcase.map((item) => (
-                                                    <span key={`${profile.role}-${item}`} className="text-[11px] px-2 py-1 rounded-md bg-white/10 text-slate-200">
+                                                    <span key={`${profile.role}-${item}`} className="text-[11px] px-2 py-1 rounded-md bg-[var(--bg-card)]/10 text-slate-200">
                                                         {item}
                                                     </span>
                                                 ))}

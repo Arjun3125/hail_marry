@@ -4,6 +4,45 @@
 **Audit Date:** 2026-03-03  
 **Auditor Scope:** 12 system docs, full backend source (16 models, 6 AI modules, 7 route files, 3 middleware), Docker/nginx config, frontend structure (40 route directories), settings YAML, and existing feature analysis report.
 
+> [!WARNING]
+> This document is a **Historical Audit** generated at a specific point in time (Batch 1 implementation phase).
+> It is **NOT** a live or continuously updated architectural reference. Use the current status addendum below
+> for the latest implementation coverage.
+
+## Current Status Addendum (2026-03-12)
+
+**Current Status Exceptions**
+- AI grading currently returns OCR extraction + manual review; full rubric scoring is pending.
+- Clickable citations are still missing in the UI.
+- Docs chatbot and document ingestion watch are not exposed via API/scheduler.
+
+**Resolved Since This Audit (as of 2026-03-12)**
+- Admin AI job operations (list/metrics/cancel/retry/dead-letter) now align with the UI.
+- Trace viewer admin API endpoint is implemented.
+- Observability alert list/dispatch endpoints are implemented.
+- reCAPTCHA enforcement is wired in middleware.
+- Refresh token blacklist enforcement is active during refresh/logout.
+- HyDE, knowledge graph, and agent orchestration are wired into AI routes.
+- AI grading queue jobs are handled (OCR-only today).
+- Notifications are persisted in the database for durability.
+
+**Gap Analysis (Impact and Effort — Current)**
+| Gap | Why It Matters | Impact | Effort |
+|---|---|---|---|
+| AI grading limited to OCR + manual review | Manual effort required for scoring; rubric automation not delivered | Medium | Medium |
+| Clickable citations missing | Undermines citation-first trust loop | Medium | Low-Medium |
+| Doc watcher not scheduled | “Auto-ingest” is not automatic | Low-Medium | Medium |
+| Docs chatbot not exposed | Feature exists but is unusable for admins/users | Low | Low |
+| Model strategy mismatch (docs vs config) | Confuses performance expectations and deployment sizing | Medium-High | Low |
+
+**System Maturity Assessment (2026-03-12)**
+Current maturity: **Functional MVP (pilot-capable), not production-ready**.
+
+Reasoning:
+- Split runtime (API + AI service + worker) and governance tooling are now aligned with docs.
+- Core ERP + RAG workflows are stable, with queue-backed background execution.
+- Remaining gaps are mainly product completeness and deployment hygiene (model alignment, citations, ingestion automation).
+
 ---
 
 # 1. Executive Overview (Layman Explanation)

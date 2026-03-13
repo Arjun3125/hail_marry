@@ -56,8 +56,8 @@ No gradients. No neon. Accents used sparingly.
 ## 3. Typography
 
 ### Font Family
-**Primary:** Inter (Google Fonts)  
-**Fallback:** Source Sans Pro, system-ui
+**Primary:** Geist (Google Fonts)  
+**Fallback:** system-ui
 
 No decorative or serif fonts. Clean, legible, modern.
 
@@ -233,10 +233,27 @@ Education tools must be accessible to all students.
 
 ## 13. Dark Mode (Accessibility Option)
 
-While the primary design is light/institutional, a dark mode option should be available as an **accessibility preference** (not as default):
+While the primary design is light/institutional, dark mode is available as an **accessibility preference**.
+**Current implementation defaults to dark** via `next-themes` and persists user choice.
 
 - Background: `#111827`
 - Card: `#1F2937`
 - Text: `#F9FAFB`
 - Accent: Same blue (`#2C5AA0`)
 - Controlled via user settings toggle
+
+### Implementation: Dark-Mode-Safe Design System
+
+All 50 frontend pages use **semantic CSS utility classes** defined in `frontend/src/app/globals.css` instead of hardcoded Tailwind color classes. This ensures automatic dark mode support.
+
+| Utility Class | Light Mode | Dark Mode |
+|---|---|---|
+| `.bg-card` | `#FFFFFF` | `#1F2937` |
+| `.text-primary` | `#1F2937` | `#F9FAFB` |
+| `.text-muted` | `#6B7280` | `#9CA3AF` |
+| `.border-default` | `#E5E7EB` | `#374151` |
+| `.bg-surface` | `#F3F4F6` | `#111827` |
+| `.bg-hover` | `#F9FAFB` | `#374151` |
+| `.accent-blue` | `#2C5AA0` | `#60A5FA` |
+
+50+ semantic utilities replace all hardcoded `text-gray-*`, `bg-white`, `border-gray-*` etc. across all components and pages. No raw color values appear in TSX files.

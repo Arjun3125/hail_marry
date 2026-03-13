@@ -116,7 +116,7 @@ export default function DiscoverSourcesPage() {
                 </div>
             </div>
 
-            {error && <div className="mb-4 rounded-xl border border-[var(--error)]/30 bg-red-50 px-4 py-3 text-sm text-[var(--error)]">{error}</div>}
+            {error && <div className="mb-4 rounded-xl border border-[var(--error)]/30 bg-error-subtle px-4 py-3 text-sm text-[var(--error)]">{error}</div>}
 
             {loading && (
                 <div className="bg-[var(--bg-card)] rounded-2xl p-12 shadow-[var(--shadow-card)] text-center border border-[var(--border)]/50">
@@ -136,7 +136,7 @@ export default function DiscoverSourcesPage() {
                         <div key={i} className="bg-[var(--bg-card)] rounded-2xl p-5 shadow-[var(--shadow-card)] border border-[var(--border)]/50 group hover:shadow-md transition-all">
                             <div className="flex items-start gap-3">
                                 <div className="p-2 rounded-lg bg-gradient-to-br from-amber-50 to-orange-50 mt-0.5">
-                                    <BookOpen className="w-4 h-4 text-amber-600" />
+                                    <BookOpen className="w-4 h-4 text-status-amber" />
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <h3 className="text-sm font-bold text-[var(--text-primary)] mb-1 line-clamp-1">{r.title}</h3>
@@ -147,7 +147,7 @@ export default function DiscoverSourcesPage() {
                                 </div>
                                 <div className="flex-shrink-0">
                                     {ingested[i] ? (
-                                        <div className="flex items-center gap-1.5 px-3 py-2 bg-emerald-50 text-emerald-700 rounded-xl text-xs font-medium">
+                                        <div className="flex items-center gap-1.5 px-3 py-2 bg-emerald-subtle text-status-emerald rounded-xl text-xs font-medium">
                                             <CheckCircle className="w-4 h-4" /> {ingested[i].chunks} chunks
                                         </div>
                                     ) : (
