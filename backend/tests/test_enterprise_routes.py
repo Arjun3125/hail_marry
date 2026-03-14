@@ -248,6 +248,53 @@ class EnterpriseRouteTests(unittest.TestCase):
         self.assertEqual(ack_response.status_code, 200)
         self.assertEqual(resolve_response.status_code, 200)
 
+    def test_operations_summary_route(self):
+        client, _, _ = _build_client()
+        summary_payload = {
+            "tenant_id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+            "summary": {
+                "queue": {"pending_depth": 3, "processing_depth": 1, "stuck_jobs": 0, "failure_rate_pct": 0},
+                "alerts": {"count": 1, "items": [{"code": "queue_depth_high", "severity": "warning"}]},
+                "ai_service": {"configured_nodes": 2, "healthy_nodes": 1, "nodes": []},
+                "ollama": {"configured_nodes": 2, "healthy_nodes": 2, "nodes": []},
+            },
+            "recommended_actions": ["Queue depth is elevated; scale worker replicas and throttle non-critical AI workloads."],
+        }
+
+        with patch.object(enterprise_routes, "build_operations_summary", AsyncMock(return_value=summary_payload)):
+            response = client.get("/api/admin/enterprise/operations/summary")
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["tenant_id"], "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")
+        self.assertEqual(body["summary"]["queue"]["pending_depth"], 3)
+        self.assertEqual(body["summary"]["alerts"]["count"], 1)
+
+    def test_deployment_guidance_route(self):
+        client, _, _ = _build_client()
+        guidance_payload = {
+            "profile": "hosted_production",
+            "summary": {
+                "required_total": 4,
+                "required_configured": 3,
+                "optional_total": 10,
+                "optional_configured": 2,
+                "ready": False,
+                "missing_required": ["JWT_SECRET"],
+            },
+            "required": [{"name": "DATABASE_URL", "configured": True, "value_preview": "***set***"}],
+            "optional": [{"name": "SENTRY_DSN", "configured": False, "value_preview": None}],
+            "notes": ["Set required keys first to get a runnable hosted baseline."],
+        }
+
+        with patch.object(enterprise_routes, "build_hosted_production_guidance", return_value=guidance_payload):
+            response = client.get("/api/admin/enterprise/deployment/guidance")
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["profile"], "hosted_production")
+        self.assertEqual(body["summary"]["missing_required"], ["JWT_SECRET"])
+
 
 if __name__ == "__main__":
     unittest.main()

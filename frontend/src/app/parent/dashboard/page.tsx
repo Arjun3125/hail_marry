@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Volume2, Loader2, VolumeX, GraduationCap, CalendarCheck, Award, Clock, FileText } from "lucide-react";
 
 import { api } from "@/lib/api";
+import { RoleStartPanel } from "@/components/RoleStartPanel";
 
 type ParentDashboard = {
     child: {
@@ -90,6 +91,8 @@ export default function ParentDashboardPage() {
                     </div>
                 </div>
             </div>
+
+            <RoleStartPanel role="parent" />
 
             {error ? (
                 <div className="rounded-xl border border-[var(--error)]/30 bg-error-subtle px-4 py-3 text-sm text-[var(--error)]">

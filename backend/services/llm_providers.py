@@ -5,6 +5,7 @@ Usage:
     result = await provider.chat_completion(messages, model="llama3")
 """
 import os
+import threading
 from abc import ABC, abstractmethod
 from typing import Any, Optional
 
@@ -42,7 +43,23 @@ class OllamaProvider(LLMProvider):
     name = "ollama"
 
     def __init__(self):
-        self.base_url = os.getenv("OLLAMA_BASE_URL", OLLAMA_BASE_URL)
+        configured_urls = os.getenv("OLLAMA_BASE_URLS", "")
+        parsed_urls = [part.strip() for part in configured_urls.split(",") if part.strip()]
+        primary_url = os.getenv("OLLAMA_BASE_URL", OLLAMA_BASE_URL)
+
+        self.base_urls = parsed_urls or ([primary_url] if primary_url else [OLLAMA_BASE_URL])
+        self._endpoint_index = 0
+        self._endpoint_lock = threading.Lock()
+
+    def _ordered_base_urls(self) -> list[str]:
+        with self._endpoint_lock:
+            start = self._endpoint_index
+            self._endpoint_index = (self._endpoint_index + 1) % len(self.base_urls)
+        return self.base_urls[start:] + self.base_urls[:start]
+
+    @staticmethod
+    def _is_retryable_http_error(exc: httpx.HTTPStatusError) -> bool:
+        return exc.response.status_code in {429, 500, 502, 503, 504}
 
     async def chat_completion(
         self,
@@ -58,18 +75,49 @@ class OllamaProvider(LLMProvider):
             "stream": False,  # Non-streaming for now
             "options": {"temperature": temperature, "num_predict": max_tokens},
         }
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            resp = await client.post(f"{self.base_url}/api/chat", json=payload)
-            resp.raise_for_status()
-            data = resp.json()
 
-        return self._to_openai_format(data, model)
+        last_error: Exception | None = None
+        for base_url in self._ordered_base_urls():
+            try:
+                async with httpx.AsyncClient(timeout=120.0) as client:
+                    resp = await client.post(f"{base_url}/api/chat", json=payload)
+                    resp.raise_for_status()
+                    data = resp.json()
+                return self._to_openai_format(data, model)
+            except httpx.HTTPStatusError as exc:
+                last_error = exc
+                if not self._is_retryable_http_error(exc):
+                    raise
+            except httpx.HTTPError as exc:
+                last_error = exc
+
+        if isinstance(last_error, httpx.HTTPStatusError):
+            raise last_error
+        if last_error:
+            raise RuntimeError("No centralized Ollama endpoints are currently reachable") from last_error
+        raise RuntimeError("No centralized Ollama endpoints configured")
 
     async def list_models(self) -> list[dict]:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.get(f"{self.base_url}/api/tags")
-            resp.raise_for_status()
-            data = resp.json()
+        last_error: Exception | None = None
+        for base_url in self._ordered_base_urls():
+            try:
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    resp = await client.get(f"{base_url}/api/tags")
+                    resp.raise_for_status()
+                    data = resp.json()
+                break
+            except httpx.HTTPStatusError as exc:
+                last_error = exc
+                if not self._is_retryable_http_error(exc):
+                    raise
+            except httpx.HTTPError as exc:
+                last_error = exc
+        else:
+            if isinstance(last_error, httpx.HTTPStatusError):
+                raise last_error
+            if last_error:
+                raise RuntimeError("No centralized Ollama endpoints are currently reachable") from last_error
+            raise RuntimeError("No centralized Ollama endpoints configured")
 
         return [
             {"id": m["name"], "object": "model", "owned_by": "ollama"}

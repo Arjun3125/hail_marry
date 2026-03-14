@@ -31,6 +31,8 @@ from services.incident_management import (
     resolve_incident,
     sync_incidents_for_alerts,
 )
+from services.deployment_guidance import build_hosted_production_guidance
+from services.operations_center import build_operations_summary
 from services.saml_sso import import_tenant_saml_metadata
 
 router = APIRouter(prefix="/api/admin/enterprise", tags=["Enterprise"])
@@ -398,3 +400,20 @@ async def resolve(
 ):
     incident = resolve_incident(db, current_user.tenant_id, UUID(incident_id), current_user.id, data.note)
     return _serialize_incident(incident)
+
+
+@router.get("/operations/summary")
+async def operations_summary(
+    current_user: User = Depends(require_role("admin")),
+):
+    """Single-pane operations summary for queue, alerts, and AI runtime health."""
+    return await build_operations_summary(str(current_user.tenant_id))
+
+
+@router.get("/deployment/guidance")
+async def deployment_guidance(
+    current_user: User = Depends(require_role("admin")),
+):
+    """Show required vs optional hosted production configuration keys."""
+    _ = current_user
+    return build_hosted_production_guidance()

@@ -29,6 +29,7 @@ import {
 import { api } from "@/lib/api";
 import { SkeletonCard } from "@/components/Skeleton";
 import { AnimatedCounter, ProgressRing } from "@/components/ui/SharedUI";
+import { RoleStartPanel } from "@/components/RoleStartPanel";
 
 type DashboardData = {
     total_students: number;
@@ -118,6 +119,8 @@ export default function AdminDashboard() {
                 <h1 className="text-2xl font-bold text-[var(--text-primary)]">Admin Dashboard</h1>
                 <p className="text-sm text-[var(--text-secondary)]">Institutional overview</p>
             </div>
+
+            <RoleStartPanel role="admin" />
 
             {error && (
                 <div className="mb-6 rounded-[var(--radius)] border border-[var(--error)]/30 bg-error-subtle px-4 py-3 text-sm text-[var(--error)]">

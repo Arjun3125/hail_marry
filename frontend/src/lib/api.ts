@@ -1,6 +1,38 @@
 export const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 const ACCESS_TOKEN_KEY = "vidyaos_access_token";
 
+export type APIErrorType = "auth" | "rate_limit" | "validation" | "service_unavailable" | "unknown";
+
+export class APIError extends Error {
+    status: number;
+    type: APIErrorType;
+    action: string;
+
+    constructor(message: string, status: number, type: APIErrorType, action: string) {
+        super(message);
+        this.name = "APIError";
+        this.status = status;
+        this.type = type;
+        this.action = action;
+    }
+}
+
+function classifyAPIError(status: number, detail: string): APIError {
+    if (status === 401 || status === 403) {
+        return new APIError(detail || "Authentication required.", status, "auth", "Contact admin");
+    }
+    if (status === 429) {
+        return new APIError(detail || "Too many requests.", status, "rate_limit", "Retry now");
+    }
+    if (status === 400 || status === 422) {
+        return new APIError(detail || "Please check your input and try again.", status, "validation", "Try simplified mode");
+    }
+    if (status >= 500) {
+        return new APIError(detail || "Service is temporarily unavailable.", status, "service_unavailable", "Retry now");
+    }
+    return new APIError(detail || "Unexpected error.", status, "unknown", "Contact admin");
+}
+
 export function getStoredAccessToken(): string | null {
     if (typeof window === "undefined") return null;
     return window.localStorage.getItem(ACCESS_TOKEN_KEY);
@@ -36,7 +68,7 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
 
     if (!res.ok) {
         const error = await res.json().catch(() => ({ detail: "Request failed" }));
-        throw new Error(error.detail || `HTTP ${res.status}`);
+        throw classifyAPIError(res.status, error.detail || `HTTP ${res.status}`);
     }
 
     return res.json();
@@ -61,7 +93,7 @@ async function apiFormFetch(path: string, formData: FormData) {
         const detail =
             (payload && typeof payload === "object" && "detail" in payload ? (payload as { detail?: string }).detail : undefined) ||
             `HTTP ${res.status}`;
-        throw new Error(detail);
+        throw classifyAPIError(res.status, detail);
     }
 
     return payload;

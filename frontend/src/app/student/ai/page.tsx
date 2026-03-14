@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { Bot, Send, Loader2, FileText, Sparkles, HelpCircle, BookOpen, MessageSquare, Shuffle, Swords, PenLine, Briefcase, Globe, Settings2 } from "lucide-react";
-import { api } from "@/lib/api";
+import { api, APIError } from "@/lib/api";
+import { AIErrorState } from "@/components/AIErrorState";
 
 type Citation = {
     source?: string;
@@ -65,6 +66,8 @@ export default function AIAssistant() {
     const [jobId, setJobId] = useState<string | null>(null);
     const [jobStatus, setJobStatus] = useState<AIJobStatus | null>(null);
     const [pendingQuery, setPendingQuery] = useState<string | null>(null);
+    const [typedError, setTypedError] = useState<APIError | null>(null);
+    const [queueEstimateText, setQueueEstimateText] = useState<string>("");
 
     const QUEUED_MODES = new Set(["study_guide", "quiz"]);
 
@@ -91,6 +94,11 @@ export default function AIAssistant() {
 
                 if (cancelled) return;
                 setJobStatus(job.status);
+                if (job.status === "queued") {
+                    setQueueEstimateText("Queue is busy. Estimated response time: 20-40 seconds.");
+                } else if (job.status === "running") {
+                    setQueueEstimateText("AI processing in progress.");
+                }
 
                 if (job.status === "completed" && job.result) {
                     const result = job.result;
@@ -108,6 +116,7 @@ export default function AIAssistant() {
                     setLoading(false);
                     setJobId(null);
                     setPendingQuery(null);
+                    setQueueEstimateText("");
                     return;
                 }
 
@@ -126,6 +135,7 @@ export default function AIAssistant() {
                     setLoading(false);
                     setJobId(null);
                     setPendingQuery(null);
+                    setQueueEstimateText("");
                     return;
                 }
 
@@ -148,6 +158,7 @@ export default function AIAssistant() {
                 setLoading(false);
                 setJobId(null);
                 setPendingQuery(null);
+                setQueueEstimateText("");
             }
         };
 
@@ -165,6 +176,7 @@ export default function AIAssistant() {
 
         const submittedQuery = query.trim();
         setLoading(true);
+        setTypedError(null);
         try {
             if (QUEUED_MODES.has(mode)) {
                 const job = await api.ai.enqueueQueryJob({
@@ -193,7 +205,13 @@ export default function AIAssistant() {
                 setHistory((prev) => [...prev, { query: submittedQuery, response: aiResponse }]);
                 setLoading(false);
             }
-        } catch {
+        } catch (err) {
+            if (err instanceof APIError) {
+                setTypedError(err);
+                if (err.type === "rate_limit") {
+                    setQueueEstimateText("High demand detected. Please wait 30-60 seconds before retry.");
+                }
+            }
             setHistory((prev) => [...prev, {
                 query: submittedQuery, response: {
                     answer: "Cannot connect to AI service. Make sure the backend is running.",
@@ -204,6 +222,18 @@ export default function AIAssistant() {
             setLoading(false);
         }
         setQuery("");
+    };
+
+    const retryLast = () => {
+        if (loading || !pendingQuery) return;
+        setQuery(pendingQuery);
+        setTypedError(null);
+    };
+
+    const switchToSimplifiedMode = () => {
+        setResponseLength("brief");
+        setExpertiseLevel("simple");
+        setTypedError(null);
     };
 
     return (
@@ -244,6 +274,19 @@ export default function AIAssistant() {
                     </div>
                 </div>
             </div>
+
+            <AIErrorState
+                error={typedError}
+                queueEstimateText={queueEstimateText}
+                onRetry={retryLast}
+                onSimplifiedMode={switchToSimplifiedMode}
+            />
+
+            {queueEstimateText && (
+                <div className="mb-4 rounded-xl border border-[var(--primary)]/20 bg-info-badge px-3 py-2 text-xs text-status-blue">
+                    {queueEstimateText}
+                </div>
+            )}
 
             {/* Settings Panel */}
             {showSettings && (
