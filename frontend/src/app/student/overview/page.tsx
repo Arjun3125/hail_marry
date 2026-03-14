@@ -28,6 +28,7 @@ import {
 import { api } from "@/lib/api";
 import { SkeletonCard } from "@/components/Skeleton";
 import { AnimatedCounter, ProgressRing } from "@/components/ui/SharedUI";
+import { RoleStartPanel } from "@/components/RoleStartPanel";
 
 type DashboardStats = {
     attendance_pct: number;
@@ -141,6 +142,8 @@ export default function StudentOverview() {
                 </h1>
                 <p className="text-sm text-[var(--text-secondary)]">Your live academic snapshot from attendance, marks, and AI usage.</p>
             </div>
+
+            <RoleStartPanel role="student" />
 
             {!loading && streak ? (
                 <div className="mb-6 bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] p-5 border border-[var(--border)]/60">

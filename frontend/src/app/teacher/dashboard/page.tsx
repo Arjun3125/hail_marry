@@ -15,6 +15,7 @@ import {
 import { api } from "@/lib/api";
 import { SkeletonCard } from "@/components/Skeleton";
 import { AnimatedCounter, ProgressRing } from "@/components/ui/SharedUI";
+import { RoleStartPanel } from "@/components/RoleStartPanel";
 
 type TeacherClass = {
     id: string;
@@ -95,6 +96,8 @@ export default function TeacherDashboard() {
                 <h1 className="text-2xl font-bold text-[var(--text-primary)]">Teacher Dashboard</h1>
                 <p className="text-sm text-[var(--text-secondary)]">Overview of your classes and students</p>
             </div>
+
+            <RoleStartPanel role="teacher" />
 
             {error && (
                 <div className="mb-6 rounded-[var(--radius)] border border-[var(--error)]/30 bg-error-subtle px-4 py-3 text-sm text-[var(--error)]">
