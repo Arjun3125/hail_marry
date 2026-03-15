@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Volume2, Loader2, VolumeX, GraduationCap, CalendarCheck, Award, Clock, FileText } from "lucide-react";
 
 import { api } from "@/lib/api";
@@ -39,21 +39,34 @@ export default function ParentDashboardPage() {
     const [speaking, setSpeaking] = useState(false);
     const [audioLoading, setAudioLoading] = useState(false);
 
-    useEffect(() => {
-        const load = async () => {
-            try {
-                setLoading(true);
-                setError(null);
-                const payload = await api.parent.dashboard();
-                setData(payload as ParentDashboard);
-            } catch (err) {
-                setError(err instanceof Error ? err.message : "Failed to load dashboard");
-            } finally {
-                setLoading(false);
-            }
-        };
-        void load();
+    const load = useCallback(async () => {
+        try {
+            setLoading(true);
+            setError(null);
+            const payload = await api.parent.dashboard();
+            setData(payload as ParentDashboard);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Failed to load dashboard");
+        } finally {
+            setLoading(false);
+        }
     }, []);
+
+    useEffect(() => {
+        void load();
+    }, [load]);
+
+    const onboardingChecklist = [
+        { id: "child", label: "Open child dashboard" },
+        { id: "attendance", label: "Check attendance and latest marks" },
+        { id: "audio", label: "Listen to weekly audio report" },
+    ];
+
+    const taskFirstLinks = [
+        { label: "Review attendance history", href: "/parent/attendance", priority: "high" as const },
+        { label: "Review latest results", href: "/parent/results", priority: "medium" as const },
+        { label: "Open narrative reports", href: "/parent/reports", priority: "low" as const },
+    ];
 
     const playAudioReport = async () => {
         if (speaking) {

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
     Users,
     Bot,
@@ -28,6 +28,7 @@ import {
 
 import { api } from "@/lib/api";
 import { SkeletonCard } from "@/components/Skeleton";
+import ErrorRemediation from "@/components/ui/ErrorRemediation";
 import { AnimatedCounter, ProgressRing } from "@/components/ui/SharedUI";
 import { RoleStartPanel } from "@/components/RoleStartPanel";
 
@@ -75,26 +76,31 @@ export default function AdminDashboard() {
     const [loading, setLoading] = useState(true);
     const [dispatchingAlerts, setDispatchingAlerts] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [chartsReady, setChartsReady] = useState(false);
+
+    const load = useCallback(async () => {
+        try {
+            setLoading(true);
+            setError(null);
+            const [dashboardData, securityData] = await Promise.all([
+                api.admin.dashboard(),
+                api.admin.security(),
+            ]);
+            setDashboard(dashboardData as DashboardData);
+            setActivity((securityData || []) as SecurityItem[]);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Failed to load admin dashboard");
+        } finally {
+            setLoading(false);
+        }
+    }, []);
 
     useEffect(() => {
-        const load = async () => {
-            try {
-                setLoading(true);
-                setError(null);
-                const [dashboardData, securityData] = await Promise.all([
-                    api.admin.dashboard(),
-                    api.admin.security(),
-                ]);
-                setDashboard(dashboardData as DashboardData);
-                setActivity((securityData || []) as SecurityItem[]);
-            } catch (err) {
-                setError(err instanceof Error ? err.message : "Failed to load admin dashboard");
-            } finally {
-                setLoading(false);
-            }
-        };
-
         void load();
+    }, [load]);
+
+    useEffect(() => {
+        setChartsReady(true);
     }, []);
 
     const kpis = [
@@ -104,6 +110,18 @@ export default function AdminDashboard() {
         { label: "Avg Attendance", value: dashboard?.avg_attendance ?? 0, icon: CalendarCheck, color: "var(--success)", suffix: "%" },
         { label: "Avg Performance", value: dashboard?.avg_performance ?? 0, icon: Award, color: "var(--warning)", suffix: "%" },
         { label: "Open Complaints", value: dashboard?.open_complaints ?? 0, icon: MessageSquare, color: "var(--error)", suffix: "" },
+    ];
+
+    const onboardingChecklist = [
+        { id: "setup", label: "Complete setup wizard" },
+        { id: "users", label: "Verify classes and users" },
+        { id: "health", label: "Review security and queue health" },
+    ];
+
+    const taskFirstLinks = [
+        { label: "Continue setup wizard", href: "/admin/setup-wizard", priority: "high" as const },
+        { label: "Manage users", href: "/admin/users", priority: "medium" as const },
+        { label: "Check queue dashboard", href: "/admin/queue", priority: "low" as const },
     ];
 
     // Queue health pie chart
@@ -155,7 +173,8 @@ export default function AdminDashboard() {
                         <div className="bg-[var(--bg-card)] rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)] card-hover">
                             <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-4">📊 Weekly Activity</h2>
                             <div className="h-44">
-                                <ResponsiveContainer width="100%" height="100%">
+                                {chartsReady ? (
+                                    <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={160}>
                                     <BarChart data={weeklyActivity}>
                                         <CartesianGrid strokeDasharray="3 3" stroke="var(--border-light)" />
                                         <XAxis dataKey="day" tick={{ fontSize: 11, fill: "var(--text-muted)" }} />
@@ -167,7 +186,10 @@ export default function AdminDashboard() {
                                         <Bar dataKey="students" name="Students" fill="#3b82f6" radius={[3, 3, 0, 0]} />
                                         <Bar dataKey="ai" name="AI Queries" fill="#8b5cf6" radius={[3, 3, 0, 0]} />
                                     </BarChart>
-                                </ResponsiveContainer>
+                                    </ResponsiveContainer>
+                                ) : (
+                                    <div className="h-full rounded-[var(--radius-sm)] bg-[var(--bg-page)]" />
+                                )}
                             </div>
                         </div>
 
@@ -179,8 +201,8 @@ export default function AdminDashboard() {
                             </div>
                             <div className="flex items-center gap-6">
                                 <div className="w-28 h-28">
-                                    {queueData.length > 0 ? (
-                                        <ResponsiveContainer width="100%" height="100%">
+                                    {queueData.length > 0 && chartsReady ? (
+                                        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={160}>
                                             <PieChart>
                                                 <Pie data={queueData} cx="50%" cy="50%" innerRadius={30} outerRadius={50} dataKey="value" paddingAngle={3}>
                                                     {queueData.map((d, i) => (

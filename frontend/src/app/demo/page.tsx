@@ -68,6 +68,20 @@ const roles: RoleCard[] = [
     },
 ];
 
+const quickStartChecklist: Record<RoleCard["id"], string[]> = {
+    admin: ["Create classes and sections", "Add teachers/students", "Open admin dashboard health panel"],
+    teacher: ["Open today's class", "Mark attendance", "Generate first assessment"],
+    student: ["Open AI study assistant", "Ask one cited question", "Review weekly learning path"],
+    parent: ["Open child dashboard", "Check attendance trend", "Review weekly action recommendation"],
+};
+
+const nextBestActions: Record<RoleCard["id"], string> = {
+    admin: "Next best action: complete onboarding checklist to unlock compliance status.",
+    teacher: "Next best action: assign one assessment to the selected class.",
+    student: "Next best action: practice one weak topic suggested by AI insights.",
+    parent: "Next best action: review this week's narrative timeline and suggested follow-up.",
+};
+
 const highlights = [
     { icon: Brain, label: "13 AI Modes", desc: "Socratic, debate, exam prep and more" },
     { icon: Headphones, label: "Audio Podcast", desc: "2 AI hosts discuss your notes" },
@@ -76,6 +90,78 @@ const highlights = [
     { icon: Sparkles, label: "Source Discovery", desc: "Web search to knowledge base" },
     { icon: BarChart3, label: "Full ERP", desc: "Attendance, marks, timetable" },
 ];
+
+
+type GuidedStep = {
+    step: number;
+    title: string;
+    path: string;
+    clickHint: string;
+    outcome: string;
+};
+
+const guidedPlaybooks: Record<RoleCard["id"], GuidedStep[]> = {
+    admin: [
+        { step: 1, title: "Set up school basics", path: "/admin/setup-wizard", clickHint: "Click Setup Wizard in sidebar", outcome: "Core school profile and defaults are configured." },
+        { step: 2, title: "Create users", path: "/admin/users", clickHint: "Click Users → Add user", outcome: "Teacher/student/parent accounts are ready." },
+        { step: 3, title: "Review system health", path: "/admin/queue", clickHint: "Click Queue dashboard", outcome: "You can monitor AI load and fallback readiness." },
+    ],
+    teacher: [
+        { step: 1, title: "Open class attendance", path: "/teacher/attendance", clickHint: "Click Attendance in sidebar", outcome: "You can mark your first class attendance." },
+        { step: 2, title: "Assign assessment", path: "/teacher/generate-assessment", clickHint: "Click Generate assessment", outcome: "First AI-assisted assessment draft is generated." },
+        { step: 3, title: "Track class insights", path: "/teacher/insights", clickHint: "Click Insights", outcome: "You can identify weak areas and next actions." },
+    ],
+    student: [
+        { step: 1, title: "Ask AI with citations", path: "/student/ai", clickHint: "Click AI Assistant", outcome: "You get grounded answers with source references." },
+        { step: 2, title: "Complete one assignment", path: "/student/assignments", clickHint: "Click Assignments", outcome: "You finish one high-value learning task quickly." },
+        { step: 3, title: "Review performance", path: "/student/results", clickHint: "Click Results", outcome: "You see trend and next best study focus." },
+    ],
+    parent: [
+        { step: 1, title: "Check attendance", path: "/parent/attendance", clickHint: "Click Attendance", outcome: "You verify consistency and identify risk early." },
+        { step: 2, title: "Review marks", path: "/parent/results", clickHint: "Click Results", outcome: "You identify one immediate support area." },
+        { step: 3, title: "Open weekly report", path: "/parent/reports", clickHint: "Click Reports", outcome: "You get actionable narrative guidance for the week." },
+    ],
+};
+
+
+const featureCoverage: Record<RoleCard["id"], Array<{ feature: string; path: string }>> = {
+    admin: [
+        { feature: "Dashboard KPIs", path: "/admin/dashboard" },
+        { feature: "User Management", path: "/admin/users" },
+        { feature: "Classes", path: "/admin/classes" },
+        { feature: "Complaints", path: "/admin/complaints" },
+        { feature: "AI Usage", path: "/admin/ai-usage" },
+        { feature: "Reports", path: "/admin/reports" },
+        { feature: "Queue Monitoring", path: "/admin/queue" },
+        { feature: "Settings", path: "/admin/settings" },
+    ],
+    teacher: [
+        { feature: "Dashboard", path: "/teacher/dashboard" },
+        { feature: "Attendance", path: "/teacher/attendance" },
+        { feature: "Marks", path: "/teacher/marks" },
+        { feature: "Assignments", path: "/teacher/assignments" },
+        { feature: "Generate Assessment", path: "/teacher/generate-assessment" },
+        { feature: "Insights", path: "/teacher/insights" },
+        { feature: "Doubt Heatmap", path: "/teacher/doubt-heatmap" },
+        { feature: "Upload", path: "/teacher/upload" },
+    ],
+    student: [
+        { feature: "Overview", path: "/student/overview" },
+        { feature: "AI Assistant", path: "/student/ai" },
+        { feature: "Study Tools", path: "/student/tools" },
+        { feature: "Assignments", path: "/student/assignments" },
+        { feature: "Results", path: "/student/results" },
+        { feature: "Mind Map", path: "/student/mind-map" },
+        { feature: "Audio Overview", path: "/student/audio-overview" },
+        { feature: "Video Overview", path: "/student/video-overview" },
+    ],
+    parent: [
+        { feature: "Dashboard", path: "/parent/dashboard" },
+        { feature: "Attendance", path: "/parent/attendance" },
+        { feature: "Results", path: "/parent/results" },
+        { feature: "Reports", path: "/parent/reports" },
+    ],
+};
 
 type DemoProfile = {
     role: "student" | "teacher" | "admin" | "parent";
@@ -121,7 +207,12 @@ export default function DemoPage() {
                         email: null,
                         landing_path: r.path,
                         feature_showcase: [r.desc],
-                        walkthrough: [],
+                        walkthrough: guidedPlaybooks[r.id].map((step) => ({
+                            step: step.step,
+                            title: step.title,
+                            path: step.path,
+                            outcome: step.outcome,
+                        })),
                     }))
                 );
                 setNotes([]);
@@ -165,7 +256,7 @@ export default function DemoPage() {
             <div className="max-w-5xl mx-auto px-6 pt-16 pb-8 text-center">
                 <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-[var(--bg-card)]/10 rounded-full text-xs font-medium mb-6 backdrop-blur-sm border border-white/10">
                     <Play className="w-3 h-3 text-emerald-400" />
-                    Interactive Demo - All features live
+                    Interactive Demo - Guided core features live
                 </div>
                 <h1 className="text-5xl font-extrabold mb-4 leading-tight">
                     <span className="bg-gradient-to-r from-blue-400 via-violet-400 to-pink-400 bg-clip-text text-transparent">
@@ -226,6 +317,66 @@ export default function DemoPage() {
                     <p className="text-[10px] text-slate-600">Built with Next.js 16 + FastAPI + Ollama + FAISS</p>
                 </div>
 
+                <div className="mt-10 grid grid-cols-1 lg:grid-cols-3 gap-4">
+                    <div className="bg-white/5 border border-white/10 rounded-2xl p-5 lg:col-span-2">
+                        <h3 className="text-sm font-bold text-white mb-3">Start here checklist by role</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {roles.map((role) => (
+                                <div key={`checklist-${role.id}`} className="rounded-xl border border-white/10 bg-black/10 p-3">
+                                    <p className="text-xs font-semibold text-white mb-2">{role.label}</p>
+                                    <ul className="space-y-1.5">
+                                        {quickStartChecklist[role.id].map((item) => (
+                                            <li key={`${role.id}-${item}`} className="text-xs text-slate-300">• {item}</li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
+                        <h3 className="text-sm font-bold text-white mb-3">Support + Next best action</h3>
+                        <p className="text-xs text-slate-300 mb-3">Use this support prompt when something fails in hosted mode:</p>
+                        <div className="rounded-lg bg-black/20 border border-white/10 p-3 text-[11px] text-slate-200 leading-relaxed">
+                            Error while saving assessment. Trace ID: <span className="font-mono">TRC-DEMO-1024</span> · Ref ID: <span className="font-mono">REF-CLASS-7A</span>.
+                        </div>
+                        <div className="mt-3 space-y-1.5">
+                            {roles.map((role) => (
+                                <p key={`nba-${role.id}`} className="text-[11px] text-slate-300"><span className="font-semibold text-white">{role.label}:</span> {nextBestActions[role.id]}</p>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+
+
+                <div className="mt-10 rounded-2xl border border-white/10 bg-white/5 p-5">
+                    <h2 className="text-center text-sm font-bold text-slate-300 uppercase tracking-widest mb-4">
+                        Feature & Function Coverage (Demo Data)
+                    </h2>
+                    <p className="text-xs text-slate-300 text-center mb-4">
+                        Demo includes guided data for core workflows across all roles. Advanced integrations may need environment-specific configuration.
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {roles.map((role) => (
+                            <div key={`coverage-${role.id}`} className="rounded-xl border border-white/10 bg-black/10 p-3">
+                                <p className="text-xs font-bold text-white mb-2">{role.label} coverage</p>
+                                <div className="space-y-1.5">
+                                    {featureCoverage[role.id].map((item) => (
+                                        <a
+                                            key={`${role.id}-${item.path}`}
+                                            href={item.path}
+                                            className="flex items-center justify-between text-[11px] text-slate-300 hover:text-white"
+                                        >
+                                            <span>{item.feature}</span>
+                                            <span className="text-slate-400">{item.path}</span>
+                                        </a>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
                 <div className="mt-14">
                     <h2 className="text-center text-sm font-bold text-slate-400 uppercase tracking-widest mb-6">
                         Demo Profiles and How Features Work
@@ -264,19 +415,23 @@ export default function DemoPage() {
                                             </div>
                                         </div>
 
-                                        {profile.walkthrough.length > 0 ? (
+                                        {(profile.walkthrough.length > 0 ? profile.walkthrough : guidedPlaybooks[profile.role]).length > 0 ? (
                                             <div>
-                                                <p className="text-[11px] font-semibold text-slate-300 mb-2 uppercase tracking-wide">Walkthrough</p>
+                                                <p className="text-[11px] font-semibold text-slate-300 mb-2 uppercase tracking-wide">Guided process (where to click)</p>
                                                 <div className="space-y-2">
-                                                    {profile.walkthrough.map((step) => (
-                                                        <div key={`${profile.role}-${step.step}`} className="rounded-lg border border-white/10 p-2.5 bg-black/10">
-                                                            <div className="flex items-center justify-between gap-2">
-                                                                <p className="text-xs text-white font-semibold">{step.step}. {step.title}</p>
-                                                                <span className="text-[10px] text-slate-400">{step.path}</span>
+                                                    {(profile.walkthrough.length > 0 ? profile.walkthrough : guidedPlaybooks[profile.role]).map((step) => {
+                                                        const playbook = guidedPlaybooks[profile.role].find((p) => p.step === step.step);
+                                                        return (
+                                                            <div key={`${profile.role}-${step.step}`} className="rounded-lg border border-white/10 p-2.5 bg-black/10">
+                                                                <div className="flex items-center justify-between gap-2">
+                                                                    <p className="text-xs text-white font-semibold">{step.step}. {step.title}</p>
+                                                                    <a href={step.path} className="text-[10px] text-blue-300 hover:text-blue-200 underline">Open {step.path}</a>
+                                                                </div>
+                                                                <p className="text-[11px] text-slate-300 mt-1">{playbook?.clickHint || "Use sidebar navigation"}.</p>
+                                                                <p className="text-[11px] text-slate-400 mt-1">Expected: {step.outcome}</p>
                                                             </div>
-                                                            <p className="text-[11px] text-slate-300 mt-1">{step.outcome}</p>
-                                                        </div>
-                                                    ))}
+                                                        );
+                                                    })}
                                                 </div>
                                             </div>
                                         ) : null}
