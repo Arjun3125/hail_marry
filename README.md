@@ -123,6 +123,10 @@ tokens are configured.
 
 ## Deployment Reality
 
+Quick navigation:
+- **End users (hosted website login/use):** see `documentation/quickstart.md` → **Part A — User Quickstart**.
+- **Developers (local setup/contribution):** see `documentation/quickstart.md` → **Part B — Developer Quickstart**.
+
 ### Application services
 - `frontend`: Next.js app in `frontend/`
 - `api`: public FastAPI app in `backend/main.py`

@@ -4,9 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Volume2, Loader2, VolumeX, GraduationCap, CalendarCheck, Award, Clock, FileText } from "lucide-react";
 
 import { api } from "@/lib/api";
-import ErrorRemediation from "@/components/ui/ErrorRemediation";
-import GuidedStart from "@/components/dashboard/GuidedStart";
-import HelpOverlay from "@/components/ui/HelpOverlay";
+import { RoleStartPanel } from "@/components/RoleStartPanel";
 
 type ParentDashboard = {
     child: {
@@ -107,25 +105,13 @@ export default function ParentDashboardPage() {
                 </div>
             </div>
 
-            <GuidedStart
-                roleLabel="Parent"
-                checklist={onboardingChecklist}
-                tasks={taskFirstLinks}
-                storageKey="onboarding:parent"
-            />
+            <RoleStartPanel role="parent" />
 
-            <div className="mb-2 flex justify-end">
-                <HelpOverlay
-                    title="Parent help"
-                    items={[
-                        "Check attendance first for early risk signals.",
-                        "Review latest results and discuss one action step.",
-                        "Use audio report for quick weekly summaries.",
-                    ]}
-                />
-            </div>
-
-            {error ? <ErrorRemediation error={error} scope="parent-dashboard" onRetry={() => void load()} simplifiedModeHref="/parent/reports" /> : null}
+            {error ? (
+                <div className="rounded-xl border border-[var(--error)]/30 bg-error-subtle px-4 py-3 text-sm text-[var(--error)]">
+                    {error}
+                </div>
+            ) : null}
 
             {loading ? (
                 <div className="bg-[var(--bg-card)] rounded-2xl shadow-[var(--shadow-card)] p-12 text-center border border-[var(--border)]/50">

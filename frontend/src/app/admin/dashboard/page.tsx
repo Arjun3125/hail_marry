@@ -30,9 +30,7 @@ import { api } from "@/lib/api";
 import { SkeletonCard } from "@/components/Skeleton";
 import ErrorRemediation from "@/components/ui/ErrorRemediation";
 import { AnimatedCounter, ProgressRing } from "@/components/ui/SharedUI";
-import GuidedStart from "@/components/dashboard/GuidedStart";
-import AIFallbackNotice from "@/components/ui/AIFallbackNotice";
-import HelpOverlay from "@/components/ui/HelpOverlay";
+import { RoleStartPanel } from "@/components/RoleStartPanel";
 
 type DashboardData = {
     total_students: number;
@@ -140,31 +138,13 @@ export default function AdminDashboard() {
                 <p className="text-sm text-[var(--text-secondary)]">Institutional overview</p>
             </div>
 
-            {error ? <ErrorRemediation error={error} scope="admin-dashboard" onRetry={() => void load()} simplifiedModeHref="/admin/reports" /> : null}
+            <RoleStartPanel role="admin" />
 
-            <GuidedStart
-                roleLabel="Admin"
-                checklist={onboardingChecklist}
-                tasks={taskFirstLinks}
-                storageKey="onboarding:admin"
-            />
-
-            <AIFallbackNotice
-                queueDepth={dashboard?.queue_pending_depth ?? 0}
-                processingDepth={dashboard?.queue_processing_depth ?? 0}
-                scope="admin"
-            />
-
-            <div className="mb-4 flex justify-end">
-                <HelpOverlay
-                    title="Admin help"
-                    items={[
-                        "Use Setup Wizard before inviting users.",
-                        "Check queue health before running AI-heavy tasks.",
-                        "Use trace/ref IDs from errors when contacting support.",
-                    ]}
-                />
-            </div>
+            {error && (
+                <div className="mb-6 rounded-[var(--radius)] border border-[var(--error)]/30 bg-error-subtle px-4 py-3 text-sm text-[var(--error)]">
+                    {error}
+                </div>
+            )}
 
             {loading ? (
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">

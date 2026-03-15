@@ -29,9 +29,7 @@ import { api } from "@/lib/api";
 import { SkeletonCard } from "@/components/Skeleton";
 import ErrorRemediation from "@/components/ui/ErrorRemediation";
 import { AnimatedCounter, ProgressRing } from "@/components/ui/SharedUI";
-import GuidedStart from "@/components/dashboard/GuidedStart";
-import AIFallbackNotice from "@/components/ui/AIFallbackNotice";
-import HelpOverlay from "@/components/ui/HelpOverlay";
+import { RoleStartPanel } from "@/components/RoleStartPanel";
 
 type DashboardStats = {
     attendance_pct: number;
@@ -163,29 +161,7 @@ export default function StudentOverview() {
                 <p className="text-sm text-[var(--text-secondary)]">Your live academic snapshot from attendance, marks, and AI usage.</p>
             </div>
 
-            <GuidedStart
-                roleLabel="Student"
-                checklist={onboardingChecklist}
-                tasks={taskFirstLinks}
-                storageKey="onboarding:student"
-            />
-
-            <AIFallbackNotice
-                queueDepth={Math.max(0, stats.ai_queries_today - Math.floor((stats.ai_queries_limit || 50) * 0.7))}
-                processingDepth={2}
-                scope="student"
-            />
-
-            <div className="mb-4 flex justify-end">
-                <HelpOverlay
-                    title="Student help"
-                    items={[
-                        "Ask one focused question in AI mode.",
-                        "Use assignments tab to complete pending tasks.",
-                        "Switch to tools page for lightweight mode when AI is slow.",
-                    ]}
-                />
-            </div>
+            <RoleStartPanel role="student" />
 
             {!loading && streak ? (
                 <div className="mb-6 bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] p-5 border border-[var(--border)]/60">
