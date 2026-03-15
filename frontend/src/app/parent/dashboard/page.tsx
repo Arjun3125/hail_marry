@@ -1,9 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Volume2, Loader2, VolumeX, GraduationCap, CalendarCheck, Award, Clock, FileText } from "lucide-react";
 
 import { api } from "@/lib/api";
+import ErrorRemediation from "@/components/ui/ErrorRemediation";
+import GuidedStart from "@/components/dashboard/GuidedStart";
+import HelpOverlay from "@/components/ui/HelpOverlay";
 
 type ParentDashboard = {
     child: {
@@ -38,21 +41,34 @@ export default function ParentDashboardPage() {
     const [speaking, setSpeaking] = useState(false);
     const [audioLoading, setAudioLoading] = useState(false);
 
-    useEffect(() => {
-        const load = async () => {
-            try {
-                setLoading(true);
-                setError(null);
-                const payload = await api.parent.dashboard();
-                setData(payload as ParentDashboard);
-            } catch (err) {
-                setError(err instanceof Error ? err.message : "Failed to load dashboard");
-            } finally {
-                setLoading(false);
-            }
-        };
-        void load();
+    const load = useCallback(async () => {
+        try {
+            setLoading(true);
+            setError(null);
+            const payload = await api.parent.dashboard();
+            setData(payload as ParentDashboard);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Failed to load dashboard");
+        } finally {
+            setLoading(false);
+        }
     }, []);
+
+    useEffect(() => {
+        void load();
+    }, [load]);
+
+    const onboardingChecklist = [
+        { id: "child", label: "Open child dashboard" },
+        { id: "attendance", label: "Check attendance and latest marks" },
+        { id: "audio", label: "Listen to weekly audio report" },
+    ];
+
+    const taskFirstLinks = [
+        { label: "Review attendance history", href: "/parent/attendance", priority: "high" as const },
+        { label: "Review latest results", href: "/parent/results", priority: "medium" as const },
+        { label: "Open narrative reports", href: "/parent/reports", priority: "low" as const },
+    ];
 
     const playAudioReport = async () => {
         if (speaking) {
@@ -91,11 +107,25 @@ export default function ParentDashboardPage() {
                 </div>
             </div>
 
-            {error ? (
-                <div className="rounded-xl border border-[var(--error)]/30 bg-error-subtle px-4 py-3 text-sm text-[var(--error)]">
-                    {error}
-                </div>
-            ) : null}
+            <GuidedStart
+                roleLabel="Parent"
+                checklist={onboardingChecklist}
+                tasks={taskFirstLinks}
+                storageKey="onboarding:parent"
+            />
+
+            <div className="mb-2 flex justify-end">
+                <HelpOverlay
+                    title="Parent help"
+                    items={[
+                        "Check attendance first for early risk signals.",
+                        "Review latest results and discuss one action step.",
+                        "Use audio report for quick weekly summaries.",
+                    ]}
+                />
+            </div>
+
+            {error ? <ErrorRemediation error={error} scope="parent-dashboard" onRetry={() => void load()} simplifiedModeHref="/parent/reports" /> : null}
 
             {loading ? (
                 <div className="bg-[var(--bg-card)] rounded-2xl shadow-[var(--shadow-card)] p-12 text-center border border-[var(--border)]/50">

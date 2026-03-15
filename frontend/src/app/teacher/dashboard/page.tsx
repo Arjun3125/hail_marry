@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { FileText, Bot, TrendingUp, Users, CalendarCheck, ClipboardCheck } from "lucide-react";
 import {
     ResponsiveContainer,
@@ -14,7 +14,11 @@ import {
 
 import { api } from "@/lib/api";
 import { SkeletonCard } from "@/components/Skeleton";
+import ErrorRemediation from "@/components/ui/ErrorRemediation";
 import { AnimatedCounter, ProgressRing } from "@/components/ui/SharedUI";
+import GuidedStart from "@/components/dashboard/GuidedStart";
+import AIFallbackNotice from "@/components/ui/AIFallbackNotice";
+import HelpOverlay from "@/components/ui/HelpOverlay";
 
 type TeacherClass = {
     id: string;
@@ -48,29 +52,34 @@ export default function TeacherDashboard() {
     const [openAssignments, setOpenAssignments] = useState(0);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [chartsReady, setChartsReady] = useState(false);
+
+    const load = useCallback(async () => {
+        try {
+            setLoading(true);
+            setError(null);
+            const [dashboardData, assignmentData] = await Promise.all([
+                api.teacher.dashboard(),
+                api.teacher.assignments(),
+            ]);
+            setClasses((dashboardData?.classes || []) as TeacherClass[]);
+            setTodayClasses((dashboardData?.today_classes || []) as TodayClass[]);
+            setPendingReviews(Number(dashboardData?.pending_reviews || 0));
+            setOpenAssignments(Number(dashboardData?.open_assignments || 0));
+            setAssignments((assignmentData || []) as TeacherAssignment[]);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Failed to load dashboard");
+        } finally {
+            setLoading(false);
+        }
+    }, []);
 
     useEffect(() => {
-        const load = async () => {
-            try {
-                setLoading(true);
-                setError(null);
-                const [dashboardData, assignmentData] = await Promise.all([
-                    api.teacher.dashboard(),
-                    api.teacher.assignments(),
-                ]);
-                setClasses((dashboardData?.classes || []) as TeacherClass[]);
-                setTodayClasses((dashboardData?.today_classes || []) as TodayClass[]);
-                setPendingReviews(Number(dashboardData?.pending_reviews || 0));
-                setOpenAssignments(Number(dashboardData?.open_assignments || 0));
-                setAssignments((assignmentData || []) as TeacherAssignment[]);
-            } catch (err) {
-                setError(err instanceof Error ? err.message : "Failed to load dashboard");
-            } finally {
-                setLoading(false);
-            }
-        };
-
         void load();
+    }, [load]);
+
+    useEffect(() => {
+        setChartsReady(true);
     }, []);
 
     const weakestClass = useMemo(() => {
@@ -88,6 +97,18 @@ export default function TeacherDashboard() {
             })),
         [classes],
     );
+    const onboardingChecklist = [
+        { id: "today-classes", label: "Review today's classes" },
+        { id: "attendance", label: "Mark attendance for first class" },
+        { id: "assignment", label: "Create or review one assignment" },
+    ];
+
+    const taskFirstLinks = [
+        { label: "Mark attendance", href: todayClasses[0] ? `/teacher/attendance?classId=${todayClasses[0].class_id}` : "/teacher/attendance", priority: "high" as const },
+        { label: "Assign assessment", href: "/teacher/generate-assessment", priority: "medium" as const },
+        { label: "Review class insights", href: "/teacher/insights", priority: "low" as const },
+    ];
+
 
     return (
         <div>
@@ -96,11 +117,32 @@ export default function TeacherDashboard() {
                 <p className="text-sm text-[var(--text-secondary)]">Overview of your classes and students</p>
             </div>
 
-            {error && (
-                <div className="mb-6 rounded-[var(--radius)] border border-[var(--error)]/30 bg-error-subtle px-4 py-3 text-sm text-[var(--error)]">
-                    {error}
-                </div>
-            )}
+            {error ? <ErrorRemediation error={error} scope="teacher-dashboard" onRetry={() => void load()} simplifiedModeHref="/teacher/attendance" /> : null}
+
+
+            <GuidedStart
+                roleLabel="Teacher"
+                checklist={onboardingChecklist}
+                tasks={taskFirstLinks}
+                storageKey="onboarding:teacher"
+            />
+
+            <AIFallbackNotice
+                queueDepth={pendingReviews}
+                processingDepth={Math.max(1, todayClasses.length)}
+                scope="teacher"
+            />
+
+            <div className="mb-4 flex justify-end">
+                <HelpOverlay
+                    title="Teacher help"
+                    items={[
+                        "Start with attendance for your first class.",
+                        "Use Assign assessment for quick test creation.",
+                        "If errors persist, share Trace/Ref IDs with admin.",
+                    ]}
+                />
+            </div>
 
             {loading ? (
                 <div className="grid md:grid-cols-2 gap-4 mb-6">
@@ -196,7 +238,8 @@ export default function TeacherDashboard() {
                         <div className="bg-[var(--bg-card)] rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)] mb-6 card-hover">
                             <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-4">ðŸ“Š Class Comparison</h2>
                             <div className="h-48">
-                                <ResponsiveContainer width="100%" height="100%">
+                                {chartsReady ? (
+                                    <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={160}>
                                     <BarChart data={chartData}>
                                         <CartesianGrid strokeDasharray="3 3" stroke="var(--border-light)" />
                                         <XAxis dataKey="name" tick={{ fontSize: 10, fill: "var(--text-muted)" }} />
@@ -208,7 +251,10 @@ export default function TeacherDashboard() {
                                         <Bar dataKey="attendance" name="Attendance %" fill="#22c55e" radius={[3, 3, 0, 0]} />
                                         <Bar dataKey="marks" name="Avg Marks %" fill="#3b82f6" radius={[3, 3, 0, 0]} />
                                     </BarChart>
-                                </ResponsiveContainer>
+                                    </ResponsiveContainer>
+                                ) : (
+                                    <div className="h-full rounded-[var(--radius-sm)] bg-[var(--bg-page)]" />
+                                )}
                             </div>
                         </div>
                     )}

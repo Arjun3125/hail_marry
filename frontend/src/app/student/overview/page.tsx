@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
     AlertTriangle,
     Award,
@@ -27,7 +27,11 @@ import {
 
 import { api } from "@/lib/api";
 import { SkeletonCard } from "@/components/Skeleton";
+import ErrorRemediation from "@/components/ui/ErrorRemediation";
 import { AnimatedCounter, ProgressRing } from "@/components/ui/SharedUI";
+import GuidedStart from "@/components/dashboard/GuidedStart";
+import AIFallbackNotice from "@/components/ui/AIFallbackNotice";
+import HelpOverlay from "@/components/ui/HelpOverlay";
 
 type DashboardStats = {
     attendance_pct: number;
@@ -100,33 +104,50 @@ export default function StudentOverview() {
     const [streak, setStreak] = useState<StreakInfo | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [chartsReady, setChartsReady] = useState(false);
+
+    const load = useCallback(async () => {
+        try {
+            setLoading(true);
+            setError(null);
+
+            const [dashboardPayload, weakTopicPayload, streakPayload] = await Promise.all([
+                api.student.dashboard(),
+                api.student.weakTopics(),
+                api.student.streaks(),
+            ]);
+
+            setStats((dashboardPayload || emptyStats) as DashboardStats);
+            const topicPayload = (weakTopicPayload || { weak_topics: [], strong_topics: [] }) as WeakTopicPayload;
+            setWeakTopics(topicPayload.weak_topics || []);
+            setStrongTopics(topicPayload.strong_topics || []);
+            setStreak((streakPayload || null) as StreakInfo | null);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Failed to load dashboard");
+        } finally {
+            setLoading(false);
+        }
+    }, []);
 
     useEffect(() => {
-        const load = async () => {
-            try {
-                setLoading(true);
-                setError(null);
-
-                const [dashboardPayload, weakTopicPayload, streakPayload] = await Promise.all([
-                    api.student.dashboard(),
-                    api.student.weakTopics(),
-                    api.student.streaks(),
-                ]);
-
-                setStats((dashboardPayload || emptyStats) as DashboardStats);
-                const topicPayload = (weakTopicPayload || { weak_topics: [], strong_topics: [] }) as WeakTopicPayload;
-                setWeakTopics(topicPayload.weak_topics || []);
-                setStrongTopics(topicPayload.strong_topics || []);
-                setStreak((streakPayload || null) as StreakInfo | null);
-            } catch (err) {
-                setError(err instanceof Error ? err.message : "Failed to load dashboard");
-            } finally {
-                setLoading(false);
-            }
-        };
-
         void load();
+    }, [load]);
+
+    useEffect(() => {
+        setChartsReady(true);
     }, []);
+
+    const onboardingChecklist = [
+        { id: "ai-open", label: "Open AI study assistant" },
+        { id: "assignment", label: "Complete one assignment task" },
+        { id: "review", label: "Review weak topics and streak" },
+    ];
+
+    const taskFirstLinks = [
+        { label: "Ask AI with citations", href: "/student/ai", priority: "high" as const },
+        { label: "Open assignments", href: "/student/assignments", priority: "medium" as const },
+        { label: "Review results trends", href: "/student/results", priority: "low" as const },
+    ];
 
     const allTopics = useMemo(() => {
         return [...weakTopics, ...strongTopics].sort((a, b) => a.average_score - b.average_score);
@@ -140,6 +161,30 @@ export default function StudentOverview() {
                     Dashboard
                 </h1>
                 <p className="text-sm text-[var(--text-secondary)]">Your live academic snapshot from attendance, marks, and AI usage.</p>
+            </div>
+
+            <GuidedStart
+                roleLabel="Student"
+                checklist={onboardingChecklist}
+                tasks={taskFirstLinks}
+                storageKey="onboarding:student"
+            />
+
+            <AIFallbackNotice
+                queueDepth={Math.max(0, stats.ai_queries_today - Math.floor((stats.ai_queries_limit || 50) * 0.7))}
+                processingDepth={2}
+                scope="student"
+            />
+
+            <div className="mb-4 flex justify-end">
+                <HelpOverlay
+                    title="Student help"
+                    items={[
+                        "Ask one focused question in AI mode.",
+                        "Use assignments tab to complete pending tasks.",
+                        "Switch to tools page for lightweight mode when AI is slow.",
+                    ]}
+                />
             </div>
 
             {!loading && streak ? (
@@ -181,11 +226,7 @@ export default function StudentOverview() {
                 </div>
             ) : null}
 
-            {error && (
-                <div className="mb-4 rounded-[var(--radius)] border border-[var(--error)]/30 bg-error-subtle px-4 py-3 text-sm text-[var(--error)]">
-                    {error}
-                </div>
-            )}
+            {error ? <ErrorRemediation error={error} scope="student-overview" onRetry={() => void load()} simplifiedModeHref="/student/tools" /> : null}
 
             {/* ─── Glass KPI Cards ─── */}
             {loading ? (
@@ -315,7 +356,8 @@ export default function StudentOverview() {
                 <div className="bg-[var(--bg-card)] rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)] card-hover">
                     <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-4">📊 Weekly Attendance Trend</h2>
                     <div className="h-40">
-                        <ResponsiveContainer width="100%" height="100%">
+                        {chartsReady ? (
+                            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={160}>
                             <AreaChart data={weeklyAttendance}>
                                 <defs>
                                     <linearGradient id="attGrad" x1="0" y1="0" x2="0" y2="1">
@@ -332,7 +374,10 @@ export default function StudentOverview() {
                                 />
                                 <Area type="monotone" dataKey="value" stroke="#2563eb" strokeWidth={2.5} fill="url(#attGrad)" />
                             </AreaChart>
-                        </ResponsiveContainer>
+                            </ResponsiveContainer>
+                        ) : (
+                            <div className="h-full rounded-[var(--radius-sm)] bg-[var(--bg-page)]" />
+                        )}
                     </div>
                 </div>
 
@@ -340,7 +385,8 @@ export default function StudentOverview() {
                 <div className="bg-[var(--bg-card)] rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)] card-hover">
                     <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-4">📈 Marks Trend</h2>
                     <div className="h-40">
-                        <ResponsiveContainer width="100%" height="100%">
+                        {chartsReady ? (
+                            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={160}>
                             <BarChart data={weeklyMarks}>
                                 <defs>
                                     <linearGradient id="marksGrad" x1="0" y1="0" x2="0" y2="1">
@@ -357,7 +403,10 @@ export default function StudentOverview() {
                                 />
                                 <Bar dataKey="value" fill="url(#marksGrad)" radius={[4, 4, 0, 0]} />
                             </BarChart>
-                        </ResponsiveContainer>
+                            </ResponsiveContainer>
+                        ) : (
+                            <div className="h-full rounded-[var(--radius-sm)] bg-[var(--bg-page)]" />
+                        )}
                     </div>
                 </div>
             </div>
