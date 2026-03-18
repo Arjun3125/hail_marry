@@ -63,7 +63,7 @@ def client(db_session):
 
 @pytest.fixture
 def active_tenant(db_session):
-    from models.tenant import Tenant
+    from src.domains.identity.models.tenant import Tenant
     tenant = Tenant(
         id=uuid.uuid4(),
         name="Test School",

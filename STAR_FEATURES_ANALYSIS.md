@@ -259,8 +259,8 @@ All 11 raw docs were analyzed in full:
 
 ```mermaid
 graph TB
-    subgraph Current["VidyaOS (Current — 2026-03-12)"]
-        A1["FastAPI Backend + Dedicated AI Service"]
+    subgraph Current["VidyaOS (Current — Modular Monolith)"]
+        A1["Domain-Driven FastAPI (Identity, Academic, Admin, AI Engine, Platform)"]
         A2["PostgreSQL + Audit Logs + Trace Events"]
         A3["Multi-Provider LLM Layer (Ollama + OpenAI + Anthropic)"]
         A4["FAISS Vector + Knowledge Graph Index"]
@@ -274,7 +274,7 @@ graph TB
         A12["WhatsApp + Email Notifications"]
         A13["Fee Management + Library + Admissions"]
         A14["OpenAI-compat API + Plugin Architecture"]
-        A15["HyDE + Agent Orchestration + Citations"]
+        A15["HyDE + LangGraph Agent Orchestrator + Citations"]
         A16["Hindi + Marathi i18n"]
         A17["reCAPTCHA + Token Blacklisting"]
         A18["Docker Multi-Stage Production Build"]

@@ -10,7 +10,7 @@ class TestEmitWebhookEvent:
     @pytest.mark.asyncio
     async def test_no_subscriptions_returns_zero(self):
         """When no subscriptions exist, should return 0."""
-        from services.webhooks import emit_webhook_event
+        from src.domains.platform.services.webhooks import emit_webhook_event
 
         db = MagicMock()
         db.query.return_value.filter.return_value.all.return_value = []
@@ -26,7 +26,7 @@ class TestEmitWebhookEvent:
     @pytest.mark.asyncio
     async def test_subscription_creates_delivery(self):
         """When a subscription exists, a delivery should be created."""
-        from services.webhooks import emit_webhook_event
+        from src.domains.platform.services.webhooks import emit_webhook_event
 
         db = MagicMock()
         sub = MagicMock()

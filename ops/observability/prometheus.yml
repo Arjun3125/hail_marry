@@ -11,10 +11,10 @@ scrape_configs:
     static_configs:
       - targets: ["api:8000"]
 
-  - job_name: vidyaos-ai-service
+  - job_name: vidyaos-api
     metrics_path: /metrics
     static_configs:
-      - targets: ["ai-service:8001"]
+      - targets: ["api:8001"]
 
   - job_name: vidyaos-worker
     metrics_path: /metrics

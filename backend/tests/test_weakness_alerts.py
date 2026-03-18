@@ -29,7 +29,7 @@ class WeaknessAlertTests(unittest.TestCase):
         """Run generate_weakness_alerts with properly mocked db.
         subject_map: dict mapping subject_id -> name
         """
-        from services.weakness_alerts import generate_weakness_alerts
+        from src.domains.academic.services.weakness_alerts import generate_weakness_alerts
 
         if subject_map is None:
             subject_map = {}

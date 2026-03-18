@@ -24,7 +24,7 @@ Tracked in `docker-compose.yml`:
 - `postgres`
 - `redis`
 - `api`
-- `ai-service`
+- `api`
 - `worker`
 - `frontend`
 - `nginx`
@@ -97,7 +97,7 @@ Behavior:
 - responsibility: auth, ERP, admin APIs, queue enqueue/status, public AI routes
 
 ### AI service
-- entrypoint: `backend/ai_service_app.py`
+- entrypoint: `backend/src/domains/ai_engine/router.py`
 - responsibility: synchronous generation runtime
 
 ### Worker

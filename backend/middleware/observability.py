@@ -8,8 +8,8 @@ import uuid
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 
-from services.metrics_registry import observe_http_request
-from services.trace_backend import record_trace_event
+from src.domains.platform.services.metrics_registry import observe_http_request
+from src.domains.platform.services.trace_backend import record_trace_event
 
 logger = logging.getLogger("observability")
 

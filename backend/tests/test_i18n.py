@@ -3,7 +3,7 @@ import json
 import os
 import pytest
 
-from services.i18n import clear_cache, get_supported_locales, get_translations, translate
+from src.domains.platform.services.i18n import clear_cache, get_supported_locales, get_translations, translate
 from constants import SUPPORTED_LOCALES
 
 

@@ -1,28 +1,28 @@
-from models.tenant import Tenant
-from models.user import User
+from src.domains.identity.models.tenant import Tenant
+from src.domains.identity.models.user import User
 from models.academic import Class, Subject, Enrollment
-from models.attendance import Attendance
-from models.marks import Exam, Mark
-from models.assignment import Assignment, AssignmentSubmission
+from src.domains.academic.models.attendance import Attendance
+from src.domains.academic.models.marks import Exam, Mark
+from src.domains.academic.models.assignment import Assignment, AssignmentSubmission
 from models.timetable import Timetable
 from models.complaint import Complaint
 from models.lecture import Lecture
-from models.document import Document
+from src.domains.ai_engine.models.document import Document
 from models.ai_query import AIQuery
-from models.ai_job import AIJob, AIJobEvent
+from src.domains.ai_engine.models.ai_job import AIJob, AIJobEvent
 from models.audit_log import AuditLog
 from models.subject_performance import SubjectPerformance
-from models.webhook import WebhookSubscription, WebhookDelivery
+from src.domains.platform.models.webhook import WebhookSubscription, WebhookDelivery
 from models.parent_link import ParentLink
 from models.review_schedule import ReviewSchedule
 from models.compliance import ComplianceExport, DeletionRequest
-from models.incident import IncidentRoute, Incident, IncidentEvent
-from models.billing import BillingPlan, TenantSubscription, PaymentRecord
-from models.admission import AdmissionApplication
-from models.fee import FeeStructure, FeeInvoice, FeePayment
-from models.knowledge_graph import KGConcept, KGRelationship
+from src.domains.administrative.models.incident import IncidentRoute, Incident, IncidentEvent
+from src.domains.administrative.models.billing import BillingPlan, TenantSubscription, PaymentRecord
+from src.domains.administrative.models.admission import AdmissionApplication
+from src.domains.administrative.models.fee import FeeStructure, FeeInvoice, FeePayment
+from src.domains.ai_engine.models.knowledge_graph import KGConcept, KGRelationship
 from auth.token_blacklist import BlacklistedToken
-from models.library import Book, BookLending
+from src.domains.administrative.models.library import Book, BookLending
 from models.notification import Notification
 
 __all__ = [

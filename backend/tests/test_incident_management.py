@@ -3,7 +3,7 @@ import pytest
 from unittest.mock import MagicMock
 from uuid import uuid4
 
-from services.incident_management import (
+from src.domains.administrative.services.incident_management import (
     list_incidents,
     list_incident_routes,
     get_incident_detail,

@@ -69,7 +69,7 @@ python start-api.sh
 ### 5) Start AI service + worker
 ```bash
 cd backend
-python start-ai-service.sh
+python start-api.sh
 python start-worker.sh
 ```
 

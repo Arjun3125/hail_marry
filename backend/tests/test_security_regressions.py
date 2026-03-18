@@ -148,7 +148,7 @@ class MiddlewareOrderingTests(unittest.TestCase):
 
 class AuthRouteRegressionTests(unittest.IsolatedAsyncioTestCase):
     async def test_google_login_rejects_unmapped_email_domain(self):
-        auth_routes = importlib.import_module("routes.auth")
+        auth_routes = importlib.import_module("src.domains.identity.routes.auth")
 
         fake_google_user = {
             "email": "student@unknown-school.example",
@@ -174,7 +174,7 @@ class AuthRouteRegressionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(db.queried_models, ["Tenant"])
 
     async def test_refresh_tokens_accepts_refresh_cookie_when_body_missing(self):
-        auth_routes = importlib.import_module("routes.auth")
+        auth_routes = importlib.import_module("src.domains.identity.routes.auth")
 
         fake_user = SimpleNamespace(
             id=uuid4(),
@@ -208,7 +208,7 @@ class AuthRouteRegressionTests(unittest.IsolatedAsyncioTestCase):
         decode_mock.assert_called_once_with("cookie-refresh-token")
 
     async def test_demo_login_blocked_when_debug_disabled(self):
-        demo_routes = importlib.import_module("routes.demo")
+        demo_routes = importlib.import_module("src.domains.platform.routes.demo")
         db = _DBStub({})
 
         original_debug = demo_routes.settings.app.debug
@@ -260,7 +260,7 @@ class TeacherScopingRegressionTests(unittest.TestCase):
         self.assertEqual(class_ids, [class_id_1, class_id_2])
 
     def test_teacher_route_scope_guard_blocks_unassigned_class(self):
-        teacher_routes = importlib.import_module("routes.teacher")
+        teacher_routes = importlib.import_module("src.domains.academic.routes.teacher")
         teacher_user = SimpleNamespace(role="teacher")
         blocked_class_id = uuid4()
         allowed = {uuid4()}
@@ -273,7 +273,7 @@ class TeacherScopingRegressionTests(unittest.TestCase):
 
 class AdminRouteRegressionTests(unittest.IsolatedAsyncioTestCase):
     async def test_create_subject_rejects_class_outside_tenant(self):
-        admin_routes = importlib.import_module("routes.admin")
+        admin_routes = importlib.import_module("src.domains.administrative.routes.admin")
         current_user = SimpleNamespace(tenant_id=uuid4())
         db = _DBStub({"Class": None})
 
@@ -287,7 +287,7 @@ class AdminRouteRegressionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(ctx.exception.status_code, 404)
 
     async def test_update_complaint_rejects_invalid_status(self):
-        admin_routes = importlib.import_module("routes.admin")
+        admin_routes = importlib.import_module("src.domains.administrative.routes.admin")
         current_user = SimpleNamespace(tenant_id=uuid4(), id=uuid4())
         complaint = SimpleNamespace(
             id=uuid4(),
@@ -310,7 +310,7 @@ class AdminRouteRegressionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(ctx.exception.status_code, 400)
 
     async def test_create_webhook_rejects_unsupported_event(self):
-        admin_routes = importlib.import_module("routes.admin")
+        admin_routes = importlib.import_module("src.domains.administrative.routes.admin")
         current_user = SimpleNamespace(tenant_id=uuid4(), id=uuid4())
         db = _DBStub({})
 
@@ -327,7 +327,7 @@ class AdminRouteRegressionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(ctx.exception.status_code, 400)
 
     async def test_create_parent_link_rejects_missing_parent(self):
-        admin_routes = importlib.import_module("routes.admin")
+        admin_routes = importlib.import_module("src.domains.administrative.routes.admin")
         current_user = SimpleNamespace(tenant_id=uuid4(), id=uuid4())
         db = _DBStub({"User": None})
 
@@ -341,7 +341,7 @@ class AdminRouteRegressionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(ctx.exception.status_code, 404)
 
     async def test_create_timetable_slot_rejects_invalid_day(self):
-        admin_routes = importlib.import_module("routes.admin")
+        admin_routes = importlib.import_module("src.domains.administrative.routes.admin")
         current_user = SimpleNamespace(tenant_id=uuid4(), id=uuid4())
         db = _DBStub({})
 
@@ -364,12 +364,12 @@ class AdminRouteRegressionTests(unittest.IsolatedAsyncioTestCase):
 
 class StudentRouteRegressionTests(unittest.IsolatedAsyncioTestCase):
     async def test_student_upload_returns_failure_when_ingestion_fails(self):
-        student_routes = importlib.import_module("routes.students")
+        student_routes = importlib.import_module("src.domains.academic.routes.students")
         current_user = SimpleNamespace(tenant_id=uuid4(), id=uuid4())
         db = _DBStub({})
         file = UploadFile(filename="notes.pdf", file=io.BytesIO(b"small pdf payload"))
 
-        with patch("ai.ingestion.ingest_document", side_effect=RuntimeError("ingest failed")):
+        with patch("src.domains.ai_engine.ai.ingestion.ingest_document", side_effect=RuntimeError("ingest failed")):
             with self.assertRaises(HTTPException) as ctx:
                 await student_routes.student_upload(file, current_user, db)
 
@@ -377,13 +377,13 @@ class StudentRouteRegressionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(ctx.exception.detail, "Document ingestion failed.")
 
     def test_tool_normalizer_rejects_invalid_quiz_payload(self):
-        student_routes = importlib.import_module("routes.students")
+        student_routes = importlib.import_module("src.domains.academic.routes.students")
         with self.assertRaises(HTTPException) as ctx:
             student_routes._normalize_tool_output("quiz", "not valid json")
         self.assertEqual(ctx.exception.status_code, 422)
 
     async def test_assignment_submit_rejects_invalid_assignment_uuid(self):
-        student_routes = importlib.import_module("routes.students")
+        student_routes = importlib.import_module("src.domains.academic.routes.students")
         current_user = SimpleNamespace(tenant_id=uuid4(), id=uuid4())
         db = _DBStub({})
         file = UploadFile(filename="submission.pdf", file=io.BytesIO(b"payload"))
@@ -395,8 +395,7 @@ class StudentRouteRegressionTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_results_trends_returns_sorted_subject_and_points(self):
         from datetime import date
-
-        student_routes = importlib.import_module("routes.students")
+        student_routes = importlib.import_module("src.domains.academic.routes.students")
         tenant_id = uuid4()
         student_id = uuid4()
 
@@ -432,7 +431,7 @@ class StudentRouteRegressionTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("percentage", payload[0]["points"][0])
 
     async def test_tools_generate_parses_structured_output_for_all_modes(self):
-        student_routes = importlib.import_module("routes.students")
+        student_routes = importlib.import_module("src.domains.academic.routes.students")
         current_user = SimpleNamespace(tenant_id=uuid4(), id=uuid4())
         db = _DBStub({})
 
@@ -454,7 +453,7 @@ class StudentRouteRegressionTests(unittest.IsolatedAsyncioTestCase):
                 "citation_valid": True,
             }
 
-        with patch("routes.students.run_study_tool", AsyncMock(side_effect=fake_run_study_tool)):
+        with patch("src.domains.academic.routes.students.run_study_tool", AsyncMock(side_effect=fake_run_study_tool)):
             for mode in ["quiz", "flashcards", "mindmap", "flowchart", "concept_map"]:
                 payload = await student_routes.generate_study_tool(
                     student_routes.StudyToolGenerateRequest(tool=mode, topic="Biology"),
@@ -465,7 +464,7 @@ class StudentRouteRegressionTests(unittest.IsolatedAsyncioTestCase):
                 self.assertIn("data", payload)
 
     async def test_tools_generate_retries_once_when_json_is_malformed(self):
-        study_tools = importlib.import_module("ai.study_tools")
+        study_tools = importlib.import_module("src.domains.ai_engine.ai.study_tools")
 
         ai_mock = AsyncMock(
             side_effect=[
@@ -488,7 +487,7 @@ class StudentRouteRegressionTests(unittest.IsolatedAsyncioTestCase):
             ]
         )
 
-        with patch("ai.study_tools.execute_text_query", ai_mock):
+        with patch("src.domains.ai_engine.ai.study_tools.execute_text_query", ai_mock):
             payload = await study_tools.execute_study_tool(
                 study_tools.InternalStudyToolGenerateRequest(
                     tool="quiz",
@@ -502,10 +501,10 @@ class StudentRouteRegressionTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(isinstance(payload["data"], list))
 
     async def test_ai_gateway_queries_always_go_through_ai_service_boundary(self):
-        ai_gateway = importlib.import_module("services.ai_gateway")
+        ai_gateway = importlib.import_module("src.domains.ai_engine.services.ai_gateway")
 
-        mocked_post = AsyncMock(return_value={"answer": "ok", "mode": "qa"})
-        with patch.object(ai_gateway, "_post_to_ai_service", mocked_post):
+        mocked_execute = AsyncMock(return_value={"answer": "ok", "mode": "qa"})
+        with patch.object(ai_gateway, "execute_text_query", mocked_execute):
             result = await ai_gateway.run_text_query(
                 ai_gateway.InternalAIQueryRequest(
                     query="What is force?",
@@ -515,11 +514,10 @@ class StudentRouteRegressionTests(unittest.IsolatedAsyncioTestCase):
             )
 
         self.assertEqual(result["answer"], "ok")
-        mocked_post.assert_awaited_once()
-        self.assertEqual(mocked_post.await_args.args[0], "/internal/ai/query")
+        mocked_execute.assert_awaited_once()
 
     async def test_assignment_submit_create_then_replace_flow(self):
-        student_routes = importlib.import_module("routes.students")
+        student_routes = importlib.import_module("src.domains.academic.routes.students")
 
         tenant_id = uuid4()
         student_id = uuid4()
@@ -559,7 +557,7 @@ class StudentRouteRegressionTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("assignment_submissions", db.submission.submission_url)
 
     def test_assignment_submission_model_has_unique_constraint(self):
-        assignment_models = importlib.import_module("models.assignment")
+        assignment_models = importlib.import_module("src.domains.academic.models.assignment")
         constraints = [
             constraint
             for constraint in assignment_models.AssignmentSubmission.__table__.constraints
@@ -572,7 +570,7 @@ class StudentRouteRegressionTests(unittest.IsolatedAsyncioTestCase):
 
 class WebhookServiceRegressionTests(unittest.IsolatedAsyncioTestCase):
     async def test_emit_webhook_event_returns_zero_when_no_subscriptions(self):
-        webhooks_service = importlib.import_module("services.webhooks")
+        webhooks_service = importlib.import_module("src.domains.platform.services.webhooks")
         db = MagicMock()
         db.query.return_value.filter.return_value.all.return_value = []
 
@@ -589,7 +587,7 @@ class WebhookServiceRegressionTests(unittest.IsolatedAsyncioTestCase):
 
 class ParentRouteRegressionTests(unittest.TestCase):
     def test_parent_child_lookup_requires_existing_link(self):
-        parent_routes = importlib.import_module("routes.parent")
+        parent_routes = importlib.import_module("src.domains.academic.routes.parent")
         current_user = SimpleNamespace(tenant_id=uuid4(), id=uuid4())
         db = MagicMock()
         db.query.return_value.filter.return_value.order_by.return_value.first.return_value = None

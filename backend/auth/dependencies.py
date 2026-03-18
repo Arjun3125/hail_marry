@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from database import get_db
 import uuid
 from auth.jwt import decode_access_token
-from models.user import User
+from src.domains.identity.models.user import User
 
 # Demo mode check
 DEMO_MODE = os.getenv("DEMO_MODE", "false").lower() in ("true", "1", "yes")

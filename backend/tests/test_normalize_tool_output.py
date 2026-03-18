@@ -11,7 +11,7 @@ if str(BACKEND_DIR) not in sys.path:
 os.environ["DEBUG"] = "true"
 
 from fastapi import HTTPException
-from routes.students import _extract_json_payload, _normalize_tool_output
+from src.domains.academic.routes.students import _extract_json_payload, _normalize_tool_output
 
 
 class ExtractJsonPayloadTests(unittest.TestCase):

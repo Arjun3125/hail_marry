@@ -1,0 +1,102 @@
+﻿........................................................................ [ 18%]
+......................................................................FF [ 37%]
+FFF.........F......................FFF.FFFF............................. [ 55%]
+........................................................................ [ 74%]
+....................................F.F................................. [ 93%]
+...........................                                              [100%]
+================================== FAILURES ===================================
+E   AssertionError: 422 not found in [200, 401, 403, 404]
+---------------------------- Captured stdout call -----------------------------
+{"timestamp": "2026-03-17T14:28:45.040171+00:00", "level": "INFO", "service": "vidyaos-api", "logger": "httpx", "message": "HTTP Request: GET http://testserver/api/admin/enterprise/deployment/guidance \"HTTP/1.1 422 Unprocessable Entity\""}
+------------------------------ Captured log call ------------------------------
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/admin/enterprise/deployment/guidance "HTTP/1.1 422 Unprocessable Entity"
+C:\Python314\Lib\unittest\case.py:750: AssertionError: 422 not found in [200, 401, 403, 404]
+E   AttributeError: <module 'src.domains.administrative.services.incident_management' from 'C:\\Users\\naren\\Work\\Projects\\proxy_notebooklm\\backend\\src\\domains\\administrative\\services\\incident_management.py'> does not have the attribute 'get_active_alerts'
+C:\Python314\Lib\unittest\mock.py:1473: AttributeError: <module 'src.domains.administrative.services.incident_management' from 'C:\\Users\\naren\\Work\\Projects\\proxy_notebooklm\\backend\\src\\domains\\administrative\\services\\incident_management.py'> does not have the attribute 'get_active_alerts'
+E   AssertionError: 422 not found in [200, 401, 403, 404]
+---------------------------- Captured stdout call -----------------------------
+{"timestamp": "2026-03-17T14:28:45.044669+00:00", "level": "INFO", "service": "vidyaos-api", "logger": "httpx", "message": "HTTP Request: GET http://testserver/api/admin/enterprise/operations/summary \"HTTP/1.1 422 Unprocessable Entity\""}
+------------------------------ Captured log call ------------------------------
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/admin/enterprise/operations/summary "HTTP/1.1 422 Unprocessable Entity"
+C:\Python314\Lib\unittest\case.py:750: AssertionError: 422 not found in [200, 401, 403, 404]
+E   ModuleNotFoundError: No module named 'commands'
+<frozen importlib._bootstrap>:1335: ModuleNotFoundError: No module named 'commands'
+E   AssertionError: 422 not found in [200, 401, 403, 404]
+---------------------------- Captured stdout call -----------------------------
+{"timestamp": "2026-03-17T14:28:45.053245+00:00", "level": "INFO", "service": "vidyaos-api", "logger": "httpx", "message": "HTTP Request: POST http://testserver/api/admin/enterprise/compliance/exports \"HTTP/1.1 422 Unprocessable Entity\""}
+{"timestamp": "2026-03-17T14:28:45.057522+00:00", "level": "INFO", "service": "vidyaos-api", "logger": "httpx", "message": "HTTP Request: GET http://testserver/api/admin/enterprise/compliance/exports \"HTTP/1.1 422 Unprocessable Entity\""}
+------------------------------ Captured log call ------------------------------
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/admin/enterprise/compliance/exports "HTTP/1.1 422 Unprocessable Entity"
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/admin/enterprise/compliance/exports "HTTP/1.1 422 Unprocessable Entity"
+C:\Python314\Lib\unittest\case.py:750: AssertionError: 422 not found in [200, 401, 403, 404]
+E   assert 422 == 400
+     +  where 422 = <Response [422 Unprocessable Entity]>.status_code
+---------------------------- Captured stdout call -----------------------------
+{"timestamp": "2026-03-17T14:28:45.393087+00:00", "level": "INFO", "service": "vidyaos-api", "logger": "httpx", "message": "HTTP Request: POST http://testserver/api/auth/login \"HTTP/1.1 200 OK\""}
+{"timestamp": "2026-03-17T14:28:45.396822+00:00", "level": "INFO", "service": "vidyaos-api", "logger": "httpx", "message": "HTTP Request: POST http://testserver/api/admin/onboard/teachers \"HTTP/1.1 422 Unprocessable Entity\""}
+------------------------------ Captured log call ------------------------------
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/auth/login "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/admin/onboard/teachers "HTTP/1.1 422 Unprocessable Entity"
+C:\Users\naren\Work\Projects\proxy_notebooklm\backend\tests\test_file_uploads.py:35: assert 422 == 400
+E   AssertionError: assert 'nav' in {}
+C:\Users\naren\Work\Projects\proxy_notebooklm\backend\tests\test_i18n.py:44: AssertionError: assert 'nav' in {}
+E   AssertionError: assert None == '\u0935\u093f\u0926\u094d\u092f\u093eOS'
+     +  where None = <built-in method get of dict object at 0x000001F92854B980>('app_name')
+     +    where <built-in method get of dict object at 0x000001F92854B980> = {}.get
+C:\\Users\\naren\\Work\\Projects\\proxy_notebooklm\\backend\\tests\\test_i18n.py:50: AssertionError: assert None == '\u0935\u093f\u0926\u094d\u092f\u093eOS'
+E   AssertionError: assert None == '\u0935\u093f\u0926\u094d\u092f\u093eOS'
+     +  where None = <built-in method get of dict object at 0x000001F928558940>('app_name')
+     +    where <built-in method get of dict object at 0x000001F928558940> = {}.get
+C:\\Users\\naren\\Work\\Projects\\proxy_notebooklm\\backend\\tests\\test_i18n.py:55: AssertionError: assert None == '\u0935\u093f\u0926\u094d\u092f\u093eOS'
+E   AssertionError: assert 'nav.dashboard' == 'Dashboard'
+      
+      - Dashboard
+      + nav.dashboard
+C:\Users\naren\Work\Projects\proxy_notebooklm\backend\tests\test_i18n.py:68: AssertionError: assert 'nav.dashboard' == 'Dashboard'
+E   AssertionError: assert 'nav.dashboard' == '\u0921\u0948\u0936\u092c\u094b\u0930\u094d\u0921'
+      
+      - \u0921\u0948\u0936\u092c\u094b\u0930\u094d\u0921
+      + nav.dashboard
+C:\\Users\\naren\\Work\\Projects\\proxy_notebooklm\\backend\\tests\\test_i18n.py:73: AssertionError: assert 'nav.dashboard' == '\u0921\u0948\u0936\u092c\u094b\u0930\u094d\u0921'
+E   AssertionError: assert 'dashboard.welcome' == 'Welcome, Arjun'
+      
+      - Welcome, Arjun
+      + dashboard.welcome
+C:\Users\naren\Work\Projects\proxy_notebooklm\backend\tests\test_i18n.py:78: AssertionError: assert 'dashboard.welcome' == 'Welcome, Arjun'
+E   AssertionError: assert 'dashboard.welcome' == '\u0938\u094d\u0935\u093e\u0917\u0924 \u0939\u0948, \u0905\u0930\u094d\u091c\u0941\u0928'
+      
+      - \u0938\u094d\u0935\u093e\u0917\u0924 \u0939\u0948, \u0905\u0930\u094d\u091c\u0941\u0928
+      + dashboard.welcome
+C:\\Users\\naren\\Work\\Projects\\proxy_notebooklm\\backend\\tests\\test_i18n.py:83: AssertionError: assert 'dashboard.welcome' == '\u0938\u094d\u0935\u093e\u0917\u0924 \u0939\u0948, \u0905\u0930\u094d\u091c\u0941\u0928'
+E   ModuleNotFoundError: No module named 'ai'
+<frozen importlib._bootstrap>:1335: ModuleNotFoundError: No module named 'ai'
+E   AttributeError: module 'routes' has no attribute 'students'
+C:\Python314\Lib\pkgutil.py:473: AttributeError: module 'routes' has no attribute 'students'
+============================== warnings summary ===============================
+<frozen importlib._bootstrap>:491
+  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute
+
+<frozen importlib._bootstrap>:491
+  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute
+
+<frozen importlib._bootstrap>:491
+  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests\test_enterprise_routes.py::EnterpriseRouteTests::test_deployment_guidance_route
+FAILED tests\test_enterprise_routes.py::EnterpriseRouteTests::test_incident_routes
+FAILED tests\test_enterprise_routes.py::EnterpriseRouteTests::test_operations_summary_route
+FAILED tests\test_enterprise_routes.py::EnterpriseRouteTests::test_sso_settings_and_metadata_routes
+FAILED tests\test_enterprise_routes.py::EnterpriseRouteTests::test_vector_backend_and_compliance_routes
+FAILED tests\test_file_uploads.py::test_admin_onboard_teachers_rejects_empty_csv
+FAILED tests\test_i18n.py::test_load_english_translations - AssertionError: a...
+FAILED tests\test_i18n.py::test_load_hindi_translations - AssertionError: ass...
+FAILED tests\test_i18n.py::test_load_marathi_translations - AssertionError: a...
+FAILED tests\test_i18n.py::test_translate_simple_key - AssertionError: assert...
+FAILED tests\test_i18n.py::test_translate_hindi_key - AssertionError: assert ...
+FAILED tests\test_i18n.py::test_translate_with_interpolation - AssertionError...
+FAILED tests\test_i18n.py::test_translate_hindi_with_interpolation - Assertio...
+FAILED tests\test_security_regressions.py::StudentRouteRegressionTests::test_student_upload_returns_failure_when_ingestion_fails
+FAILED tests\test_security_regressions.py::StudentRouteRegressionTests::test_tools_generate_parses_structured_output_for_all_modes
+15 failed, 372 passed, 3 warnings in 87.57s (0:01:27)

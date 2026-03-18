@@ -12,28 +12,26 @@ VidyaOS combines:
 
 The ERP remains the system of record. AI reads school context and materials, but does not authoritatively write back ERP facts.
 
-## Current Architecture
+## Current Architecture (Modular Monolith)
 
 ```text
 Next.js frontend
     -> optional nginx reverse proxy
-    -> FastAPI public API
+    -> FastAPI public API (Bounded Contexts: Identity, Academic, Admin, AI Engine, Platform)
         -> PostgreSQL
         -> Redis
-        -> AI gateway
-            -> dedicated FastAPI AI service
-                -> Ollama via OLLAMA_URL
-                -> FAISS vector store
+        -> Native AI Service Execution (No HTTP Hop)
+            -> Ollama via OLLAMA_URL
+            -> FAISS vector store
         -> Redis-backed worker
             -> queued jobs dispatched to AI service
 ```
 
 Current runtime facts:
-- Public synchronous AI endpoints call the dedicated AI service through `backend/services/ai_gateway.py`.
+- Public synchronous AI endpoints run directly within the native FastAPI API instance through Domain-Driven routing.
 - Heavy jobs are queued in Redis and processed by `backend/ai_worker.py`.
-- All queued AI-heavy jobs use the AI service boundary.
 - FAISS is the default vector backend; Qdrant is available for scale-out.
-- Ollama remains an external dependency configured through `OLLAMA_URL`.
+- LLM inference and reasoning is natively orchestrated via LangGraph.
 
 ## Current Feature Scope
 
@@ -74,9 +72,9 @@ Current runtime facts:
 - Teacher assessment generation
 - Doubt heatmap aggregation
 - Language, response length, and expertise level personalization
-- HyDE query transform (hypothetical document embeddings)
-- Knowledge graph index (concept-relationship queries)
-- Agent orchestration (multi-step stateful workflows: deep study, exam prep, lesson plan)
+- HyDE query transform (True zero-shot LLM hypothetical document generation)
+- Knowledge graph index (Vector embeddings and Recursive PostgreSQL CTE query matching)
+- Agent orchestration (LangGraph stateful dynamic planning/tool routing for deep study, exam prep, admin tasks)
 - Extended data connectors (PPTX, Excel, Google Docs, Notion)
 - Clickable citations (source-document linking)
 - OpenAI-compatible API (/v1/chat/completions, /v1/models)
@@ -129,8 +127,7 @@ Quick navigation:
 
 ### Application services
 - `frontend`: Next.js app in `frontend/`
-- `api`: public FastAPI app in `backend/main.py`
-- `ai-service`: dedicated AI execution app in `backend/ai_service_app.py`
+- `api`: Domain-Driven FastAPI app in `backend/main.py`
 - `worker`: Redis queue worker in `backend/ai_worker.py`
 
 ### Data and runtime dependencies
@@ -152,17 +149,14 @@ Prebuilt observability assets tracked in the repo:
 - Prometheus alert rules in `ops/observability/alert_rules.yml`
 - provisioned Grafana datasources and dashboards in `ops/observability/grafana/provisioning/`
 
-## AI Execution Model Today
-
 ### Synchronous public AI request
 ```text
 request
   -> auth / tenant validation in public API
-  -> AI gateway
-  -> dedicated AI service
-      -> embed
-      -> retrieve from FAISS
-      -> rerank / dedup / compress
+  -> domain router (src/domains/ai_engine)
+  -> stateful LangGraph orchestrator
+      -> bind tools (academic, admin, platform)
+      -> embed & FAISS retrieve / Rerank
       -> prompt assembly with personalization
       -> Ollama generation
       -> sanitize + citation validation
@@ -265,7 +259,7 @@ These are still open or partial:
 ## Verification Status
 
 Current local verification targets:
-- backend tests: `cd backend && python -m pytest tests/ -q` — **382 tests across 48 files**
+- backend tests: `cd backend && python -m pytest tests/ -q` — **438 tests fully passing**
 - frontend lint: `cd frontend && npm run lint`
 - frontend production build: `cd frontend && npm run build`
 - frontend e2e: `cd frontend && npm run test:e2e`

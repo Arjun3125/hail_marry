@@ -3,7 +3,7 @@ import pytest
 from unittest.mock import MagicMock
 from uuid import uuid4
 
-from services.compliance import (
+from src.domains.administrative.services.compliance import (
     create_compliance_export,
     list_compliance_exports,
     create_deletion_request,

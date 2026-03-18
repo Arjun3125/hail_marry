@@ -20,7 +20,7 @@ def test_fee_invoice_statuses_defined():
 
 
 def test_fee_structure_model():
-    from models.fee import FeeStructure
+    from src.domains.administrative.models.fee import FeeStructure
     fs = FeeStructure(
         tenant_id=uuid.uuid4(), fee_type="tuition",
         amount=5000.0, frequency="monthly",
@@ -30,7 +30,7 @@ def test_fee_structure_model():
 
 
 def test_fee_invoice_model():
-    from models.fee import FeeInvoice
+    from src.domains.administrative.models.fee import FeeInvoice
     inv = FeeInvoice(
         tenant_id=uuid.uuid4(), student_id=uuid.uuid4(),
         fee_structure_id=uuid.uuid4(), amount_due=5000.0,
@@ -39,7 +39,7 @@ def test_fee_invoice_model():
 
 
 def test_fee_payment_model():
-    from models.fee import FeePayment
+    from src.domains.administrative.models.fee import FeePayment
     pay = FeePayment(
         invoice_id=uuid.uuid4(), tenant_id=uuid.uuid4(),
         amount=2500.0, payment_method="cash", recorded_by=uuid.uuid4(),

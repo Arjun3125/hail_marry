@@ -1,6 +1,6 @@
 """Tests for clickable citation linker."""
 import pytest
-from ai.citation_linker import _parse_citation_string, _format_citation_text
+from src.domains.ai_engine.ai.citation_linker import _parse_citation_string, _format_citation_text
 
 
 # ── Citation parsing ──

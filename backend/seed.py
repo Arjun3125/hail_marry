@@ -12,12 +12,12 @@ Base.metadata.create_all(bind=engine)
 db = SessionLocal()
 
 try:
-    from models.tenant import Tenant
-    from models.user import User
+    from src.domains.identity.models.tenant import Tenant
+    from src.domains.identity.models.user import User
     from models.academic import Class, Subject, Enrollment
     from models.parent_link import ParentLink
-    from models.attendance import Attendance
-    from models.marks import Exam, Mark
+    from src.domains.academic.models.attendance import Attendance
+    from src.domains.academic.models.marks import Exam, Mark
     from models.timetable import Timetable
     from models.lecture import Lecture
     from datetime import date, time

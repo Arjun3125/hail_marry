@@ -5,13 +5,13 @@ from unittest.mock import MagicMock
 
 class TestStructuredLogging:
     def test_configure_does_not_raise(self):
-        from services.structured_logging import configure_structured_logging
+        from src.domains.platform.services.structured_logging import configure_structured_logging
         configure_structured_logging(service_name="test-service")
 
 
 class TestStartupChecks:
     def test_collect_status_returns_dict(self):
-        from services.startup_checks import collect_dependency_status
+        from src.domains.platform.services.startup_checks import collect_dependency_status
         result = collect_dependency_status("api")
         assert isinstance(result, dict)
         assert "ready" in result
@@ -19,7 +19,7 @@ class TestStartupChecks:
     def test_enforce_in_testing_mode(self):
         import os
         os.environ["TESTING"] = "true"
-        from services.startup_checks import enforce_startup_dependencies
+        from src.domains.platform.services.startup_checks import enforce_startup_dependencies
         try:
             enforce_startup_dependencies("api")
         except SystemExit:

@@ -32,7 +32,7 @@ class AlertingTests(unittest.TestCase):
     """Verify each alert condition in get_active_alerts."""
 
     def _get(self, tenant_id, metrics):
-        from services import alerting
+        from src.domains.platform.services import alerting
         with patch.object(alerting, "get_queue_metrics", return_value=metrics):
             return alerting.get_active_alerts(tenant_id)
 
@@ -41,7 +41,7 @@ class AlertingTests(unittest.TestCase):
         self.assertEqual(alerts, [])
 
     def test_alerting_disabled_returns_empty(self):
-        from services import alerting
+        from src.domains.platform.services import alerting
         original = alerting.settings.observability.alerting_enabled
         alerting.settings.observability.alerting_enabled = False
         try:

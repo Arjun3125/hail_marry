@@ -9,12 +9,12 @@ import socket
 
 from config import settings
 from database import engine
-from services.ai_queue import claim_next_job, process_job, recover_processing_jobs
-from services.sentry_config import configure_sentry
-from services.startup_checks import collect_dependency_status, enforce_startup_dependencies
-from services.structured_logging import configure_structured_logging
-from services.telemetry import configure_telemetry, instrument_sqlalchemy_engine
-from services.worker_runtime import (
+from src.domains.ai_engine.services.ai_queue import claim_next_job, process_job, recover_processing_jobs
+from src.domains.platform.services.sentry_config import configure_sentry
+from src.domains.platform.services.startup_checks import collect_dependency_status, enforce_startup_dependencies
+from src.domains.platform.services.structured_logging import configure_structured_logging
+from src.domains.platform.services.telemetry import configure_telemetry, instrument_sqlalchemy_engine
+from src.domains.ai_engine.services.worker_runtime import (
     mark_worker_failure,
     mark_worker_heartbeat,
     mark_worker_started,

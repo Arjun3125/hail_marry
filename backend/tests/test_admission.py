@@ -45,7 +45,7 @@ def test_cannot_skip_review():
 
 def test_admission_application_model():
     """AdmissionApplication model should accept expected fields."""
-    from models.admission import AdmissionApplication
+    from src.domains.administrative.models.admission import AdmissionApplication
 
     app = AdmissionApplication(
         tenant_id=uuid.uuid4(),
@@ -61,7 +61,7 @@ def test_admission_application_model():
 
 def test_admission_application_default_status():
     """Default status should be 'pending' (set by column default on insert)."""
-    from models.admission import AdmissionApplication
+    from src.domains.administrative.models.admission import AdmissionApplication
 
     app = AdmissionApplication(
         tenant_id=uuid.uuid4(),
@@ -75,7 +75,7 @@ def test_admission_application_default_status():
 
 def test_admission_documents_jsonb():
     """Documents field should accept a list of dicts."""
-    from models.admission import AdmissionApplication
+    from src.domains.administrative.models.admission import AdmissionApplication
 
     docs = [
         {"name": "birth_certificate.pdf", "url": "/uploads/birth_cert.pdf"},

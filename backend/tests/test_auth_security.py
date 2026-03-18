@@ -7,8 +7,8 @@ def test_login_brute_force_rate_limit(client, db_session, active_tenant):
     hit_rate_limit = False
     
     # Need valid user token up front to pass into the AI query gateway and fetch user_id in middleware
-    from models.user import User
-    from routes.auth import pwd_context
+    from src.domains.identity.models.user import User
+    from src.domains.identity.routes.auth import pwd_context
     import uuid
     
     student_id = uuid.uuid4()
@@ -54,8 +54,8 @@ def test_jwt_none_algorithm_rejection(client):
 
 def test_student_cannot_access_admin_endpoints(client, db_session, active_tenant):
     """Ensure Role-Based Access Control (RBAC) boundary explicitly bounces Students from Admin routes."""
-    from models.user import User
-    from routes.auth import pwd_context
+    from src.domains.identity.models.user import User
+    from src.domains.identity.routes.auth import pwd_context
     
     student_id = uuid4()
     student = User(

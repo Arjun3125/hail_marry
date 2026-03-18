@@ -3,7 +3,7 @@ import pytest
 from unittest.mock import MagicMock
 from uuid import uuid4
 
-from services.leaderboard import calculate_rankings, get_leaderboard, get_student_rank
+from src.domains.academic.services.leaderboard import calculate_rankings, get_leaderboard, get_student_rank
 
 
 class TestCalculateRankings:

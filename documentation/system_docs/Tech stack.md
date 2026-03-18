@@ -46,7 +46,7 @@
 
 | Capability | Current Implementation |
 |---|---|
-| Public synchronous execution boundary | `backend/services/ai_gateway.py` -> `backend/ai_service_app.py` |
+| Public synchronous execution boundary | `backend/services/ai_gateway.py` -> `backend/src/domains/ai_engine/router.py` |
 | LLM runner | Ollama over HTTP |
 | Default model | `llama3.2` |
 | Fallback model | configurable, default currently also `llama3.2` |
@@ -82,7 +82,7 @@ Current compose stack:
 - postgres
 - redis
 - api
-- ai-service
+- api
 - worker
 - frontend
 - nginx

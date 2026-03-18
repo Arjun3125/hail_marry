@@ -34,8 +34,8 @@ class TestRateLimitIntegration:
 
     def test_ai_path_rate_limited_after_burst(self, client, db_session, active_tenant):
         """AI endpoints should return 429 after exceeding burst limit."""
-        from models.user import User
-        from routes.auth import pwd_context
+        from src.domains.identity.models.user import User
+        from src.domains.identity.routes.auth import pwd_context
         import uuid
 
         user_id = uuid.uuid4()

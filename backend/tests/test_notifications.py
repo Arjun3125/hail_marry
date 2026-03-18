@@ -21,11 +21,11 @@ class NotificationStoreTests(unittest.TestCase):
         Base.metadata.create_all(bind=engine)
 
     def setUp(self):
-        from services import notifications
+        from src.domains.platform.services import notifications
         from database import SessionLocal
         from models.notification import Notification
-        from models.tenant import Tenant
-        from models.user import User
+        from src.domains.identity.models.tenant import Tenant
+        from src.domains.identity.models.user import User
 
         self.db = SessionLocal()
         self.tenant_id = uuid.uuid4()
@@ -102,11 +102,11 @@ class SubscriptionTests(unittest.IsolatedAsyncioTestCase):
         Base.metadata.create_all(bind=engine)
 
     def setUp(self):
-        from services import notifications
+        from src.domains.platform.services import notifications
         from database import SessionLocal
         from models.notification import Notification
-        from models.tenant import Tenant
-        from models.user import User
+        from src.domains.identity.models.tenant import Tenant
+        from src.domains.identity.models.user import User
 
         self.db = SessionLocal()
         self.tenant_id = uuid.uuid4()

@@ -12,11 +12,11 @@ groups:
           description: "Prometheus cannot scrape the public API metrics endpoint for 2 minutes."
 
       - alert: VidyaOSAIServiceDown
-        expr: up{job="vidyaos-ai-service"} == 0
+        expr: up{job="vidyaos-api"} == 0
         for: 2m
         labels:
           severity: critical
-          service: ai-service
+          service: api
         annotations:
           summary: "Dedicated AI service is down"
           description: "Prometheus cannot scrape the AI service metrics endpoint for 2 minutes."

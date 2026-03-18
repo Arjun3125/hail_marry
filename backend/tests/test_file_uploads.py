@@ -3,8 +3,8 @@ import io
 from fastapi.testclient import TestClient
 
 def test_admin_onboard_teachers_rejects_empty_csv(client, db_session, active_tenant):
-    from models.user import User
-    from routes.auth import pwd_context
+    from src.domains.identity.models.user import User
+    from src.domains.identity.routes.auth import pwd_context
     import uuid
     
     # Establish Admin credentials
@@ -36,8 +36,8 @@ def test_admin_onboard_teachers_rejects_empty_csv(client, db_session, active_ten
     assert "No readable names found" in resp_empty.text
 
 def test_admin_onboard_teachers_rejects_random_binary(client, db_session, active_tenant):
-    from models.user import User
-    from routes.auth import pwd_context
+    from src.domains.identity.models.user import User
+    from src.domains.identity.routes.auth import pwd_context
     import uuid
     import os
     

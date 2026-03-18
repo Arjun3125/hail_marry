@@ -2,7 +2,7 @@
 import os
 import tempfile
 import pytest
-from services.doc_watcher import (
+from src.domains.ai_engine.services.doc_watcher import (
     SUPPORTED_EXTENSIONS, compute_file_hash, get_watch_status,
     mark_processed, scan_directory, _processed_files,
 )

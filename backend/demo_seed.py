@@ -9,12 +9,12 @@ from datetime import date, time
 
 def seed_demo_data(db):
     """Seed comprehensive demo data into the database."""
-    from models.tenant import Tenant
-    from models.user import User
+    from src.domains.identity.models.tenant import Tenant
+    from src.domains.identity.models.user import User
     from models.academic import Class, Subject, Enrollment
     from models.parent_link import ParentLink
-    from models.attendance import Attendance
-    from models.marks import Exam, Mark
+    from src.domains.academic.models.attendance import Attendance
+    from src.domains.academic.models.marks import Exam, Mark
     from models.timetable import Timetable
     from models.lecture import Lecture
 
@@ -146,7 +146,7 @@ def seed_demo_data(db):
         db.add(Lecture(tenant_id=tenant_id, subject_id=subjects[subj], title=title, youtube_url=url))
 
     # ─── Assignments ──────────────────────────────
-    from models.assignment import Assignment, AssignmentSubmission
+    from src.domains.academic.models.assignment import Assignment, AssignmentSubmission
     from datetime import datetime, timedelta, timezone
 
     now_utc = datetime.now(timezone.utc)
@@ -230,7 +230,7 @@ def seed_demo_data(db):
         ))
 
     # ─── Uploaded Documents ───────────────────────
-    from models.document import Document
+    from src.domains.ai_engine.models.document import Document
 
     doc_data = [
         (teacher_id, subjects["Mathematics"], "NCERT_Mathematics_Ch4_Quadratics.pdf", "pdf", "completed", 24),

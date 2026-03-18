@@ -101,7 +101,7 @@ def test_webhook_payload_subscription_charged():
 
 def test_billing_plan_model():
     """BillingPlan model should accept expected fields."""
-    from models.billing import BillingPlan
+    from src.domains.administrative.models.billing import BillingPlan
 
     plan = BillingPlan(
         name="test",
@@ -115,7 +115,7 @@ def test_billing_plan_model():
 
 def test_payment_record_model():
     """PaymentRecord model should accept expected fields."""
-    from models.billing import PaymentRecord
+    from src.domains.administrative.models.billing import PaymentRecord
 
     record = PaymentRecord(
         tenant_id=uuid.uuid4(),
@@ -129,7 +129,7 @@ def test_payment_record_model():
 
 def test_tenant_subscription_model():
     """TenantSubscription model should accept expected fields."""
-    from models.billing import TenantSubscription
+    from src.domains.administrative.models.billing import TenantSubscription
 
     sub = TenantSubscription(
         tenant_id=uuid.uuid4(),

@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
-from services import startup_checks
-from services.worker_runtime import mark_worker_heartbeat, mark_worker_started, update_dependency_status
+from src.domains.platform.services import startup_checks
+from src.domains.ai_engine.services.worker_runtime import mark_worker_heartbeat, mark_worker_started, update_dependency_status
 from worker_health_app import app as worker_health_app
 
 

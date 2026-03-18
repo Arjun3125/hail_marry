@@ -1,6 +1,6 @@
 """Tests for extended data connectors."""
 import pytest
-from ai.connectors import CONNECTORS, get_connector
+from src.domains.ai_engine.ai.connectors import CONNECTORS, get_connector
 from constants import EXTENDED_FILE_TYPES
 
 

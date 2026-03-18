@@ -25,19 +25,19 @@ class FakeStreak:
 
 class GetBadgesTests(unittest.TestCase):
     def test_no_badges_at_zero(self):
-        from services.gamification import get_badges
+        from src.domains.academic.services.gamification import get_badges
         streak = FakeStreak(current_streak=0, total_sessions=0, longest_streak=0)
         badges = get_badges(streak)
         self.assertEqual(badges, [])
 
     def test_first_login_badge(self):
-        from services.gamification import get_badges
+        from src.domains.academic.services.gamification import get_badges
         streak = FakeStreak(current_streak=1, total_sessions=1, longest_streak=1)
         badge_ids = [b["id"] for b in get_badges(streak)]
         self.assertIn("first_login", badge_ids)
 
     def test_7_day_streak_badges(self):
-        from services.gamification import get_badges
+        from src.domains.academic.services.gamification import get_badges
         streak = FakeStreak(current_streak=7, total_sessions=7, longest_streak=7)
         badge_ids = [b["id"] for b in get_badges(streak)]
         self.assertIn("first_login", badge_ids)
@@ -46,7 +46,7 @@ class GetBadgesTests(unittest.TestCase):
         self.assertNotIn("streak_14", badge_ids)
 
     def test_100_sessions_badge(self):
-        from services.gamification import get_badges
+        from src.domains.academic.services.gamification import get_badges
         streak = FakeStreak(current_streak=1, total_sessions=100, longest_streak=5)
         badge_ids = [b["id"] for b in get_badges(streak)]
         self.assertIn("sessions_100", badge_ids)
@@ -54,7 +54,7 @@ class GetBadgesTests(unittest.TestCase):
         self.assertIn("sessions_10", badge_ids)
 
     def test_all_badges_at_max(self):
-        from services.gamification import get_badges, BADGES
+        from src.domains.academic.services.gamification import get_badges, BADGES
         streak = FakeStreak(current_streak=100, total_sessions=100, longest_streak=100)
         badges = get_badges(streak)
         self.assertEqual(len(badges), len(BADGES))
@@ -62,7 +62,7 @@ class GetBadgesTests(unittest.TestCase):
 
 class GetStreakInfoTests(unittest.TestCase):
     def test_no_streak_returns_defaults(self):
-        from services.gamification import get_streak_info
+        from src.domains.academic.services.gamification import get_streak_info
         db = MagicMock()
         db.query.return_value.filter.return_value.first.return_value = None
         info = get_streak_info(db, uuid4(), uuid4())
@@ -70,7 +70,7 @@ class GetStreakInfoTests(unittest.TestCase):
         self.assertEqual(info["badges"], [])
 
     def test_existing_streak_returns_data(self):
-        from services.gamification import get_streak_info
+        from src.domains.academic.services.gamification import get_streak_info
         db = MagicMock()
         fake = FakeStreak(current_streak=5, longest_streak=10, total_sessions=20, last_login_date=date.today())
         db.query.return_value.filter.return_value.first.return_value = fake

@@ -73,7 +73,7 @@ Implemented in `backend/constants.py`:
 - rate limiting window, PDF color constants, test defaults
 
 ### Dedicated AI service
-Implemented in `backend/ai_service_app.py`:
+Implemented in `backend/src/domains/ai_engine/router.py`:
 - query generation
 - audio overview generation
 - video overview generation
@@ -167,7 +167,7 @@ Tracked services in `docker-compose.yml`:
 - `postgres`
 - `redis`
 - `api`
-- `ai-service`
+- `api`
 - `worker`
 - `frontend`
 - `nginx`

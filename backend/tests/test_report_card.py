@@ -26,7 +26,7 @@ class TestReportCardGrading:
     def test_report_card_imports_from_constants(self):
         """report_card.py should import compute_grade from constants, not define its own."""
         import inspect
-        from services import report_card
+        from src.domains.academic.services import report_card
         source = inspect.getsource(report_card)
         assert "from constants import" in source
         assert "compute_grade" in source
@@ -34,7 +34,7 @@ class TestReportCardGrading:
     def test_pdf_uses_constant_colors(self):
         """Verify the module references PDF_PRIMARY_COLOR, not hardcoded hex."""
         import inspect
-        from services import report_card
+        from src.domains.academic.services import report_card
         source = inspect.getsource(report_card)
         assert "PDF_PRIMARY_COLOR" in source
         assert "PDF_MUTED_COLOR" in source

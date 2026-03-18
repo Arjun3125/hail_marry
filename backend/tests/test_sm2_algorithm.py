@@ -10,7 +10,7 @@ if str(BACKEND_DIR) not in sys.path:
 
 os.environ["DEBUG"] = "true"
 
-from routes.students import _sm2_update
+from src.domains.academic.routes.students import _sm2_update
 
 
 class SM2AlgorithmTests(unittest.TestCase):

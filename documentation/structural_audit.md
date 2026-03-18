@@ -12,7 +12,7 @@
 > - ✅ GPU monitoring via DCGM exporter + Grafana dashboard
 > - ✅ CI/CD pipeline via GitHub Actions
 > - ✅ AI request queue implemented (Redis-backed worker)
-> - ✅ AI separated into dedicated microservice (`ai_service_app.py`)
+> - ✅ AI separated into dedicated microservice (`src/domains/ai_engine/router.py`)
 > - ✅ Provider abstraction wired
 > - ✅ Multi-AI-service routing for GPU pools (`AI_SERVICE_URLS`)
 > - ✅ Queue position/depth feedback in job status
