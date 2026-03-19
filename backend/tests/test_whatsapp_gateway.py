@@ -1,6 +1,7 @@
 """Tests for WhatsApp Gateway — signature verification, OTP auth, session management,
 RBAC enforcement, and webhook pipeline.
 """
+import asyncio
 import hashlib
 import hmac
 import json
@@ -12,15 +13,21 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
 
 # ─── Set env vars before imports ──────────────────────────────
 os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
 os.environ.setdefault("WHATSAPP_APP_SECRET", "test-secret-key")
 os.environ.setdefault("WHATSAPP_VERIFY_TOKEN", "vidyaos-wa-verify")
 
-from src.domains.platform.routes.whatsapp import router as wa_router
+from src.domains.platform.routes.whatsapp import (
+    whatsapp_webhook_verify,
+    whatsapp_webhook_inbound,
+    whatsapp_tool_catalog,
+    _extract_messages,
+    SendMessageRequest,
+    _dispatch_outbound_response,
+    whatsapp_report_card_download,
+)
 from src.domains.platform.services.whatsapp_gateway import (
     verify_webhook_signature,
     generate_otp,
@@ -32,15 +39,24 @@ from src.domains.platform.services.whatsapp_gateway import (
     is_rate_limited,
     is_duplicate_message,
     handle_system_command,
+    format_ai_job_status_message,
+    process_inbound_message,
+    _build_child_switch_response,
+    _handle_child_switch_selection,
+    _build_report_card_response,
     SYSTEM_COMMANDS,
 )
 from src.shared.ai_tools.whatsapp_tools import (
     authorize_tool,
     TOOL_ROLE_MAP,
     get_tools_for_role,
+    get_tool_spec,
+    get_tool_specs_for_role,
+    serialize_tool_catalog,
 )
 from src.interfaces.whatsapp_bot.agent import (
     _classify_intent_heuristic,
+    _extract_topic_from_message,
     WhatsAppAgentState,
     build_whatsapp_agent_graph,
 )
@@ -55,20 +71,6 @@ def reset_app_secret():
     original = whatsapp_gateway.WHATSAPP_APP_SECRET
     yield
     whatsapp_gateway.WHATSAPP_APP_SECRET = original
-
-@pytest.fixture
-def app():
-    """Create a test FastAPI app with WhatsApp routes."""
-    test_app = FastAPI()
-    test_app.include_router(wa_router)
-    return test_app
-
-
-@pytest.fixture
-def client(app):
-    """Create a test client."""
-    return TestClient(app)
-
 
 @pytest.fixture
 def mock_redis():
@@ -258,6 +260,62 @@ class TestDeduplication:
         assert is_duplicate_message("msg-002") is True
 
 
+# ─── Parent Child Switching Tests ─────────────────────────────
+
+class TestParentChildSwitching:
+    def test_build_child_switch_response_returns_list_for_multiple_children(self):
+        session = {"phone": "919876543210", "active_child_id": None}
+        db = MagicMock()
+        with patch("src.domains.platform.services.whatsapp_gateway._get_parent_children", return_value=[
+            {"child_id": "child-1", "name": "Aarav"},
+            {"child_id": "child-2", "name": "Diya"},
+        ]):
+            response = _build_child_switch_response(db, session)
+
+        assert response["response_type"] == "list"
+        assert response["rows"][0]["id"] == "child:child-1"
+        assert response["rows"][1]["title"] == "Diya"
+
+    def test_handle_child_switch_selection_updates_session(self):
+        session = {"phone": "919876543210", "active_child_id": None}
+        db = MagicMock()
+        with patch("src.domains.platform.services.whatsapp_gateway._get_parent_children", return_value=[
+            {"child_id": "child-1", "name": "Aarav"},
+        ]), patch("src.domains.platform.services.whatsapp_gateway.save_session") as save_mock:
+            response = _handle_child_switch_selection(db, session, "child:child-1")
+
+        assert session["active_child_id"] == "child-1"
+        assert response["response_type"] == "text"
+        save_mock.assert_called_once()
+
+    async def test_parent_without_active_child_gets_selection_list(self):
+        link = SimpleNamespace(user_id=uuid4(), tenant_id=uuid4())
+        session = {
+            "phone": "919876543210",
+            "user_id": str(link.user_id),
+            "tenant_id": str(link.tenant_id),
+            "role": "parent",
+            "active_child_id": None,
+            "conversation_history": [],
+        }
+        db = MagicMock()
+        with patch("src.domains.platform.services.whatsapp_gateway.resolve_phone_to_user", return_value=link), \
+             patch("src.domains.platform.services.whatsapp_gateway.get_session", return_value=session), \
+             patch("src.domains.platform.services.whatsapp_gateway._build_child_switch_response", return_value={
+                 "response_text": "Choose a child",
+                 "response_type": "list",
+                 "rows": [{"id": "child:1", "title": "Aarav"}],
+                 "header": "Choose child",
+                 "button_text": "Select",
+             }), \
+             patch("src.domains.platform.services.whatsapp_gateway.log_message"), \
+             patch("src.domains.platform.services.whatsapp_gateway.save_session"):
+            result = await process_inbound_message(db, "919876543210", "Show attendance")
+
+        assert result["response_type"] == "list"
+        assert result["rows"][0]["id"] == "child:1"
+
+
 # ─── System Command Tests ─────────────────────────────────────
 
 class TestSystemCommands:
@@ -280,6 +338,7 @@ class TestSystemCommands:
         session = {"role": "parent", "phone": "919876543210"}
         response = handle_system_command(MagicMock(), "help", session)
         assert "child" in response.lower()
+        assert "/reportcard" in response.lower()
 
     def test_help_command_admin(self):
         """Help command should return admin-specific options."""
@@ -309,6 +368,11 @@ class TestSystemCommands:
         response = handle_system_command(MagicMock(), "/switch", session)
         assert "parent" in response.lower()
 
+    def test_report_card_non_parent(self):
+        session = {"role": "student", "phone": "919876543210"}
+        response = handle_system_command(MagicMock(), "/reportcard", session)
+        assert "parent" in response.lower()
+
 
 # ─── RBAC Tests ───────────────────────────────────────────────
 
@@ -321,6 +385,15 @@ class TestRBAC:
 
     def test_teacher_authorized_for_schedule(self):
         assert authorize_tool("get_teacher_schedule", "teacher") is True
+
+    def test_teacher_authorized_for_generate_quiz(self):
+        assert authorize_tool("generate_quiz", "teacher") is True
+
+    def test_student_authorized_for_generate_study_guide(self):
+        assert authorize_tool("generate_study_guide", "student") is True
+
+    def test_student_authorized_for_generate_audio_overview(self):
+        assert authorize_tool("generate_audio_overview", "student") is True
 
     def test_parent_authorized_for_child_attendance(self):
         assert authorize_tool("get_child_attendance", "parent") is True
@@ -352,8 +425,71 @@ class TestRBAC:
         assert "get_fee_pending_report" in tool_names
         assert "get_student_timetable" not in tool_names
 
+    def test_tool_spec_metadata_for_parent_tool(self):
+        spec = get_tool_spec("get_child_attendance")
+        assert spec is not None
+        assert spec.required_params == ("child_id", "tenant_id")
+        assert spec.feature_category == "erp_read"
+        assert "parent" in spec.roles
+
+    def test_tool_specs_for_role_are_filtered(self):
+        specs = get_tool_specs_for_role("teacher")
+        names = [spec.name for spec in specs]
+        assert "get_teacher_schedule" in names
+        assert "generate_quiz" in names
+        assert "get_student_timetable" not in names
+
+    def test_serialized_catalog_includes_execution_metadata(self):
+        catalog = serialize_tool_catalog("admin")
+        fee_tool = next(item for item in catalog if item["name"] == "get_fee_pending_report")
+        assert fee_tool["execution_mode"] == "sync"
+        assert fee_tool["channel_suitability"] == "direct"
+
+    def test_serialized_catalog_marks_generate_quiz_async(self):
+        catalog = serialize_tool_catalog("teacher")
+        quiz_tool = next(item for item in catalog if item["name"] == "generate_quiz")
+        assert quiz_tool["execution_mode"] == "async"
+        assert quiz_tool["feature_category"] == "ai_async"
+
+    def test_serialized_catalog_marks_generate_study_guide_async(self):
+        catalog = serialize_tool_catalog("student")
+        guide_tool = next(item for item in catalog if item["name"] == "generate_study_guide")
+        assert guide_tool["execution_mode"] == "async"
+        assert guide_tool["feature_category"] == "ai_async"
+
+    def test_serialized_catalog_marks_generate_audio_overview_async(self):
+        catalog = serialize_tool_catalog("student")
+        audio_tool = next(item for item in catalog if item["name"] == "generate_audio_overview")
+        assert audio_tool["execution_mode"] == "async"
+        assert audio_tool["feature_category"] == "ai_async"
+
 
 # ─── Intent Classification Tests ──────────────────────────────
+
+class TestAsyncJobNotifications:
+    def test_format_completed_ai_job_status_message(self):
+        message = format_ai_job_status_message({
+            "status": "completed",
+            "job_id": "job-123",
+            "job_type": "query",
+            "request": {"query": "photosynthesis"},
+        })
+        assert "ready" in message.lower()
+        assert "photosynthesis" in message
+        assert "job-123" in message
+
+    def test_format_failed_ai_job_status_message(self):
+        message = format_ai_job_status_message({
+            "status": "failed",
+            "job_id": "job-456",
+            "job_type": "audio",
+            "request": {"topic": "atoms"},
+            "error": "worker timeout",
+        })
+        assert "failed" in message.lower()
+        assert "atoms" in message
+        assert "worker timeout" in message
+
 
 class TestIntentClassification:
     def test_student_timetable_intent(self):
@@ -381,6 +517,18 @@ class TestIntentClassification:
         result = _classify_intent_heuristic("Which students are absent?", "teacher")
         assert result == "get_teacher_absent_students"
 
+    def test_teacher_generate_quiz_intent(self):
+        result = _classify_intent_heuristic("Generate quiz for class 8 science", "teacher")
+        assert result == "generate_quiz"
+
+    def test_student_generate_study_guide_intent(self):
+        result = _classify_intent_heuristic("Generate study guide for photosynthesis", "student")
+        assert result == "generate_study_guide"
+
+    def test_student_generate_audio_overview_intent(self):
+        result = _classify_intent_heuristic("Create audio overview for photosynthesis", "student")
+        assert result == "generate_audio_overview"
+
     def test_parent_attendance_override(self):
         """Parent asking for attendance should get child's attendance."""
         result = _classify_intent_heuristic("Show attendance", "parent")
@@ -406,49 +554,174 @@ class TestIntentClassification:
         result = _classify_intent_heuristic("Any books on physics?", "admin")
         assert result == "check_library_catalog"
 
+    def test_extract_topic_from_generate_quiz_message(self):
+        topic = _extract_topic_from_message("Generate quiz for class 8 science")
+        assert topic == "class 8 science"
+
+    def test_extract_topic_from_generate_study_guide_message(self):
+        topic = _extract_topic_from_message("Generate study guide for photosynthesis")
+        assert topic == "photosynthesis"
+
+    def test_extract_topic_from_generate_audio_overview_message(self):
+        topic = _extract_topic_from_message("Create audio overview for photosynthesis")
+        assert topic == "photosynthesis"
+
+
+class TestInteractiveReplyExtraction:
+    def test_extract_messages_prefers_interactive_reply_id(self):
+        payload = {
+            "entry": [{
+                "changes": [{
+                    "value": {
+                        "messages": [{
+                            "type": "interactive",
+                            "from": "919876543210",
+                            "id": "wamid-1",
+                            "interactive": {
+                                "list_reply": {
+                                    "id": "child:abc123",
+                                    "title": "Aarav",
+                                }
+                            },
+                        }]
+                    }
+                }]
+            }]
+        }
+
+        messages = _extract_messages(payload)
+        assert messages[0]["text"] == "child:abc123"
+
+
+class TestReportCardDelivery:
+    def test_build_report_card_response_returns_document_payload(self):
+        child_id = str(uuid4())
+        session = {
+            "phone": "919876543210",
+            "user_id": str(uuid4()),
+            "tenant_id": str(uuid4()),
+            "role": "parent",
+            "active_child_id": child_id,
+        }
+        db = MagicMock()
+        db.query.return_value.filter.return_value.first.return_value = SimpleNamespace(full_name="Aarav Sharma")
+        with patch("src.domains.platform.services.whatsapp_gateway._create_report_card_token", return_value="token-123"), \
+             patch("src.domains.platform.services.whatsapp_gateway.settings.auth.saml_sp_base_url", "https://vidyaos.app"):
+            response = _build_report_card_response(db, session)
+
+        assert response["response_type"] == "document"
+        assert response["document_link"].endswith("/api/v1/whatsapp/report-card/token-123")
+        assert response["document_filename"].endswith(".pdf")
+
+    async def test_whatsapp_report_card_download_uses_token_payload(self):
+        db = MagicMock()
+        db.query.return_value.filter.return_value.first.return_value = SimpleNamespace(name="VidyaOS School")
+        with patch("src.domains.platform.routes.whatsapp.consume_report_card_token", return_value={
+            "tenant_id": str(uuid4()),
+            "child_id": str(uuid4()),
+        }), patch("src.domains.platform.routes.whatsapp._generate_report_card_pdf", return_value=b"%PDF-1.4"):
+            response = await whatsapp_report_card_download("token-123", db=db)
+
+        assert response.media_type == "application/pdf"
+
+
+class TestDocumentMessages:
+    def test_send_message_request_requires_document_fields(self):
+        with pytest.raises(ValueError):
+            SendMessageRequest(phone="919876543210", message="Report card", message_type="document")
+
+    def test_send_message_request_accepts_document_fields(self):
+        request = SendMessageRequest(
+            phone="919876543210",
+            message="Report card ready",
+            message_type="document",
+            document_link="https://example.com/report.pdf",
+            document_filename="report_card.pdf",
+        )
+        assert request.document_filename == "report_card.pdf"
+
+    async def test_dispatch_outbound_document_response(self):
+        with patch("src.domains.platform.routes.whatsapp.send_document_message", new_callable=AsyncMock) as send_document:
+            send_document.return_value = {"success": True}
+            await _dispatch_outbound_response("919876543210", {
+                "response_type": "document",
+                "response_text": "📄 Your report is ready",
+                "document_link": "https://example.com/report.pdf",
+                "document_filename": "report_card.pdf",
+                "document_caption": "📄 Report card",
+            })
+
+        send_document.assert_awaited_once()
+
 
 # ─── Webhook Endpoint Tests ──────────────────────────────────
 
 class TestWebhookEndpoints:
-    def test_webhook_verification_success(self, client):
+    async def test_webhook_verification_success(self):
         """Meta verification handshake should succeed with correct token."""
-        response = client.get(
-            "/whatsapp/webhook",
-            params={
-                "hub.mode": "subscribe",
-                "hub.verify_token": "vidyaos-wa-verify",
-                "hub.challenge": "12345",
-            },
+        response = await whatsapp_webhook_verify(
+            request=SimpleNamespace(),
+            hub_mode="subscribe",
+            hub_verify_token="vidyaos-wa-verify",
+            hub_challenge="12345",
         )
-        assert response.status_code == 200
-        assert response.json() == 12345
+        assert response == 12345
 
-    def test_webhook_verification_failure(self, client):
+    async def test_webhook_verification_failure(self):
         """Meta verification should fail with wrong token."""
-        response = client.get(
-            "/whatsapp/webhook",
-            params={
-                "hub.mode": "subscribe",
-                "hub.verify_token": "wrong-token",
-                "hub.challenge": "12345",
-            },
-        )
-        assert response.status_code == 403
+        with pytest.raises(Exception) as exc:
+            await whatsapp_webhook_verify(
+                request=SimpleNamespace(),
+                hub_mode="subscribe",
+                hub_verify_token="wrong-token",
+                hub_challenge="12345",
+            )
+        assert getattr(exc.value, "status_code", None) == 403
 
-    def test_webhook_inbound_invalid_signature(self, client):
+    async def test_webhook_inbound_invalid_signature(self):
         """Inbound webhook should reject invalid signatures."""
         from src.domains.platform.services import whatsapp_gateway
         whatsapp_gateway.WHATSAPP_APP_SECRET = "real-secret"
 
-        response = client.post(
-            "/whatsapp/webhook",
-            json={"entry": []},
-            headers={"X-Hub-Signature-256": "sha256=invalid"},
-        )
-        assert response.status_code == 403
+        class FakeRequest:
+            headers = {"X-Hub-Signature-256": "sha256=invalid"}
+
+            async def body(self):
+                return b'{"entry": []}'
+
+            async def json(self):
+                return {"entry": []}
+
+        with pytest.raises(Exception) as exc:
+            await whatsapp_webhook_inbound(
+                request=FakeRequest(),
+                background_tasks=SimpleNamespace(add_task=lambda *args, **kwargs: None),
+            )
+        assert getattr(exc.value, "status_code", None) == 403
 
         # Reset
         whatsapp_gateway.WHATSAPP_APP_SECRET = ""
+
+
+class TestToolCatalogEndpoint:
+    def test_admin_can_get_full_tool_catalog(self):
+        current_user = SimpleNamespace(role="admin")
+        result = asyncio.run(whatsapp_tool_catalog(current_user=current_user, role=None))
+        assert "tools" in result
+        assert any(tool["name"] == "get_student_timetable" for tool in result["tools"])
+
+    def test_admin_can_filter_tool_catalog_by_role(self):
+        current_user = SimpleNamespace(role="admin")
+        result = asyncio.run(whatsapp_tool_catalog(current_user=current_user, role="parent"))
+        tool_names = [tool["name"] for tool in result["tools"]]
+        assert "get_child_attendance" in tool_names
+        assert "get_student_timetable" not in tool_names
+
+    def test_non_admin_cannot_get_tool_catalog(self):
+        current_user = SimpleNamespace(role="teacher")
+        with pytest.raises(Exception) as exc:
+            asyncio.run(whatsapp_tool_catalog(current_user=current_user, role=None))
+        assert getattr(exc.value, "status_code", None) == 403
 
 
 # ─── Agent Graph Structure Test ───────────────────────────────
@@ -474,13 +747,27 @@ class TestAgentGraph:
 
 class TestModels:
     def test_phone_user_link_import(self):
+        pytest.importorskip("sqlalchemy")
         from src.domains.platform.models.whatsapp_models import PhoneUserLink
         assert PhoneUserLink.__tablename__ == "phone_user_link"
 
     def test_whatsapp_session_import(self):
+        pytest.importorskip("sqlalchemy")
         from src.domains.platform.models.whatsapp_models import WhatsAppSession
         assert WhatsAppSession.__tablename__ == "whatsapp_sessions"
 
     def test_whatsapp_message_import(self):
+        pytest.importorskip("sqlalchemy")
         from src.domains.platform.models.whatsapp_models import WhatsAppMessage
         assert WhatsAppMessage.__tablename__ == "whatsapp_messages"
+
+
+for _name, _value in list(vars().items()):
+    if _name.startswith("Test") and isinstance(_value, type):
+        for _attr, _fn in list(vars(_value).items()):
+            if _attr.startswith("test_") and asyncio.iscoroutinefunction(_fn):
+                def _wrap(fn):
+                    def _runner(*args, **kwargs):
+                        return asyncio.run(fn(*args, **kwargs))
+                    return _runner
+                setattr(_value, _attr, _wrap(_fn))

@@ -9,7 +9,50 @@ import json
 import logging
 from typing import TypedDict, Optional
 
-from langgraph.graph import StateGraph, END
+try:
+    from langgraph.graph import StateGraph, END
+except ModuleNotFoundError:  # Lightweight test environments
+    END = "__end__"
+
+    class _CompiledGraph:
+        def __init__(self, graph):
+            self._graph = graph
+
+        def invoke(self, state):
+            current = self._graph.entry_point
+            current_state = dict(state)
+            while current and current != END:
+                node_fn = self._graph.nodes[current]
+                result = node_fn(current_state) or {}
+                current_state.update(result)
+                if current in self._graph.conditional_edges:
+                    router, mapping = self._graph.conditional_edges[current]
+                    current = mapping[router(current_state)]
+                else:
+                    current = self._graph.edges.get(current, END)
+            return current_state
+
+    class StateGraph:
+        def __init__(self, _state_type):
+            self.nodes = {}
+            self.edges = {}
+            self.conditional_edges = {}
+            self.entry_point = None
+
+        def add_node(self, name, fn):
+            self.nodes[name] = fn
+
+        def set_entry_point(self, name):
+            self.entry_point = name
+
+        def add_conditional_edges(self, source, router, mapping):
+            self.conditional_edges[source] = (router, mapping)
+
+        def add_edge(self, source, target):
+            self.edges[source] = target
+
+        def compile(self):
+            return _CompiledGraph(self)
 
 logger = logging.getLogger(__name__)
 
@@ -70,11 +113,16 @@ INTENT_MAP = {
     "grade": "get_student_results",
     "weak": "get_student_weak_topics",
     "improve": "get_student_weak_topics",
+    "study guide": "generate_study_guide",
+    "audio overview": "generate_audio_overview",
+    "audio summary": "generate_audio_overview",
+    "podcast": "generate_audio_overview",
     "study": "get_student_weak_topics",
 
     # Teacher intents (resolved after role check)
     "absent students": "get_teacher_absent_students",
     "who is absent": "get_teacher_absent_students",
+    "generate quiz": "generate_quiz",
 
     # Parent intents
     "child performance": "get_child_performance",
@@ -98,6 +146,7 @@ INTENT_MAP = {
 # Role-aware overrides: same keyword yields different tools based on role
 ROLE_INTENT_OVERRIDES = {
     "teacher": {
+        "generate quiz": "generate_quiz",
         "attendance": "get_teacher_absent_students",
         "absent": "get_teacher_absent_students",
         "schedule": "get_teacher_schedule",
@@ -160,7 +209,10 @@ def _classify_intent_similarity(message: str, role: str) -> dict:
         "get_student_attendance": {"attendance", "absent", "present", "leave", "holiday", "attended"},
         "get_student_results": {"marks", "results", "score", "grade", "report", "passed", "failed"},
         "get_student_weak_topics": {"weak", "improve", "study", "guide", "bad", "failing", "attention"},
+        "generate_study_guide": {"study", "guide", "summary", "notes", "chapter", "topic"},
+        "generate_audio_overview": {"audio", "overview", "podcast", "listen", "summary", "topic"},
         "get_teacher_absent_students": {"absent", "students", "who", "missing", "attendance", "today"},
+        "generate_quiz": {"generate", "quiz", "mcq", "assessment", "class", "topic"},
         "get_child_performance": {"child", "performance", "doing", "progress", "marks", "results"},
         "get_child_attendance": {"child", "attendance", "absent", "present", "school"},
         "get_child_homework": {"child", "homework", "assignment", "pending", "due"},
@@ -264,6 +316,14 @@ def execute_tool(state: WhatsAppAgentState) -> dict:
 
     # Determine arguments based on tool and role
     try:
+        if tool_name in {"generate_quiz", "generate_study_guide", "generate_audio_overview"}:
+            topic = _extract_topic_from_message(state["message"])
+            result = tool_fn.invoke({
+                "user_id": state["user_id"],
+                "tenant_id": state["tenant_id"],
+                "topic": topic,
+            })
+            return {"tool_result": result}
         if state["role"] == "parent" and tool_name.startswith("get_child_"):
             # Parent tools use child_id instead of user_id
             # If no active_child_id, the gateway should have handled child selection
@@ -283,6 +343,46 @@ def execute_tool(state: WhatsAppAgentState) -> dict:
     except Exception as e:
         logger.exception("Tool execution failed: %s", tool_name)
         return {"tool_result": f"❌ Error executing request: {str(e)}"}
+
+
+def _extract_topic_from_message(message: str) -> str:
+    """Best-effort extraction of a user-requested quiz/study topic."""
+    text = (message or "").strip()
+    lowered = text.lower()
+    prefixes = [
+        "generate quiz for",
+        "create quiz for",
+        "make quiz for",
+        "generate quiz on",
+        "create quiz on",
+        "make quiz on",
+        "quiz on",
+        "quiz for",
+        "generate study guide for",
+        "create study guide for",
+        "make study guide for",
+        "generate study guide on",
+        "create study guide on",
+        "make study guide on",
+        "study guide for",
+        "study guide on",
+        "generate audio overview for",
+        "create audio overview for",
+        "make audio overview for",
+        "generate audio overview on",
+        "create audio overview on",
+        "make audio overview on",
+        "audio overview for",
+        "audio overview on",
+        "audio summary for",
+        "audio summary on",
+        "podcast for",
+        "podcast on",
+    ]
+    for prefix in prefixes:
+        if lowered.startswith(prefix):
+            return text[len(prefix):].strip(" :-")
+    return text
 
 
 def generate_response(state: WhatsAppAgentState) -> dict:

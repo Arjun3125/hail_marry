@@ -3,9 +3,17 @@ import sys
 import importlib
 import unittest
 from pathlib import Path
+from types import ModuleType, SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
-from fastapi import HTTPException
+try:
+    from fastapi import HTTPException
+except ModuleNotFoundError:
+    class HTTPException(Exception):
+        def __init__(self, status_code: int, detail: str):
+            super().__init__(detail)
+            self.status_code = status_code
+            self.detail = detail
 
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
@@ -13,6 +21,114 @@ if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
 os.environ["DEBUG"] = "true"
+
+
+def _install_ai_queue_import_stubs():
+    class _DummyRequest:
+        def __init__(self, **kwargs):
+            self.__dict__.update(kwargs)
+
+    async def _dummy_async(*args, **kwargs):
+        return {"ok": True}
+
+    stubbed = {}
+
+    sqlalchemy_mod = ModuleType("sqlalchemy")
+    sqlalchemy_mod.desc = lambda value: value
+    stubbed["sqlalchemy"] = sqlalchemy_mod
+
+    config_mod = ModuleType("config")
+    config_mod.settings = SimpleNamespace(
+        redis=SimpleNamespace(broker_url="redis://localhost:6379/0"),
+        ai_queue=SimpleNamespace(
+            enabled=True,
+            max_retries=2,
+            result_ttl_seconds=3600,
+            metrics_window_seconds=3600,
+            stuck_after_seconds=60,
+            max_pending_jobs=100,
+            max_pending_jobs_per_tenant=20,
+            poll_timeout_seconds=1,
+            processing_key="ai_jobs:processing",
+        ),
+    )
+    stubbed["config"] = config_mod
+
+    database_mod = ModuleType("database")
+    database_mod.SessionLocal = lambda: None
+    stubbed["database"] = database_mod
+
+    ai_job_mod = ModuleType("src.domains.platform.models.ai_job")
+    ai_job_mod.AIJob = type("AIJob", (), {"id": None, "created_at": None})
+    ai_job_mod.AIJobEvent = type("AIJobEvent", (), {})
+    stubbed["src.domains.platform.models.ai_job"] = ai_job_mod
+
+    audit_mod = ModuleType("models.audit_log")
+    audit_mod.AuditLog = type("AuditLog", (), {})
+    stubbed["models.audit_log"] = audit_mod
+
+    runtime_mod = ModuleType("src.domains.platform.schemas.ai_runtime")
+    runtime_mod.InternalAIQueryRequest = _DummyRequest
+    runtime_mod.InternalAudioOverviewRequest = _DummyRequest
+    runtime_mod.InternalIngestURLRequest = _DummyRequest
+    runtime_mod.InternalStudyToolGenerateRequest = _DummyRequest
+    runtime_mod.InternalTeacherDocumentIngestRequest = _DummyRequest
+    runtime_mod.InternalTeacherAssessmentRequest = _DummyRequest
+    runtime_mod.InternalTeacherYoutubeIngestRequest = _DummyRequest
+    runtime_mod.InternalVideoOverviewRequest = _DummyRequest
+    stubbed["src.domains.platform.schemas.ai_runtime"] = runtime_mod
+
+    ai_gateway_mod = ModuleType("src.domains.platform.services.ai_gateway")
+    ai_gateway_mod.run_audio_overview = _dummy_async
+    ai_gateway_mod.run_study_tool = _dummy_async
+    ai_gateway_mod.run_teacher_assessment = _dummy_async
+    ai_gateway_mod.run_teacher_document_ingestion = _dummy_async
+    ai_gateway_mod.run_teacher_youtube_ingestion = _dummy_async
+    ai_gateway_mod.run_text_query = _dummy_async
+    ai_gateway_mod.run_url_ingestion = _dummy_async
+    ai_gateway_mod.run_video_overview = _dummy_async
+    stubbed["src.domains.platform.services.ai_gateway"] = ai_gateway_mod
+
+    ai_grading_mod = ModuleType("src.domains.platform.services.ai_grading")
+    ai_grading_mod.run_ai_grade = _dummy_async
+    stubbed["src.domains.platform.services.ai_grading"] = ai_grading_mod
+
+    telemetry_mod = ModuleType("src.domains.platform.services.telemetry")
+    telemetry_mod.extract_context_from_traceparent = lambda traceparent: None
+    telemetry_mod.get_current_traceparent = lambda: None
+    telemetry_mod.get_tracer = lambda name: None
+    stubbed["src.domains.platform.services.telemetry"] = telemetry_mod
+
+    whatsapp_mod = ModuleType("src.domains.platform.services.whatsapp_gateway")
+    whatsapp_mod.send_ai_job_status_notification = _dummy_async
+    stubbed["src.domains.platform.services.whatsapp_gateway"] = whatsapp_mod
+
+    previous = {name: sys.modules.get(name) for name in stubbed}
+    parent_services = sys.modules.get("src.domains.platform.services")
+    previous["src.domains.platform.services.__whatsapp_gateway_attr__"] = getattr(parent_services, "whatsapp_gateway", None) if parent_services else None
+    sys.modules.update(stubbed)
+    if parent_services is not None:
+        parent_services.whatsapp_gateway = whatsapp_mod
+    return previous
+
+
+def _restore_modules(previous):
+    parent_services = sys.modules.get("src.domains.platform.services")
+    prior_attr = previous.pop("src.domains.platform.services.__whatsapp_gateway_attr__", None)
+    for name, module in previous.items():
+        if module is None:
+            sys.modules.pop(name, None)
+        else:
+            sys.modules[name] = module
+    if parent_services is not None:
+        if prior_attr is None:
+            try:
+                delattr(parent_services, "whatsapp_gateway")
+            except AttributeError:
+                pass
+        else:
+            parent_services.whatsapp_gateway = prior_attr
+
 
 
 class _FakePipeline:
@@ -161,6 +277,8 @@ class _FakeRedis:
 
 class AIQueueTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
+        self._previous_modules = _install_ai_queue_import_stubs()
+        sys.modules.pop("src.domains.platform.services.ai_queue", None)
         self.queue = importlib.import_module("src.domains.platform.services.ai_queue")
         self.queue = importlib.reload(self.queue)
         self.fake_redis = _FakeRedis()
@@ -175,6 +293,8 @@ class AIQueueTests(unittest.IsolatedAsyncioTestCase):
         self.persist_patch.stop()
         self.audit_patch.stop()
         self.redis_patch.stop()
+        sys.modules.pop("src.domains.platform.services.ai_queue", None)
+        _restore_modules(self._previous_modules)
 
     async def test_enqueue_job_tracks_priority_and_queue_metrics(self):
         job = self.queue.enqueue_job(
@@ -234,8 +354,14 @@ class AIQueueTests(unittest.IsolatedAsyncioTestCase):
             self.queue,
             "run_audio_overview",
             AsyncMock(return_value={"title": "Atoms", "dialogue": [], "duration_estimate": "3 minutes"}),
-        ):
+        ), patch.object(
+            sys.modules["src.domains.platform.services.whatsapp_gateway"],
+            "send_ai_job_status_notification",
+            AsyncMock(return_value=True),
+        ) as notify_mock:
             updated = await self.queue.process_job(job_id, worker_id="worker-1")
+
+        notify_mock.assert_awaited_once()
 
         self.assertEqual(updated["status"], self.queue.STATUS_COMPLETED)
         self.assertEqual(updated["result"]["title"], "Atoms")
@@ -288,8 +414,13 @@ class AIQueueTests(unittest.IsolatedAsyncioTestCase):
         failed_job["max_retries"] = 0
         self.queue.save_job(failed_job)
         claimed_failed_job_id = self.queue.claim_next_job(timeout_seconds=0)
-        with patch.object(self.queue, "run_audio_overview", AsyncMock(side_effect=HTTPException(status_code=500, detail="boom"))):
+        with patch.object(self.queue, "run_audio_overview", AsyncMock(side_effect=HTTPException(status_code=500, detail="boom"))), patch.object(
+            sys.modules["src.domains.platform.services.whatsapp_gateway"],
+            "send_ai_job_status_notification",
+            AsyncMock(return_value=True),
+        ) as notify_mock:
             failed_result = await self.queue.process_job(claimed_failed_job_id, worker_id="worker-1")
+        notify_mock.assert_awaited_once()
         self.assertEqual(failed_result["status"], self.queue.STATUS_FAILED)
 
         dead_lettered = self.queue.move_to_dead_letter(failed_result["job_id"], "tenant-1", actor_user_id="aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
