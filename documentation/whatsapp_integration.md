@@ -5,6 +5,8 @@
 **Status:** Design Specification  
 **Audience:** Backend Engineers, DevOps, Product
 
+**Companion rollout plan:** See `documentation/whatsapp_access_implementation_plan.md` for the staged implementation plan used while building the WhatsApp-accessible feature surface.
+
 ---
 
 ## Table of Contents
