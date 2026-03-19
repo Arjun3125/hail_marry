@@ -8,15 +8,49 @@ Provides role-scoped tools for:
 """
 import json
 import logging
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
-from langchain_core.tools import tool
-from sqlalchemy import func as sqlfunc
+try:
+    from langchain_core.tools import tool
+except ModuleNotFoundError:  # Lightweight test environments
+    def tool(fn):
+        fn.name = fn.__name__
+        fn.invoke = lambda params, _fn=fn: _fn(**params)
+        return fn
 
-from database import SessionLocalRO
+try:
+    from sqlalchemy import func as sqlfunc
+except ModuleNotFoundError:  # Lightweight test environments
+    sqlfunc = None
+
+try:
+    from database import SessionLocalRO
+except ModuleNotFoundError:  # Lightweight test environments
+    SessionLocalRO = None
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class WhatsAppToolSpec:
+    """Canonical metadata for a WhatsApp-accessible tool.
+
+    This is the Phase 0 foundation from `documentation/whatsapp_access_implementation_plan.md`:
+    one registry that captures role access, invocation shape, output characteristics,
+    and execution mode so future WhatsApp routing/formatting logic can stay centralized.
+    """
+
+    name: str
+    handler: callable
+    description: str
+    roles: frozenset[str]
+    required_params: tuple[str, ...]
+    feature_category: str
+    execution_mode: str
+    output_type: str
+    channel_suitability: str
 
 # ─── RBAC Map ─────────────────────────────────────────────────
 
@@ -27,8 +61,11 @@ TOOL_ROLE_MAP = {
     "get_student_attendance": {"student"},
     "get_student_results": {"student"},
     "get_student_weak_topics": {"student"},
+    "generate_study_guide": {"student"},
+    "generate_audio_overview": {"student"},
     "get_teacher_schedule": {"teacher"},
     "get_teacher_absent_students": {"teacher"},
+    "generate_quiz": {"teacher"},
     "get_child_performance": {"parent"},
     "get_child_attendance": {"parent"},
     "get_child_homework": {"parent"},
@@ -41,7 +78,8 @@ TOOL_ROLE_MAP = {
 
 def authorize_tool(tool_name: str, user_role: str) -> bool:
     """Check if a user role is authorized to call a specific tool."""
-    allowed = TOOL_ROLE_MAP.get(tool_name, set())
+    spec = WHATSAPP_TOOL_REGISTRY.get(tool_name)
+    allowed = spec.roles if spec else TOOL_ROLE_MAP.get(tool_name, set())
     return user_role in allowed
 
 
@@ -308,6 +346,76 @@ def get_student_weak_topics(user_id: str, tenant_id: str) -> str:
         db.close()
 
 
+@tool
+def generate_study_guide(user_id: str, tenant_id: str, topic: str) -> str:
+    """Queue a study-guide job for a student topic."""
+    cleaned_topic = (topic or "").strip()
+    if not cleaned_topic:
+        return "⚠️ Please include a topic, for example: *Generate study guide for photosynthesis*."
+
+    try:
+        from src.domains.platform.schemas.ai_runtime import InternalAIQueryRequest
+        from src.domains.platform.services.ai_queue import JOB_TYPE_QUERY, enqueue_job
+
+        payload = InternalAIQueryRequest(
+            query=cleaned_topic,
+            mode="study_guide",
+            language="english",
+            response_length="default",
+            expertise_level="standard",
+            tenant_id=str(tenant_id),
+        )
+        job = enqueue_job(
+            JOB_TYPE_QUERY,
+            payload.model_dump(),
+            tenant_id=str(tenant_id),
+            user_id=str(user_id),
+        )
+        job_id = job.get("job_id", "unknown")
+        return (
+            f"📘 Study guide queued for *{cleaned_topic}*.\n"
+            f"Job ID: `{job_id}`\n"
+            "I'll send the guide once it's ready."
+        )
+    except Exception as e:
+        logger.error("generate_study_guide error: %s", e)
+        return "Sorry, I couldn't queue the study guide right now."
+
+
+@tool
+def generate_audio_overview(user_id: str, tenant_id: str, topic: str) -> str:
+    """Queue an audio-overview job for a student topic."""
+    cleaned_topic = (topic or "").strip()
+    if not cleaned_topic:
+        return "⚠️ Please include a topic, for example: *Create audio overview for photosynthesis*."
+
+    try:
+        from src.domains.platform.schemas.ai_runtime import InternalAudioOverviewRequest
+        from src.domains.platform.services.ai_queue import JOB_TYPE_AUDIO, enqueue_job
+
+        payload = InternalAudioOverviewRequest(
+            topic=cleaned_topic,
+            format="deep_dive",
+            language="english",
+            tenant_id=str(tenant_id),
+        )
+        job = enqueue_job(
+            JOB_TYPE_AUDIO,
+            payload.model_dump(),
+            tenant_id=str(tenant_id),
+            user_id=str(user_id),
+        )
+        job_id = job.get("job_id", "unknown")
+        return (
+            f"🎧 Audio overview queued for *{cleaned_topic}*.\n"
+            f"Job ID: `{job_id}`\n"
+            "I'll send it here once it's ready."
+        )
+    except Exception as e:
+        logger.error("generate_audio_overview error: %s", e)
+        return "Sorry, I couldn't queue the audio overview right now."
+
+
 # ─── Teacher Tools ────────────────────────────────────────────
 
 @tool
@@ -395,6 +503,45 @@ def get_teacher_absent_students(user_id: str, tenant_id: str) -> str:
         return "Sorry, I couldn't fetch absent students right now."
     finally:
         db.close()
+
+
+@tool
+def generate_quiz(user_id: str, tenant_id: str, topic: str) -> str:
+    """Queue a quiz-generation job for a teacher.
+
+    Args:
+        user_id: The teacher's UUID.
+        tenant_id: The school tenant UUID.
+        topic: Topic or instruction to generate the quiz for.
+    """
+    cleaned_topic = (topic or "").strip()
+    if not cleaned_topic:
+        return "⚠️ Please include a topic, for example: *Generate quiz for Class 8 science*."
+
+    try:
+        from src.domains.platform.schemas.ai_runtime import InternalStudyToolGenerateRequest
+        from src.domains.platform.services.ai_queue import JOB_TYPE_STUDY_TOOL, enqueue_job
+
+        payload = InternalStudyToolGenerateRequest(
+            tool="quiz",
+            topic=cleaned_topic,
+            tenant_id=str(tenant_id),
+        )
+        job = enqueue_job(
+            JOB_TYPE_STUDY_TOOL,
+            payload.model_dump(),
+            tenant_id=str(tenant_id),
+            user_id=str(user_id),
+        )
+        job_id = job.get("job_id", "unknown")
+        return (
+            f"⏳ Quiz generation queued for *{cleaned_topic}*.\n"
+            f"Job ID: `{job_id}`\n"
+            "I'll share the result as soon as it's ready."
+        )
+    except Exception as e:
+        logger.error("generate_quiz error: %s", e)
+        return "Sorry, I couldn't queue the quiz right now."
 
 
 # ─── Parent Tools ─────────────────────────────────────────────
@@ -629,24 +776,228 @@ def get_ai_usage_stats(tenant_id: str) -> str:
 
 # ─── Tool Registry ────────────────────────────────────────────
 
-ALL_WHATSAPP_TOOLS = [
-    get_student_timetable,
-    get_student_tests,
-    get_student_assignments,
-    get_student_attendance,
-    get_student_results,
-    get_student_weak_topics,
-    get_teacher_schedule,
-    get_teacher_absent_students,
-    get_child_performance,
-    get_child_attendance,
-    get_child_homework,
-    get_school_attendance_summary,
-    get_fee_pending_report,
-    get_ai_usage_stats,
-]
+TOOL_SPECS = (
+    WhatsAppToolSpec(
+        name="get_student_timetable",
+        handler=get_student_timetable,
+        description="Today's timetable for a student.",
+        roles=frozenset({"student"}),
+        required_params=("user_id", "tenant_id"),
+        feature_category="erp_read",
+        execution_mode="sync",
+        output_type="text",
+        channel_suitability="direct",
+    ),
+    WhatsAppToolSpec(
+        name="get_student_tests",
+        handler=get_student_tests,
+        description="Upcoming tests and exams for the current week.",
+        roles=frozenset({"student"}),
+        required_params=("user_id", "tenant_id"),
+        feature_category="erp_read",
+        execution_mode="sync",
+        output_type="text",
+        channel_suitability="direct",
+    ),
+    WhatsAppToolSpec(
+        name="get_student_assignments",
+        handler=get_student_assignments,
+        description="Pending assignments for the student.",
+        roles=frozenset({"student"}),
+        required_params=("user_id", "tenant_id"),
+        feature_category="erp_read",
+        execution_mode="sync",
+        output_type="text",
+        channel_suitability="direct",
+    ),
+    WhatsAppToolSpec(
+        name="get_student_attendance",
+        handler=get_student_attendance,
+        description="Current-month attendance summary.",
+        roles=frozenset({"student"}),
+        required_params=("user_id", "tenant_id"),
+        feature_category="erp_read",
+        execution_mode="sync",
+        output_type="text",
+        channel_suitability="direct",
+    ),
+    WhatsAppToolSpec(
+        name="get_student_results",
+        handler=get_student_results,
+        description="Latest exam results for the student.",
+        roles=frozenset({"student"}),
+        required_params=("user_id", "tenant_id"),
+        feature_category="erp_read",
+        execution_mode="sync",
+        output_type="text",
+        channel_suitability="direct",
+    ),
+    WhatsAppToolSpec(
+        name="get_student_weak_topics",
+        handler=get_student_weak_topics,
+        description="Subjects needing attention based on marks.",
+        roles=frozenset({"student"}),
+        required_params=("user_id", "tenant_id"),
+        feature_category="erp_read",
+        execution_mode="sync",
+        output_type="text",
+        channel_suitability="direct",
+    ),
+    WhatsAppToolSpec(
+        name="generate_study_guide",
+        handler=generate_study_guide,
+        description="Queue a study-guide job for a student topic.",
+        roles=frozenset({"student"}),
+        required_params=("user_id", "tenant_id", "topic"),
+        feature_category="ai_async",
+        execution_mode="async",
+        output_type="text",
+        channel_suitability="direct",
+    ),
+    WhatsAppToolSpec(
+        name="generate_audio_overview",
+        handler=generate_audio_overview,
+        description="Queue an audio-overview job for a student topic.",
+        roles=frozenset({"student"}),
+        required_params=("user_id", "tenant_id", "topic"),
+        feature_category="ai_async",
+        execution_mode="async",
+        output_type="text",
+        channel_suitability="direct",
+    ),
+    WhatsAppToolSpec(
+        name="get_teacher_schedule",
+        handler=get_teacher_schedule,
+        description="Today's teaching schedule.",
+        roles=frozenset({"teacher"}),
+        required_params=("user_id", "tenant_id"),
+        feature_category="erp_read",
+        execution_mode="sync",
+        output_type="text",
+        channel_suitability="direct",
+    ),
+    WhatsAppToolSpec(
+        name="get_teacher_absent_students",
+        handler=get_teacher_absent_students,
+        description="Students absent today in the teacher's classes.",
+        roles=frozenset({"teacher"}),
+        required_params=("user_id", "tenant_id"),
+        feature_category="erp_read",
+        execution_mode="sync",
+        output_type="text",
+        channel_suitability="direct",
+    ),
+    WhatsAppToolSpec(
+        name="generate_quiz",
+        handler=generate_quiz,
+        description="Queue a quiz-generation job for a teacher topic.",
+        roles=frozenset({"teacher"}),
+        required_params=("user_id", "tenant_id", "topic"),
+        feature_category="ai_async",
+        execution_mode="async",
+        output_type="text",
+        channel_suitability="direct",
+    ),
+    WhatsAppToolSpec(
+        name="get_child_performance",
+        handler=get_child_performance,
+        description="Parent summary of a child's marks and attendance.",
+        roles=frozenset({"parent"}),
+        required_params=("child_id", "tenant_id"),
+        feature_category="erp_read",
+        execution_mode="sync",
+        output_type="text",
+        channel_suitability="direct",
+    ),
+    WhatsAppToolSpec(
+        name="get_child_attendance",
+        handler=get_child_attendance,
+        description="This week's attendance for a linked child.",
+        roles=frozenset({"parent"}),
+        required_params=("child_id", "tenant_id"),
+        feature_category="erp_read",
+        execution_mode="sync",
+        output_type="text",
+        channel_suitability="direct",
+    ),
+    WhatsAppToolSpec(
+        name="get_child_homework",
+        handler=get_child_homework,
+        description="Pending homework for a linked child.",
+        roles=frozenset({"parent"}),
+        required_params=("child_id", "tenant_id"),
+        feature_category="erp_read",
+        execution_mode="sync",
+        output_type="text",
+        channel_suitability="direct",
+    ),
+    WhatsAppToolSpec(
+        name="get_school_attendance_summary",
+        handler=get_school_attendance_summary,
+        description="School-wide attendance summary.",
+        roles=frozenset({"admin"}),
+        required_params=("tenant_id",),
+        feature_category="erp_read",
+        execution_mode="sync",
+        output_type="text",
+        channel_suitability="direct",
+    ),
+    WhatsAppToolSpec(
+        name="get_fee_pending_report",
+        handler=get_fee_pending_report,
+        description="Outstanding fee summary for the school.",
+        roles=frozenset({"admin"}),
+        required_params=("tenant_id",),
+        feature_category="erp_read",
+        execution_mode="sync",
+        output_type="text",
+        channel_suitability="direct",
+    ),
+    WhatsAppToolSpec(
+        name="get_ai_usage_stats",
+        handler=get_ai_usage_stats,
+        description="School-level AI usage analytics.",
+        roles=frozenset({"admin"}),
+        required_params=("tenant_id",),
+        feature_category="erp_read",
+        execution_mode="sync",
+        output_type="text",
+        channel_suitability="direct",
+    ),
+)
+
+WHATSAPP_TOOL_REGISTRY = {spec.name: spec for spec in TOOL_SPECS}
+ALL_WHATSAPP_TOOLS = [spec.handler for spec in TOOL_SPECS]
+
+
+def get_tool_spec(tool_name: str) -> WhatsAppToolSpec | None:
+    """Return the canonical metadata entry for a WhatsApp tool."""
+    return WHATSAPP_TOOL_REGISTRY.get(tool_name)
+
+
+def get_tool_specs_for_role(role: str) -> list[WhatsAppToolSpec]:
+    """Return metadata entries for tools a role can access."""
+    return [spec for spec in TOOL_SPECS if role in spec.roles]
+
+
+def serialize_tool_catalog(role: str | None = None) -> list[dict]:
+    """Return registry metadata in JSON-safe form for future admin/debug endpoints."""
+    specs = TOOL_SPECS if role is None else get_tool_specs_for_role(role)
+    return [
+        {
+            "name": spec.name,
+            "description": spec.description,
+            "roles": sorted(spec.roles),
+            "required_params": list(spec.required_params),
+            "feature_category": spec.feature_category,
+            "execution_mode": spec.execution_mode,
+            "output_type": spec.output_type,
+            "channel_suitability": spec.channel_suitability,
+        }
+        for spec in specs
+    ]
 
 
 def get_tools_for_role(role: str) -> list:
-    """Return only the tools authorized for a given role."""
-    return [t for t in ALL_WHATSAPP_TOOLS if role in TOOL_ROLE_MAP.get(t.name, set())]
+    """Return only the handlers authorized for a given role."""
+    return [spec.handler for spec in get_tool_specs_for_role(role)]

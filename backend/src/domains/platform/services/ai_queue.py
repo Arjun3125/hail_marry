@@ -9,7 +9,15 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 from uuid import UUID
 
-from fastapi import HTTPException
+try:
+    from fastapi import HTTPException
+except ModuleNotFoundError:  # Lightweight test environments
+    class HTTPException(Exception):
+        def __init__(self, status_code: int, detail: str):
+            super().__init__(detail)
+            self.status_code = status_code
+            self.detail = detail
+
 from sqlalchemy import desc
 
 from config import settings
@@ -929,6 +937,11 @@ async def process_job(job_id: str, worker_id: str | None = None) -> dict[str, An
                 client.zadd(_tenant_recent_failed_key(job["tenant_id"]), {job_id: time.time()})
                 _prune_recent_metrics(client, job["tenant_id"])
                 _record_audit_event(job, "ai_job.failed", detail=job["error"])
+                try:
+                    from src.domains.platform.services.whatsapp_gateway import send_ai_job_status_notification
+                    await send_ai_job_status_notification(job)
+                except Exception:
+                    logger.exception("WhatsApp failed-job notification failed for %s", job.get("job_id"))
             return job
 
         _append_event(job, "ai_service.completed", "worker", "Dedicated AI service returned successfully")
@@ -943,6 +956,11 @@ async def process_job(job_id: str, worker_id: str | None = None) -> dict[str, An
         client.zadd(_tenant_recent_completed_key(job["tenant_id"]), {job_id: time.time()})
         _prune_recent_metrics(client, job["tenant_id"])
         _record_audit_event(job, "ai_job.completed")
+        try:
+            from src.domains.platform.services.whatsapp_gateway import send_ai_job_status_notification
+            await send_ai_job_status_notification(job)
+        except Exception:
+            logger.exception("WhatsApp completion notification failed for %s", job.get("job_id"))
         return job
 
     if tracer:

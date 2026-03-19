@@ -6,12 +6,17 @@ Proves Concurrent Database Lock safety via asyncio load spikes.
 import os
 import asyncio
 import pytest
-from httpx import AsyncClient, ASGITransport
 import uuid
 import time
 import json
 import hashlib
 import hmac
+
+httpx = pytest.importorskip("httpx")
+pytest.importorskip("fastapi")
+pytest.importorskip("sqlalchemy")
+
+from httpx import AsyncClient, ASGITransport
 
 # Force real connections
 os.environ["DATABASE_URL"] = "postgresql://postgres:postgres@localhost:5432/vidyaos"

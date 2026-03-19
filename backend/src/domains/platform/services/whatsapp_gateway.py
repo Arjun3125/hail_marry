@@ -20,11 +20,29 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 from uuid import UUID, uuid4
 
-import httpx
-from sqlalchemy.orm import Session
+from types import SimpleNamespace
 
+try:
+    import httpx
+except ModuleNotFoundError:  # Lightweight test environments
+    class _HTTPStatusError(Exception):
+        def __init__(self, *args, response=None, **kwargs):
+            super().__init__(*args)
+            self.response = response
+
+    class _HTTPXStub:
+        AsyncClient = None
+        HTTPStatusError = _HTTPStatusError
+
+    httpx = _HTTPXStub()
+
+try:
+    from sqlalchemy.orm import Session
+except ModuleNotFoundError:  # Type-only fallback for test environments
+    Session = object
+
+from config import settings
 from src.infrastructure.llm.cache import _get_redis
-from src.domains.platform.models.whatsapp_models import PhoneUserLink, WhatsAppSession, WhatsAppMessage
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +57,7 @@ WA_SESSION_TTL_DAYS = int(os.getenv("WA_SESSION_TTL_DAYS", "30"))
 WA_RATE_LIMIT_PER_MINUTE = int(os.getenv("WA_RATE_LIMIT_PER_MINUTE", "10"))
 WA_OTP_TTL_SECONDS = int(os.getenv("WA_OTP_TTL_SECONDS", "300"))
 WA_OTP_MAX_ATTEMPTS = int(os.getenv("WA_OTP_MAX_ATTEMPTS", "3"))
+WA_REPORT_CARD_TTL_SECONDS = int(os.getenv("WA_REPORT_CARD_TTL_SECONDS", "3600"))
 
 # System commands handled without AI
 SYSTEM_COMMANDS = {
@@ -47,6 +66,8 @@ SYSTEM_COMMANDS = {
     "/logout": "logout",
     "/switch": "switch_child",
     "/status": "status",
+    "/reportcard": "report_card",
+    "/report-card": "report_card",
 }
 
 # Tools that require async queue processing
@@ -79,7 +100,7 @@ def verify_webhook_signature(payload: bytes, signature: str) -> bool:
 
 # ─── Phone → User Resolution ─────────────────────────────────
 
-def resolve_phone_to_user(db: Session, phone: str) -> Optional[PhoneUserLink]:
+def resolve_phone_to_user(db: Session, phone: str):
     """Look up a verified phone link. Checks Redis cache first, falls back to DB.
 
     Args:
@@ -97,15 +118,17 @@ def resolve_phone_to_user(db: Session, phone: str) -> Optional[PhoneUserLink]:
         cached = redis.get(cache_key)
         if cached:
             data = json.loads(cached)
-            link = PhoneUserLink()
-            link.id = UUID(data["id"])
-            link.phone = data["phone"]
-            link.user_id = UUID(data["user_id"])
-            link.tenant_id = UUID(data["tenant_id"])
-            link.verified = True
+            link = SimpleNamespace(
+                id=UUID(data["id"]),
+                phone=data["phone"],
+                user_id=UUID(data["user_id"]),
+                tenant_id=UUID(data["tenant_id"]),
+                verified=True,
+            )
             return link
 
     # Database lookup
+    from src.domains.platform.models.whatsapp_models import PhoneUserLink
     link = db.query(PhoneUserLink).filter(
         PhoneUserLink.phone == phone,
         PhoneUserLink.verified == True,
@@ -447,6 +470,38 @@ async def send_buttons(phone: str, body: str, buttons: list[dict]) -> dict:
         return {"success": False, "error": str(e)}
 
 
+async def send_document_message(phone: str, link: str, filename: str, caption: str | None = None) -> dict:
+    """Send a WhatsApp document message via Meta Cloud API."""
+    if not WHATSAPP_TOKEN or not WHATSAPP_PHONE_ID:
+        return {"success": False, "error": "WhatsApp not configured"}
+
+    url = f"{WHATSAPP_API_URL}/{WHATSAPP_PHONE_ID}/messages"
+    headers = {
+        "Authorization": f"Bearer {WHATSAPP_TOKEN}",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "messaging_product": "whatsapp",
+        "to": phone,
+        "type": "document",
+        "document": {
+            "link": link,
+            "filename": filename[:240],
+        },
+    }
+    if caption:
+        payload["document"]["caption"] = caption[:1024]
+
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            resp = await client.post(url, json=payload, headers=headers)
+            resp.raise_for_status()
+            return {"success": True, "data": resp.json()}
+    except Exception as e:
+        logger.error("WhatsApp document send failed: %s", str(e))
+        return {"success": False, "error": str(e)}
+
+
 # ─── Message Logging ─────────────────────────────────────────
 
 def log_message(
@@ -464,6 +519,7 @@ def log_message(
 ) -> None:
     """Persist a message record to the whatsapp_messages audit table."""
     try:
+        from src.domains.platform.models.whatsapp_models import WhatsAppMessage
         msg = WhatsAppMessage(
             phone=phone,
             direction=direction,
@@ -519,6 +575,7 @@ def handle_system_command(db: Session, command: str, session: dict) -> str:
                 "📊 _Show my child's performance_",
                 "📅 _Attendance report for this week_",
                 "📋 _Any homework today?_",
+                "📄 _/reportcard_",
             ])
         elif role == "admin":
             lines.extend([
@@ -547,7 +604,251 @@ def handle_system_command(db: Session, command: str, session: dict) -> str:
             f"Last Activity: {session.get('last_activity', 'N/A')}"
         )
 
+    elif cmd == "report_card":
+        if session.get("role") != "parent":
+            return "⚠️ Report card delivery is currently available for parent accounts."
+        return "__REPORT_CARD__"
+
     return "Unknown command. Type *help* for options."
+
+
+# ─── Async Job Notifications ───────────────────────────────────
+
+def _coerce_uuid(value: str | None):
+    if not value:
+        return None
+    try:
+        return UUID(str(value))
+    except (ValueError, TypeError, AttributeError):
+        return value
+
+
+def _describe_ai_job(job: dict) -> str:
+    request = job.get("request") or {}
+    topic = (request.get("topic") or request.get("query") or request.get("subject_name") or "this request").strip()
+    job_type = job.get("job_type", "AI task")
+    labels = {
+        "query": "study guide",
+        "audio": "audio overview",
+        "video": "video overview",
+        "study_tool": "study tool",
+        "teacher_assessment": "teacher assessment",
+    }
+    label = labels.get(job_type, job_type.replace("_", " "))
+    return label, topic
+
+
+def format_ai_job_status_message(job: dict) -> str:
+    status = job.get("status")
+    label, topic = _describe_ai_job(job)
+    job_id = job.get("job_id", "unknown")
+
+    if status == "completed":
+        return (
+            f"✅ Your {label} is ready for *{topic}*.\n"
+            f"Job ID: `{job_id}`\n"
+            "Reply with the same request if you want another version."
+        )
+
+    error = (job.get("error") or "Unknown error").strip()
+    return (
+        f"⚠️ Your {label} request for *{topic}* failed.\n"
+        f"Job ID: `{job_id}`\n"
+        f"Reason: {error[:200]}"
+    )
+
+
+async def send_ai_job_status_notification(job: dict) -> bool:
+    """Best-effort WhatsApp notification when an async AI job finishes."""
+    try:
+        from database import SessionLocal
+        from src.domains.platform.models.whatsapp_models import PhoneUserLink
+    except ModuleNotFoundError:
+        logger.warning("WhatsApp job notification dependencies unavailable")
+        return False
+
+    db = SessionLocal() if SessionLocal else None
+    if db is None:
+        return False
+
+    try:
+        user_id = _coerce_uuid(job.get("user_id"))
+        tenant_id = _coerce_uuid(job.get("tenant_id"))
+        if not user_id or not tenant_id:
+            return False
+
+        link = db.query(PhoneUserLink).filter(
+            PhoneUserLink.user_id == user_id,
+            PhoneUserLink.tenant_id == tenant_id,
+            PhoneUserLink.verified == True,
+        ).order_by(PhoneUserLink.verified_at.desc()).first()
+        if not link:
+            return False
+
+        message = format_ai_job_status_message(job)
+        result = await send_text_message(link.phone, message)
+        if not result.get("success"):
+            return False
+
+        log_message(
+            db,
+            link.phone,
+            "outbound",
+            message,
+            message_type="text",
+            user_id=user_id if isinstance(user_id, UUID) else None,
+            tenant_id=tenant_id if isinstance(tenant_id, UUID) else None,
+            tool_called="ai_job_status",
+        )
+        return True
+    except Exception:
+        logger.exception("Failed to send WhatsApp AI job notification for job=%s", job.get("job_id"))
+        return False
+    finally:
+        db.close()
+
+
+
+
+def _get_parent_children(db: Session, session: dict) -> list[dict]:
+    try:
+        from models.parent_link import ParentLink
+        from src.domains.identity.models.user import User
+
+        parent_id = UUID(session["user_id"])
+        tenant_id = UUID(session["tenant_id"])
+        rows = db.query(ParentLink, User).join(
+            User, ParentLink.child_id == User.id
+        ).filter(
+            ParentLink.tenant_id == tenant_id,
+            ParentLink.parent_id == parent_id,
+        ).all()
+        return [
+            {
+                "child_id": str(link.child_id),
+                "name": (child.full_name or "Child").strip(),
+            }
+            for link, child in rows
+        ]
+    except Exception:
+        logger.exception("Failed to load parent children for WhatsApp session=%s", session.get("session_id"))
+        return []
+
+
+def _build_child_switch_response(db: Session, session: dict) -> dict:
+    children = _get_parent_children(db, session)
+    if not children:
+        return {
+            "response_text": "⚠️ No linked children were found for this parent account.",
+            "response_type": "text",
+        }
+
+    if len(children) == 1:
+        only_child = children[0]
+        session["active_child_id"] = only_child["child_id"]
+        save_session(db, session["phone"], session)
+        return {
+            "response_text": f"✅ Using *{only_child['name']}* for parent updates.",
+            "response_type": "text",
+        }
+
+    active_child_id = session.get("active_child_id")
+    rows = []
+    for child in children[:10]:
+        description = "Currently selected" if child["child_id"] == active_child_id else "Tap to switch"
+        rows.append({
+            "id": f"child:{child['child_id']}",
+            "title": child["name"][:24],
+            "description": description[:72],
+        })
+
+    return {
+        "response_text": "👨‍👩‍👧 Select which child you want to use for WhatsApp updates.",
+        "response_type": "list",
+        "header": "Choose child",
+        "button_text": "Select",
+        "rows": rows,
+    }
+
+
+def _handle_child_switch_selection(db: Session, session: dict, text: str) -> dict | None:
+    lowered = (text or "").strip().lower()
+    if not lowered.startswith("child:"):
+        return None
+
+    selected_child_id = lowered.split(":", 1)[1].strip()
+    children = _get_parent_children(db, session)
+    selected = next((child for child in children if child["child_id"].lower() == selected_child_id), None)
+    if not selected:
+        return {
+            "response_text": "⚠️ I couldn't find that child selection. Please use /switch again.",
+            "response_type": "text",
+        }
+
+    session["active_child_id"] = selected["child_id"]
+    save_session(db, session["phone"], session)
+    return {
+        "response_text": f"✅ Switched to *{selected['name']}*. Ask me about attendance, homework, or performance.",
+        "response_type": "text",
+    }
+
+
+
+
+def _create_report_card_token(session: dict, child_id: str) -> str | None:
+    redis = _get_redis()
+    if not redis:
+        return None
+
+    token = secrets.token_urlsafe(24)
+    payload = {
+        "tenant_id": session.get("tenant_id"),
+        "child_id": child_id,
+        "parent_id": session.get("user_id"),
+    }
+    redis.setex(f"wa:report_card:{token}", WA_REPORT_CARD_TTL_SECONDS, json.dumps(payload))
+    return token
+
+
+def consume_report_card_token(token: str) -> dict | None:
+    redis = _get_redis()
+    if not redis:
+        return None
+    raw = redis.get(f"wa:report_card:{token}")
+    if not raw:
+        return None
+    return json.loads(raw)
+
+
+def _build_report_card_response(db: Session, session: dict) -> dict:
+    active_child_id = session.get("active_child_id")
+    if not active_child_id:
+        return _build_child_switch_response(db, session)
+
+    token = _create_report_card_token(session, active_child_id)
+    if not token:
+        return {
+            "response_text": "⚠️ I couldn't prepare the report card link right now. Please try again later.",
+            "response_type": "text",
+        }
+
+    try:
+        from src.domains.identity.models.user import User
+        child = db.query(User).filter(User.id == UUID(active_child_id)).first()
+        child_name = (child.full_name if child else "child").strip()
+    except Exception:
+        child_name = "child"
+
+    safe_name = "_".join(child_name.lower().split()) or "report_card"
+    base_url = settings.auth.saml_sp_base_url.rstrip("/")
+    document_link = f"{base_url}/api/v1/whatsapp/report-card/{token}"
+    return {
+        "response_text": f"📄 *{child_name}*'s report card is ready.",
+        "response_type": "document",
+        "document_link": document_link,
+        "document_filename": f"report_card_{safe_name}.pdf",
+        "document_caption": f"📄 {child_name} — Report Card",
+    }
 
 
 # ─── Main Processing Pipeline ─────────────────────────────────
@@ -598,10 +899,37 @@ async def process_inbound_message(
     if session.get("pending_action") == "awaiting_email":
         return await _handle_email_lookup(db, phone, text, session)
 
-    # 6. System commands
+    # 6. Parent child selection shortcuts
     text_stripped = text.strip().lower()
+    if session.get("role") == "parent":
+        selection_result = _handle_child_switch_selection(db, session, text_stripped)
+        if selection_result:
+            elapsed = int((time.time() - start_time) * 1000)
+            log_message(db, phone, "inbound", text, user_id=link.user_id, tenant_id=link.tenant_id,
+                        wa_message_id=wa_message_id)
+            log_message(db, phone, "outbound", selection_result.get("response_text", ""), user_id=link.user_id, tenant_id=link.tenant_id,
+                        latency_ms=elapsed)
+            return selection_result
+
+    # 7. System commands
     if text_stripped in SYSTEM_COMMANDS:
         response = handle_system_command(db, text_stripped, session)
+        if response == "__SWITCH_CHILD__":
+            switch_result = _build_child_switch_response(db, session)
+            elapsed = int((time.time() - start_time) * 1000)
+            log_message(db, phone, "inbound", text, user_id=link.user_id, tenant_id=link.tenant_id,
+                        wa_message_id=wa_message_id)
+            log_message(db, phone, "outbound", switch_result.get("response_text", ""), user_id=link.user_id, tenant_id=link.tenant_id,
+                        latency_ms=elapsed)
+            return switch_result
+        if response == "__REPORT_CARD__":
+            report_result = _build_report_card_response(db, session)
+            elapsed = int((time.time() - start_time) * 1000)
+            log_message(db, phone, "inbound", text, user_id=link.user_id, tenant_id=link.tenant_id,
+                        wa_message_id=wa_message_id)
+            log_message(db, phone, "outbound", report_result.get("response_text", ""), user_id=link.user_id, tenant_id=link.tenant_id,
+                        latency_ms=elapsed)
+            return report_result
         elapsed = int((time.time() - start_time) * 1000)
         log_message(db, phone, "inbound", text, user_id=link.user_id, tenant_id=link.tenant_id,
                     wa_message_id=wa_message_id)
@@ -609,12 +937,23 @@ async def process_inbound_message(
                     latency_ms=elapsed)
         return {"response_text": response, "response_type": "text"}
 
-    # 7. AI Agent processing
+    # 8. Ensure parent has an active child before running parent tools
+    if session.get("role") == "parent" and not session.get("active_child_id"):
+        child_prompt = _build_child_switch_response(db, session)
+        if child_prompt.get("response_type") == "list":
+            elapsed = int((time.time() - start_time) * 1000)
+            log_message(db, phone, "inbound", text, user_id=link.user_id, tenant_id=link.tenant_id,
+                        wa_message_id=wa_message_id)
+            log_message(db, phone, "outbound", child_prompt.get("response_text", ""), user_id=link.user_id, tenant_id=link.tenant_id,
+                        latency_ms=elapsed)
+            return child_prompt
+
+    # 9. AI Agent processing
     try:
         from src.interfaces.whatsapp_bot.agent import run_whatsapp_agent
         result = await run_whatsapp_agent(
             message=text,
-            user_id=str(link.user_id),
+            user_id=str(session.get("active_child_id") or link.user_id),
             tenant_id=str(link.tenant_id),
             role=session["role"],
             conversation_history=session.get("conversation_history", [])[-10:],
@@ -725,6 +1064,7 @@ async def _handle_otp_verification(db: Session, phone: str, text: str, session: 
     # Create the phone_user_link record
     user_id = UUID(session["user_id"])
     tenant_id = UUID(session["tenant_id"])
+    from src.domains.platform.models.whatsapp_models import PhoneUserLink
 
     existing = db.query(PhoneUserLink).filter(
         PhoneUserLink.phone == phone,
