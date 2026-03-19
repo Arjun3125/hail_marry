@@ -6,7 +6,7 @@ import json
 from typing import Any
 from urllib.parse import urlparse
 from uuid import UUID
-from xml.etree import ElementTree as ET
+from defusedxml import ElementTree as ET
 
 import httpx
 from fastapi import HTTPException, Request
