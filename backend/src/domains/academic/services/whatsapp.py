@@ -6,7 +6,19 @@ Set WHATSAPP_TOKEN and WHATSAPP_PHONE_NUMBER_ID in your environment.
 Usage:
     from src.domains.academic.services.whatsapp import send_whatsapp_message, send_attendance_alert, send_weekly_digest
 """
-import httpx
+try:
+    import httpx
+except ModuleNotFoundError:  # Lightweight test environments
+    class _HTTPStatusError(Exception):
+        def __init__(self, *args, response=None, **kwargs):
+            super().__init__(*args)
+            self.response = response
+
+    class _HTTPXStub:
+        AsyncClient = None
+        HTTPStatusError = _HTTPStatusError
+
+    httpx = _HTTPXStub()
 import os
 import logging
 

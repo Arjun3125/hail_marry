@@ -256,6 +256,8 @@ These are still open or partial:
 
 Current local verification targets:
 - backend tests: `cd backend && python -m pytest tests/ -q` — **438 tests fully passing**
+- backend tests (lightweight envs): `LIGHTWEIGHT_TEST_MODE=on pytest -q backend/tests` — runs the allowlisted backend subset when core optional deps are unavailable
+- backend tests (lightweight helper): `./scripts/run_backend_tests_lightweight.sh -q` — convenience wrapper for the lightweight backend pytest mode
 - frontend lint: `cd frontend && npm run lint`
 - frontend production build: `cd frontend && npm run build`
 - frontend e2e: `cd frontend && npm run test:e2e`

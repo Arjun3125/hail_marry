@@ -137,6 +137,26 @@ DATABASE_URL=sqlite:///:memory:
 TESTING=true
 ```
 
+### Lightweight Backend Test Mode
+
+In minimal environments where core backend dependencies are unavailable, the backend pytest harness can automatically fall back to a lightweight collection mode. In that mode, pytest skips unsupported suites during collection and keeps a small allowlisted set of WhatsApp- and queue-related tests enabled.
+
+You can control this explicitly with `LIGHTWEIGHT_TEST_MODE`:
+
+```bash
+# Default behavior: auto-detect based on missing dependencies
+pytest -q backend/tests
+
+# Force lightweight collection mode on
+LIGHTWEIGHT_TEST_MODE=on pytest -q backend/tests
+
+# Convenience wrapper
+./scripts/run_backend_tests_lightweight.sh -q
+
+# Force full collection mode off (useful once full dependencies are installed)
+LIGHTWEIGHT_TEST_MODE=off pytest -q backend/tests
+```
+
 ---
 
 ## Adding New Tests
