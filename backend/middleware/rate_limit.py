@@ -10,6 +10,9 @@ import os
 from constants import RATE_LIMIT_WINDOW_SECONDS
 
 
+from config import settings
+
+
 # ─── Redis Client (lazy init) ────────────────
 _redis = None
 _redis_available = None
@@ -21,8 +24,7 @@ def _get_redis():
     if _redis_available is None:
         try:
             import redis as redis_lib
-            url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-            _redis = redis_lib.from_url(url, decode_responses=True)
+            _redis = redis_lib.from_url(settings.redis.state_url, decode_responses=True)
             _redis.ping()
             _redis_available = True
         except Exception:

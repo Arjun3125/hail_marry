@@ -141,7 +141,7 @@ def _get_redis_client():
         try:
             import redis as redis_lib
 
-            _redis = redis_lib.from_url(settings.redis.url, decode_responses=True)
+            _redis = redis_lib.from_url(settings.redis.broker_url, decode_responses=True)
             _redis.ping()
             _redis_available = True
         except Exception:

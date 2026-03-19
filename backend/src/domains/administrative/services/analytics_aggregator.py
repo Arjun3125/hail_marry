@@ -4,7 +4,7 @@ from decimal import Decimal
 from sqlalchemy import func
 from config import settings
 from database import SessionLocal
-from src.domains.platform.services.ai_queue import _get_redis_client
+from src.infrastructure.llm.cache import _get_redis as _get_redis_client
 
 # We will need to import the actual models used for Attendance and Fees.
 # Assuming standard domain layouts based on the previous tools:

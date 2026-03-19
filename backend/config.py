@@ -144,6 +144,18 @@ class RedisSettings(BaseSettings):
             ),
         )
     )
+    broker_url: str = Field(
+        default=os.getenv(
+            "REDIS_BROKER_URL",
+            os.getenv("REDIS_URL", _yaml_config.get("redis", {}).get("broker_url", "redis://localhost:6379/0"))
+        )
+    )
+    state_url: str = Field(
+        default=os.getenv(
+            "REDIS_STATE_URL",
+            os.getenv("REDIS_URL", _yaml_config.get("redis", {}).get("state_url", "redis://localhost:6379/0"))
+        )
+    )
 
 
 class AuthSettings(BaseSettings):

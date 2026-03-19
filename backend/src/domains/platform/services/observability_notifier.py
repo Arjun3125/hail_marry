@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from config import settings
 from src.domains.platform.services.webhooks import emit_webhook_event
-from src.domains.platform.services.ai_queue import _get_redis_client
+from src.infrastructure.llm.cache import _get_redis as _get_redis_client
 
 logger = logging.getLogger(__name__)
 
