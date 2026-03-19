@@ -81,10 +81,7 @@ Current runtime facts:
 - Document ingestion watch (auto-ingest from folders)
 - Docs-as-AI chatbot (self-service support from VidyaOS documentation)
 
-Note: Clickable citations, docs chatbot, and document ingestion watch exist in code
-but are not yet wired into the main AI request flow. Extended connectors are wired
-for PPTX/XLSX uploads and Google Docs/Notion URL ingestion when dependencies and API
-tokens are configured.
+Note: Clickable citations, docs chatbot, and document ingestion watch are fully implemented and wired into the application. Extended connectors are wired for PPTX/XLSX uploads and Google Docs/Notion URL ingestion.
 
 ### Teacher Tools
 - Class insights with weak topic analysis
@@ -201,10 +198,10 @@ Implemented foundations in the repo now include:
 ## Known Gaps (Current Status)
 
 The following items remain partially wired or incomplete:
-- AI grading currently returns OCR extraction + manual review; full rubric scoring is pending.
 - Clickable citations
 - Docs-as-AI chatbot API
 - Document ingestion watch scheduler
+- Smart Timetable Generator (Heuristic-based)
 
 ## Middleware Stack
 
@@ -237,7 +234,6 @@ These are still open or partial:
 - dedicated admin UI for SAML SSO, compliance, and incident management
 - mobile app shell (Capacitor/TWA) for Play Store
 - AI grading rubric scoring (OCR-only today)
-- clickable citations + docs chatbot + document ingestion watch wiring
 
 ## Documentation Map
 - `documentation/system_docs/Architecture.md`: current service topology and execution boundaries

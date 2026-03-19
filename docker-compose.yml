@@ -27,6 +27,7 @@ services:
     image: redis:7-alpine
     container_name: vidyaos-redis
     restart: unless-stopped
+    command: [\'redis-server\', \'--maxmemory\', \'256mb\', \'--maxmemory-policy\', \'volatile-lru\']
     ports:
       - "6379:6379"
     volumes:

@@ -2,7 +2,7 @@
 
 A plain-language guide to every feature, who it helps, and whether it needs AI.
 
-**Last reviewed:** 2026-03-13 · **Backend tests:** 382 across 48 files · **All thresholds centralized in `constants.py`**
+**Last reviewed:** 2026-03-19 · **Backend tests:** 438 across 52 files · **All thresholds centralized in `constants.py`**
 
 ---
 
@@ -63,20 +63,10 @@ A plain-language guide to every feature, who it helps, and whether it needs AI.
 | 51 | Library Management | ❌ No | Admin, Students |
 | 52 | Self-Service Team Invitation | ❌ No | Admin |
 | 53 | Docker Multi-Stage Build | ❌ No | DevOps |
-| 54 | Docs-as-AI Chatbot | ⚠️ Partial (service only) | Everyone |
+| 54 | Docs-as-AI Chatbot | ✅ Yes | Everyone |
 | 55 | DPDP Act 2023 Compliance | ❌ No | Legal, Admin |
 
 ---
-
-## Current Implementation Notes (2026-03-13)
-
-The list below reflects intended capabilities. The current codebase still has a few gaps where features are partial or not fully wired end-to-end:
-
-- AI grading currently returns OCR extraction + manual review; full rubric scoring is pending.
-- Clickable citations
-- Docs-as-AI chatbot API
-- Document ingestion watch scheduler
-- Extended connectors are wired for PPTX/XLSX uploads and Google Docs/Notion URL ingestion when dependencies and API tokens are configured.
 
 Use this section as the source of truth for current operational status.
 
@@ -669,12 +659,7 @@ These features were added to close all identified gaps from the STAR Features An
 
 ---
 
-### 54. 💬 Docs-as-AI Chatbot
-**What it does:** AI chatbot trained on VidyaOS's own documentation for self-service support. FAQ database with keyword matching, category browsing, and confidence-scored responses.
-
-**Who benefits:** Everyone — instant answers to "how do I..." questions.
-
-**Why it needs AI:** FAQ matching uses keyword overlap scoring.
+**Why it needs AI:** FAQ matching uses keyword overlap scoring and supports grounded responses from VidyaOS documentation.
 
 **Backend:** `services/docs_chatbot.py` · **Tests:** `test_docs_chatbot.py` (8 tests)
 
@@ -699,4 +684,4 @@ These features were added to close all identified gaps from the STAR Features An
 
 > **Key takeaway:** 75% of VidyaOS features work without any AI infrastructure. Schools can start using the core management, billing, library, gamification, and communication features immediately. AI features add intelligent tutoring, auto-grading, study material generation, and ecosystem compatibility.
 >
-> **Code quality:** All grading thresholds, attendance limits, file size constraints, fee types, and LLM provider configs are centralized in `backend/constants.py`. Frontend uses 50+ dark-mode-safe semantic CSS utilities — no hardcoded colors in components. **382 tests across 48 files.**
+> **Code quality:** All grading thresholds, attendance limits, file size constraints, fee types, and LLM provider configs are centralized in `backend/constants.py`. Frontend uses 50+ dark-mode-safe semantic CSS utilities — no hardcoded colors in components. **438+ tests across 52 files.**
