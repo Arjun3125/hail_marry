@@ -7,11 +7,11 @@ from uuid import UUID
 
 from config import settings
 from database import SessionLocal
-from src.domains.ai_engine.models.document import Document
-from src.domains.ai_engine.schemas.ai_runtime import InternalTeacherDocumentIngestRequest
-from src.domains.ai_engine.services.ai_queue import JOB_TYPE_TEACHER_DOCUMENT_INGEST, enqueue_job
+from src.domains.platform.models.document import Document
+from src.domains.platform.schemas.ai_runtime import InternalTeacherDocumentIngestRequest
+from src.domains.platform.services.ai_queue import JOB_TYPE_TEACHER_DOCUMENT_INGEST, enqueue_job
 from src.domains.academic.services.digest_email import send_weekly_digests
-from src.domains.ai_engine.services.doc_watcher import mark_processed, run_watch_cycle
+from src.domains.platform.services.doc_watcher import mark_processed, run_watch_cycle
 
 logger = logging.getLogger(__name__)
 

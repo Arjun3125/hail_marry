@@ -122,6 +122,14 @@ class DatabaseSettings(BaseSettings):
             ),
         )
     )
+    url_ro: str = Field(
+        default=os.getenv(
+            "DATABASE_URL_RO",
+            _yaml_config.get("database", {}).get(
+                "url_ro", ""
+            ),
+        )
+    )
     echo: bool = Field(
         default=_yaml_config.get("database", {}).get("echo", False)
     )
@@ -329,6 +337,24 @@ class WorkerHealthSettings(BaseSettings):
 
 
 class LLMSettings(BaseSettings):
+    provider: str = Field(
+        default=os.getenv(
+            "LLM_PROVIDER",
+            _yaml_config.get("llm", {}).get("provider", "ollama"),
+        )
+    )
+    openai_api_key: str = Field(
+        default=os.getenv(
+            "OPENAI_API_KEY",
+            _yaml_config.get("llm", {}).get("openai_api_key", ""),
+        )
+    )
+    groq_api_key: str = Field(
+        default=os.getenv(
+            "GROQ_API_KEY",
+            _yaml_config.get("llm", {}).get("groq_api_key", ""),
+        )
+    )
     url: str = Field(
         default=os.getenv(
             "OLLAMA_URL",

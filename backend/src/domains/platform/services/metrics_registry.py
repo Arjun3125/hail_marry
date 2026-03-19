@@ -5,7 +5,7 @@ import threading
 from collections import defaultdict
 from typing import Any
 
-from src.domains.ai_engine.services.ai_queue import GLOBAL_METRICS_KEY, READY_TENANTS_ACTIVE_KEY, get_queue_metrics, _get_redis_client
+from src.domains.platform.services.ai_queue import GLOBAL_METRICS_KEY, READY_TENANTS_ACTIVE_KEY, get_queue_metrics, _get_redis_client
 
 _lock = threading.Lock()
 _http_metrics: dict[tuple[str, str, str, str], dict[str, float]] = defaultdict(lambda: {"count": 0.0, "duration_ms_sum": 0.0})

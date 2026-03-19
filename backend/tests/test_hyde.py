@@ -1,6 +1,6 @@
 """Tests for HyDE query transform."""
 import pytest
-from src.domains.ai_engine.ai.hyde import should_use_hyde, generate_hypothetical_answer, hyde_transform
+from src.infrastructure.vector_store.hyde import should_use_hyde, generate_hypothetical_answer, hyde_transform
 
 
 def test_short_query_no_hyde():

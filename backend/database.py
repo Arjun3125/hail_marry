@@ -35,15 +35,26 @@ _db_url = os.getenv("DATABASE_URL", settings.database.url)
 if _db_url and _db_url.startswith("postgres://"):
     _db_url = _db_url.replace("postgres://", "postgresql://", 1)
 
+_db_url_ro = os.getenv("DATABASE_URL_RO", getattr(settings.database, "url_ro", "")) or _db_url
+if _db_url_ro and _db_url_ro.startswith("postgres://"):
+    _db_url_ro = _db_url_ro.replace("postgres://", "postgresql://", 1)
+
 if "sqlite" in _db_url:
     engine = create_engine(
         _db_url,
         echo=settings.database.echo,
         connect_args={"check_same_thread": False},
     )
+    engine_ro = create_engine(
+        _db_url_ro,
+        echo=settings.database.echo,
+        connect_args={"check_same_thread": False},
+    )
     # Disable RETURNING clause — pysqlite can't handle it with server_default timestamps
     engine.dialect.insert_returning = False
     engine.dialect.update_returning = False
+    engine_ro.dialect.insert_returning = False
+    engine_ro.dialect.update_returning = False
 else:
     engine = create_engine(
         _db_url,
@@ -52,8 +63,16 @@ else:
         pool_size=10,
         max_overflow=20,
     )
+    engine_ro = create_engine(
+        _db_url_ro,
+        echo=settings.database.echo,
+        pool_pre_ping=True,
+        pool_size=10,
+        max_overflow=20,
+    )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+SessionLocalRO = sessionmaker(autocommit=False, autoflush=False, bind=engine_ro)
 
 
 class Base(DeclarativeBase):
@@ -64,6 +83,15 @@ class Base(DeclarativeBase):
 def get_db():
     """FastAPI dependency that yields a database session."""
     db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+def get_db_ro():
+    """FastAPI dependency that yields a read-only database session."""
+    db = SessionLocalRO()
     try:
         yield db
     finally:

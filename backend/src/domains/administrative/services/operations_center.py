@@ -8,7 +8,7 @@ import httpx
 
 from config import settings
 from constants import OLLAMA_BASE_URL
-from src.domains.ai_engine.services.ai_queue import get_queue_metrics
+from src.domains.platform.services.ai_queue import get_queue_metrics
 from src.domains.platform.services.alerting import get_active_alerts
 
 

@@ -161,7 +161,7 @@ class _FakeRedis:
 
 class AIQueueTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
-        self.queue = importlib.import_module("src.domains.ai_engine.services.ai_queue")
+        self.queue = importlib.import_module("src.domains.platform.services.ai_queue")
         self.queue = importlib.reload(self.queue)
         self.fake_redis = _FakeRedis()
         self.redis_patch = patch.object(self.queue, "_get_redis_client", return_value=self.fake_redis)

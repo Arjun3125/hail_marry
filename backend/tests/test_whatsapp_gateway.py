@@ -34,12 +34,12 @@ from src.domains.platform.services.whatsapp_gateway import (
     handle_system_command,
     SYSTEM_COMMANDS,
 )
-from src.domains.ai_engine.ai.whatsapp_tools import (
+from src.shared.ai_tools.whatsapp_tools import (
     authorize_tool,
     TOOL_ROLE_MAP,
     get_tools_for_role,
 )
-from src.domains.ai_engine.ai.whatsapp_agent import (
+from src.interfaces.whatsapp_bot.agent import (
     _classify_intent_heuristic,
     WhatsAppAgentState,
     build_whatsapp_agent_graph,
@@ -205,25 +205,25 @@ class TestSessionManagement:
     def test_create_and_load_session(self, mock_redis):
         """Create a session and load it back."""
         fake_redis, storage = mock_redis
-        session = create_session("919876543210", "user-123", "tenant-456", "student")
+        session = create_session(MagicMock(), "919876543210", "user-123", "tenant-456", "student")
         assert session["phone"] == "919876543210"
         assert session["role"] == "student"
 
-        loaded = get_session("919876543210")
+        loaded = get_session(MagicMock(), "919876543210")
         assert loaded is not None
         assert loaded["user_id"] == "user-123"
 
     def test_delete_session(self, mock_redis):
         """Delete a session."""
         fake_redis, storage = mock_redis
-        create_session("919876543210", "user-123", "tenant-456", "student")
-        delete_session("919876543210")
-        assert get_session("919876543210") is None
+        create_session(MagicMock(), "919876543210", "user-123", "tenant-456", "student")
+        delete_session(MagicMock(), "919876543210")
+        assert get_session(MagicMock(), "919876543210") is None
 
     def test_session_not_found(self, mock_redis):
         """Loading a non-existent session returns None."""
         fake_redis, storage = mock_redis
-        assert get_session("919999999999") is None
+        assert get_session(MagicMock(), "919999999999") is None
 
 
 # ─── Rate Limiting Tests ─────────────────────────────────────
@@ -264,49 +264,49 @@ class TestSystemCommands:
     def test_help_command_student(self):
         """Help command should return student-specific options."""
         session = {"role": "student", "phone": "919876543210"}
-        response = handle_system_command("help", session)
+        response = handle_system_command(MagicMock(), "help", session)
         assert "timetable" in response.lower()
         assert "attendance" in response.lower()
 
     def test_help_command_teacher(self):
         """Help command should return teacher-specific options."""
         session = {"role": "teacher", "phone": "919876543210"}
-        response = handle_system_command("help", session)
+        response = handle_system_command(MagicMock(), "help", session)
         assert "classes" in response.lower()
         assert "absent" in response.lower()
 
     def test_help_command_parent(self):
         """Help command should return parent-specific options."""
         session = {"role": "parent", "phone": "919876543210"}
-        response = handle_system_command("help", session)
+        response = handle_system_command(MagicMock(), "help", session)
         assert "child" in response.lower()
 
     def test_help_command_admin(self):
         """Help command should return admin-specific options."""
         session = {"role": "admin", "phone": "919876543210"}
-        response = handle_system_command("help", session)
+        response = handle_system_command(MagicMock(), "help", session)
         assert "fee" in response.lower()
         assert "attendance" in response.lower()
 
     def test_logout_command(self, mock_redis):
         """Logout should delete the session."""
         fake_redis, storage = mock_redis
-        create_session("919876543210", "user-123", "tenant-456", "student")
+        create_session(MagicMock(), "919876543210", "user-123", "tenant-456", "student")
         session = {"role": "student", "phone": "919876543210"}
-        response = handle_system_command("/logout", session)
+        response = handle_system_command(MagicMock(), "/logout", session)
         assert "logged out" in response.lower()
 
     def test_status_command(self):
         """Status should return session info."""
         session = {"role": "student", "phone": "919876543210", "session_id": "ws-abc123", "last_activity": "2026-03-18T10:00:00"}
-        response = handle_system_command("/status", session)
+        response = handle_system_command(MagicMock(), "/status", session)
         assert "student" in response.lower()
         assert "ws-abc123" in response
 
     def test_switch_child_non_parent(self):
         """Switch child should only work for parents."""
         session = {"role": "student", "phone": "919876543210"}
-        response = handle_system_command("/switch", session)
+        response = handle_system_command(MagicMock(), "/switch", session)
         assert "parent" in response.lower()
 
 

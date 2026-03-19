@@ -1,6 +1,6 @@
 """Tests for agent orchestrator."""
 import pytest
-from src.domains.ai_engine.ai.agent_orchestrator import (
+from src.interfaces.rest_api.ai.agent_orchestrator import (
     WORKFLOW_TEMPLATES, WorkflowState, start_workflow,
     get_next_step, record_step_result, get_workflow, list_workflows,
 )

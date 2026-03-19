@@ -23,7 +23,7 @@ from uuid import UUID, uuid4
 import httpx
 from sqlalchemy.orm import Session
 
-from src.domains.ai_engine.ai.cache import _get_redis
+from src.infrastructure.llm.cache import _get_redis
 from src.domains.platform.models.whatsapp_models import PhoneUserLink, WhatsAppSession, WhatsAppMessage
 
 logger = logging.getLogger(__name__)
@@ -183,27 +183,31 @@ def verify_otp(phone: str, submitted_otp: str) -> dict:
 
 # ─── Session Management ──────────────────────────────────────
 
-def get_session(phone: str) -> Optional[dict]:
-    """Load a WhatsApp session from Redis.
-
-    Returns:
-        Session dict or None if not found/expired.
-    """
-    redis = _get_redis()
-    if not redis:
-        return None
-    raw = redis.get(f"wa:session:{phone}")
-    if raw:
-        return json.loads(raw)
+def get_session(db: Session, phone: str) -> Optional[dict]:
+    """Load a WhatsApp session from Redis. Gracefully fall back to Postgres if Redis fails or misses."""
+    # 1. Try Redis Hot Cache
+    try:
+        redis = _get_redis()
+        if redis:
+            raw = redis.get(f"wa:session:{phone}")
+            if raw:
+                return json.loads(raw)
+    except Exception as e:
+        logger.error("Redis unreachable for get_session: %s. Falling back to Postgres", e)
+        
+    # 2. Try Postgres DB Backup
+    try:
+        from src.domains.platform.models.whatsapp_models import WhatsAppSession
+        db_session = db.query(WhatsAppSession).filter(WhatsAppSession.phone == phone).first()
+        if db_session and db_session.expires_at > datetime.now(timezone.utc):
+            return db_session.session_data
+    except Exception as e:
+        logger.error("Postgres get_session failed: %s", e)
     return None
 
 
-def create_session(phone: str, user_id: str, tenant_id: str, role: str) -> dict:
-    """Create a new WhatsApp conversation session in Redis.
-
-    Returns:
-        The new session dict.
-    """
+def create_session(db: Session, phone: str, user_id: str, tenant_id: str, role: str) -> dict:
+    """Create a new WhatsApp conversation session in Redis and Postgres."""
     session = {
         "session_id": f"ws-{uuid4().hex[:12]}",
         "phone": phone,
@@ -215,23 +219,66 @@ def create_session(phone: str, user_id: str, tenant_id: str, role: str) -> dict:
         "conversation_history": [],
         "last_activity": datetime.now(timezone.utc).isoformat(),
     }
-    save_session(phone, session)
+    save_session(db, phone, session)
     return session
 
 
-def save_session(phone: str, session: dict) -> None:
-    """Persist session to Redis with TTL."""
-    redis = _get_redis()
-    if redis:
-        session["last_activity"] = datetime.now(timezone.utc).isoformat()
-        redis.setex(f"wa:session:{phone}", WA_SESSION_TTL_DAYS * 86400, json.dumps(session))
+def save_session(db: Session, phone: str, session: dict) -> None:
+    """Persist session to Redis and Upsert to PostgreSQL."""
+    session["last_activity"] = datetime.now(timezone.utc).isoformat()
+    session_json = json.dumps(session)
+    
+    # Push to Redis
+    try:
+        redis = _get_redis()
+        if redis:
+            redis.setex(f"wa:session:{phone}", WA_SESSION_TTL_DAYS * 86400, session_json)
+    except Exception as e:
+        logger.warning("Redis unreachable for save_session: %s", e)
+        
+    # Push to Postgres
+    try:
+        from src.domains.platform.models.whatsapp_models import WhatsAppSession
+        from uuid import UUID
+        
+        expires_at = datetime.now(timezone.utc) + timedelta(days=WA_SESSION_TTL_DAYS)
+        
+        db_session = db.query(WhatsAppSession).filter(WhatsAppSession.phone == phone).first()
+        if db_session:
+            db_session.session_data = session
+            db_session.expires_at = expires_at
+        else:
+            if session.get("user_id") and session.get("tenant_id"):
+                new_session = WhatsAppSession(
+                    phone=phone,
+                    user_id=UUID(session["user_id"]),
+                    tenant_id=UUID(session["tenant_id"]),
+                    role=session.get("role", "unknown"),
+                    session_data=session,
+                    expires_at=expires_at
+                )
+                db.add(new_session)
+        db.commit()
+    except Exception as e:
+        logger.warning("Postgres unreachable for save_session: %s", e)
+        db.rollback()
 
 
-def delete_session(phone: str) -> None:
-    """Delete a WhatsApp session from Redis."""
-    redis = _get_redis()
-    if redis:
-        redis.delete(f"wa:session:{phone}")
+def delete_session(db: Session, phone: str) -> None:
+    """Delete a WhatsApp session from Redis and Postgres."""
+    try:
+        redis = _get_redis()
+        if redis:
+            redis.delete(f"wa:session:{phone}")
+    except Exception:
+        pass
+        
+    try:
+        from src.domains.platform.models.whatsapp_models import WhatsAppSession
+        db.query(WhatsAppSession).filter(WhatsAppSession.phone == phone).delete()
+        db.commit()
+    except Exception:
+        db.rollback()
 
 
 # ─── Rate Limiting ────────────────────────────────────────────
@@ -239,38 +286,46 @@ def delete_session(phone: str) -> None:
 def is_rate_limited(phone: str) -> bool:
     """Check if a phone number has exceeded the message rate limit.
 
-    Uses a sliding-window counter in Redis.
+    Uses a sliding-window counter in Redis. Fails open dynamically if Redis crashes.
     """
-    redis = _get_redis()
-    if not redis:
+    try:
+        redis = _get_redis()
+        if not redis:
+            return False
+
+        key = f"wa:ratelimit:{phone}"
+        count = redis.get(key)
+        if count and int(count) >= WA_RATE_LIMIT_PER_MINUTE:
+            return True
+
+        pipe = redis.pipeline()
+        pipe.incr(key)
+        pipe.expire(key, 60)
+        pipe.execute()
         return False
-
-    key = f"wa:ratelimit:{phone}"
-    count = redis.get(key)
-    if count and int(count) >= WA_RATE_LIMIT_PER_MINUTE:
-        return True
-
-    pipe = redis.pipeline()
-    pipe.incr(key)
-    pipe.expire(key, 60)
-    pipe.execute()
-    return False
+    except Exception as e:
+        logger.error("Redis unreachable for is_rate_limited: %s. Failing open.", e)
+        return False
 
 
 # ─── Message Deduplication ────────────────────────────────────
 
 def is_duplicate_message(wa_message_id: str) -> bool:
     """Check if this Meta message ID has already been processed."""
-    redis = _get_redis()
-    if not redis or not wa_message_id:
+    try:
+        redis = _get_redis()
+        if not redis or not wa_message_id:
+            return False
+
+        key = f"wa:dedup:{wa_message_id}"
+        if redis.get(key):
+            return True
+
+        redis.setex(key, 3600, "1")  # 1-hour dedup window
         return False
-
-    key = f"wa:dedup:{wa_message_id}"
-    if redis.get(key):
-        return True
-
-    redis.setex(key, 3600, "1")  # 1-hour dedup window
-    return False
+    except Exception as e:
+        logger.error("Redis unreachable for is_duplicate_message: %s. Failing open.", e)
+        return False
 
 
 # ─── Outbound Messaging ──────────────────────────────────────
@@ -430,7 +485,7 @@ def log_message(
 
 # ─── System Command Handler ──────────────────────────────────
 
-def handle_system_command(command: str, session: dict) -> str:
+def handle_system_command(db: Session, command: str, session: dict) -> str:
     """Handle deterministic system commands (no AI needed).
 
     Returns:
@@ -476,7 +531,7 @@ def handle_system_command(command: str, session: dict) -> str:
         return "\n".join(lines)
 
     elif cmd == "logout":
-        delete_session(session["phone"])
+        delete_session(db, session["phone"])
         return "✅ Logged out. Send any message to log in again."
 
     elif cmd == "switch_child":
@@ -529,12 +584,12 @@ async def process_inbound_message(
         return await _handle_unlinked_phone(db, phone, text)
 
     # 4. Load or create session
-    session = get_session(phone)
+    session = get_session(db, phone)
     if not session:
         from src.domains.identity.models.user import User
         user = db.query(User).filter(User.id == link.user_id).first()
         role = user.role if user else "student"
-        session = create_session(phone, str(link.user_id), str(link.tenant_id), role)
+        session = create_session(db, phone, str(link.user_id), str(link.tenant_id), role)
 
     # 5. Check pending auth actions
     if session.get("pending_action") == "awaiting_otp":
@@ -546,7 +601,7 @@ async def process_inbound_message(
     # 6. System commands
     text_stripped = text.strip().lower()
     if text_stripped in SYSTEM_COMMANDS:
-        response = handle_system_command(text_stripped, session)
+        response = handle_system_command(db, text_stripped, session)
         elapsed = int((time.time() - start_time) * 1000)
         log_message(db, phone, "inbound", text, user_id=link.user_id, tenant_id=link.tenant_id,
                     wa_message_id=wa_message_id)
@@ -556,7 +611,7 @@ async def process_inbound_message(
 
     # 7. AI Agent processing
     try:
-        from src.domains.ai_engine.ai.whatsapp_agent import run_whatsapp_agent
+        from src.interfaces.whatsapp_bot.agent import run_whatsapp_agent
         result = await run_whatsapp_agent(
             message=text,
             user_id=str(link.user_id),
@@ -580,7 +635,7 @@ async def process_inbound_message(
     history.append({"role": "user", "content": text})
     history.append({"role": "assistant", "content": result.get("response", "")})
     session["conversation_history"] = history[-20:]  # Keep last 20 messages
-    save_session(phone, session)
+    save_session(db, phone, session)
 
     # 9. Log messages
     log_message(db, phone, "inbound", text, user_id=link.user_id, tenant_id=link.tenant_id,
@@ -602,7 +657,7 @@ async def process_inbound_message(
 async def _handle_unlinked_phone(db: Session, phone: str, text: str) -> dict:
     """Handle messages from phones not yet linked to an ERP account."""
     # Check if there's a pending OTP
-    session = get_session(phone)
+    session = get_session(db, phone)
 
     if session and session.get("pending_action") == "awaiting_otp":
         return await _handle_otp_verification(db, phone, text, session)
@@ -621,7 +676,7 @@ async def _handle_unlinked_phone(db: Session, phone: str, text: str) -> dict:
         "conversation_history": [],
         "last_activity": datetime.now(timezone.utc).isoformat(),
     }
-    save_session(phone, temp_session)
+    save_session(db, phone, temp_session)
 
     return {
         "response_text": (
@@ -652,7 +707,7 @@ async def _handle_email_lookup(db: Session, phone: str, text: str, session: dict
     session["user_id"] = str(user.id)
     session["tenant_id"] = str(user.tenant_id)
     session["role"] = user.role
-    save_session(phone, session)
+    save_session(db, phone, session)
 
     return {
         "response_text": f"📩 Your verification code is: *{otp}*\n\nPlease enter the 6-digit code to verify.",
@@ -694,7 +749,7 @@ async def _handle_otp_verification(db: Session, phone: str, text: str, session: 
 
     # Upgrade session to authenticated
     session["pending_action"] = None
-    save_session(phone, session)
+    save_session(db, phone, session)
 
     # Invalidate Redis cache for phone
     redis = _get_redis()

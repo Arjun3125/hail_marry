@@ -7,8 +7,8 @@ to the correct underlying workflow function and surfaces errors cleanly.
 import pytest
 from unittest.mock import AsyncMock, patch
 
-from src.domains.ai_engine.services.ai_gateway import run_text_query, run_audio_overview
-from src.domains.ai_engine.schemas.ai_runtime import InternalAIQueryRequest, InternalAudioOverviewRequest
+from src.domains.platform.services.ai_gateway import run_text_query, run_audio_overview
+from src.domains.platform.schemas.ai_runtime import InternalAIQueryRequest, InternalAudioOverviewRequest
 
 
 @pytest.mark.asyncio
@@ -19,7 +19,7 @@ async def test_run_text_query_raises_when_workflow_fails():
     mock_request = InternalAIQueryRequest(query="What is testing?", tenant_id="t-123")
 
     with patch(
-        "src.domains.ai_engine.services.ai_gateway.execute_text_query",
+        "src.domains.platform.services.ai_gateway.execute_text_query",
         new_callable=AsyncMock,
         side_effect=RuntimeError("Workflow execution failed"),
     ):
@@ -34,7 +34,7 @@ async def test_run_text_query_returns_dict_on_success():
     expected = {"answer": "Testing is important.", "sources": []}
 
     with patch(
-        "src.domains.ai_engine.services.ai_gateway.execute_text_query",
+        "src.domains.platform.services.ai_gateway.execute_text_query",
         new_callable=AsyncMock,
         return_value=expected,
     ):
@@ -55,7 +55,7 @@ async def test_run_audio_overview_returns_audio_payload():
     expected = {"title": "Photosynthesis", "dialogue": [], "duration_estimate": "3 minutes"}
 
     with patch(
-        "src.domains.ai_engine.services.ai_gateway.execute_audio_overview",
+        "src.domains.platform.services.ai_gateway.execute_audio_overview",
         new_callable=AsyncMock,
         return_value=expected,
     ):

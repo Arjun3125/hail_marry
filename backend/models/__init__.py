@@ -7,9 +7,9 @@ from src.domains.academic.models.assignment import Assignment, AssignmentSubmiss
 from models.timetable import Timetable
 from models.complaint import Complaint
 from models.lecture import Lecture
-from src.domains.ai_engine.models.document import Document
+from src.domains.platform.models.document import Document
 from models.ai_query import AIQuery
-from src.domains.ai_engine.models.ai_job import AIJob, AIJobEvent
+from src.domains.platform.models.ai_job import AIJob, AIJobEvent
 from models.audit_log import AuditLog
 from models.subject_performance import SubjectPerformance
 from src.domains.platform.models.webhook import WebhookSubscription, WebhookDelivery
@@ -20,7 +20,7 @@ from src.domains.administrative.models.incident import IncidentRoute, Incident, 
 from src.domains.administrative.models.billing import BillingPlan, TenantSubscription, PaymentRecord
 from src.domains.administrative.models.admission import AdmissionApplication
 from src.domains.administrative.models.fee import FeeStructure, FeeInvoice, FeePayment
-from src.domains.ai_engine.models.knowledge_graph import KGConcept, KGRelationship
+from src.domains.platform.models.knowledge_graph import KGConcept, KGRelationship
 from auth.token_blacklist import BlacklistedToken
 from src.domains.administrative.models.library import Book, BookLending
 from models.notification import Notification

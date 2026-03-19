@@ -230,7 +230,7 @@ def seed_demo_data(db):
         ))
 
     # ─── Uploaded Documents ───────────────────────
-    from src.domains.ai_engine.models.document import Document
+    from src.domains.platform.models.document import Document
 
     doc_data = [
         (teacher_id, subjects["Mathematics"], "NCERT_Mathematics_Ch4_Quadratics.pdf", "pdf", "completed", 24),

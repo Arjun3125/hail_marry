@@ -1,6 +1,6 @@
 """Tests for docs-as-AI chatbot."""
 import pytest
-from src.domains.ai_engine.services.docs_chatbot import (
+from src.domains.platform.services.docs_chatbot import (
     FAQ_DATABASE, generate_support_response, get_docs_categories,
     get_faqs_by_category, search_docs_faq,
 )

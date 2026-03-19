@@ -369,7 +369,7 @@ class StudentRouteRegressionTests(unittest.IsolatedAsyncioTestCase):
         db = _DBStub({})
         file = UploadFile(filename="notes.pdf", file=io.BytesIO(b"small pdf payload"))
 
-        with patch("src.domains.ai_engine.ai.ingestion.ingest_document", side_effect=RuntimeError("ingest failed")):
+        with patch("src.infrastructure.vector_store.ingestion.ingest_document", side_effect=RuntimeError("ingest failed")):
             with self.assertRaises(HTTPException) as ctx:
                 await student_routes.student_upload(file, current_user, db)
 
@@ -464,7 +464,7 @@ class StudentRouteRegressionTests(unittest.IsolatedAsyncioTestCase):
                 self.assertIn("data", payload)
 
     async def test_tools_generate_retries_once_when_json_is_malformed(self):
-        study_tools = importlib.import_module("src.domains.ai_engine.ai.study_tools")
+        study_tools = importlib.import_module("src.shared.ai_tools.study_tools")
 
         ai_mock = AsyncMock(
             side_effect=[
@@ -487,7 +487,7 @@ class StudentRouteRegressionTests(unittest.IsolatedAsyncioTestCase):
             ]
         )
 
-        with patch("src.domains.ai_engine.ai.study_tools.execute_text_query", ai_mock):
+        with patch("src.shared.ai_tools.study_tools.execute_text_query", ai_mock):
             payload = await study_tools.execute_study_tool(
                 study_tools.InternalStudyToolGenerateRequest(
                     tool="quiz",
@@ -501,7 +501,7 @@ class StudentRouteRegressionTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(isinstance(payload["data"], list))
 
     async def test_ai_gateway_queries_always_go_through_ai_service_boundary(self):
-        ai_gateway = importlib.import_module("src.domains.ai_engine.services.ai_gateway")
+        ai_gateway = importlib.import_module("src.domains.platform.services.ai_gateway")
 
         mocked_execute = AsyncMock(return_value={"answer": "ok", "mode": "qa"})
         with patch.object(ai_gateway, "execute_text_query", mocked_execute):

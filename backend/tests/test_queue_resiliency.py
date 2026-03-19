@@ -3,16 +3,16 @@ from unittest.mock import patch, MagicMock
 
 def test_job_not_claimed_while_paused():
     """Verify that queue popping immediately stops while global Pause is active."""
-    from src.domains.ai_engine.services.ai_queue import claim_next_job
+    from src.domains.platform.services.ai_queue import claim_next_job
     
-    with patch("src.domains.ai_engine.services.ai_queue.is_queue_paused", return_value=True):
+    with patch("src.domains.platform.services.ai_queue.is_queue_paused", return_value=True):
         job_id = claim_next_job(timeout_seconds=0)
         assert job_id is None, "Worker improperly attempted to claim a job while queue was globally paused."
 
 def test_drain_queue_moves_to_dead_letter():
     """Verify jobs are swept cleanly to DLQ when drained."""
     import time
-    from src.domains.ai_engine.services.ai_queue import drain_queue
+    from src.domains.platform.services.ai_queue import drain_queue
     
     # Mocking Redis pipeline and client actions
     mock_redis = MagicMock()
@@ -34,9 +34,9 @@ def test_drain_queue_moves_to_dead_letter():
         "events": [],
     }
     
-    with patch("src.domains.ai_engine.services.ai_queue._require_queue_client", return_value=mock_redis), \
-         patch("src.domains.ai_engine.services.ai_queue.get_job", return_value=mock_job), \
-         patch("src.domains.ai_engine.services.ai_queue.save_job"):
+    with patch("src.domains.platform.services.ai_queue._require_queue_client", return_value=mock_redis), \
+         patch("src.domains.platform.services.ai_queue.get_job", return_value=mock_job), \
+         patch("src.domains.platform.services.ai_queue.save_job"):
          
         drained_count = drain_queue()
         assert drained_count == 2

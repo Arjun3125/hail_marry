@@ -1,7 +1,7 @@
 """Tests for knowledge graph service."""
 import uuid
 import pytest
-from src.domains.ai_engine.services.knowledge_graph import RELATION_TYPES
+from src.domains.platform.services.knowledge_graph import RELATION_TYPES
 
 
 def test_relation_types_defined():
@@ -13,7 +13,7 @@ def test_relation_types_defined():
 
 
 def test_kg_concept_model():
-    from src.domains.ai_engine.models.knowledge_graph import KGConcept
+    from src.domains.platform.models.knowledge_graph import KGConcept
     concept = KGConcept(
         tenant_id=uuid.uuid4(),
         name="Photosynthesis",
@@ -23,7 +23,7 @@ def test_kg_concept_model():
 
 
 def test_kg_relationship_model():
-    from src.domains.ai_engine.models.knowledge_graph import KGRelationship
+    from src.domains.platform.models.knowledge_graph import KGRelationship
     rel = KGRelationship(
         tenant_id=uuid.uuid4(),
         source_concept_id=uuid.uuid4(),
@@ -36,7 +36,7 @@ def test_kg_relationship_model():
 
 
 def test_invalid_relation_type():
-    from src.domains.ai_engine.services.knowledge_graph import add_relationship
+    from src.domains.platform.services.knowledge_graph import add_relationship
     with pytest.raises(ValueError):
         # Can't call without DB, but the validation check is direct
         # so we test the allowed set

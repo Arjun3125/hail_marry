@@ -4,7 +4,7 @@ from __future__ import annotations
 from typing import Any
 
 from config import settings
-from src.domains.ai_engine.services.ai_queue import get_queue_metrics
+from src.domains.platform.services.ai_queue import get_queue_metrics
 
 
 def get_active_alerts(tenant_id: str) -> list[dict[str, Any]]:

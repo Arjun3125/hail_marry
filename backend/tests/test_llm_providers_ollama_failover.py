@@ -2,7 +2,7 @@ import pytest
 import httpx
 import asyncio
 
-from src.domains.ai_engine.services.llm_providers import OllamaProvider
+from src.domains.platform.services.llm_providers import OllamaProvider
 
 
 class _MockResponse:

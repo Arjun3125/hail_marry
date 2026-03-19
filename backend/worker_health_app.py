@@ -6,7 +6,7 @@ from starlette.responses import PlainTextResponse
 
 from config import settings
 from src.domains.platform.services.metrics_registry import export_prometheus_text
-from src.domains.ai_engine.services.worker_runtime import snapshot_worker_state
+from src.domains.platform.services.worker_runtime import snapshot_worker_state
 
 app = FastAPI(title="VidyaOS Worker Health", version=settings.app.version)
 

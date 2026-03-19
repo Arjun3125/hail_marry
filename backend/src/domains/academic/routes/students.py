@@ -23,12 +23,12 @@ from models.lecture import Lecture
 from models.complaint import Complaint
 from models.academic import Enrollment, Subject
 from models.ai_query import AIQuery
-from src.domains.ai_engine.models.document import Document
+from src.domains.platform.models.document import Document
 from src.domains.identity.models.tenant import Tenant
-from src.domains.ai_engine.schemas.ai_runtime import InternalStudyToolGenerateRequest, StudyToolGenerateRequest
-from src.domains.ai_engine.services.ai_gateway import run_study_tool
-from src.domains.ai_engine.services.ai_queue import JOB_TYPE_STUDY_TOOL, enqueue_job
-from src.domains.ai_engine.ai.citation_linker import make_citations_clickable
+from src.domains.platform.schemas.ai_runtime import InternalStudyToolGenerateRequest, StudyToolGenerateRequest
+from src.domains.platform.services.ai_gateway import run_study_tool
+from src.domains.platform.services.ai_queue import JOB_TYPE_STUDY_TOOL, enqueue_job
+from src.infrastructure.vector_store.citation_linker import make_citations_clickable
 from utils.upload_security import (
     UploadValidationError,
     ensure_storage_dir,
@@ -539,7 +539,7 @@ async def submit_assignment(
 
     # OCR: convert image to PDF
     if ext in ("jpg", "jpeg", "png"):
-        from src.domains.ai_engine.ai.ocr_service import image_to_pdf, validate_image_size
+        from src.infrastructure.vector_store.ocr_service import image_to_pdf, validate_image_size
         try:
             validate_image_size(content)
         except ValueError as exc:
@@ -751,7 +751,7 @@ async def student_upload(
 
     # OCR: convert image to PDF for RAG ingestion
     if ext in ("jpg", "jpeg", "png"):
-        from src.domains.ai_engine.ai.ocr_service import image_to_pdf, validate_image_size
+        from src.infrastructure.vector_store.ocr_service import image_to_pdf, validate_image_size
         try:
             validate_image_size(content)
         except ValueError as exc:
@@ -794,8 +794,8 @@ async def student_upload(
     # RAG ingestion
     chunks_count = 0
     try:
-        from src.domains.ai_engine.ai.ingestion import ingest_document
-        from src.domains.ai_engine.ai.providers import get_embedding_provider, get_vector_store_provider
+        from src.infrastructure.vector_store.ingestion import ingest_document
+        from src.infrastructure.llm.providers import get_embedding_provider, get_vector_store_provider
 
         chunks = ingest_document(
             file_path=str(file_path),

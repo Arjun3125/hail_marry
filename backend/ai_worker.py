@@ -9,12 +9,12 @@ import socket
 
 from config import settings
 from database import engine
-from src.domains.ai_engine.services.ai_queue import claim_next_job, process_job, recover_processing_jobs
+from src.domains.platform.services.ai_queue import claim_next_job, process_job, recover_processing_jobs
 from src.domains.platform.services.sentry_config import configure_sentry
 from src.domains.platform.services.startup_checks import collect_dependency_status, enforce_startup_dependencies
 from src.domains.platform.services.structured_logging import configure_structured_logging
 from src.domains.platform.services.telemetry import configure_telemetry, instrument_sqlalchemy_engine
-from src.domains.ai_engine.services.worker_runtime import (
+from src.domains.platform.services.worker_runtime import (
     mark_worker_failure,
     mark_worker_heartbeat,
     mark_worker_started,
@@ -47,11 +47,22 @@ async def _serve_worker_health() -> None:
     await server.serve()
 
 
+async def _run_periodic_aggregation() -> None:
+    from src.domains.administrative.services.analytics_aggregator import run_analytics_aggregation
+    while True:
+        try:
+            await asyncio.to_thread(run_analytics_aggregation)
+        except Exception as e:
+            logger.error(f"Error in periodic aggregation task: {e}")
+        await asyncio.sleep(900)  # 15 minutes
+
+
 async def worker_loop() -> None:
     dependency_status = enforce_startup_dependencies("worker")
     update_dependency_status(dependency_status)
     mark_worker_started(WORKER_ID, dependency_status)
     health_task = asyncio.create_task(_serve_worker_health())
+    aggregation_task = asyncio.create_task(_run_periodic_aggregation())
 
     recovered = recover_processing_jobs()
     if recovered:
@@ -79,8 +90,10 @@ async def worker_loop() -> None:
                 raise
     finally:
         health_task.cancel()
+        aggregation_task.cancel()
         with contextlib.suppress(asyncio.CancelledError):
             await health_task
+            await aggregation_task
 
 
 if __name__ == "__main__":

@@ -123,7 +123,7 @@ async def metrics_export(x_metrics_token: str | None = Header(default=None)):
 from src.domains.identity.router import router as identity_router
 from src.domains.academic.router import router as academic_router
 from src.domains.administrative.router import router as administrative_router
-from src.domains.ai_engine.router import router as ai_engine_router
+from src.interfaces.rest_api.ai.router import router as ai_engine_router
 from src.domains.platform.router import router as platform_router
 
 app.include_router(identity_router)

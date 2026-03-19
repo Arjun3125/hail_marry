@@ -20,7 +20,7 @@ from models.academic import Class, Subject, Enrollment
 from src.domains.academic.models.attendance import Attendance
 from src.domains.academic.models.marks import Exam, Mark
 from src.domains.academic.models.assignment import Assignment, AssignmentSubmission
-from src.domains.ai_engine.models.document import Document
+from src.domains.platform.models.document import Document
 from models.lecture import Lecture
 from models.timetable import Timetable
 from utils.upload_security import (
@@ -558,9 +558,9 @@ async def upload_document(
 
     # Trigger RAG ingestion
     try:
-        from src.domains.ai_engine.ai.ingestion import ingest_document
-        from src.domains.ai_engine.ai.embeddings import generate_embeddings_batch
-        from src.domains.ai_engine.ai.vector_store import get_vector_store
+        from src.infrastructure.vector_store.ingestion import ingest_document
+        from src.infrastructure.llm.embeddings import generate_embeddings_batch
+        from src.infrastructure.vector_store.vector_store import get_vector_store
 
         chunks = ingest_document(
             file_path=str(file_path),
@@ -653,9 +653,9 @@ async def ingest_youtube_video(
     db.refresh(lecture)
 
     try:
-        from src.domains.ai_engine.ai.ingestion import ingest_youtube
-        from src.domains.ai_engine.ai.embeddings import generate_embeddings_batch
-        from src.domains.ai_engine.ai.vector_store import get_vector_store
+        from src.infrastructure.vector_store.ingestion import ingest_youtube
+        from src.infrastructure.llm.embeddings import generate_embeddings_batch
+        from src.infrastructure.vector_store.vector_store import get_vector_store
 
         chunks = ingest_youtube(
             url=data.url,
@@ -717,7 +717,7 @@ async def onboard_students(
             students_to_create.append({"name": name, "email": email, "password": password})
             
     elif ext in ("jpg", "jpeg", "png"):
-        from src.domains.ai_engine.ai.ocr_service import extract_text_from_image, validate_image_size
+        from src.infrastructure.vector_store.ocr_service import extract_text_from_image, validate_image_size
         try:
             with open(tmp_path, "rb") as f:
                 validate_image_size(f.read())
@@ -893,7 +893,7 @@ async def generate_assessment(
         subject_id=data.subject_id, allowed_class_ids=allowed_class_ids,
     )
 
-    from src.domains.ai_engine.routes.ai import ai_query, AIQueryRequest
+    from src.interfaces.rest_api.ai.routes.ai import ai_query, AIQueryRequest
     n = max(1, min(data.num_questions, 15))
     prompt_query = (
         f"Generate exactly {n} multiple-choice questions about: {data.topic}. "
@@ -1262,7 +1262,7 @@ async def ai_grade_answer_sheet(
     with open(file_path, "wb") as f:
         f.write(content)
 
-    from src.domains.ai_engine.services.ai_queue import enqueue_job
+    from src.domains.platform.services.ai_queue import enqueue_job
 
     job = enqueue_job(
         job_type="ai_grade",

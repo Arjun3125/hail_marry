@@ -18,7 +18,7 @@ def test_ollama_base_url():
 
 
 def test_provider_registry_list():
-    from src.domains.ai_engine.services.llm_providers import ProviderRegistry
+    from src.domains.platform.services.llm_providers import ProviderRegistry
     providers = ProviderRegistry.list_providers()
     assert "ollama" in providers
     assert "openai" in providers
@@ -26,31 +26,31 @@ def test_provider_registry_list():
 
 
 def test_provider_registry_get_ollama():
-    from src.domains.ai_engine.services.llm_providers import ProviderRegistry
+    from src.domains.platform.services.llm_providers import ProviderRegistry
     provider = ProviderRegistry.get("ollama")
     assert provider.name == "ollama"
 
 
 def test_provider_registry_get_openai():
-    from src.domains.ai_engine.services.llm_providers import ProviderRegistry
+    from src.domains.platform.services.llm_providers import ProviderRegistry
     provider = ProviderRegistry.get("openai")
     assert provider.name == "openai"
 
 
 def test_provider_registry_get_anthropic():
-    from src.domains.ai_engine.services.llm_providers import ProviderRegistry
+    from src.domains.platform.services.llm_providers import ProviderRegistry
     provider = ProviderRegistry.get("anthropic")
     assert provider.name == "anthropic"
 
 
 def test_provider_registry_unknown_raises():
-    from src.domains.ai_engine.services.llm_providers import ProviderRegistry
+    from src.domains.platform.services.llm_providers import ProviderRegistry
     with pytest.raises(ValueError, match="Unknown LLM provider"):
         ProviderRegistry.get("unknown_provider")
 
 
 def test_ollama_to_openai_format():
-    from src.domains.ai_engine.services.llm_providers import OllamaProvider
+    from src.domains.platform.services.llm_providers import OllamaProvider
     ollama_resp = {
         "message": {"role": "assistant", "content": "Hello World"},
         "prompt_eval_count": 10,
@@ -65,7 +65,7 @@ def test_ollama_to_openai_format():
 
 
 def test_register_custom_provider():
-    from src.domains.ai_engine.services.llm_providers import ProviderRegistry, LLMProvider
+    from src.domains.platform.services.llm_providers import ProviderRegistry, LLMProvider
 
     class CustomProvider(LLMProvider):
         name = "custom"

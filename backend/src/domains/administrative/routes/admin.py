@@ -21,12 +21,12 @@ from models.complaint import Complaint
 from models.ai_query import AIQuery
 from models.academic import Enrollment, Class, Subject
 from models.timetable import Timetable
-from src.domains.ai_engine.models.document import Document
+from src.domains.platform.models.document import Document
 from models.audit_log import AuditLog
 from src.domains.identity.models.tenant import Tenant
 from src.domains.platform.models.webhook import WebhookSubscription, WebhookDelivery
 from models.parent_link import ParentLink
-from src.domains.ai_engine.services.ai_queue import (
+from src.domains.platform.services.ai_queue import (
     cancel_job,
     drain_queue,
     get_job_detail_for_tenant,
@@ -346,7 +346,7 @@ async def onboard_teachers(
             teachers_to_create.append({"name": name, "email": email, "password": password})
             
     elif ext in ("jpg", "jpeg", "png"):
-        from src.domains.ai_engine.ai.ocr_service import extract_text_from_image, validate_image_size
+        from src.infrastructure.vector_store.ocr_service import extract_text_from_image, validate_image_size
         try:
             with open(tmp_path, "rb") as f:
                 validate_image_size(f.read())
