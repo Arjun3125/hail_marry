@@ -20,7 +20,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="font-sans">
+    <html lang="en" className="font-sans" suppressHydrationWarning>
       <head>
         <meta name="theme-color" content="#0f172a" />
         <script

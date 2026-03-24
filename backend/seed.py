@@ -14,12 +14,12 @@ db = SessionLocal()
 try:
     from src.domains.identity.models.tenant import Tenant
     from src.domains.identity.models.user import User
-    from models.academic import Class, Subject, Enrollment
-    from models.parent_link import ParentLink
+    from src.domains.academic.models.core import Class, Subject, Enrollment
+    from src.domains.academic.models.parent_link import ParentLink
     from src.domains.academic.models.attendance import Attendance
     from src.domains.academic.models.marks import Exam, Mark
-    from models.timetable import Timetable
-    from models.lecture import Lecture
+    from src.domains.academic.models.timetable import Timetable
+    from src.domains.academic.models.lecture import Lecture
     from datetime import date, time
 
     # ─── Tenant ──────────────────────────────────

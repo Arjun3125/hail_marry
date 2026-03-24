@@ -12,9 +12,9 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from config import settings
-from models.ai_query import AIQuery
-from models.audit_log import AuditLog
-from models.compliance import ComplianceExport, DeletionRequest
+from src.domains.platform.models.ai import AIQuery
+from src.domains.platform.models.audit import AuditLog
+from src.domains.administrative.models.compliance import ComplianceExport, DeletionRequest
 from src.domains.administrative.models.incident import Incident, IncidentEvent
 from src.domains.identity.models.user import User
 

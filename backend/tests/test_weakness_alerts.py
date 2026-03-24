@@ -42,8 +42,8 @@ class WeaknessAlertTests(unittest.TestCase):
 
         # Mock db.query(Subject).filter(Subject.id == ...).first()
         def query_dispatch(model):
-            from models.subject_performance import SubjectPerformance
-            from models.academic import Subject
+            from src.domains.academic.models.performance import SubjectPerformance
+            from src.domains.academic.models.core import Subject
             if model is SubjectPerformance:
                 return perf_query
             if model is Subject:

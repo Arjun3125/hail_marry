@@ -1,16 +1,12 @@
 """Spaced Repetition Review Schedule model (SM-2 algorithm)."""
 import uuid
 from datetime import datetime, timezone
-
 from sqlalchemy import Column, DateTime, Float, Integer, String, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
-
 from database import Base
-
 
 class ReviewSchedule(Base):
     __tablename__ = "review_schedules"
-
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
     student_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 /**
  * Guided demo tour using pure CSS + JS.
@@ -58,6 +58,14 @@ export default function GuidedTour({
     storageKey?: string;
 }) {
     const [currentStep, setCurrentStep] = useState(-1);
+    const [mounted, setMounted] = useState(false);
+    const [showButton, setShowButton] = useState(false);
+
+    // Only read localStorage after mounting on client to avoid hydration mismatch
+    useEffect(() => {
+        setMounted(true);
+        setShowButton(!localStorage.getItem(storageKey));
+    }, [storageKey]);
 
     const isActive = currentStep >= 0 && currentStep < steps.length;
     const step = isActive ? steps[currentStep] : null;
@@ -94,12 +102,8 @@ export default function GuidedTour({
         localStorage.setItem(storageKey, "completed");
     };
 
-    // Show "Start Tour" button if not completed
-    const [showButton] = useState(() => {
-        if (typeof window === "undefined") return false;
-        return !localStorage.getItem(storageKey);
-    });
-
+    // Don't render anything until mounted on client
+    if (!mounted) return null;
     if (!showButton && !isActive) return null;
 
     return (

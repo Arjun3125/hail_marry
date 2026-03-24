@@ -13,7 +13,7 @@ from uuid import UUID, uuid4
 from sqlalchemy import desc
 
 from database import SessionLocal
-from models.notification import Notification
+from src.domains.platform.models.notification import Notification
 
 logger = logging.getLogger(__name__)
 

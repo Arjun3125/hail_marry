@@ -5,8 +5,8 @@ from sqlalchemy.orm import Session
 from database import get_db
 from auth.dependencies import get_current_user
 from src.domains.identity.models.user import User
-from models.timetable import Timetable
-from models.academic import Class
+from src.domains.academic.models.timetable import Timetable
+from src.domains.academic.models.core import Class
 
 
 def get_teacher_class_ids(

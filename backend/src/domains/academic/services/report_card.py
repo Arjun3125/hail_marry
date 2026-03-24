@@ -16,7 +16,7 @@ from constants import (
 from src.domains.identity.models.user import User
 from src.domains.academic.models.attendance import Attendance
 from src.domains.academic.models.marks import Mark, Exam
-from models.academic import Enrollment, Class, Subject
+from src.domains.academic.models.core import Enrollment, Class, Subject
 
 
 def generate_report_card_pdf(

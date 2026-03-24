@@ -22,7 +22,7 @@ from src.infrastructure.llm.cache import cache_response, get_cached_response
 from src.infrastructure.vector_store.citation_linker import make_citations_clickable
 from auth.dependencies import get_current_user
 from database import get_db
-from models.ai_query import AIQuery
+from src.domains.platform.models.ai import AIQuery
 from src.domains.identity.models.tenant import Tenant
 from src.domains.identity.models.user import User
 from src.domains.platform.schemas.ai_runtime import AIQueryRequest, InternalAIQueryRequest

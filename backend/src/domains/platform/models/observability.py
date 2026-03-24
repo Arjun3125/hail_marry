@@ -1,15 +1,11 @@
 """Dedicated observability persistence models."""
 import uuid
-
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
-
 from database import Base
-
 
 class TraceEventRecord(Base):
     __tablename__ = "trace_event_records"
-
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False, index=True)
     trace_id = Column(String(255), nullable=False, index=True)
@@ -21,10 +17,8 @@ class TraceEventRecord(Base):
     metadata_ = Column("metadata", JSONB, nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), index=True)
 
-
 class ObservabilityAlertRecord(Base):
     __tablename__ = "observability_alert_records"
-
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False, index=True)
     alert_code = Column(String(100), nullable=False, index=True)
@@ -41,10 +35,8 @@ class ObservabilityAlertRecord(Base):
     latest_payload = Column(JSONB, nullable=True)
     latest_metrics = Column(JSONB, nullable=True)
 
-
 class ObservabilityAlertEvent(Base):
     __tablename__ = "observability_alert_events"
-
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     alert_record_id = Column(UUID(as_uuid=True), ForeignKey("observability_alert_records.id"), nullable=False, index=True)
     tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False, index=True)

@@ -2,7 +2,7 @@
 
 A plain-language guide to every feature, who it helps, and whether it needs AI.
 
-**Last reviewed:** 2026-03-19 · **Backend tests:** 438 across 52 files · **All thresholds centralized in `constants.py`**
+**Last reviewed:** 2026-03-24 (Post-Audit Hardening) · **Backend tests:** 438 across 53 files · **All thresholds centralized in `constants.py`**
 
 ---
 
@@ -36,7 +36,7 @@ A plain-language guide to every feature, who it helps, and whether it needs AI.
 | 24 | Incident Management | ❌ No | Admin |
 | 25 | Leaderboard & Rankings | ❌ No | Students, Teachers |
 | 26 | Report Card PDF Generation | ❌ No | Teachers, Parents |
-| 27 | WhatsApp Notifications | ❌ No | Parents |
+| 27 | WhatsApp Conversational AI & Notifications | ✅ Yes | Parents, Students, Teachers, Admins |
 | 28 | Webhook Subscriptions | ❌ No | Admin |
 | 29 | Queue Operations & Monitoring | ❌ No | Admin |
 | 30 | Trace Viewer | ❌ No | Admin |
@@ -65,6 +65,10 @@ A plain-language guide to every feature, who it helps, and whether it needs AI.
 | 53 | Docker Multi-Stage Build | ❌ No | DevOps |
 | 54 | Docs-as-AI Chatbot | ✅ Yes | Everyone |
 | 55 | DPDP Act 2023 Compliance | ❌ No | Legal, Admin |
+| 56 | Enterprise Zero-Touch Onboarding | ❌ No | Admin, Teachers |
+| 57 | Magic QR Fast Login Badges | ❌ No | Teacher, Student |
+| 58 | Visual Gamified Dashboard | ❌ No | Student |
+| 59 | Emergency WhatsApp Broadcasts | ❌ No | Teacher, Parents |
 
 ---
 
@@ -342,18 +346,20 @@ These features were added during the platform buildout and are fully implemented
 
 ---
 
-### 27. 📱 WhatsApp Notifications
-**What it does:** Sends automated WhatsApp messages to parents for key events: attendance alerts ("Your child was absent today"), weekly performance digests, and exam result notifications with score emoji (🟢 ≥80%, 🟡 ≥50%, 🔴 <50%).
+### 27. 📱 WhatsApp Conversational AI & Notifications
+**What it does:** A robust, bidirectional AI gateway that allows users to interact with VidyaOS via natural language on WhatsApp. It includes automated notifications and a full-featured AI agent for ERP queries and academic assistance.
 
-**Who benefits:** Parents who don't use web apps but always check WhatsApp.
+**Who benefits:** Parents, students, teachers, and admins who want instant, cross-platform access without logging into the web app.
 
 **How it helps:**
-- 80%+ of Indian parents prefer WhatsApp over email or web portals.
-- Attendance alerts sent same day — parents know immediately if their child skipped class.
-- Weekly digests include attendance %, marks summary, and AI usage count.
-- No parent login required — updates come directly to their phone.
+- **Bidirectional AI Agent**: Ask "What's my timetable today?" or "Explain photosynthesis" directly on WhatsApp.
+- **Secure Linking**: Uses OTP-based authentication to link phone numbers to ERP accounts securely.
+- **Role-Based Tools (RBAC)**: Enforces strict data access—students see their results, while admins see school-wide attendance summaries.
+- **Performance**: Uses a multi-stage classification pipeline (Heuristic -> Jaccard Similarity -> LLM) for blazingly fast responses.
+- **Session Durability**: Redis-backed sessions with incremental PostgreSQL durability ensure conversation state is never lost.
+- **Rich Messaging**: Supports interactive List Menus, Quick-Reply Buttons, and PDF report deliveries.
 
-**Backend:** `services/whatsapp.py` · **Tests:** `test_whatsapp.py` (12 tests)
+**Backend:** `platform/services/whatsapp_gateway.py`, `whatsapp_bot/agent.py` · **Tests:** `test_whatsapp_gateway.py` (487 lines)
 
 ---
 
@@ -674,13 +680,41 @@ These features were added to close all identified gaps from the STAR Features An
 
 ---
 
+### 56. 🏢 Enterprise Zero-Touch Onboarding (Tier 3)
+**What it does:** Allows admins to upload an Enterprise CSV to bulk-create Students, automatically generate secured Parent accounts, build `ParentLink` relationships, auto-enroll students into classes, and emit webhooks to send secure WhatsApp login Magic Links to parents.
+**Who benefits:** Schools migrating hundreds of students at once.
+**Backend:** `routes/teacher.py`, `POST /onboard/students`
+
+---
+
+### 57. 🎫 Magic QR Fast Login Badges
+**What it does:** Generates physical, printable QR-code matrices for entire classes. Students hold the printed badge up to the web camera to securely log in instantly without typing passwords (valid for 6 months).
+**Who benefits:** Younger students or classrooms with shared devices.
+**Backend:** `routes/teacher.py`, `GET /classes/{class_id}/qr-tokens`
+
+---
+
+### 58. 🎮 Visual Gamified Dashboard
+**What it does:** Redesigned the student overview to feature SVG-based visual progress rings for attendance, linear gradient progress bars for academic marks, and a prominent "Current Streak" flame tracker based on consecutive daily AI logins.
+**Who benefits:** Students needing visual engagement and motivation.
+**Backend:** `routes/students.py`, `GET /dashboard`
+
+---
+
+### 59. 📢 Emergency WhatsApp Broadcasts
+**What it does:** Allows Teachers to type a high-priority message in the class portal and click "Broadcast". Instantly looks up enrolled students, resolves their linked parents' phone numbers, and dispatches the alert via Infobip WhatsApp integration.
+**Who benefits:** Teachers needing to immediately reach all parents regarding delays or emergencies.
+**Backend:** `routes/teacher.py`, `POST /broadcast`
+
+---
+
 ## Summary
 
 | Category | Count | Examples |
 |----------|-------|---------|
-| **Works without AI** | 41 features | Attendance, marks, fees, library, admission, onboarding, invitations, streaks, alerts, CSV bulk ops, PWA, dark mode, notifications, leaderboard, report cards, WhatsApp, webhooks, queue ops, trace viewer, alerts, SSO, heatmap, upload security, billing, i18n, plugins, token blacklisting, reCAPTCHA, doc watcher, Docker, DPDP |
-| **Requires AI** | 14 features | AI chat, study tools, document intelligence, grading co-pilot, YouTube ingestion, photo onboarding, audio/video overviews, OpenAI API, knowledge graph, HyDE, connectors, citations, agent orchestration, docs chatbot |
-| **Total** | **55 features** | |
+| **Works without AI** | 44 features | Attendance, marks, fees, library, admission, onboarding, streaks, alerts, CSV bulk ops, PWA, dark mode, notifications, leaderboard, report cards, WhatsApp, webhooks, queue ops, trace viewer, SSO, heatmap, upload security, billing, plugins, reCAPTCHA, Magic QR, Enterprise Onboarding, Gamified Dashboard |
+| **Requires AI** | 15 features | AI chat, study tools, document intelligence, grading co-pilot, YouTube ingestion, photo onboarding, audio/video overviews, OpenAI API, knowledge graph, HyDE, connectors, citations, agent orchestration, docs chatbot, WhatsApp Conversational AI |
+| **Total** | **59 features** | |
 
 > **Key takeaway:** 75% of VidyaOS features work without any AI infrastructure. Schools can start using the core management, billing, library, gamification, and communication features immediately. AI features add intelligent tutoring, auto-grading, study material generation, and ecosystem compatibility.
 >

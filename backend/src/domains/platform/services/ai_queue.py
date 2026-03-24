@@ -23,7 +23,7 @@ from sqlalchemy import desc
 from config import settings
 from database import SessionLocal
 from src.domains.platform.models.ai_job import AIJob, AIJobEvent
-from models.audit_log import AuditLog
+from src.domains.platform.models.audit import AuditLog
 from src.domains.platform.schemas.ai_runtime import (
     InternalAIQueryRequest,
     InternalAudioOverviewRequest,

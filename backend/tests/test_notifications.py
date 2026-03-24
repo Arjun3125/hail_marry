@@ -17,13 +17,13 @@ class NotificationStoreTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         from database import Base, engine
-        from models.notification import Notification  # noqa: F401 - ensure table registered
+        from src.domains.platform.models.notification import Notification  # noqa: F401 - ensure table registered
         Base.metadata.create_all(bind=engine)
 
     def setUp(self):
         from src.domains.platform.services import notifications
         from database import SessionLocal
-        from models.notification import Notification
+        from src.domains.platform.models.notification import Notification
         from src.domains.identity.models.tenant import Tenant
         from src.domains.identity.models.user import User
 
@@ -98,13 +98,13 @@ class SubscriptionTests(unittest.IsolatedAsyncioTestCase):
     @classmethod
     def setUpClass(cls):
         from database import Base, engine
-        from models.notification import Notification  # noqa: F401 - ensure table registered
+        from src.domains.platform.models.notification import Notification  # noqa: F401 - ensure table registered
         Base.metadata.create_all(bind=engine)
 
     def setUp(self):
         from src.domains.platform.services import notifications
         from database import SessionLocal
-        from models.notification import Notification
+        from src.domains.platform.models.notification import Notification
         from src.domains.identity.models.tenant import Tenant
         from src.domains.identity.models.user import User
 

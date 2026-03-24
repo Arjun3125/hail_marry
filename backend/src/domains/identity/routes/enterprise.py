@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from auth.dependencies import require_role
 from config import settings
 from database import get_db
-from models.compliance import ComplianceExport, DeletionRequest
+from src.domains.administrative.models.compliance import ComplianceExport, DeletionRequest
 from src.domains.administrative.models.incident import Incident, IncidentEvent
 from src.domains.identity.models.tenant import Tenant
 from src.domains.identity.models.user import User

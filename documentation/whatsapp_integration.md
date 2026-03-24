@@ -2,7 +2,7 @@
 
 **Author:** Architecture Team  
 **Date:** 2026-03-18  
-**Status:** Design Specification  
+**Status:** Implementation & Deployment Specification (Production Ready)
 **Audience:** Backend Engineers, DevOps, Product
 
 **Companion rollout plan:** See `documentation/whatsapp_access_implementation_plan.md` for the staged implementation plan used while building the WhatsApp-accessible feature surface.
@@ -195,23 +195,28 @@ Every inbound message passes through a 3-stage classification:
 Raw Message
     │
     ▼
-┌──────────────────────────┐
-│ Stage 1: Command Parser  │  Checks for exact commands (/help, /logout, /switch)
-│ (Deterministic)          │  Fast path — no LLM needed
-└──────────────────────────┘
+┌──────────────────────────────┐
+│ Stage 1: Command Parser      │  Checks for exact commands (/help, /logout, /switch)
+│ (Deterministic)              │  Fast path — no LLM needed
+└──────────────────────────────┘
     │ (not a command)
     ▼
-┌──────────────────────────┐
-│ Stage 2: Intent Router   │  LLM classifies intent category:
-│ (LLM - llama3.2)        │  academic | administrative | ai_study | general
-│                          │  Extracts: role, action, entities
-└──────────────────────────┘
+┌──────────────────────────────┐
+│ Stage 2: Intent Router/Heuristic│ Keyword matching & Jaccard Similarity (Blazingly Fast)
+│ (Deterministic / Similarity) │ Detects explicit intents (timetable, fees, homework)
+└──────────────────────────────┘
+    │ (no heuristic match)
+    ▼
+┌──────────────────────────────┐
+│ Stage 3: LLM Intent Mapper   │  LLM classifies intent category (llama3.2)
+│ (LLM - llama3.2)             │  Only called if Stage 2 fails to match
+└──────────────────────────────┘
     │
     ▼
-┌──────────────────────────┐
-│ Stage 3: Tool Dispatcher │  Maps intent to ERP tool / domain API
-│ (LangGraph Node)         │  Executes tool, formats response
-└──────────────────────────┘
+┌──────────────────────────────┐
+│ Stage 4: Tool Dispatcher      │  Maps intent to ERP tool / domain API
+│ (LangGraph Node)              │  Executes tool, formats response
+└──────────────────────────────┘
 ```
 
 ### 4.2 Supported Intent Categories
@@ -345,6 +350,7 @@ This is a **new service** that acts as the central coordinator for all inbound W
 | **AI Dispatch** | Forward authenticated messages to the LangGraph WhatsApp agent |
 | **Response Routing** | Format AI/ERP responses into WhatsApp-compatible message types |
 | **Message Logging** | Persist all inbound/outbound messages to `whatsapp_messages` |
+| **Session Durability** | Redis-primary sessions with incremental PostgreSQL durability (failover support) |
 | **Rate Limiting** | Enforce per-user message rate limits to prevent abuse |
 
 ### Class Design
@@ -1031,7 +1037,9 @@ location /api/v1/whatsapp/ {
 
 ---
 
-## 15. Implementation Roadmap
+## 15. Implementation Roadmap (Status: COMPLETED)
+
+All core phases below are fully implemented, tested, and deployed as of **2026-03-24**.
 
 ### Phase 1 — Authentication & Phone Linking (Week 1-2)
 

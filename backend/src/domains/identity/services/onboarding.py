@@ -7,7 +7,7 @@ from typing import Optional
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
-from models.academic import Class, Enrollment, Subject
+from src.domains.academic.models.core import Class, Enrollment, Subject
 from src.domains.identity.models.tenant import Tenant
 from src.domains.identity.models.user import User
 

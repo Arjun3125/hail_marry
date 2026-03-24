@@ -37,11 +37,58 @@ async def run_ai_grade(
     else:
         error = "Automatic grading currently supports image uploads only."
 
+    # ── LLM-Assisted Scoring ──────────────────────────────────────────────────
+    ai_feedback = None
+    ai_score = None
+    ai_max_score = None
+
+    if extracted_text and not error:
+        answer_key = payload.get("answer_key")
+        rubric = payload.get("rubric")
+        if answer_key:
+            try:
+                from src.infrastructure.llm.providers import get_llm_provider
+                import json
+
+                llm = get_llm_provider()
+                grading_prompt = (
+                    "You are a teacher grading a student's handwritten answer (extracted via OCR).\n"
+                    f"Correct Answer Key: {answer_key}\n"
+                    f"Grading Rubric: {rubric or 'Award partial marks for partially correct logic or steps.'}\n"
+                    f"Student Answer: {extracted_text}\n\n"
+                    "Evaluate the answer and return a JSON object with these EXACT keys:\n"
+                    "{\"score\": <float>, \"max_score\": <float>, \"feedback\": \"<string>\"}"
+                )
+                
+                # Generate grading response
+                llm_response = await llm.generate(grading_prompt, temperature=0.1)
+                text_response = llm_response.get("response", "").strip()
+                
+                # Attempt to parse JSON from LLM response
+                try:
+                    # Strip markdown code blocks if present
+                    if "```" in text_response:
+                        text_response = text_response.split("```")[1].strip()
+                        if text_response.startswith("json"):
+                            text_response = text_response[4:].strip()
+                    
+                    data = json.loads(text_response)
+                    ai_score = data.get("score")
+                    ai_max_score = data.get("max_score")
+                    ai_feedback = data.get("feedback")
+                except (json.JSONDecodeError, IndexError):
+                    error = f"AI grading failed to parse response: {text_response[:100]}"
+            except Exception as exc:
+                error = f"AI grading execution error: {str(exc)}"
+
     result = {
-        "status": "review_required",
+        "status": "ai_graded" if (ai_score is not None and not error) else "review_required",
         "file_name": file_name,
         "file_path": str(path),
         "extracted_text": extracted_text,
+        "ai_score": ai_score,
+        "ai_max_score": ai_max_score,
+        "ai_feedback": ai_feedback,
         "error": error,
     }
 

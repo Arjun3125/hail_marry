@@ -7,12 +7,12 @@ from sqlalchemy.orm import Session
 
 from auth.dependencies import require_role
 from database import get_db
-from models.academic import Enrollment, Subject, Class
+from src.domains.academic.models.core import Enrollment, Subject, Class
 from src.domains.academic.models.assignment import Assignment, AssignmentSubmission
 from src.domains.academic.models.attendance import Attendance
 from src.domains.academic.models.marks import Exam, Mark
-from models.parent_link import ParentLink
-from models.timetable import Timetable
+from src.domains.academic.models.parent_link import ParentLink
+from src.domains.academic.models.timetable import Timetable
 from src.domains.identity.models.user import User
 
 router = APIRouter(prefix="/api/parent", tags=["Parent"])
@@ -358,7 +358,7 @@ async def parent_report_card(
     """Download the report card PDF for the parent's linked child."""
     from starlette.responses import Response as StarletteResponse
     from src.domains.academic.services.report_card import generate_report_card_pdf
-    from models.parent_link import ParentLink
+    from src.domains.academic.models.parent_link import ParentLink
     from src.domains.identity.models.tenant import Tenant
 
     link = db.query(ParentLink).filter(

@@ -83,15 +83,11 @@ def get_faqs_by_category(category: str) -> list[dict]:
     ]
 
 
-def generate_support_response(query: str) -> dict:
-    """Generate a support response using FAQ matching.
-
-    In production, this would also embed VidyaOS documentation
-    and use RAG to answer arbitrary questions about the platform.
-    """
+async def generate_support_response(query: str) -> dict:
+    """Generate a support response using FAQ matching and RAG over documentation."""
+    # Step 1: Try FAQ first (fast path)
     faq_result = search_docs_faq(query)
-
-    if faq_result:
+    if faq_result and faq_result["confidence"] >= 0.7:
         return {
             "answer": faq_result["answer"],
             "source": "faq",
@@ -100,8 +96,44 @@ def generate_support_response(query: str) -> dict:
             "matched_question": faq_result["question"],
         }
 
+    # Step 2: RAG over documentation files
+    try:
+        from src.infrastructure.vector_store.retrieval import retrieve_documents
+        from src.infrastructure.llm.providers import get_llm_provider
+
+        # Search for documentation in the 'vidyaos_docs' collection
+        # Note: This assumes a 'vidyaos_docs' collection was indexed
+        chunks = retrieve_documents(query, collection="vidyaos_docs", top_k=3)
+        
+        if chunks:
+            context = "\n\n".join([c["text"] for c in chunks])
+            llm = get_llm_provider()
+            
+            prompt = (
+                "You are the VidyaOS Support Assistant. Use the following documentation sections "
+                "to answer the user's question accurately.\n\n"
+                f"Documentation Context:\n{context}\n\n"
+                f"User Question: {query}\n\n"
+                "Answer gracefully and provide step-by-step instructions if possible. "
+                "If the answer is not in the context, say you don't know and suggest visiting /docs."
+            )
+            
+            llm_response = await llm.generate(prompt, temperature=0.3)
+            answer = llm_response.get("response", "").strip()
+            
+            return {
+                "answer": answer,
+                "source": "docs_rag",
+                "confidence": 0.8,
+                "category": "general",
+                "matched_question": None,
+            }
+    except Exception:
+        # Silently fail RAG and use fallback
+        pass
+
     return {
-        "answer": "I couldn't find a specific answer to your question. Please check the documentation at /docs or contact support for assistance.",
+        "answer": "I couldn't find a specific answer to your question in my current documentation. Please check our full guide at /docs or contact support for assistance.",
         "source": "fallback",
         "confidence": 0.0,
         "category": "general",

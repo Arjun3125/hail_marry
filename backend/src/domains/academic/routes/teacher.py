@@ -16,13 +16,13 @@ from auth.dependencies import require_role
 from auth.scoping import get_teacher_class_ids
 from src.domains.platform.services.webhooks import emit_webhook_event
 from src.domains.identity.models.user import User
-from models.academic import Class, Subject, Enrollment
+from src.domains.academic.models.core import Class, Subject, Enrollment
 from src.domains.academic.models.attendance import Attendance
 from src.domains.academic.models.marks import Exam, Mark
 from src.domains.academic.models.assignment import Assignment, AssignmentSubmission
 from src.domains.platform.models.document import Document
-from models.lecture import Lecture
-from models.timetable import Timetable
+from src.domains.academic.models.lecture import Lecture
+from src.domains.academic.models.timetable import Timetable
 from utils.upload_security import (
     UploadValidationError,
     ensure_storage_dir,
@@ -924,7 +924,7 @@ async def teacher_doubt_heatmap(
     db: Session = Depends(get_db),
 ):
     """Aggregate student AI queries by subject to identify doubt hotspots."""
-    from models.ai_query import AIQuery
+    from src.domains.platform.models.ai import AIQuery
     from collections import Counter
 
     allowed_class_ids = list(teacher_class_ids)

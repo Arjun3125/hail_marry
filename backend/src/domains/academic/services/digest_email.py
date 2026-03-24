@@ -12,9 +12,9 @@ from sqlalchemy import func
 from src.domains.identity.models.user import User
 from src.domains.academic.models.attendance import Attendance
 from src.domains.academic.models.marks import Exam, Mark
-from models.ai_query import AIQuery
-from models.parent_link import ParentLink
-from models.academic import Enrollment
+from src.domains.platform.models.ai import AIQuery
+from src.domains.academic.models.parent_link import ParentLink
+from src.domains.academic.models.core import Enrollment
 from src.domains.platform.services.emailer import send_email
 
 logger = logging.getLogger(__name__)

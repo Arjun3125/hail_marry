@@ -50,24 +50,40 @@ def seed_billing_plans(db: Session) -> list[BillingPlan]:
     return created
 
 
-def create_order(db: Session, tenant_id: UUID, amount: int, description: str = "") -> PaymentRecord:
-    """Create a Razorpay order and persist a PaymentRecord.
+async def create_order(
+    db: Session,
+    tenant_id: UUID,
+    amount: int,
+    description: str = "",
+) -> PaymentRecord:
+    """Create a Razorpay order via API and persist a PaymentRecord."""
+    if not RAZORPAY_KEY_ID or not RAZORPAY_KEY_SECRET:
+        raise ValueError("Razorpay credentials (KEY_ID/KEY_SECRET) are not configured.")
 
-    In production, this would call Razorpay's /v1/orders API.
-    For now, it creates a local record with a placeholder order ID.
-    """
-    import uuid as _uuid
+    import httpx
 
-    # In production, call: POST https://api.razorpay.com/v1/orders
-    # body = {"amount": amount * 100, "currency": BILLING_CURRENCY, "receipt": str(tenant_id)}
-    # For MVP, generate a local reference:
-    order_id = f"order_{_uuid.uuid4().hex[:16]}"
+    async with httpx.AsyncClient(timeout=10) as client:
+        try:
+            response = await client.post(
+                "https://api.razorpay.com/v1/orders",
+                auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET),
+                json={
+                    "amount": amount * 100,  # Razorpay expects amount in paise
+                    "currency": BILLING_CURRENCY,
+                    "receipt": str(tenant_id),
+                    "notes": {"description": description},
+                },
+            )
+            response.raise_for_status()
+            rzp_order = response.json()
+        except httpx.HTTPError as exc:
+            raise ValueError(f"Failed to create Razorpay order: {exc}") from exc
 
     record = PaymentRecord(
         tenant_id=tenant_id,
         amount=amount,
         currency=BILLING_CURRENCY,
-        razorpay_order_id=order_id,
+        razorpay_order_id=rzp_order["id"],
         description=description,
         status="created",
     )
@@ -82,10 +98,18 @@ def verify_payment_signature(
     razorpay_payment_id: str,
     razorpay_signature: str,
 ) -> bool:
-    """Verify Razorpay payment signature using HMAC-SHA256."""
+    """Verify Razorpay payment signature using HMAC-SHA256.
+
+    Fails-closed: raises ValueError when RAZORPAY_KEY_SECRET is not set,
+    unless TESTING or DEMO_MODE environment variables are active.
+    """
     if not RAZORPAY_KEY_SECRET:
-        # In test/demo mode, accept any signature
-        return True
+        if os.getenv("TESTING") or os.getenv("DEMO_MODE"):
+            return True
+        raise ValueError(
+            "RAZORPAY_KEY_SECRET is not configured. "
+            "Cannot verify payment signatures in production."
+        )
 
     message = f"{razorpay_order_id}|{razorpay_payment_id}".encode()
     expected = hmac.new(
@@ -157,9 +181,18 @@ def handle_webhook_event(db: Session, event_type: str, payload: dict) -> str:
 
 
 def verify_webhook_signature(body: bytes, signature: str) -> bool:
-    """Verify Razorpay webhook signature."""
+    """Verify Razorpay webhook signature.
+
+    Fails-closed: raises ValueError when RAZORPAY_WEBHOOK_SECRET is not set,
+    unless TESTING or DEMO_MODE environment variables are active.
+    """
     if not RAZORPAY_WEBHOOK_SECRET:
-        return True
+        if os.getenv("TESTING") or os.getenv("DEMO_MODE"):
+            return True
+        raise ValueError(
+            "RAZORPAY_WEBHOOK_SECRET is not configured. "
+            "Cannot verify webhook signatures in production."
+        )
     expected = hmac.new(
         RAZORPAY_WEBHOOK_SECRET.encode(),
         body,

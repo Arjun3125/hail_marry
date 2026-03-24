@@ -12,8 +12,8 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 from database import SessionLocal
 from src.domains.academic.models.marks import Mark, Exam
-from models.academic import Subject, Enrollment
-from models.subject_performance import SubjectPerformance
+from src.domains.academic.models.core import Subject, Enrollment
+from src.domains.academic.models.performance import SubjectPerformance
 from src.domains.identity.models.user import User
 from datetime import datetime, timezone
 

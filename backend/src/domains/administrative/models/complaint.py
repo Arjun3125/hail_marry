@@ -4,10 +4,8 @@ from sqlalchemy import Column, String, Text, DateTime, ForeignKey, func
 from sqlalchemy.dialects.postgresql import UUID
 from database import Base
 
-
 class Complaint(Base):
     __tablename__ = "complaints"
-
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False, index=True)
     student_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)

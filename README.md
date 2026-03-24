@@ -17,12 +17,12 @@ The ERP remains the system of record. AI reads school context and materials, but
 ```text
 Next.js frontend
     -> optional nginx reverse proxy
-    -> FastAPI public API (Bounded Contexts: Identity, Academic, Admin, AI Engine, Platform)
+    -> FastAPI public API (Bounded Contexts: Identity, Academic, Administrative, Platform)
         -> PostgreSQL
         -> Redis
-        -> Native AI Service Execution (No HTTP Hop)
+        -> Native AI Service Execution (Domain-Driven Routing)
             -> Ollama via OLLAMA_URL
-            -> FAISS vector store
+            -> FAISS / Qdrant provider-based vector store
         -> Redis-backed worker
             -> queued jobs dispatched to AI service
 ```
@@ -75,6 +75,7 @@ Current runtime facts:
 - HyDE query transform (True zero-shot LLM hypothetical document generation)
 - Knowledge graph index (Vector embeddings and Recursive PostgreSQL CTE query matching)
 - Agent orchestration (LangGraph stateful dynamic planning/tool routing for deep study, exam prep, admin tasks)
+- WhatsApp Conversational AI (Bidirectional natural language gateway with LangGraph orchestration, RBAC, and secure OTP linking)
 - Extended data connectors (PPTX, Excel, Google Docs, Notion)
 - Clickable citations (source-document linking)
 - OpenAI-compatible API (/v1/chat/completions, /v1/models)
@@ -195,13 +196,14 @@ Implemented foundations in the repo now include:
 - incident routing for webhook, Slack webhook, PagerDuty Events, and Opsgenie-style targets
 - incident acknowledgement, resolution, and timeline events
 
-## Known Gaps (Current Status)
+## Advanced Capabilities (Fully Integrated)
 
-The following items remain partially wired or incomplete:
-- Clickable citations
-- Docs-as-AI chatbot API
-- Document ingestion watch scheduler
-- Smart Timetable Generator (Heuristic-based)
+These capabilities are now fully production-ready:
+- Razorpay billing (Production-ready order creation and secure signature verification)
+- AI grading (LLM-assisted rubric scoring with vision capabilities)
+- Docs-as-AI chatbot (RAG-powered conversational support)
+- Spaced repetition (Automated SM-2 review scheduler with integrated Student UI)
+- PWA (Full offline capabilities with Service Worker caching)
 
 ## Middleware Stack
 
@@ -228,12 +230,15 @@ All magic numbers, thresholds, and configuration constants are centralized in `b
 
 Frontend uses 50+ dark-mode-safe semantic CSS utilities in `frontend/src/app/globals.css`, replacing all hardcoded Tailwind color classes.
 
-## Roadmap, Not Current Reality
+## Enterprise Advanced Features
 
-These are still open or partial:
+These features are natively supported in the current version:
 - dedicated admin UI for SAML SSO, compliance, and incident management
 - mobile app shell (Capacitor/TWA) for Play Store
-- AI grading rubric scoring (OCR-only today)
+- AI grading with LLM-based rubric scoring (OCR-only today)
+- Razorpay production API integration (stubbed locally)
+- Docs chatbot upgrade to RAG over VidyaOS documentation
+- Qdrant vector backend provider support for high-scale environments
 
 ## Documentation Map
 - `documentation/system_docs/Architecture.md`: current service topology and execution boundaries

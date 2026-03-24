@@ -6,8 +6,8 @@ from typing import Any
 from uuid import UUID
 
 from database import SessionLocal
-from models.ai_query import AIQuery
-from models.audit_log import AuditLog
+from src.domains.platform.models.ai import AIQuery
+from src.domains.platform.models.audit import AuditLog
 
 
 def _maybe_uuid(value: str | None) -> UUID | None:

@@ -16,11 +16,16 @@ logger = logging.getLogger(__name__)
 
 REDIS_TTL = 900  # 15 minutes cache
 
-def aggregate_tenant_analytics(tenant_id: str):
+from sqlalchemy.orm import Session
+
+def aggregate_tenant_analytics(tenant_id: str, db: Session | None = None):
     """
     Calculate heavy analytics for a specific tenant and store in Redis.
     """
-    db = SessionLocal()
+    owns_session = db is None
+    if owns_session:
+        db = SessionLocal()
+    
     redis_client = _get_redis_client()
     try:
         # 1. School Attendance Summary
@@ -59,10 +64,9 @@ def aggregate_tenant_analytics(tenant_id: str):
         
         logger.info(f"Successfully aggregated analytics for tenant {tenant_id}")
         
-    except Exception as e:
-        logger.error(f"Error aggregating analytics for tenant {tenant_id}: {str(e)}")
     finally:
-        db.close()
+        if owns_session:
+            db.close()
 
 
 def run_analytics_aggregation():
@@ -75,9 +79,7 @@ def run_analytics_aggregation():
         from src.domains.identity.models.tenant import Tenant
         tenants = db.query(Tenant).filter_by(is_active=True).all()
         for t in tenants:
-            aggregate_tenant_analytics(t.id)
-    except ImportError:
-        logger.warning("Tenant model not found, falling back to a static list or skipping.")
+            aggregate_tenant_analytics(t.id, db=db)
     except Exception as e:
         logger.error(f"Failed to run global analytics aggregation: {e}")
     finally:

@@ -1,4 +1,4 @@
-export const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+export const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").trim().replace(/\/+$/, "");
 const ACCESS_TOKEN_KEY = "vidyaos_access_token";
 
 export type APIErrorType = "auth" | "rate_limit" | "validation" | "service_unavailable" | "unknown";
@@ -223,6 +223,12 @@ export const api = {
                 body: JSON.stringify(data),
             }),
         doubtHeatmap: () => apiFetch("/api/teacher/doubt-heatmap"),
+        getQrTokens: (classId: string) => apiFetch(`/api/teacher/classes/${classId}/qr-tokens`),
+        broadcast: (data: { class_id: string; message: string; priority?: string }) =>
+            apiFetch("/api/teacher/broadcast", {
+                method: "POST",
+                body: JSON.stringify(data),
+            }),
     },
     admin: {
         dashboard: () => apiFetch("/api/admin/dashboard"),

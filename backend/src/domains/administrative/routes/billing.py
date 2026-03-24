@@ -33,7 +33,7 @@ class VerifyPaymentRequest(BaseModel):
 # ── Endpoints ──
 
 @router.post("/create-order")
-def create_billing_order(
+async def create_billing_order(
     body: CreateOrderRequest,
     user=Depends(require_role("admin")),
     db: Session = Depends(get_db),
@@ -41,7 +41,7 @@ def create_billing_order(
     """Create a Razorpay payment order. Admin only."""
     if body.amount <= 0:
         raise HTTPException(status_code=400, detail="Amount must be positive")
-    record = create_order(db, user.tenant_id, body.amount, body.description)
+    record = await create_order(db, user.tenant_id, body.amount, body.description)
     return {
         "order_id": record.razorpay_order_id,
         "amount": record.amount,

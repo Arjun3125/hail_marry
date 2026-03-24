@@ -18,11 +18,11 @@ from src.domains.identity.models.user import User
 from src.domains.academic.models.attendance import Attendance
 from src.domains.academic.models.marks import Exam, Mark
 from src.domains.academic.models.assignment import Assignment, AssignmentSubmission
-from models.timetable import Timetable
-from models.lecture import Lecture
-from models.complaint import Complaint
-from models.academic import Enrollment, Subject
-from models.ai_query import AIQuery
+from src.domains.academic.models.timetable import Timetable
+from src.domains.academic.models.lecture import Lecture
+from src.domains.administrative.models.complaint import Complaint
+from src.domains.academic.models.core import Enrollment, Subject
+from src.domains.platform.models.ai import AIQuery
 from src.domains.platform.models.document import Document
 from src.domains.identity.models.tenant import Tenant
 from src.domains.platform.schemas.ai_runtime import InternalStudyToolGenerateRequest, StudyToolGenerateRequest
@@ -878,7 +878,7 @@ async def student_weak_topics(
     Get the student's weak topics based on subject_performance.
     Returns subjects where average score < 60%.
     """
-    from models.subject_performance import SubjectPerformance
+    from src.domains.academic.models.performance import SubjectPerformance
 
     performances = db.query(SubjectPerformance).filter(
         SubjectPerformance.tenant_id == current_user.tenant_id,
@@ -947,7 +947,7 @@ async def student_reviews(
     db: Session = Depends(get_db),
 ):
     """Get student's spaced repetition review cards (due and upcoming)."""
-    from models.review_schedule import ReviewSchedule
+    from src.domains.platform.models.spaced_repetition import ReviewSchedule
 
     reviews = db.query(ReviewSchedule).filter(
         ReviewSchedule.tenant_id == current_user.tenant_id,
@@ -988,7 +988,7 @@ async def create_review(
     db: Session = Depends(get_db),
 ):
     """Create a new spaced repetition review card."""
-    from models.review_schedule import ReviewSchedule
+    from src.domains.platform.models.spaced_repetition import ReviewSchedule
     from datetime import timedelta
 
     topic = data.topic.strip()
@@ -1030,7 +1030,7 @@ async def complete_review(
     db: Session = Depends(get_db),
 ):
     """Mark a review as completed with quality self-rating (SM-2)."""
-    from models.review_schedule import ReviewSchedule
+    from src.domains.platform.models.spaced_repetition import ReviewSchedule
     from datetime import timedelta
 
     review_uuid = _parse_uuid(review_id, "review_id")

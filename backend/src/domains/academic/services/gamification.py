@@ -7,7 +7,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from models.streak import LoginStreak
+from src.domains.platform.models.engagement import LoginStreak
 
 
 BADGES = [

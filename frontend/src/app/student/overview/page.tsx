@@ -249,10 +249,22 @@ export default function StudentOverview() {
                         <div className="text-2xl font-bold text-[var(--text-primary)]">
                             <AnimatedCounter value={stats.avg_marks} suffix="%" />
                         </div>
-                        <div className="flex items-center gap-1 mt-1 text-[10px]" style={{ color: stats.avg_marks >= 70 ? "var(--success)" : "var(--warning)" }}>
+                        <div className="w-full bg-[var(--border)] h-2 rounded-full mt-2 overflow-hidden">
+                            <div 
+                                className="h-full rounded-full transition-all duration-1000 ease-out" 
+                                style={{
+                                    width: `${stats.avg_marks}%`, 
+                                    backgroundColor: stats.avg_marks >= 70 ? "var(--success)" : "var(--warning)"
+                                }} 
+                            />
+                        </div>
+                        <div className="flex items-center gap-1 mt-3 text-[10px]" style={{ color: stats.avg_marks >= 70 ? "var(--success)" : "var(--warning)" }}>
                             {stats.avg_marks >= 70 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
                             {stats.avg_marks >= 70 ? "On track" : "Below target"}
                         </div>
+                        <p className="text-[10px] text-[var(--text-secondary)] mt-1 line-clamp-1">
+                            {stats.ai_insight || "Consistent performance."}
+                        </p>
                     </div>
 
                     {/* Pending Assignments */}

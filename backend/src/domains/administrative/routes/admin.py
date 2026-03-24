@@ -17,15 +17,15 @@ from auth.dependencies import require_role
 from src.domains.identity.models.user import User
 from src.domains.academic.models.attendance import Attendance
 from src.domains.academic.models.marks import Mark, Exam
-from models.complaint import Complaint
-from models.ai_query import AIQuery
-from models.academic import Enrollment, Class, Subject
-from models.timetable import Timetable
+from src.domains.administrative.models.complaint import Complaint
+from src.domains.platform.models.ai import AIQuery
+from src.domains.academic.models.core import Enrollment, Class, Subject
+from src.domains.academic.models.timetable import Timetable
 from src.domains.platform.models.document import Document
-from models.audit_log import AuditLog
+from src.domains.platform.models.audit import AuditLog
 from src.domains.identity.models.tenant import Tenant
 from src.domains.platform.models.webhook import WebhookSubscription, WebhookDelivery
-from models.parent_link import ParentLink
+from src.domains.academic.models.parent_link import ParentLink
 from src.domains.platform.services.ai_queue import (
     cancel_job,
     drain_queue,
@@ -1881,7 +1881,7 @@ async def send_whatsapp_digest_bulk(
 ):
     """Send weekly digest via WhatsApp to all parents or specified phone numbers."""
     from src.domains.academic.services.whatsapp import send_weekly_digest
-    from models.parent_link import ParentLink
+    from src.domains.academic.models.parent_link import ParentLink
 
     links = db.query(ParentLink).filter(
         ParentLink.tenant_id == current_user.tenant_id,

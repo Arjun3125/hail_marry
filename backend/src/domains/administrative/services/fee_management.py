@@ -7,7 +7,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from constants import FEE_INVOICE_STATUSES
-from models.academic import Enrollment
+from src.domains.academic.models.core import Enrollment
 from src.domains.administrative.models.fee import FeeInvoice, FeePayment, FeeStructure
 from src.domains.identity.models.user import User
 

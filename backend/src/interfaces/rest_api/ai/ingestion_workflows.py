@@ -6,7 +6,7 @@ from uuid import UUID
 
 from database import SessionLocal
 from src.domains.platform.models.document import Document
-from models.lecture import Lecture
+from src.domains.academic.models.lecture import Lecture
 from src.domains.platform.schemas.ai_runtime import (
     InternalTeacherDocumentIngestRequest,
     InternalTeacherYoutubeIngestRequest,

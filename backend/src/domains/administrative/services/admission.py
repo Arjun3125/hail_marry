@@ -7,8 +7,8 @@ from sqlalchemy.orm import Session
 
 from constants import ADMISSION_STATUS_TRANSITIONS, ADMISSION_STATUSES
 from src.domains.administrative.models.admission import AdmissionApplication
-from models.academic import Class, Enrollment
-from models.audit_log import AuditLog
+from src.domains.academic.models.core import Class, Enrollment
+from src.domains.platform.models.audit import AuditLog
 from src.domains.identity.models.user import User
 
 

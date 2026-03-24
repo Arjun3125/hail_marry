@@ -6,8 +6,8 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from models.subject_performance import SubjectPerformance
-from models.academic import Subject
+from src.domains.academic.models.performance import SubjectPerformance
+from src.domains.academic.models.core import Subject
 
 
 from constants import WEAK_TOPIC_THRESHOLD_PCT as WEAK_THRESHOLD_PCT

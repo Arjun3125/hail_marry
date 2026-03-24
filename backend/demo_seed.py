@@ -11,12 +11,12 @@ def seed_demo_data(db):
     """Seed comprehensive demo data into the database."""
     from src.domains.identity.models.tenant import Tenant
     from src.domains.identity.models.user import User
-    from models.academic import Class, Subject, Enrollment
-    from models.parent_link import ParentLink
+    from src.domains.academic.models.core import Class, Subject, Enrollment
+    from src.domains.academic.models.parent_link import ParentLink
     from src.domains.academic.models.attendance import Attendance
     from src.domains.academic.models.marks import Exam, Mark
-    from models.timetable import Timetable
-    from models.lecture import Lecture
+    from src.domains.academic.models.timetable import Timetable
+    from src.domains.academic.models.lecture import Lecture
 
     # ─── Tenant ──────────────────────────────────
     tenant_id = uuid.UUID("00000000-0000-0000-0000-000000000001")
@@ -181,7 +181,7 @@ def seed_demo_data(db):
         ))
 
     # ─── Complaints ───────────────────────────────
-    from models.complaint import Complaint
+    from src.domains.administrative.models.complaint import Complaint
 
     db.add(Complaint(
         tenant_id=tenant_id, student_id=student_ids[0],
@@ -198,7 +198,7 @@ def seed_demo_data(db):
     ))
 
     # ─── AI Query Logs ────────────────────────────
-    from models.ai_query import AIQuery
+    from src.domains.platform.models.ai import AIQuery
 
     ai_queries = [
         ("Explain photosynthesis in simple terms", "qa",
@@ -250,7 +250,7 @@ def seed_demo_data(db):
         ))
 
     # ─── Subject Performance ──────────────────────
-    from models.subject_performance import SubjectPerformance
+    from src.domains.academic.models.performance import SubjectPerformance
 
     perf_data = {
         student_ids[0]: {"Mathematics": 78, "Science": 72, "English": 82, "Hindi": 75, "Social Studies": 79},
@@ -268,7 +268,7 @@ def seed_demo_data(db):
             ))
 
     # ─── Spaced Repetition Reviews ────────────────
-    from models.review_schedule import ReviewSchedule
+    from src.domains.platform.models.spaced_repetition import ReviewSchedule
 
     review_topics = [
         ("Quadratic Formula Derivation", "Mathematics", 0, 3, 2.6),
