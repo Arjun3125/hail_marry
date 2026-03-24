@@ -1,25 +1,75 @@
-# Keep backend Docker context minimal
-
-# VCS / metadata
+# Git
 .git
-.github
-.pytest_cache
-__pycache__
+.gitignore
+.gitmodules
 
-# Python cache/artifacts
-**/__pycache__
-**/*.pyc
-**/*.pyo
-**/.pytest_cache
-.venv
-venv
+# Environment Variables (Secrets)
+.env
+.env.local
+.env.production
+.env.development
+.env.*
+!.env.example
 
-# Local runtime data
-uploads
-vector_store
-demo.db
+# Docker
+.dockerignore
+Dockerfile
+docker-compose*.yml
 
-# Tests/docs not needed in runtime image
-tests
-scripts
-*.log
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.pytest_cache/
+.coverage
+htmlcov/
+venv/
+.venv/
+ENV/
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Next.js / Build Outputs
+.next/
+out/
+build/
+dist/
+.vercel
+
+# Databases & Data
+*.db
+*.sqlite
+*.sqlite3
+data/
+uploads/
+vector_store/
+private_storage/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

@@ -193,6 +193,7 @@ python-multipart==0.0.22
 python3-saml==1.16.0
 pytokens==0.4.1
 pytz==2026.1.post1
+pywinpty==3.0.3
 PyYAML==6.0.3
 pyzmq==27.1.0
 readability-lxml==0.8.4.1
@@ -212,6 +213,7 @@ safetensors==0.7.0
 scapy==2.7.0
 scikit-learn==1.8.0
 scipy==1.17.0
+-e git+https://github.com/D4Vinci/Scrapling.git@eb32285c49d26625a3ba47744a20dd827ec98922#egg=scrapling
 Send2Trash==2.1.0
 sentence-transformers==5.2.3
 sentry-sdk==2.53.0
@@ -256,6 +258,7 @@ websocket-client==1.9.0
 websockets==16.0
 Werkzeug==3.1.5
 widgetsnbextension==4.0.15
+win32_setctime==1.2.0
 wrapt==2.1.1
 xmlsec==1.3.17
 xxhash==3.6.0
