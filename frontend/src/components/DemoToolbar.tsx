@@ -74,7 +74,8 @@ export default function DemoToolbar() {
             {/* Floating pill button */}
             <button
                 onClick={() => setOpen(!open)}
-                className="fixed bottom-4 right-4 z-50 flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-[11px] sm:text-xs font-bold rounded-full shadow-xl hover:shadow-2xl hover:scale-105 transition-all safe-bottom"
+                className="fixed right-4 z-50 flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-[11px] sm:text-xs font-bold rounded-full shadow-xl hover:shadow-2xl hover:scale-105 transition-all"
+                style={{ bottom: "calc(var(--bottom-nav-height, 4.5rem) + 1rem)" }}
             >
                 <span className={`w-2 h-2 rounded-full ${currentRole.color} animate-pulse`} />
                 <span className="hidden sm:inline">DEMO:</span> {currentRole.label}
@@ -82,7 +83,10 @@ export default function DemoToolbar() {
 
             {/* Panel */}
             {open && (
-                <div className="fixed bottom-14 right-4 z-50 w-[calc(100vw-2rem)] sm:w-72 max-w-72 bg-[var(--bg-card)] rounded-2xl shadow-2xl border border-[var(--border)] overflow-hidden animate-[fadeIn_0.15s_ease-out]">
+                <div 
+                    className="fixed right-4 z-50 w-[calc(100vw-2rem)] sm:w-72 max-w-72 bg-[var(--bg-card)] rounded-2xl shadow-2xl border border-[var(--border)] overflow-hidden animate-[fadeIn_0.15s_ease-out]"
+                    style={{ bottom: "calc(var(--bottom-nav-height, 4.5rem) + 3.5rem)" }}
+                >
                     <div className="bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-3 flex items-center justify-between">
                         <span className="text-xs font-bold text-white">Demo Controls</span>
                         <button onClick={() => setOpen(false)} className="text-white/70 hover:text-white">

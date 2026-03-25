@@ -112,7 +112,8 @@ export default function GuidedTour({
             {!isActive && showButton && (
                 <button
                     onClick={startTour}
-                    className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-2.5 bg-[var(--primary)] text-white text-sm font-medium rounded-full shadow-lg hover:shadow-xl transition-all hover:scale-105"
+                    className="fixed right-4 z-40 flex items-center gap-2 px-4 py-2.5 bg-[var(--primary)] text-white text-sm font-medium rounded-full shadow-lg hover:shadow-xl transition-all hover:scale-105"
+                    style={{ bottom: "calc(var(--bottom-nav-height, 4.5rem) + 4rem)" }}
                 >
                     ✨ Take a Tour
                 </button>

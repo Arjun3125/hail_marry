@@ -33,6 +33,13 @@ class Tenant(Base):
     data_retention_days = Column(Integer, nullable=False, default=365, server_default="365")
     export_retention_days = Column(Integer, nullable=False, default=30, server_default="30")
 
+    logo_url = Column(String(1000), nullable=True)
+    primary_color = Column(String(7), nullable=True, default="#4f46e5")
+    secondary_color = Column(String(7), nullable=True, default="#10b981")
+    accent_color = Column(String(7), nullable=True, default="#f59e0b")
+    font_family = Column(String(100), nullable=True, default="Inter")
+    theme_style = Column(String(50), nullable=True, default="modern")
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 

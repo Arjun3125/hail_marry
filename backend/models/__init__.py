@@ -24,6 +24,7 @@ from src.domains.platform.models.knowledge_graph import KGConcept, KGRelationshi
 from auth.token_blacklist import BlacklistedToken
 from src.domains.administrative.models.library import Book, BookLending
 from src.domains.platform.models.notification import Notification
+from src.domains.platform.models.feature_flag import FeatureFlag
 
 __all__ = [
     "Tenant", "User",
@@ -62,5 +63,6 @@ __all__ = [
     "Book",
     "BookLending",
     "Notification",
+    "FeatureFlag",
 ]
 

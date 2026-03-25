@@ -1,4 +1,4 @@
-export const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").trim().replace(/\/+$/, "");
+export const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\s+/g, "").replace(/\/+$/, "");
 const ACCESS_TOKEN_KEY = "vidyaos_access_token";
 
 export type APIErrorType = "auth" | "rate_limit" | "validation" | "service_unavailable" | "unknown";
@@ -233,6 +233,14 @@ export const api = {
     admin: {
         dashboard: () => apiFetch("/api/admin/dashboard"),
         users: () => apiFetch("/api/admin/users"),
+        features: () => apiFetch("/api/features"),
+        toggleFeature: (featureId: string, enabled: boolean) =>
+            apiFetch(`/api/features/${featureId}/toggle`, {
+                method: "POST",
+                body: JSON.stringify({ enabled }),
+            }),
+        applyProfile: (profileName: string) =>
+            apiFetch(`/api/features/profile/${profileName}`, { method: "POST" }),
         students: () => apiFetch("/api/admin/students"),
         changeUserRole: (id: string, role: string) =>
             apiFetch(`/api/admin/users/${id}/role`, {
@@ -316,6 +324,13 @@ export const api = {
         security: () => apiFetch("/api/admin/security"),
         billing: () => apiFetch("/api/admin/billing"),
         settings: () => apiFetch("/api/admin/settings"),
+        brandingConfig: () => apiFetch("/api/branding/config"),
+        extractBranding: (formData: FormData) => apiFormFetch("/api/branding/extract", formData),
+        saveBranding: (data: { primary_color?: string; secondary_color?: string; accent_color?: string; font_family?: string; theme_style?: string; logo_url?: string }) =>
+            apiFetch("/api/branding/save", {
+                method: "PATCH",
+                body: JSON.stringify(data),
+            }),
         updateSettings: (data: { ai_daily_limit?: number; name?: string }) =>
             apiFetch("/api/admin/settings", {
                 method: "PATCH",

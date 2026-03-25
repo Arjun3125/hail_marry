@@ -8,6 +8,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import PlainTextResponse
 from contextlib import asynccontextmanager
 
+from database import SessionLocal
+from src.domains.platform.services.feature_flags import init_feature_flags
+
 # ==============================================================================
 # 1. NORMAL APPLICATION IMPORTS
 # ==============================================================================
@@ -31,6 +34,13 @@ configure_structured_logging(service_name="vidyaos-api")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Initialize feature flags
+    db_session = SessionLocal()
+    try:
+        init_feature_flags(db_session)
+    finally:
+        db_session.close()
+
     if not os.environ.get("TESTING"):
         enforce_startup_dependencies("api")
     stop_event = asyncio.Event()

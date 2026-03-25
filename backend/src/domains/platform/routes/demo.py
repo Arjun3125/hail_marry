@@ -41,7 +41,10 @@ async def demo_login(
         user = db.query(User).filter(User.is_active == True).first()
 
     if not user:
-        return {"error": "No users found. Run seed.py first."}
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No users found in the database. Please run the seed script."
+        )
 
     token_data = {
         "user_id": str(user.id),

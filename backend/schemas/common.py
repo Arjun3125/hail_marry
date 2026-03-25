@@ -33,6 +33,12 @@ class TenantResponse(StrictBaseModel):
     plan_tier: str
     max_students: int
     ai_daily_limit: int
+    logo_url: Optional[str] = None
+    primary_color: Optional[str] = None
+    secondary_color: Optional[str] = None
+    accent_color: Optional[str] = None
+    font_family: Optional[str] = None
+    theme_style: Optional[str] = None
 
     class Config:
         from_attributes = True

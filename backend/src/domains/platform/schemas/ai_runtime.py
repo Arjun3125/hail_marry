@@ -60,3 +60,33 @@ class TeacherAssessmentRequest(StrictBaseModel):
 
 class InternalTeacherAssessmentRequest(TeacherAssessmentRequest):
     tenant_id: str
+
+
+class IngestURLRequest(StrictBaseModel):
+    url: str
+    subject_id: str | None = None
+    title: str | None = None
+
+
+class InternalIngestURLRequest(IngestURLRequest):
+    tenant_id: str
+
+
+class TeacherDocumentIngestRequest(StrictBaseModel):
+    subject_id: str
+    filename: str
+    content_type: str | None = None
+
+
+class InternalTeacherDocumentIngestRequest(TeacherDocumentIngestRequest):
+    tenant_id: str
+    file_path: str
+
+
+class TeacherYoutubeIngestRequest(StrictBaseModel):
+    subject_id: str
+    youtube_url: str
+
+
+class InternalTeacherYoutubeIngestRequest(TeacherYoutubeIngestRequest):
+    tenant_id: str

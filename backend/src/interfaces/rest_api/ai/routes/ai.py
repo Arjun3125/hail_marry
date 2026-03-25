@@ -29,6 +29,7 @@ from src.domains.platform.schemas.ai_runtime import AIQueryRequest, InternalAIQu
 from src.domains.platform.services.ai_gateway import run_text_query
 from src.domains.platform.services.knowledge_graph import get_concept_context
 from src.domains.platform.services.webhooks import emit_webhook_event
+from src.domains.platform.services.feature_flags import require_feature
 
 router = APIRouter(prefix="/api/ai", tags=["AI"])
 
@@ -75,6 +76,7 @@ async def ai_query(
     request: AIQueryRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
+    _feat: bool = Depends(require_feature("ai_chat")),
 ):
     """Process an AI query while keeping quota, caching, and audit logging in the API tier."""
     trace_id = str(uuid.uuid4())[:8]
@@ -199,6 +201,7 @@ async def list_ai_workflows(current_user: User = Depends(get_current_user)):
 async def start_ai_workflow(
     request: WorkflowStartRequest,
     current_user: User = Depends(get_current_user),
+    _feat: bool = Depends(require_feature("agent_orchestrator")),
 ):
     state = await start_workflow(request.workflow_type, {
         "topic": request.topic,

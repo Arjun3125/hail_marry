@@ -819,7 +819,7 @@ class AppSettings(BaseSettings):
         default=_yaml_config.get("app", {}).get("debug", True)
     )
     demo_mode: bool = Field(
-        default=os.getenv("DEMO_MODE", "false").lower() in ("true", "1", "yes")
+        default=os.getenv("DEMO_MODE", "false").strip().lower() in ("true", "1", "yes")
     )
     cors_origins: list[str] = Field(
         default_factory=lambda: _parse_cors_origins(

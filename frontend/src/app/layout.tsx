@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import { LanguageProvider } from "@/i18n/LanguageProvider";
+import { BrandingProvider } from "@/components/theme/BrandingProvider";
 import DemoToolbarWrapper from "@/components/DemoToolbarWrapper";
 
 
@@ -41,11 +42,13 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <LanguageProvider>
-            <main id="main-content">
-              {children}
-            </main>
-            <DemoToolbarWrapper />
-            <div aria-live="polite" aria-atomic="true" className="sr-only" id="screen-reader-announcer" />
+            <BrandingProvider>
+              <main id="main-content">
+                {children}
+              </main>
+              <DemoToolbarWrapper />
+              <div aria-live="polite" aria-atomic="true" className="sr-only" id="screen-reader-announcer" />
+            </BrandingProvider>
           </LanguageProvider>
         </ThemeProvider>
         <script

@@ -1,0 +1,497 @@
+[
+  {
+    "feature_id": "bulk_attendance_marks",
+    "name": "Bulk Attendance & Marks",
+    "description": "Upload CSV for mass attendance and grading.",
+    "category": "Non-AI",
+    "enabled": true,
+    "ai_intensity": "No AI",
+    "module": "Student Management"
+  },
+  {
+    "feature_id": "realtime_notifications",
+    "name": "Real-Time Notifications",
+    "description": "Push notifications for study updates via WebSockets.",
+    "category": "Non-AI",
+    "enabled": true,
+    "ai_intensity": "No AI",
+    "module": "Communication"
+  },
+  {
+    "feature_id": "offline_mode_pwa",
+    "name": "Offline Mode (PWA)",
+    "description": "Enable Progressive Web App caching for offline use.",
+    "category": "Non-AI",
+    "enabled": true,
+    "ai_intensity": "No AI",
+    "module": "Platform Operations"
+  },
+  {
+    "feature_id": "dark_mode",
+    "name": "Dark Mode Persistence",
+    "description": "Remember user's UI theme preference.",
+    "category": "Non-AI",
+    "enabled": true,
+    "ai_intensity": "No AI",
+    "module": "Platform Operations"
+  },
+  {
+    "feature_id": "study_streaks",
+    "name": "Study Streaks & Badges",
+    "description": "Gamified login monitoring and badges.",
+    "category": "Non-AI",
+    "enabled": true,
+    "ai_intensity": "No AI",
+    "module": "Student Management"
+  },
+  {
+    "feature_id": "smart_weakness_alerts",
+    "name": "Smart Weakness Alerts",
+    "description": "Automated warnings when grades drop below threshold.",
+    "category": "Non-AI",
+    "enabled": true,
+    "ai_intensity": "Medium AI",
+    "module": "Examinations"
+  },
+  {
+    "feature_id": "parent_weekly_digest",
+    "name": "Parent Weekly Email Digest",
+    "description": "Automatically dispatch weekly student progress to parents.",
+    "category": "Non-AI",
+    "enabled": true,
+    "ai_intensity": "No AI",
+    "module": "Student Management"
+  },
+  {
+    "feature_id": "ai_grading_copilot",
+    "name": "AI Grading Co-Pilot",
+    "description": "AI analysis of handwritten answers to suggest grades.",
+    "category": "AI",
+    "enabled": true,
+    "ai_intensity": "Heavy AI",
+    "module": "Examinations"
+  },
+  {
+    "feature_id": "ai_study_tools",
+    "name": "AI Study Tools",
+    "description": "Generates quizzes, flashcards, and mind maps.",
+    "category": "AI",
+    "enabled": true,
+    "ai_intensity": "Heavy AI",
+    "module": "Learning Management"
+  },
+  {
+    "feature_id": "document_intelligence",
+    "name": "Document Intelligence",
+    "description": "Vectorize and query uploaded documents.",
+    "category": "AI",
+    "enabled": true,
+    "ai_intensity": "Heavy AI",
+    "module": "Learning Management"
+  },
+  {
+    "feature_id": "ai_chat",
+    "name": "AI Chat (Grounded Q&A)",
+    "description": "Conversational LLM strictly grounded on syllabus.",
+    "category": "AI",
+    "enabled": true,
+    "ai_intensity": "Heavy AI",
+    "module": "Learning Management"
+  },
+  {
+    "feature_id": "youtube_ingestion",
+    "name": "YouTube Lecture Ingestion",
+    "description": "Extract transcripts from YouTube URLs for semantic search.",
+    "category": "AI",
+    "enabled": true,
+    "ai_intensity": "Heavy AI",
+    "module": "Learning Management"
+  },
+  {
+    "feature_id": "ocr_onboarding",
+    "name": "Student Onboarding OCR",
+    "description": "Create accounts from handwritten class lists.",
+    "category": "AI",
+    "enabled": true,
+    "ai_intensity": "Heavy AI",
+    "module": "AI Core Infrastructure"
+  },
+  {
+    "feature_id": "spaced_repetition",
+    "name": "Spaced Repetition (SM-2)",
+    "description": "Mathematical algorithm for flashcard timing.",
+    "category": "Non-AI",
+    "enabled": true,
+    "ai_intensity": "No AI",
+    "module": "Learning Management"
+  },
+  {
+    "feature_id": "attendance_tracking",
+    "name": "Attendance Tracking",
+    "description": "Standard classroom attendance operations.",
+    "category": "Non-AI",
+    "enabled": true,
+    "ai_intensity": "No AI",
+    "module": "Student Management"
+  },
+  {
+    "feature_id": "exam_management",
+    "name": "Exam & Marks Management",
+    "description": "Standard exam creation and grade tracking.",
+    "category": "Non-AI",
+    "enabled": true,
+    "ai_intensity": "No AI",
+    "module": "Examinations"
+  },
+  {
+    "feature_id": "assignment_management",
+    "name": "Assignment Management",
+    "description": "Create, distribute, and track digital assignments.",
+    "category": "Non-AI",
+    "enabled": true,
+    "ai_intensity": "No AI",
+    "module": "Learning Management"
+  },
+  {
+    "feature_id": "complaint_system",
+    "name": "Complaint System",
+    "description": "Digital helpdesk for student/parent issues.",
+    "category": "Non-AI",
+    "enabled": true,
+    "ai_intensity": "No AI",
+    "module": "Communication"
+  },
+  {
+    "feature_id": "parent_dashboard",
+    "name": "Parent Dashboard",
+    "description": "Secure portal for parents to view student metrics.",
+    "category": "Non-AI",
+    "enabled": true,
+    "ai_intensity": "No AI",
+    "module": "Student Management"
+  },
+  {
+    "feature_id": "admin_dashboard",
+    "name": "Admin Dashboard",
+    "description": "School-wide executive view and settings.",
+    "category": "Non-AI",
+    "enabled": true,
+    "ai_intensity": "No AI",
+    "module": "Platform Operations"
+  },
+  {
+    "feature_id": "multi_tenant",
+    "name": "Multi-Tenant Architecture",
+    "description": "Isolate databases and user directories per school.",
+    "category": "Non-AI",
+    "enabled": true,
+    "ai_intensity": "No AI",
+    "module": "Platform Operations"
+  },
+  {
+    "feature_id": "compliance_export",
+    "name": "Compliance & Data Export",
+    "description": "Produce ZIP downloads of all tenant data.",
+    "category": "Non-AI",
+    "enabled": true,
+    "ai_intensity": "No AI",
+    "module": "Platform Operations"
+  },
+  {
+    "feature_id": "incident_management",
+    "name": "Incident Management",
+    "description": "Track system outages and user escalations.",
+    "category": "Non-AI",
+    "enabled": true,
+    "ai_intensity": "No AI",
+    "module": "Platform Operations"
+  },
+  {
+    "feature_id": "leaderboard",
+    "name": "Leaderboard Rankings",
+    "description": "Rank students based on test performance.",
+    "category": "Non-AI",
+    "enabled": true,
+    "ai_intensity": "No AI",
+    "module": "Student Management"
+  },
+  {
+    "feature_id": "report_card_pdf",
+    "name": "Report Card PDF Generation",
+    "description": "Render printable multi-page report cards.",
+    "category": "Non-AI",
+    "enabled": true,
+    "ai_intensity": "No AI",
+    "module": "Examinations"
+  },
+  {
+    "feature_id": "whatsapp_ai",
+    "name": "WhatsApp Conversational AI",
+    "description": "Natural language ERP interactions over WhatsApp.",
+    "category": "AI",
+    "enabled": true,
+    "ai_intensity": "Heavy AI",
+    "module": "Communication"
+  },
+  {
+    "feature_id": "webhook_subscriptions",
+    "name": "Webhook Subscriptions",
+    "description": "Push events to 3rd party school API endpoints.",
+    "category": "Non-AI",
+    "enabled": true,
+    "ai_intensity": "No AI",
+    "module": "Communication"
+  },
+  {
+    "feature_id": "queue_operations",
+    "name": "Queue Operations Monitoring",
+    "description": "Inspect and retry background jobs.",
+    "category": "Non-AI",
+    "enabled": true,
+    "ai_intensity": "No AI",
+    "module": "Platform Operations"
+  },
+  {
+    "feature_id": "trace_viewer",
+    "name": "Trace Viewer",
+    "description": "View step-by-step AI query resolution logic.",
+    "category": "Non-AI",
+    "enabled": true,
+    "ai_intensity": "Medium AI",
+    "module": "Analytics"
+  },
+  {
+    "feature_id": "observability_alerts",
+    "name": "Observability Alerts",
+    "description": "System health triggers pushed to Slack/Email.",
+    "category": "Non-AI",
+    "enabled": true,
+    "ai_intensity": "No AI",
+    "module": "Platform Operations"
+  },
+  {
+    "feature_id": "enterprise_sso",
+    "name": "Enterprise SSO (SAML)",
+    "description": "Login via Google Workspace / Active Directory.",
+    "category": "Non-AI",
+    "enabled": true,
+    "ai_intensity": "No AI",
+    "module": "Platform Operations"
+  },
+  {
+    "feature_id": "audio_video_overviews",
+    "name": "Audio & Video Overviews",
+    "description": "AI-generated podcasts and narrated slides.",
+    "category": "AI",
+    "enabled": true,
+    "ai_intensity": "Heavy AI",
+    "module": "Learning Management"
+  },
+  {
+    "feature_id": "performance_heatmap",
+    "name": "Performance Heatmap",
+    "description": "Visual matrix of school academic health.",
+    "category": "Non-AI",
+    "enabled": true,
+    "ai_intensity": "No AI",
+    "module": "Analytics"
+  },
+  {
+    "feature_id": "upload_security",
+    "name": "Upload Security (DOCX Sanitization)",
+    "description": "Scan and remove malicious macros from uploads.",
+    "category": "Non-AI",
+    "enabled": true,
+    "ai_intensity": "No AI",
+    "module": "Platform Operations"
+  },
+  {
+    "feature_id": "razorpay_billing",
+    "name": "Razorpay Billing Integration",
+    "description": "Automated subscription and fee collection.",
+    "category": "Non-AI",
+    "enabled": true,
+    "ai_intensity": "No AI",
+    "module": "Finance"
+  },
+  {
+    "feature_id": "i18n_support",
+    "name": "Hindi/Marathi Language Support",
+    "description": "Interface translation into local Indian languages.",
+    "category": "Non-AI",
+    "enabled": true,
+    "ai_intensity": "No AI",
+    "module": "Platform Operations"
+  },
+  {
+    "feature_id": "self_service_onboarding",
+    "name": "Self-Service Tenant Onboarding",
+    "description": "Auto-creation of schools via sign-up portal.",
+    "category": "Non-AI",
+    "enabled": true,
+    "ai_intensity": "No AI",
+    "module": "Platform Operations"
+  },
+  {
+    "feature_id": "admission_workflow",
+    "name": "Admission Workflow",
+    "description": "Paperless application forms and reviews.",
+    "category": "Non-AI",
+    "enabled": true,
+    "ai_intensity": "No AI",
+    "module": "Admissions"
+  },
+  {
+    "feature_id": "fee_management",
+    "name": "Fee Management Module",
+    "description": "Generate bulk invoices and track ledgers.",
+    "category": "Non-AI",
+    "enabled": true,
+    "ai_intensity": "No AI",
+    "module": "Finance"
+  },
+  {
+    "feature_id": "openai_api",
+    "name": "OpenAI-Compatible API",
+    "description": "Expose internal models as ChatGPT-compatible APIs.",
+    "category": "AI",
+    "enabled": true,
+    "ai_intensity": "Heavy AI",
+    "module": "AI Core Infrastructure"
+  },
+  {
+    "feature_id": "knowledge_graph",
+    "name": "Knowledge Graph Index",
+    "description": "Entity and relationship reasoning layer.",
+    "category": "AI",
+    "enabled": true,
+    "ai_intensity": "Heavy AI",
+    "module": "AI Core Infrastructure"
+  },
+  {
+    "feature_id": "hyde_transform",
+    "name": "HyDE Query Transform",
+    "description": "Hypothetical document generation for multi-hop retrieval.",
+    "category": "AI",
+    "enabled": true,
+    "ai_intensity": "Heavy AI",
+    "module": "AI Core Infrastructure"
+  },
+  {
+    "feature_id": "extended_connectors",
+    "name": "Extended Data Connectors",
+    "description": "RAG connections for PPTX, Excel, and Notion.",
+    "category": "AI",
+    "enabled": true,
+    "ai_intensity": "Heavy AI",
+    "module": "AI Core Infrastructure"
+  },
+  {
+    "feature_id": "token_blacklisting",
+    "name": "Refresh Token Blacklisting",
+    "description": "Security token revocation via Redis list.",
+    "category": "Non-AI",
+    "enabled": true,
+    "ai_intensity": "No AI",
+    "module": "Platform Operations"
+  },
+  {
+    "feature_id": "clickable_citations",
+    "name": "Clickable Citations",
+    "description": "LLM text decorated with verified document links.",
+    "category": "AI",
+    "enabled": true,
+    "ai_intensity": "Heavy AI",
+    "module": "AI Core Infrastructure"
+  },
+  {
+    "feature_id": "doc_ingestion_watch",
+    "name": "Document Ingestion Watch",
+    "description": "Polling service for active directory file updates.",
+    "category": "Non-AI",
+    "enabled": true,
+    "ai_intensity": "No AI",
+    "module": "Platform Operations"
+  },
+  {
+    "feature_id": "agent_orchestrator",
+    "name": "Agent Orchestration Workflows",
+    "description": "Multi-step complex chaining of AI models.",
+    "category": "AI",
+    "enabled": true,
+    "ai_intensity": "Heavy AI",
+    "module": "AI Core Infrastructure"
+  },
+  {
+    "feature_id": "recaptcha",
+    "name": "reCAPTCHA Protection",
+    "description": "Anti-bot scoring on public API endpoints.",
+    "category": "Non-AI",
+    "enabled": true,
+    "ai_intensity": "No AI",
+    "module": "Platform Operations"
+  },
+  {
+    "feature_id": "plugin_architecture",
+    "name": "Module Plugin Architecture",
+    "description": "Event-driven hooks for extended behaviors.",
+    "category": "Non-AI",
+    "enabled": true,
+    "ai_intensity": "No AI",
+    "module": "Platform Operations"
+  },
+  {
+    "feature_id": "library_management",
+    "name": "Library Management",
+    "description": "Book catalog, checkouts, and late fee tracking.",
+    "category": "Non-AI",
+    "enabled": true,
+    "ai_intensity": "No AI",
+    "module": "Library Management"
+  },
+  {
+    "feature_id": "team_invitation",
+    "name": "Self-Service Team Invitation",
+    "description": "Secure email token registration for staff.",
+    "category": "Non-AI",
+    "enabled": true,
+    "ai_intensity": "No AI",
+    "module": "Admissions"
+  },
+  {
+    "feature_id": "docs_chatbot",
+    "name": "Docs-as-AI Chatbot",
+    "description": "Assistant to answer platform documentation questions.",
+    "category": "AI",
+    "enabled": true,
+    "ai_intensity": "Heavy AI",
+    "module": "Learning Management"
+  },
+  {
+    "feature_id": "enterprise_onboarding",
+    "name": "Enterprise Zero-Touch Onboarding",
+    "description": "Auto mass-creation of parents mapped to students.",
+    "category": "Non-AI",
+    "enabled": true,
+    "ai_intensity": "No AI",
+    "module": "Admissions"
+  },
+  {
+    "feature_id": "magic_qr",
+    "name": "Magic QR Fast Login",
+    "description": "Physical camera-based logins replacing passwords.",
+    "category": "Non-AI",
+    "enabled": true,
+    "ai_intensity": "No AI",
+    "module": "Admissions"
+  },
+  {
+    "feature_id": "emergency_broadcasts",
+    "name": "Emergency WhatsApp Broadcasts",
+    "description": "Push high-priority alerts to class parents.",
+    "category": "Non-AI",
+    "enabled": true,
+    "ai_intensity": "No AI",
+    "module": "Communication"
+  }
+]

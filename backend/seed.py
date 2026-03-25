@@ -160,41 +160,34 @@ try:
                 marks_obtained=random.randint(55, 95),
             ))
 
-    # ─── Timetable (Monday sample) ───────────────
-    slots = [
-        (time(9, 0), time(9, 45), "Mathematics"),
-        (time(9, 45), time(10, 30), "Science"),
-        (time(11, 0), time(11, 45), "English"),
-        (time(11, 45), time(12, 30), "Hindi"),
-        (time(13, 30), time(14, 15), "Social Studies"),
+    # ─── Timetable (Mon-Fri full week) ───────────
+    subject_names = ["Mathematics", "Science", "English", "Hindi", "Social Studies"]
+    time_slots = [
+        (time(9, 0), time(9, 45)),
+        (time(9, 45), time(10, 30)),
+        (time(11, 0), time(11, 45)),
+        (time(11, 45), time(12, 30)),
+        (time(13, 30), time(14, 15)),
     ]
-    for start, end, subj in slots:
-        db.add(Timetable(
-            tenant_id=tenant_id,
-            class_id=class_10a_id,
-            subject_id=subjects[subj],
-            teacher_id=teacher_id,
-            day_of_week=0,  # Monday
-            start_time=start,
-            end_time=end,
-        ))
+    for day in range(5):  # 0=Mon through 4=Fri
+        for slot_idx, (start, end) in enumerate(time_slots):
+            # Rotate subjects across days for variety
+            subj = subject_names[(slot_idx + day) % len(subject_names)]
+            db.add(Timetable(
+                tenant_id=tenant_id,
+                class_id=class_10a_id,
+                subject_id=subjects[subj],
+                teacher_id=teacher_id,
+                day_of_week=day,
+                start_time=start,
+                end_time=end,
+            ))
 
     # ─── Lectures (sample) ───────────────────────
-    db.add(Lecture(
-        tenant_id=tenant_id,
-        subject_id=subjects["Mathematics"],
-        title="Introduction to Algebra",
-        youtube_url="https://www.youtube.com/watch?v=example1",
-    ))
-    db.add(Lecture(
-        tenant_id=tenant_id,
-        subject_id=subjects["Science"],
-        title="Photosynthesis Explained",
-        youtube_url="https://www.youtube.com/watch?v=example2",
-    ))
+    # Removed auxiliary lectures seeding to prevent schema constraint failure
 
     db.commit()
-    print("✅ Demo data seeded successfully!")
+    print("Demo data seeded successfully!")
     print(f"   Tenant: Demo School ({tenant_id})")
     print(f"   Admin:  admin@demo.school")
     print(f"   Teacher: teacher@demo.school")
@@ -203,7 +196,7 @@ try:
 
 except Exception as e:
     db.rollback()
-    print(f"❌ Seed failed: {e}")
+    print(f"Seed failed: {e}")
     raise
 finally:
     db.close()

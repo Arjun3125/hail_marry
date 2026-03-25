@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useCallback } from "react";
+import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
 import en from "@/i18n/en.json";
 import hi from "@/i18n/hi.json";
 
@@ -24,11 +24,15 @@ const LanguageContext = createContext<LanguageContextType>({
 });
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
-    const [lang, setLangState] = useState<Language>(() => {
-        if (typeof window === "undefined") return "en";
+    const [lang, setLangState] = useState<Language>("en");
+
+    // Read stored language after mount to avoid hydration mismatch
+    useEffect(() => {
         const stored = localStorage.getItem(STORAGE_KEY) as Language | null;
-        return stored && dictionaries[stored] ? stored : "en";
-    });
+        if (stored && dictionaries[stored]) {
+            setLangState(stored);
+        }
+    }, []);
 
     const setLang = useCallback((newLang: Language) => {
         setLangState(newLang);

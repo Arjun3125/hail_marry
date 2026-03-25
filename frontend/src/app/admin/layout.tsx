@@ -18,6 +18,8 @@ import {
     Webhook,
     Sparkles,
     QrCode,
+    ShieldAlert,
+    Palette,
 } from "lucide-react";
 
 const adminNav = [
@@ -37,6 +39,8 @@ const adminNav = [
     { label: "Webhooks", href: "/admin/webhooks", icon: Webhook },
     { label: "Billing", href: "/admin/billing", icon: CreditCard },
     { label: "Settings", href: "/admin/settings", icon: Settings },
+    { label: "Features", href: "/admin/feature-flags", icon: ShieldAlert },
+    { label: "Branding", href: "/admin/branding", icon: Palette },
 ];
 
 import GuidedTour, { adminTourSteps } from "@/components/GuidedTour";

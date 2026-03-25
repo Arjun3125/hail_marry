@@ -6,6 +6,8 @@ from .routes import demo
 from .routes import demo_management
 from .routes import notifications
 from .routes import whatsapp
+from .routes import feature_flags
+from .routes import branding
 
 router = APIRouter()
 router.include_router(support.router)
@@ -14,3 +16,5 @@ router.include_router(demo.router)
 router.include_router(demo_management.router)
 router.include_router(notifications.router)
 router.include_router(whatsapp.router)
+router.include_router(feature_flags.router)
+router.include_router(branding.router)
