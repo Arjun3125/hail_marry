@@ -4,7 +4,7 @@
 **Version:** v0.1 (Current Implementation)  
 **Primary Platform:** Web (Next.js)  
 **Roles:** Student / Teacher / Admin / Parent  
-**Status:** Updated to match `frontend/src/app/` on 2026-03-12
+**Status:** Updated to match `frontend/src/app/` on 2026-03-25
 
 **Current status note:** Admin queue operations, trace viewer, and observability alerts now have matching backend
 endpoints. See `documentation/system_docs/Admin review dashboard.md` for the latest implementation notes.
@@ -61,6 +61,11 @@ endpoints. See `documentation/system_docs/Admin review dashboard.md` for the lat
 │   ├── /webhooks       Webhook subscription management
 │   ├── /complaints     Complaint oversight
 │   ├── /billing        Plan & usage billing
+│   ├── /feature-flags  Feature management with AI profiles
+│   ├── /branding       White-label branding configuration
+│   ├── /enterprise     SSO, compliance, incidents
+│   ├── /setup-wizard   Initial tenant setup
+│   ├── /qr-cards       Magic QR login card generation
 │   ├── /security       Security monitoring
 │   └── /settings       Tenant settings
 │
@@ -311,6 +316,10 @@ Subjects × Classes grid, color-coded by average score.
 | Reviews | Assessment | Traces | |
 | Upload | Doubt Heatmap | Webhooks | |
 | Complaints | Profile | Complaints | |
-| Profile | | Billing | |
+| Leaderboard | | Billing | |
+| Profile | | Feature Flags | |
+| | | Branding | |
+| | | Enterprise | |
 | | | Security | |
 | | | Settings | |
+

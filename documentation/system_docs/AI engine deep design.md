@@ -2,7 +2,7 @@
 
 **Project:** VidyaOS  
 **Version:** v0.1 current implementation  
-**Status:** Updated to match the repository runtime on 2026-03-13
+**Status:** Updated to match the repository runtime on 2026-03-25
 
 ---
 
@@ -104,19 +104,6 @@ The primary AI request pipeline now applies:
 - Agent orchestration workflows (via /api/ai/workflows)
 
 ### Personalization controls
-All text generation modes support:
-- **Language** — response language selection
-- **Response length** — short / medium / detailed
-- **Expertise level** — beginner / intermediate / advanced
-
-Applied via `_apply_language_and_style()` before prompt submission.
-
-### Queued generation
-Used in the product for:
-- student study-tool generation
-- audio overview
-- video overview
-- teacher assessment generation
 - ingestion-heavy flows (document, YouTube, URL)
 
 ## 6. Model Configuration

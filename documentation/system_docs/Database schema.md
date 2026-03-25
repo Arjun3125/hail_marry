@@ -4,7 +4,7 @@
 **Version:** v0.1 (Current Implementation)  
 **Database:** PostgreSQL 15+  
 **Architecture:** Multi-Tenant (Shared DB, Logical Isolation)  
-**Status:** Updated to match the repository models on 2026-03-12
+**Status:** Updated to match the repository models on 2026-03-25
 
 ---
 
@@ -49,6 +49,14 @@ CREATE TABLE tenants (
     -- Compliance controls
     data_retention_days INT NOT NULL DEFAULT 365,
     export_retention_days INT NOT NULL DEFAULT 30,
+
+    -- White-label branding
+    logo_url TEXT,
+    primary_color VARCHAR(7),
+    secondary_color VARCHAR(7),
+    accent_color VARCHAR(7),
+    font_family VARCHAR(100),
+    theme_style VARCHAR(50) DEFAULT 'modern',
 
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -729,6 +737,24 @@ These tables are implemented in `backend/models/` but are not fully expanded abo
 - `test_series`, `mock_test_attempts` — leaderboard/test series
 - `kg_concepts`, `kg_relationships` — knowledge graph index
 - `blacklisted_tokens` — refresh token blacklist (enforced during refresh/logout)
+- `feature_flags` — runtime feature toggles with `module` and `ai_intensity` classification
+
+### Feature Flags Table
+
+```sql
+CREATE TABLE feature_flags (
+    id VARCHAR(100) PRIMARY KEY,
+    name VARCHAR(200) NOT NULL,
+    description TEXT,
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    module VARCHAR(100),           -- ERP module grouping (e.g. 'Student Management', 'Finance')
+    ai_intensity VARCHAR(50),      -- AI usage level ('heavy_ai', 'medium_ai', 'low_ai', 'no_ai')
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
+
+Used by the `require_feature()` FastAPI dependency to gate route access at runtime.
 
 If you need full SQL for these, generate it from the SQLAlchemy models.
 

@@ -2,7 +2,7 @@
 
 A plain-language guide to every feature, who it helps, and whether it needs AI.
 
-**Last reviewed:** 2026-03-24 (Post-Audit Hardening) Â· **Backend tests:** 438 across 53 files Â· **All thresholds centralized in `constants.py`**
+**Last reviewed:** 2026-03-25 (Post-Audit Hardening + Feature Management + Branding Engine) Â· **Backend tests:** 438 across 53 files Â· **All thresholds centralized in `constants.py`**
 
 ---
 
@@ -69,6 +69,8 @@ A plain-language guide to every feature, who it helps, and whether it needs AI.
 | 57 | Magic QR Fast Login Badges | âŒ No | Teacher, Student |
 | 58 | Visual Gamified Dashboard | âŒ No | Student |
 | 59 | Emergency WhatsApp Broadcasts | âŒ No | Teacher, Parents |
+| 60 | Feature Management & AI Profiles | âŒ No | Admin |
+| 61 | White-Label Branding Engine | âŒ No (colorthief for extraction) | Admin |
 
 ---
 
@@ -300,6 +302,26 @@ These features use a language model (LLM like Ollama/GPT) to understand text, ge
 - Works with JPG/PNG images of handwritten or printed lists.
 
 **Why it needs AI:** Reading text from images (OCR) is an AI capability.
+
+
+### 60. ?? Feature Management & AI Configuration Profiles
+**What it does:** A centralized system that catalogs all 61 platform features, classifying each by **AI Intensity Level** (Heavy AI, Medium AI, Low AI, No AI) and **ERP Module** (Student Management, Learning, Finance, etc.). Admins can individually toggle any feature on/off via the dashboard. Three **System Configuration Profiles** allow one-click bulk reconfiguration:
+- **AI Tutor Mode** — Maximizes generative AI and learning features, suppresses administrative ERP.
+- **AI Helper Mode** — Balanced blend of ERP operations plus ambient AI assistance.
+- **Full ERP Mode** — Disables heavy AI token consumption for pure administrative operation.
+
+When a feature is disabled, the `require_feature()` FastAPI dependency blocks API access at the route level.
+**Who benefits:** Admin
+**Frontend:** `/admin/feature-flags`
+**Backend:** `src/domains/platform/routes/feature_flags.py`, `features_catalog.json`
+
+---
+
+### 61. ?? White-Label Branding Engine
+**What it does:** Allows each tenant to upload their organization's logo and have the system **automatically extract a brand-consistent color palette** using the `colorthief` library with WCAG 2.1 contrast compliance. Colors are dynamically injected as CSS custom properties across the entire application. The admin dashboard includes a real-time iframe preview.
+**Who benefits:** Admin
+**Frontend:** `/admin/branding`, `components/theme/BrandingProvider.tsx`
+**Backend:** `src/domains/platform/routes/branding.py`, `src/domains/platform/services/branding_extractor.py`
 
 ---
 
@@ -706,16 +728,51 @@ These features were added to close all identified gaps from the STAR Features An
 **Who benefits:** Teachers needing to immediately reach all parents regarding delays or emergencies.
 **Backend:** `routes/teacher.py`, `POST /broadcast`
 
+
+### 60. ?? Feature Management & AI Configuration Profiles
+**What it does:** A centralized system that catalogs all 61 platform features, classifying each by **AI Intensity Level** (Heavy AI, Medium AI, Low AI, No AI) and **ERP Module** (Student Management, Learning, Finance, etc.). Admins can individually toggle any feature on/off via the dashboard. Three **System Configuration Profiles** allow one-click bulk reconfiguration:
+- **AI Tutor Mode** — Maximizes generative AI and learning features, suppresses administrative ERP.
+- **AI Helper Mode** — Balanced blend of ERP operations plus ambient AI assistance.
+- **Full ERP Mode** — Disables heavy AI token consumption for pure administrative operation.
+
+When a feature is disabled, the `require_feature()` FastAPI dependency blocks API access at the route level.
+**Who benefits:** Admin
+**Frontend:** `/admin/feature-flags`
+**Backend:** `src/domains/platform/routes/feature_flags.py`, `features_catalog.json`
+
+---
+
+### 61. ?? White-Label Branding Engine
+**What it does:** Allows each tenant to upload their organization's logo and have the system **automatically extract a brand-consistent color palette** using the `colorthief` library with WCAG 2.1 contrast compliance. Colors are dynamically injected as CSS custom properties across the entire application. The admin dashboard includes a real-time iframe preview.
+**Who benefits:** Admin
+**Frontend:** `/admin/branding`, `components/theme/BrandingProvider.tsx`
+**Backend:** `src/domains/platform/routes/branding.py`, `src/domains/platform/services/branding_extractor.py`
+
 ---
 
 ## Summary
 
 | Category | Count | Examples |
 |----------|-------|---------|
-| **Works without AI** | 44 features | Attendance, marks, fees, library, admission, onboarding, streaks, alerts, CSV bulk ops, PWA, dark mode, notifications, leaderboard, report cards, WhatsApp, webhooks, queue ops, trace viewer, SSO, heatmap, upload security, billing, plugins, reCAPTCHA, Magic QR, Enterprise Onboarding, Gamified Dashboard |
+| **Works without AI** | 46 features | Attendance, marks, fees, library, admission, onboarding, streaks, alerts, CSV bulk ops, PWA, dark mode, notifications, leaderboard, report cards, WhatsApp, webhooks, queue ops, trace viewer, SSO, heatmap, upload security, billing, plugins, reCAPTCHA, Magic QR, Enterprise Onboarding, Gamified Dashboard, Feature Management, White-Label Branding |
 | **Requires AI** | 15 features | AI chat, study tools, document intelligence, grading co-pilot, YouTube ingestion, photo onboarding, audio/video overviews, OpenAI API, knowledge graph, HyDE, connectors, citations, agent orchestration, docs chatbot, WhatsApp Conversational AI |
-| **Total** | **59 features** | |
+| **Total** | **61 features** | |
 
 > **Key takeaway:** 75% of VidyaOS features work without any AI infrastructure. Schools can start using the core management, billing, library, gamification, and communication features immediately. AI features add intelligent tutoring, auto-grading, study material generation, and ecosystem compatibility.
 >
 > **Code quality:** All grading thresholds, attendance limits, file size constraints, fee types, and LLM provider configs are centralized in `backend/constants.py`. Frontend uses 50+ dark-mode-safe semantic CSS utilities â€” no hardcoded colors in components. **438+ tests across 52 files.**
+### 60. Feature Management and AI Configuration Profiles
+**What it does:** A centralized system cataloging all 61 platform features with AI Intensity Level and ERP Module classifications. Admins toggle features individually or apply System Configuration Profiles (AI Tutor, AI Helper, Full ERP). The require_feature() guard blocks disabled features at the API level.
+**Who benefits:** Admin
+**Frontend:** /admin/feature-flags
+**Backend:** feature_flags.py, features_catalog.json
+
+---
+
+### 61. White-Label Branding Engine
+**What it does:** Tenants upload logos for automatic brand palette extraction via colorthief with WCAG 2.1 compliance. Colors inject as CSS custom properties across the app. Admin dashboard has real-time iframe preview.
+**Who benefits:** Admin
+**Frontend:** /admin/branding, BrandingProvider.tsx
+**Backend:** branding.py, branding_extractor.py
+
+

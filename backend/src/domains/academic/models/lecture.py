@@ -1,6 +1,6 @@
 """Lecture and class scheduling models."""
 import uuid
-from sqlalchemy import Column, String, DateTime, ForeignKey, func, Integer
+from sqlalchemy import Column, String, DateTime, ForeignKey, func, Integer, Boolean
 from sqlalchemy.dialects.postgresql import UUID
 from database import Base
 
@@ -13,6 +13,8 @@ class Lecture(Base):
     teacher_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     title = Column(String(200), nullable=False)
     description = Column(String(500), nullable=True)
+    youtube_url = Column(String(500), nullable=True)
     scheduled_at = Column(DateTime(timezone=True), nullable=False)
     duration_minutes = Column(Integer, default=45)
+    transcript_ingested = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

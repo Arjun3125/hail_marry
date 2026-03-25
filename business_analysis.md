@@ -2,7 +2,7 @@
 
 ## Product Rating: 7.5 / 10
 
-## Current Status Notes (2026-03-12)
+## Current Status Notes (2026-03-25)
 
 Several advanced AI items remain partial:
 - AI grading currently returns OCR extraction + manual review; full rubric scoring is pending.
@@ -13,13 +13,15 @@ Recent UX upgrades now implemented:
 - QR code student login with printable cards.
 - Constraint-based timetable generator in admin timetable management.
 - Android Play Store shell guide (TWA/Capacitor) with assetlinks template.
+- Feature Management System with AI intensity classification and system profiles.
+- White-Label Branding Engine with colorthief logo color extraction.
 
 These caveats should be applied when interpreting the ratings below.
 
 ### Strengths (what sells)
 | Area | Rating | Why |
 |------|--------|-----|
-| **Feature depth** | 9/10 | 55 features across 4 roles — comprehensive school ERP + AI platform |
+| **Feature depth** | 9/10 | 61 features across 4 roles — comprehensive school ERP + AI platform + feature management + branding |
 | **AI integration** | 8/10 | Grounded Q&A and study tools are implemented; citations and docs chatbot are wired; connectors are wired when tokens are configured |
 | **Architecture** | 9/10 | Multi-tenant, role-based, plugin architecture, OpenAI-compat API, structured logging, telemetry |
 | **Security** | 8/10 | CSRF, rate limiting, tenant isolation, JWT, RBAC, DPDP compliance; reCAPTCHA + refresh token blacklist enforced when configured |

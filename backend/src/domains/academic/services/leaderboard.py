@@ -1,8 +1,16 @@
 """Leaderboard ranking service for competitive exam test series."""
+import uuid as _uuid
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc
 from src.domains.academic.models.test_series import TestSeries, MockTestAttempt
 from src.domains.identity.models.user import User
+
+
+def _to_uuid(value):
+    """Convert a string to uuid.UUID if needed (SQLite compatibility)."""
+    if isinstance(value, _uuid.UUID):
+        return value
+    return _uuid.UUID(str(value))
 
 
 def calculate_rankings(db: Session, test_series_id: str, tenant_id: str) -> list[dict]:
@@ -15,8 +23,8 @@ def calculate_rankings(db: Session, test_series_id: str, tenant_id: str) -> list
     Returns ordered list of ranked students.
     """
     attempts = db.query(MockTestAttempt).filter(
-        MockTestAttempt.test_series_id == test_series_id,
-        MockTestAttempt.tenant_id == tenant_id,
+        MockTestAttempt.test_series_id == _to_uuid(test_series_id),
+        MockTestAttempt.tenant_id == _to_uuid(tenant_id),
     ).all()
 
     if not attempts:
@@ -54,8 +62,8 @@ def calculate_rankings(db: Session, test_series_id: str, tenant_id: str) -> list
 def get_leaderboard(db: Session, test_series_id: str, tenant_id: str, limit: int = 50) -> dict:
     """Get the leaderboard for a test series with student names."""
     series = db.query(TestSeries).filter(
-        TestSeries.id == test_series_id,
-        TestSeries.tenant_id == tenant_id,
+        TestSeries.id == _to_uuid(test_series_id),
+        TestSeries.tenant_id == _to_uuid(tenant_id),
     ).first()
 
     if not series:
@@ -64,8 +72,8 @@ def get_leaderboard(db: Session, test_series_id: str, tenant_id: str, limit: int
     attempts = db.query(MockTestAttempt, User.full_name, User.email).join(
         User, MockTestAttempt.student_id == User.id,
     ).filter(
-        MockTestAttempt.test_series_id == test_series_id,
-        MockTestAttempt.tenant_id == tenant_id,
+        MockTestAttempt.test_series_id == _to_uuid(test_series_id),
+        MockTestAttempt.tenant_id == _to_uuid(tenant_id),
     ).order_by(MockTestAttempt.rank.asc().nullslast()).limit(limit).all()
 
     return {
@@ -88,17 +96,17 @@ def get_leaderboard(db: Session, test_series_id: str, tenant_id: str, limit: int
 def get_student_rank(db: Session, test_series_id: str, student_id: str, tenant_id: str) -> dict:
     """Get a specific student's rank in a test series."""
     attempt = db.query(MockTestAttempt).filter(
-        MockTestAttempt.test_series_id == test_series_id,
-        MockTestAttempt.student_id == student_id,
-        MockTestAttempt.tenant_id == tenant_id,
+        MockTestAttempt.test_series_id == _to_uuid(test_series_id),
+        MockTestAttempt.student_id == _to_uuid(student_id),
+        MockTestAttempt.tenant_id == _to_uuid(tenant_id),
     ).first()
 
     if not attempt:
         return {"rank": None, "message": "No attempt found for this test"}
 
     total_attempts = db.query(MockTestAttempt).filter(
-        MockTestAttempt.test_series_id == test_series_id,
-        MockTestAttempt.tenant_id == tenant_id,
+        MockTestAttempt.test_series_id == _to_uuid(test_series_id),
+        MockTestAttempt.tenant_id == _to_uuid(tenant_id),
     ).count()
 
     pct = round(attempt.marks_obtained / attempt.total_marks * 100, 1) if attempt.total_marks > 0 else 0
@@ -116,7 +124,7 @@ def get_student_rank(db: Session, test_series_id: str, student_id: str, tenant_i
 def get_all_series(db: Session, tenant_id: str) -> list[dict]:
     """Get all active test series for a tenant with attempt counts."""
     series_list = db.query(TestSeries).filter(
-        TestSeries.tenant_id == tenant_id,
+        TestSeries.tenant_id == _to_uuid(tenant_id),
         TestSeries.is_active == True,
     ).order_by(desc(TestSeries.created_at)).all()
 
@@ -124,7 +132,7 @@ def get_all_series(db: Session, tenant_id: str) -> list[dict]:
     for s in series_list:
         attempt_count = db.query(MockTestAttempt).filter(
             MockTestAttempt.test_series_id == s.id,
-            MockTestAttempt.tenant_id == tenant_id,
+            MockTestAttempt.tenant_id == _to_uuid(tenant_id),
         ).count()
         results.append({
             "id": str(s.id),

@@ -895,7 +895,7 @@ async def student_weak_topics(
         entry = {
             "subject": subject.name if subject else "Unknown",
             "average_score": p.average_score,
-            "exam_count": p.exam_count,
+            "exam_count": 0,
             "is_weak": p.average_score < 60,
         }
         if p.average_score < 60:

@@ -4,7 +4,7 @@
 **Version:** v0.1 (Current Implementation)  
 **Role:** Tenant Admin (School-Level)  
 **Access Level:** Highest within Tenant  
-**Status:** Updated to match backend routes and frontend pages on 2026-03-12
+**Status:** Updated to match backend routes and frontend pages on 2026-03-25
 
 ---
 
@@ -18,6 +18,8 @@ The Admin Dashboard is the institutional governance control center. It provides:
 4. **Governance** — user, class, timetable, parent link, and webhook management
 5. **Operations** — queue controls, incident lifecycle, CSV exports
 6. **Risk Detection** — security logs, audit trail, observability alerts
+7. **Feature Management** — toggle 61 features individually or apply system profiles
+8. **Branding** — white-label customization with logo upload and automated color extraction
 
 > Admin must feel in control. This is not a chatbot interface — it is an operations center.
 
@@ -210,7 +212,37 @@ Data source: `audit_logs` table.
 
 ---
 
-## 18. Permission Matrix
+## 18. Feature Management Panel (`/admin/feature-flags`)
+
+### Feature Catalog
+- Lists all 61 platform features with toggle switches
+- Each feature displays color-coded badges for:
+  - **AI Intensity:** Heavy AI (red), Medium AI (orange), Low AI (yellow), No AI (green)
+  - **ERP Module:** Student Management, Learning, Finance, Admissions, etc.
+
+### System Configuration Profiles
+Quick-apply buttons at the top of the dashboard:
+- **AI Tutor Mode** — maximizes generative AI features
+- **AI Helper Mode** — balanced ERP + ambient AI
+- **Full ERP Mode** — disables heavy AI, pure admin mode
+
+Profile application triggers `POST /api/features/profile/{profile_name}` which bulk-updates all feature flags.
+
+---
+
+## 19. White-Label Branding Panel (`/admin/branding`)
+
+### Branding Configuration
+- **Logo Upload:** Drag-and-drop file zone with preview
+- **Color Extraction:** Automated palette generation from uploaded logo via `colorthief`
+- **Manual Overrides:** Hex color pickers for primary, secondary, accent colors
+- **Font Selection:** Font family dropdown
+- **Live Preview:** Real-time iframe showing how the theme will appear
+- **Save & Apply:** Persists to tenant record, injected as CSS custom properties via `BrandingProvider`
+
+---
+
+## 20. Permission Matrix
 
 | Feature | Student | Teacher | Admin | Parent |
 |---|---|---|---|---|
@@ -224,5 +256,7 @@ Data source: `audit_logs` table.
 | View traces | ❌ | ❌ | ✅ | ❌ |
 | Manage webhooks | ❌ | ❌ | ✅ | ❌ |
 | View security logs | ❌ | ❌ | ✅ | ❌ |
+| Manage feature flags | ❌ | ❌ | ✅ | ❌ |
+| Configure branding | ❌ | ❌ | ✅ | ❌ |
 | Upload materials | ✅ | ✅ | ❌ | ❌ |
 | Discover sources | ❌ | ✅ | ✅ | ❌ |

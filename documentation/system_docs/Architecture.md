@@ -2,7 +2,7 @@
 
 **Project:** VidyaOS  
 **Version:** v0.1 current implementation  
-**Status:** Source of truth for the repo as implemented on 2026-03-12
+**Status:** Source of truth for the repo as implemented on 2026-03-25
 
 ---
 
@@ -52,6 +52,8 @@ Implemented in `frontend/src/app`:
 - dashboard alert UI
 - trace viewer UI
 - demo mode with role switching and guided walkthrough
+- feature management dashboard with AI intensity badges and profile switches
+- white-label branding configuration with live preview
 
 ### Public API
 Implemented in `backend/main.py` and `backend/routes/`:
@@ -64,6 +66,14 @@ Implemented in `backend/main.py` and `backend/routes/`:
 - dashboard and observability APIs
 - demo management APIs (role switching, data reset)
 - enterprise APIs (SSO, compliance, incidents)
+
+### Platform Domain
+Implemented in `backend/src/domains/platform/`:
+- Feature flag management (CRUD, toggle, bulk profile application)
+- Feature catalog with AI intensity and ERP module classification
+- Runtime `require_feature()` dependency for route-level feature gating
+- White-label branding API (logo upload, color extraction, config persistence)
+- Branding color extractor using `colorthief` with WCAG 2.1 contrast
 
 ### Shared Backend Constants
 Implemented in `backend/constants.py`:
@@ -216,11 +226,6 @@ The public API applies these middleware layers (last added executes first):
 ## 11. Remaining Architectural Gaps
 
 Still not fully closed:
-- enterprise features are backend-first; there is not yet a dedicated admin UI for the SAML, compliance, and incident routes
-- AI grading currently returns OCR extraction + manual review; full rubric scoring is pending
-- Clickable citations
-- Docs-as-AI chatbot API
-- Document ingestion watch scheduler
 - Extended connectors are wired for PPTX/XLSX uploads and Google Docs/Notion URL ingestion when dependencies and API tokens are configured
 
 ## 12. Convergence Rule

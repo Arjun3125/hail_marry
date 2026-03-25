@@ -1,4 +1,4 @@
-export const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\s+/g, "").replace(/\/+$/, "");
+export const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000").replace(/\s+/g, "").replace(/\/+$/, "");
 const ACCESS_TOKEN_KEY = "vidyaos_access_token";
 
 export type APIErrorType = "auth" | "rate_limit" | "validation" | "service_unavailable" | "unknown";

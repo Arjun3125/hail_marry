@@ -30,6 +30,8 @@ When `APP_DEBUG=true`, the interactive docs are available at:
 | Documents | `/api/documents` | Citation click-through |
 | Support | `/api/support` | Docs-as-AI chatbot endpoints |
 | Billing | `/api/billing` | Plans, subscriptions, payments |
+| Features | `/api/features` | Feature flag listing, toggle, profile application |
+| Branding | `/api/branding` | Logo upload, color extraction, tenant theme config |
 
 ## Versioning
 The API is currently unversioned. The OpenAPI schema version is derived from `settings.app.version`.

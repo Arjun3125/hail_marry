@@ -257,3 +257,27 @@ All 50 frontend pages use **semantic CSS utility classes** defined in `frontend/
 | `.accent-blue` | `#2C5AA0` | `#60A5FA` |
 
 50+ semantic utilities replace all hardcoded `text-gray-*`, `bg-white`, `border-gray-*` etc. across all components and pages. No raw color values appear in TSX files.
+
+---
+
+## 14. White-Label Branding (Per-Tenant Theming)
+
+Beyond the base dark/light color system, VidyaOS supports **per-tenant branding** that overrides the default palette:
+
+### How It Works
+1. Admin uploads school logo at `/admin/branding`
+2. Backend `colorthief` extracts dominant color and generates secondary/accent with WCAG 2.1 contrast validation
+3. Colors stored on the `Tenant` record (`primary_color`, `secondary_color`, `accent_color`)
+4. Frontend `BrandingProvider` context injects CSS custom properties at the document root:
+   - `--primary`, `--secondary`, `--accent`, `--font-sans`
+5. All components reference these variables, so the entire UI updates instantly
+
+### CSS Variable Hierarchy
+| Priority | Source |
+|---|---|
+| 1 (highest) | Tenant branding overrides (`--primary` etc.) |
+| 2 | Dark/light mode semantic utilities (`.bg-card`, `.text-primary`) |
+| 3 (lowest) | Base Tailwind theme defaults |
+
+This allows each school to see a fully branded portal without any code changes.
+

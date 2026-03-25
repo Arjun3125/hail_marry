@@ -22,6 +22,8 @@ def toggle_feature(
     db: Session = Depends(get_db)
 ):
     """
+    Toggle a specific platform feature flag on or off.
+    """
     return toggle_feature_flag(db, feature_id, payload.enabled)
 
 @router.post("/profile/{profile_name}")

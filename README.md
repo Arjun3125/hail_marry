@@ -9,6 +9,8 @@ VidyaOS combines:
 - a retrieval-grounded AI layer for study and teaching assistance
 - governance tooling for AI review, queue operations, tracing, alerts, and webhooks
 - a demo mode with role switching and guided walkthrough
+- a global feature management system with AI intensity classification and system configuration profiles
+- a white-label branding engine with automated logo-based color extraction
 
 The ERP remains the system of record. AI reads school context and materials, but does not authoritatively write back ERP facts.
 
@@ -116,6 +118,26 @@ Note: Clickable citations, docs chatbot, and document ingestion watch are fully 
 - Refresh token blacklisting (JTI-based)
 - Module plugin architecture (6 hooks, extensible registry)
 - DPDP Act 2023 compliance review
+
+### Feature Management & AI Classification
+- Global feature management system controlling 58 platform capabilities
+- Each feature classified by AI intensity level: **Heavy AI**, **Medium AI**, **Low AI**, **No AI**
+- Each feature mapped to an ERP module: Student Management, Learning, Finance, Admissions, etc.
+- Runtime feature guards (`require_feature()` dependency) that block disabled features at the API level
+- Predefined system configuration profiles:
+  - **AI Tutor Mode** — maximizes generative AI and learning features, suppresses admin ERP
+  - **AI Helper Mode** — balanced blend of ERP operations + ambient AI assistance
+  - **Full ERP Mode** — disables heavy AI token consumption, pure administrative mode
+- Admin dashboard at `/admin/feature-flags` with per-feature toggle switches and one-click profile application
+
+### White-Label Branding Engine
+- Per-tenant branding configuration (logo, primary/secondary/accent colors, font family, theme style)
+- Automated brand palette extraction from uploaded logos using `colorthief` with WCAG 2.1 contrast compliance
+- Dynamic CSS variable injection via global `BrandingProvider` React context
+- Admin branding dashboard at `/admin/branding` with:
+  - File dropzone for logo uploads
+  - Live color pickers for manual overrides
+  - Real-time iframe preview of theme changes before saving
 
 ## Deployment Reality
 
@@ -239,6 +261,8 @@ These features are natively supported in the current version:
 - Razorpay production API integration (stubbed locally)
 - Docs chatbot upgrade to RAG over VidyaOS documentation
 - Qdrant vector backend provider support for high-scale environments
+- White-label branding with automatic color extraction from logos
+- AI intensity-based feature management with 3 predefined system profiles
 
 ## Documentation Map
 - `documentation/system_docs/Architecture.md`: current service topology and execution boundaries

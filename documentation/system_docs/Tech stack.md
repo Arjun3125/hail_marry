@@ -2,7 +2,7 @@
 
 **Project:** VidyaOS  
 **Version:** v0.1 current implementation  
-**Status:** Updated to match the repository on 2026-03-12
+**Status:** Updated to match the repository on 2026-03-25
 
 ---
 
@@ -14,6 +14,7 @@
 | UI runtime | React 19 |
 | Language | TypeScript |
 | Styling | Tailwind CSS 4 |
+| Theme engine | CSS Custom Properties via `BrandingProvider` context |
 | Icons | lucide-react |
 | Routing | Next.js app router |
 | E2E testing | Playwright |
@@ -59,6 +60,8 @@
 | Service-grade vector option | Qdrant HTTP provider path |
 | Source discovery | DuckDuckGo HTML search |
 | Spaced repetition | SM-2 algorithm (custom implementation) |
+| Brand color extraction | `colorthief` + WCAG 2.1 luminance math |
+| Feature management | `features_catalog.json` + `FeatureFlag` model + runtime guards |
 
 Important current reality:
 - public synchronous generation is no longer executed directly in the public API
@@ -125,7 +128,6 @@ External dependency:
 ## 8. Not Yet Implemented in the Tracked Stack
 
 Still not first-class runtime components:
-- SAML SSO (backend configuration exists, no admin UI)
 - Weaviate / Pinecone (Qdrant available)
 
 Use this document for the actual runtime stack, not the older roadmap-only descriptions.

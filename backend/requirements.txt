@@ -1,4 +1,4 @@
-﻿aiohappyeyeballs==2.6.1
+aiohappyeyeballs==2.6.1
 aiohttp==3.13.3
 aiosignal==1.4.0
 aiosqlite==0.22.1
@@ -30,6 +30,7 @@ chardet==5.2.0
 charset-normalizer==3.4.4
 click==8.3.1
 colorama==0.4.6
+ColorThief==0.2.1
 comm==0.2.3
 coverage==7.13.4
 cryptography==46.0.3

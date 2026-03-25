@@ -218,3 +218,5 @@ Pending → Under Review → Accepted → Enrolled (auto-creates student account
 ---
 
 *VidyaOS — Har School Ke Liye, Har Budget Mein* 🇮🇳
+*Now with White-Label Branding and AI Configuration Profiles*
+

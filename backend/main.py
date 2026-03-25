@@ -73,9 +73,11 @@ _demo_origins = [
     "http://localhost:3001",
     "http://localhost:3002",
     "http://localhost:4000",
+    "http://localhost:4005",
     "http://127.0.0.1:3000",
     "http://127.0.0.1:3001",
     "http://127.0.0.1:4000",
+    "http://127.0.0.1:4005",
 ]
 _allowed_origins = settings.app.cors_origins + (_demo_origins if settings.app.demo_mode else [])
 _allowed_origins = list(dict.fromkeys(_allowed_origins))

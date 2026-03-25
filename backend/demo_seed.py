@@ -136,6 +136,9 @@ def seed_demo_data(db):
             ))
 
     # ─── Lectures ────────────────────────────────
+    from datetime import datetime, timedelta, timezone
+    now_utc = datetime.now(timezone.utc)
+    
     lectures = [
         ("Mathematics", "Introduction to Quadratic Equations", "https://www.youtube.com/watch?v=ZIEFBhKlPCU"),
         ("Science", "Photosynthesis — The Complete Process", "https://www.youtube.com/watch?v=CMiGKs0M0sg"),
@@ -143,11 +146,18 @@ def seed_demo_data(db):
         ("Social Studies", "Indian Independence Movement", "https://www.youtube.com/watch?v=JqHqJHhk7bI"),
     ]
     for subj, title, url in lectures:
-        db.add(Lecture(tenant_id=tenant_id, subject_id=subjects[subj], title=title, youtube_url=url))
+        db.add(Lecture(
+            tenant_id=tenant_id, 
+            subject_id=subjects[subj], 
+            class_id=class_10a_id,
+            teacher_id=teacher_id,
+            title=title, 
+            youtube_url=url,
+            scheduled_at=now_utc - timedelta(days=2)
+        ))
 
     # ─── Assignments ──────────────────────────────
     from src.domains.academic.models.assignment import Assignment, AssignmentSubmission
-    from datetime import datetime, timedelta, timezone
 
     now_utc = datetime.now(timezone.utc)
     assignment_data = [
@@ -217,6 +227,22 @@ def seed_demo_data(db):
          "# Trigonometric Identities Study Guide\n\n## Basic Identities\n- sin²θ + cos²θ = 1\n- tan θ = sin θ / cos θ\n- 1 + tan²θ = sec²θ\n\n## Tips for Remembering\n- Use the unit circle\n- Practice converting between forms\n- Start with sin²+cos²=1 and derive others", 520, 1200, 0),
         ("Explain the water cycle with a concept map", "concept_map",
          '{"nodes": ["Evaporation", "Condensation", "Precipitation", "Collection", "Transpiration"], "edges": [["Evaporation", "Condensation"], ["Condensation", "Precipitation"], ["Precipitation", "Collection"], ["Collection", "Evaporation"], ["Transpiration", "Condensation"]]}', 400, 1050, 0),
+        ("Analyze my weak topics in Science", "weak_topic",
+         "Based on your recent Science exams (average 58%), your weakest topics are **Thermodynamics** and **Cell Division**.\n\n### Remediation Plan:\n1. **Day 1**: Re-read Chapter 4 (Cell Cycle) and watch the uploaded lecture.\n2. **Day 2**: Practice 20 MCQs on Thermodynamics.\n3. **Day 3**: Try a concept map connecting Mitosis and Meiosis.\n\n📚 Source: Subject Performance Analytics", 550, 1400, 0),
+        ("How does a bill become a law?", "flowchart",
+         "```mermaid\ngraph TD;\nA[Idea Drafted] --> B[Introduced in House/Senate];\nB --> C[Committee Review];\nC --> D[Floor Debate and Vote];\nD --> E[Sent to Other Chamber];\nE --> F[President Signs/Vetoes];\nF --> G{Is it Law?};\nG -- Signed --> H[Law Enacted];\nG -- Vetoed --> I[Return to Congress for Override];\n```", 320, 800, 0),
+        ("Create a mind map for World War II", "mindmap",
+         '{"name": "World War II", "children": [{"name": "Causes", "children": [{"name": "Treaty of Versailles"}, {"name": "Rise of Fascism"}]}, {"name": "Major Theaters", "children": [{"name": "European"}, {"name": "Pacific"}]}, {"name": "Outcomes", "children": [{"name": "United Nations Created"}, {"name": "Cold War Begins"}]}]}', 610, 1300, 0),
+        ("I think gravity pulls things down.", "socratic",
+         "That's a very intuitive start! Indeed, objects fall towards the Earth. But let me ask you this: if gravity is pulling everything *down*, why does the Moon stay up in the sky instead of crashing into us? What role do you think its velocity plays in orbit?", 180, 500, 0),
+        ("I mastered Pythagorean theorem. Ask me something harder.", "perturbation",
+         "Excellent. You know that for a right-angled triangle, a² + b² = c².\n\nBut what if the triangle is **NOT** a right-angled triangle? Can we still use the Pythagorean theorem, or do we need something else to find the missing side? Tell me about the Law of Cosines.", 220, 600, 0),
+        ("Renewable energy is the only solution.", "debate",
+         "While transitioning to renewable energy is essential for climate goals, your argument ignores the 'base-load' problem. Solar and wind are intermittent. Without massive, incredibly expensive battery infrastructure, a grid cannot provide 24/7 continuous power strictly on renewables alone. Should we rely entirely on weather patterns?", 310, 850, 0),
+        ("Can you review my essay on Macbeth's ambition?", "essay_review",
+         "**Structure**: Strong introduction; thesis is clear in paragraph 1.\n**Evidence**: Paragraph 3 lacks supporting quotes. Consider adding a citation regarding Lady Macbeth's influence in Act 1, Scene 5.\n**Grammar/Flow**: Your transitions between paragraph 2 and 3 feel abrupt. Try using a transition phrase like 'Furthermore' or 'Consequently'.\n\nOverall Score: 7.5/10. Focus on embedding your quotes smoothly.", 400, 950, 0),
+        ("I want to be a startup CEO. Simulate a scenario.", "career_sim",
+         "You are the CEO of *EdTech Solutions Inc*. Your Head of Marketing wants to double the ad budget to aggressively acquire users, but your CFO warns that doing so will cut your runway from 12 months down to 4 months.\n\nOption A: Approve the budget to drive rapid growth.\nOption B: Deny the budget and prioritize runway survival.\nOption C: Propose a compromise pilot program.\n\nWhat do you do, and why?", 450, 1000, 0),
     ]
     for i, (query, mode, response, tokens, time_ms, citations) in enumerate(ai_queries):
         db.add(AIQuery(
@@ -264,7 +290,7 @@ def seed_demo_data(db):
             db.add(SubjectPerformance(
                 tenant_id=tenant_id, student_id=sid,
                 subject_id=subjects[subj_name],
-                average_score=avg_score, exam_count=3,
+                average_score=avg_score,
             ))
 
     # ─── Spaced Repetition Reviews ────────────────
@@ -285,6 +311,60 @@ def seed_demo_data(db):
             next_review_at=now_utc + timedelta(days=days_offset),
             interval_days=interval, ease_factor=ease,
             review_count=random.randint(1, 5),
+        ))
+
+    # ─── Test Series & Leaderboard ─────────────────
+    from src.domains.academic.models.test_series import TestSeries, MockTestAttempt
+
+    ts1_id = uuid.UUID("00000000-0000-0000-0000-000000000501")
+    ts2_id = uuid.UUID("00000000-0000-0000-0000-000000000502")
+
+    db.add(TestSeries(
+        id=ts1_id, tenant_id=tenant_id, name="JEE Main 2026 Mock Series",
+        description="Full-length JEE Main mock test with Physics, Chemistry, and Mathematics.",
+        subject_id=subjects["Mathematics"], class_id=class_10a_id,
+        total_marks=300, duration_minutes=180, is_active=True, created_by=teacher_id,
+    ))
+    db.add(TestSeries(
+        id=ts2_id, tenant_id=tenant_id, name="NEET Biology Mock Test",
+        description="Biology section mock test covering Botany and Zoology.",
+        subject_id=subjects["Science"], class_id=class_10a_id,
+        total_marks=180, duration_minutes=90, is_active=True, created_by=teacher_id,
+    ))
+    db.flush()
+
+    # Mock Test Attempts — 5 students with varied results
+    ts1_attempts = [
+        (student_ids[0], 225, 300, 140, 1, 80.0),   # Arjun - Rank 3
+        (student_ids[1], 260, 300, 165, 2, 60.0),   # Priya - Rank 2
+        (student_ids[2], 185, 300, 170, 3, 40.0),   # Rahul - Rank 4
+        (student_ids[3], 275, 300, 150, 4, 100.0),  # Sneha - Rank 1
+        (student_ids[4], 170, 300, 175, 5, 0.0),    # Aditya - Rank 5
+    ]
+    # Sort by marks desc to assign real ranks
+    ts1_attempts_sorted = sorted(ts1_attempts, key=lambda x: -x[1])
+    for rank, (sid, marks, total, time_min, _, _) in enumerate(ts1_attempts_sorted, 1):
+        percentile = round((len(ts1_attempts_sorted) - rank) / len(ts1_attempts_sorted) * 100, 1)
+        db.add(MockTestAttempt(
+            tenant_id=tenant_id, test_series_id=ts1_id, student_id=sid,
+            marks_obtained=marks, total_marks=total, time_taken_minutes=time_min,
+            rank=rank, percentile=percentile,
+        ))
+
+    ts2_attempts = [
+        (student_ids[0], 130, 180, 75),   # Arjun
+        (student_ids[1], 155, 180, 80),   # Priya
+        (student_ids[2], 110, 180, 85),   # Rahul
+        (student_ids[3], 165, 180, 70),   # Sneha
+        (student_ids[4], 95, 180, 88),    # Aditya
+    ]
+    ts2_sorted = sorted(ts2_attempts, key=lambda x: -x[1])
+    for rank, (sid, marks, total, time_min) in enumerate(ts2_sorted, 1):
+        percentile = round((len(ts2_sorted) - rank) / len(ts2_sorted) * 100, 1)
+        db.add(MockTestAttempt(
+            tenant_id=tenant_id, test_series_id=ts2_id, student_id=sid,
+            marks_obtained=marks, total_marks=total, time_taken_minutes=time_min,
+            rank=rank, percentile=percentile,
         ))
 
     db.commit()

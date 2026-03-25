@@ -3,7 +3,7 @@
 **Project Name:** VidyaOS  
 **Version:** v0.1 pilot  
 **Current Deployment Model:** Split application runtime with frontend, public API, dedicated AI service, worker, and optional observability stack  
-**Status:** Updated to match the repository on 2026-03-12
+**Status:** Updated to match the repository on 2026-03-25
 
 ---
 
@@ -57,6 +57,16 @@ The product goal is privacy-conscious, institution-ready AI for schools. The imp
 - Webhook subscriptions and delivery logs
 - Parent link management
 - Constraint-based timetable generator (auto-scheduling)
+
+### Feature management and branding
+- Global feature management system controlling 61 platform capabilities
+- AI intensity classification (Heavy AI, Medium AI, Low AI, No AI) for each feature
+- ERP module mapping (Student Management, Learning, Finance, Admissions, etc.)
+- Runtime feature guards blocking disabled features at the API level
+- Predefined system configuration profiles (AI Tutor, AI Helper, Full ERP)
+- White-label branding engine with automated logo color extraction (colorthief + WCAG 2.1)
+- Dynamic CSS variable injection for per-tenant visual customization
+- Admin dashboards at `/admin/feature-flags` and `/admin/branding`
 
 ### Teacher tools
 - Class insights with weak topic analysis
@@ -135,8 +145,6 @@ The following features remain partially wired or incomplete:
 
 ## 6. Roadmap Items Still Pending
 
-- Dedicated admin UI for SAML SSO, compliance, and incident management
 - Android Play Store packaging (TWA/Capacitor) beyond the shell guide
-- Full rubric scoring for AI grading (OCR-only output today)
 
 Use this overview as the current product picture.

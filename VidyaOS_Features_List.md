@@ -247,11 +247,39 @@ This is what makes VidyaOS different from every other school software. **Your pa
 | Total Features | **59** |
 | Features that work WITHOUT AI | **44** (75%) |
 | Features that need AI | **15** (25%) |
+| Total features | **61** |
 | WhatsApp-accessible functions | **14 instant tools** + unlimited AI chat |
 | Backend tests | **438+ across 52 files** |
 | Supported languages | **English, Hindi, Marathi** |
 | Time to onboard 500 students | **Under 60 seconds** |
 | AI response speed | **Under 1 second** for data queries |
+
+---
+
+## ⚙️ Feature Management & AI Configuration Profiles
+
+VidyaOS includes a **Feature Management System** that catalogs all 61 platform capabilities. Each feature is classified by:
+- **AI Intensity Level**: Heavy AI, Medium AI, Low AI, No AI
+- **ERP Module**: Student Management, Learning Management, Finance, Admissions, etc.
+
+Admins can toggle features individually or apply one of three **System Profiles** with a single click:
+
+| Profile | What it does |
+|---|---|
+| 📚 **AI Tutor Mode** | Maximizes learning AI, suppresses admin ERP |
+| ⚡ **AI Helper Mode** | Balanced ERP + ambient AI assistance |
+| 🛡️ **Full ERP Mode** | Pure administration, disables heavy AI |
+
+---
+
+## 🎨 White-Label Branding Engine
+
+Every school gets **their own branded version** of VidyaOS:
+1. Upload your school logo
+2. Colors are **automatically extracted** from the logo using AI
+3. The entire platform instantly transforms — buttons, headers, backgrounds — everything matches your school brand
+4. Manual color override available for fine-tuning
+5. Live preview before saving
 
 ---
 
