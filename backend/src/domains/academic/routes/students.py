@@ -685,6 +685,63 @@ async def generate_study_tool(
     if not topic:
         raise HTTPException(status_code=400, detail="topic is required")
 
+    from config import settings
+    if settings.app.demo_mode:
+        # Return pre-seeded demo data for each tool type
+        demo_tools = {
+            "quiz": {
+                "data": [
+                    {"question": f"What is {topic}?", "options": [f"A branch of science", f"A type of art", f"A form of literature", f"None of the above"], "correct": f"A branch of science", "citation": "Demo Materials p.1"},
+                    {"question": f"Which concept is central to {topic}?", "options": ["Equilibrium", "Entropy", "Evolution", "Elasticity"], "correct": "Equilibrium", "citation": "Demo Materials p.3"},
+                    {"question": f"Who is a notable contributor to {topic}?", "options": ["Albert Einstein", "Isaac Newton", "Marie Curie", "Charles Darwin"], "correct": "Isaac Newton", "citation": "Demo Materials p.5"},
+                ],
+                "citations": [{"source": "Demo Study Materials", "page": "1-5"}],
+            },
+            "flashcards": {
+                "data": [
+                    {"front": f"Define {topic}", "back": f"{topic} is a fundamental area of study that explores key principles and theories."},
+                    {"front": f"Key principle of {topic}", "back": "The principle of conservation states that certain properties remain constant."},
+                    {"front": f"Application of {topic}", "back": f"{topic} is applied in engineering, medicine, and technology."},
+                ],
+                "citations": [{"source": "Demo Study Materials", "page": "1-3"}],
+            },
+            "mindmap": {
+                "data": {
+                    "label": topic,
+                    "children": [
+                        {"label": "Fundamentals", "children": [{"label": "Core Concepts"}, {"label": "Key Theories"}]},
+                        {"label": "Applications", "children": [{"label": "Engineering"}, {"label": "Medicine"}]},
+                        {"label": "History", "children": [{"label": "Key Discoveries"}, {"label": "Notable Scientists"}]},
+                    ]
+                },
+                "citations": [{"source": "Demo Study Materials", "page": "1-10"}],
+            },
+            "flowchart": {
+                "data": f"graph TD\n    A[Start: {topic}] --> B[Learn Fundamentals]\n    B --> C[Study Core Concepts]\n    C --> D[Practice Problems]\n    D --> E{{Understand?}}\n    E -->|Yes| F[Advanced Topics]\n    E -->|No| C\n    F --> G[Apply Knowledge]\n    G --> H[End: Mastery]",
+                "citations": [{"source": "Demo Study Materials", "page": "1-8"}],
+            },
+            "concept_map": {
+                "data": {
+                    "nodes": [
+                        {"id": "1", "label": topic},
+                        {"id": "2", "label": "Theory"},
+                        {"id": "3", "label": "Practice"},
+                        {"id": "4", "label": "Application"},
+                        {"id": "5", "label": "Research"},
+                    ],
+                    "edges": [
+                        {"from": "1", "to": "2", "label": "requires"},
+                        {"from": "1", "to": "3", "label": "involves"},
+                        {"from": "2", "to": "4", "label": "leads to"},
+                        {"from": "3", "to": "4", "label": "supports"},
+                        {"from": "4", "to": "5", "label": "drives"},
+                    ]
+                },
+                "citations": [{"source": "Demo Study Materials", "page": "1-6"}],
+            },
+        }
+        return demo_tools.get(data.tool, {"data": f"Demo content for {data.tool}: {topic}", "citations": []})
+
     result = await run_study_tool(
         InternalStudyToolGenerateRequest(
             tool=data.tool,
@@ -712,6 +769,59 @@ async def generate_study_tool_job(
         subject_id=data.subject_id,
         tenant_id=str(current_user.tenant_id),
     )
+    
+    from config import settings
+    if settings.app.demo_mode:
+        import uuid
+        import time
+        from database import SessionLocal
+        from src.domains.platform.models.ai import AIQuery
+        from src.domains.platform.services.ai_queue import STATUS_COMPLETED, _persist_job_state, build_public_job_response, JOB_TYPE_STUDY_TOOL
+        
+        db = SessionLocal()
+        try:
+            demo_log = db.query(AIQuery).filter(
+                AIQuery.tenant_id == current_user.tenant_id,
+                AIQuery.mode == data.tool
+            ).first()
+            
+            response_data = None
+            if demo_log and demo_log.response_text:
+                import json
+                try:
+                    response_data = json.loads(demo_log.response_text)
+                except Exception:
+                    response_data = {"output": demo_log.response_text}
+            
+            if not response_data:
+                response_data = {"message": f"This is a mocked response for the '{data.tool}' tool generated in Demo Mode."}
+        finally:
+            db.close()
+            
+        now_str = time.strftime("%Y-%m-%dT%H:%M:%S.%fZ", time.gmtime())
+        mock_job = {
+            "job_id": str(uuid.uuid4()),
+            "job_type": JOB_TYPE_STUDY_TOOL,
+            "priority": 30,
+            "trace_id": str(uuid.uuid4())[:8],
+            "status": STATUS_COMPLETED,
+            "tenant_id": str(current_user.tenant_id),
+            "user_id": str(current_user.id),
+            "worker_id": "demo-worker",
+            "request": payload.model_dump(),
+            "result": response_data,
+            "error": None,
+            "attempts": 1,
+            "max_retries": 3,
+            "created_at": now_str,
+            "updated_at": now_str,
+            "started_at": now_str,
+            "completed_at": now_str,
+            "events": []
+        }
+        _persist_job_state(mock_job)
+        return build_public_job_response(mock_job)
+
     return enqueue_job(
         JOB_TYPE_STUDY_TOOL,
         payload.model_dump(),

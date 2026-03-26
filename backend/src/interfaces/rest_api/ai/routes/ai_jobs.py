@@ -48,6 +48,58 @@ async def enqueue_text_query_job(
         **request.model_dump(),
         tenant_id=str(current_user.tenant_id),
     )
+    
+    from config import settings
+    if settings.app.demo_mode:
+        import uuid
+        import time
+        import random
+        from database import SessionLocal
+        from src.domains.platform.models.ai import AIQuery
+        from src.domains.platform.services.ai_queue import STATUS_COMPLETED, _persist_job_state
+        
+        db = SessionLocal()
+        try:
+            demo_log = db.query(AIQuery).filter(
+                AIQuery.tenant_id == current_user.tenant_id,
+                AIQuery.mode == request.mode
+            ).first()
+            response_text = demo_log.response_text if demo_log else f"This is a mocked response for {request.mode} mode generated in Demo Mode."
+        finally:
+            db.close()
+            
+        now_str = time.strftime("%Y-%m-%dT%H:%M:%S.%fZ", time.gmtime())
+        mock_job = {
+            "job_id": str(uuid.uuid4()),
+            "job_type": JOB_TYPE_QUERY,
+            "priority": 30,
+            "trace_id": str(uuid.uuid4())[:8],
+            "status": STATUS_COMPLETED,
+            "tenant_id": str(current_user.tenant_id),
+            "user_id": str(current_user.id),
+            "worker_id": "demo-worker",
+            "request": payload.model_dump(),
+            "result": {
+                "answer": response_text,
+                "mode": request.mode,
+                "citations": [],
+                "token_usage": random.randint(150, 500),
+                "citation_count": 0,
+                "has_context": True,
+                "citation_valid": True,
+            },
+            "error": None,
+            "attempts": 1,
+            "max_retries": 3,
+            "created_at": now_str,
+            "updated_at": now_str,
+            "started_at": now_str,
+            "completed_at": now_str,
+            "events": []
+        }
+        _persist_job_state(mock_job)
+        return build_public_job_response(mock_job)
+
     return enqueue_job(
         JOB_TYPE_QUERY,
         payload.model_dump(),

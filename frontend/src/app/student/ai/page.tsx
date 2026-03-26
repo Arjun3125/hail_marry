@@ -69,7 +69,8 @@ export default function AIAssistant() {
     const [typedError, setTypedError] = useState<APIError | null>(null);
     const [queueEstimateText, setQueueEstimateText] = useState<string>("");
 
-    const QUEUED_MODES = new Set(["study_guide", "quiz"]);
+    const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
+    const QUEUED_MODES = isDemoMode ? new Set<string>() : new Set(["study_guide", "quiz"]);
 
     const activeMode = modes.find((m) => m.id === mode) || modes[0];
 

@@ -38,6 +38,8 @@ services:
       dockerfile: Dockerfile.demo
       args:
         NEXT_PUBLIC_API_URL: ""
+        NEXT_PUBLIC_DEMO_MODE: "true"
+        NEXT_PUBLIC_ENABLE_DEMO_LOGIN: "true"
     container_name: vidyaos-demo-frontend
     restart: unless-stopped
     environment:

@@ -116,13 +116,31 @@ async def ai_query(
         mode=request.mode,
     )
 
-    ai_result = await run_text_query(
-        InternalAIQueryRequest(
-            **{**request.model_dump(), "query": prepared_query},
-            tenant_id=str(current_user.tenant_id),
-        ),
-        trace_id=trace_id,
-    )
+    from config import settings
+    import random
+    if settings.app.demo_mode:
+        demo_log = db.query(AIQuery).filter(
+            AIQuery.tenant_id == current_user.tenant_id,
+            AIQuery.mode == request.mode
+        ).first()
+
+        ai_result = {
+            "answer": demo_log.response_text if demo_log else f"This is a mocked response for {request.mode} mode generated in Demo Mode.",
+            "mode": request.mode,
+            "citations": [],
+            "token_usage": random.randint(150, 500),
+            "citation_count": 0,
+            "has_context": True,
+            "citation_valid": True,
+        }
+    else:
+        ai_result = await run_text_query(
+            InternalAIQueryRequest(
+                **{**request.model_dump(), "query": prepared_query},
+                tenant_id=str(current_user.tenant_id),
+            ),
+            trace_id=trace_id,
+        )
 
     elapsed_ms = int((time.time() - start_time) * 1000)
 

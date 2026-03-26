@@ -44,6 +44,7 @@ export default function StudyToolsPage() {
     const [jobStatus, setJobStatus] = useState<AIJobStatus | null>(null);
 
     const selectedTool = useMemo(() => tools.find((tool) => tool.id === activeTool) || null, [activeTool]);
+    const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
 
     useEffect(() => {
         if (!jobId) return;
@@ -107,21 +108,31 @@ export default function StudyToolsPage() {
             setError(null);
             setResult(null);
             setCitations([]);
-            setJobStatus("queued");
-            const payload = (await api.student.enqueueToolJob({
-                tool: activeTool,
-                topic: topic.trim(),
-            })) as {
-                job_id: string;
-                status: AIJobStatus;
-            };
-            setJobId(payload.job_id);
-            setJobStatus(payload.status);
+
+            if (isDemoMode) {
+                // In demo mode, use synchronous endpoint to bypass Redis job queue
+                const data = (await api.student.generateTool({
+                    tool: activeTool,
+                    topic: topic.trim(),
+                })) as { data?: ToolData; citations?: Citation[] };
+                setResult(data.data || data as unknown as ToolData);
+                setCitations(data.citations || []);
+                setLoading(false);
+            } else {
+                setJobStatus("queued");
+                const payload = (await api.student.enqueueToolJob({
+                    tool: activeTool,
+                    topic: topic.trim(),
+                })) as {
+                    job_id: string;
+                    status: AIJobStatus;
+                };
+                setJobId(payload.job_id);
+                setJobStatus(payload.status);
+            }
         } catch (err) {
             setError(err instanceof Error ? err.message : "Failed to generate study tool");
             setLoading(false);
-        } finally {
-            // Job polling clears the loading state on completion/failure.
         }
     };
 
