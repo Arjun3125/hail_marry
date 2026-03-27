@@ -1,0 +1,347 @@
+Below is a production-grade **Tech Stack.md** for VidyaOS (AI Infrastructure for Educational Institutions), aligned with your bootstrap → scale roadmap.
+
+---
+
+# Tech Stack
+
+**Project:** VidyaOS – AI Infrastructure for Educational Institutions
+**Version:** v0.1 (Pilot → Scale-Ready)
+
+---
+
+# 1. Technology Selection Philosophy
+
+The stack is chosen based on:
+
+1. Multi-tenant SaaS readiness
+2. AI microservice separation
+3. GPU-optimized inference
+4. Cloud migration flexibility
+5. Developer productivity
+6. Cost efficiency during pilot
+
+The architecture supports:
+
+* Hybrid deployment (Cloud + Local GPU)
+* Horizontal AI scaling
+* Cloud-native future expansion
+
+---
+
+# 2. Frontend Stack
+
+## 2.1 Web Application
+
+| Component        | Technology            | Reason                 |
+| ---------------- | --------------------- | ---------------------- |
+| Framework        | Next.js (React)       | SSR + production-ready |
+| Styling          | Tailwind CSS          | Rapid UI development   |
+| State Management | React Query / Zustand | Clean async handling   |
+| Auth Handling    | JWT + Google OAuth    | Secure login           |
+| Charts           | Recharts / Chart.js   | Student analytics      |
+| Rich Text        | TipTap / Slate        | Notes viewer           |
+
+---
+
+## 2.2 Android App (Phase 2)
+
+| Component          | Technology               |
+| ------------------ | ------------------------ |
+| Framework          | React Native (preferred) |
+| Push Notifications | Firebase Cloud Messaging |
+| Auth               | Shared JWT API           |
+
+Reuses backend APIs.
+
+---
+
+# 3. Backend (Control Plane)
+
+## 3.1 Core API Layer
+
+| Component     | Technology             |
+| ------------- | ---------------------- |
+| Framework     | FastAPI (Python 3.11+) |
+| Web Server    | Uvicorn / Gunicorn     |
+| Reverse Proxy | Nginx                  |
+| Auth          | OAuth 2.0 + JWT        |
+| Rate Limiting | Redis                  |
+
+FastAPI chosen for:
+
+* Async support
+* AI ecosystem compatibility
+* High performance
+
+---
+
+## 3.2 Database Layer
+
+| Purpose    | Technology                     |
+| ---------- | ------------------------------ |
+| Primary DB | PostgreSQL                     |
+| Caching    | Redis                          |
+| ORM        | SQLAlchemy / Prisma (optional) |
+
+All tables include:
+
+* `tenant_id`
+* `created_at`
+* `updated_at`
+
+Strict row-level isolation.
+
+---
+
+# 4. AI Stack (Data Plane)
+
+This is the core differentiator.
+
+## 4.1 LLM Inference
+
+| Component                   | Technology                      |
+| --------------------------- | ------------------------------- |
+| Local Model Runner          | Ollama                          |
+| Model Candidates            | Qwen 14B / Llama 3 8B / Mixtral |
+| Quantization                | 4-bit or 8-bit                  |
+| Context Window Optimization | Sliding window + compression    |
+
+Runs on:
+
+* RTX 4090 (recommended)
+* 64GB RAM
+
+---
+
+## 4.2 Embeddings
+
+| Component          | Technology                  |
+| ------------------ | --------------------------- |
+| Embedding Model    | nomic-embed-text            |
+| Embedding Pipeline | Custom FastAPI microservice |
+
+Embeddings stored per tenant namespace.
+
+---
+
+## 4.3 Vector Database
+
+Pilot:
+
+* FAISS (local)
+
+Scale-ready:
+
+* Qdrant
+* Weaviate
+* Pinecone (cloud option)
+
+Each tenant has isolated namespace.
+
+---
+
+## 4.4 Retrieval Pipeline
+
+Stack:
+
+* Embedding generation
+* Top-K semantic search
+* Optional reranker (Cross-encoder)
+* Context compression
+* Structured prompt builder
+
+---
+
+## 4.5 Document Processing
+
+| Task                  | Tool                   |
+| --------------------- | ---------------------- |
+| PDF parsing           | PyMuPDF                |
+| DOCX parsing          | python-docx            |
+| Transcript processing | YouTube transcript API |
+| Text cleaning         | custom pipeline        |
+
+Hierarchical chunking implemented.
+
+---
+
+# 5. Infrastructure Stack
+
+## 5.1 Cloud (Control Plane)
+
+| Component    | Technology                      |
+| ------------ | ------------------------------- |
+| VPS Provider | DigitalOcean / Linode / Hetzner |
+| OS           | Ubuntu 22.04                    |
+| SSL          | Let's Encrypt                   |
+| Monitoring   | Uptime Kuma / Prometheus        |
+| CI/CD        | GitHub Actions                  |
+
+---
+
+## 5.2 Local AI Node
+
+| Component    | Spec     |
+| ------------ | -------- |
+| GPU          | RTX 4090 |
+| RAM          | 64GB     |
+| Storage      | 2TB NVMe |
+| Power Backup | UPS      |
+| Firewall     | UFW      |
+
+Connection:
+
+* Secure tunnel from VPS
+* No public GPU exposure
+
+---
+
+# 6. DevOps & Deployment
+
+## 6.1 Containerization
+
+* Docker
+* Docker Compose (Pilot)
+* Kubernetes (Scale phase)
+
+Services containerized:
+
+* API
+* ERP
+* AI microservice
+* Vector DB
+* Redis
+
+---
+
+## 6.2 CI/CD Pipeline
+
+* GitHub
+* Auto test on push
+* Linting
+* Staging deployment
+* Manual production approval
+
+---
+
+# 7. Observability Stack
+
+| Purpose        | Tool                  |
+| -------------- | --------------------- |
+| Logs           | Loki                  |
+| Metrics        | Prometheus            |
+| Dashboard      | Grafana               |
+| GPU Monitoring | nvidia-smi + exporter |
+
+Track:
+
+* Query latency
+* AI response time
+* Retrieval precision
+* Token usage
+* Per-tenant AI usage
+
+---
+
+# 8. Security Stack
+
+* HTTPS only
+* JWT expiration
+* Rate limiting
+* Role-based access control
+* Firewall-restricted AI node
+* Encrypted DB storage
+* Daily backups
+
+---
+
+# 9. Messaging & Notifications
+
+| Type   | Tool              |
+| ------ | ----------------- |
+| Email  | SendGrid          |
+| SMS    | Twilio (optional) |
+| Push   | Firebase          |
+| In-app | Redis pub/sub     |
+
+---
+
+# 10. Future Cloud-Scale Stack
+
+When scaling beyond 10 schools:
+
+| Component     | Upgrade               |
+| ------------- | --------------------- |
+| AI Compute    | Cloud GPU (A100 / L4) |
+| Orchestration | Kubernetes            |
+| Vector DB     | Managed Qdrant        |
+| API Gateway   | Managed Load Balancer |
+| CDN           | Cloudflare            |
+
+---
+
+# 11. Cost Optimization Strategy
+
+To control AI cost:
+
+* Aggressive caching
+* Precompute chapter summaries
+* Token window optimization
+* Smaller model for low-complexity queries
+* Rate limits per user
+
+---
+
+# 12. Tech Stack Summary
+
+## Pilot Stack
+
+Frontend:
+
+* Next.js + Tailwind
+
+Backend:
+
+* FastAPI + PostgreSQL + Redis
+
+AI:
+
+* Ollama + Qwen + FAISS
+
+Infra:
+
+* VPS + Local GPU Node
+
+---
+
+## Scale Stack
+
+Frontend:
+
+* Same
+
+Backend:
+
+* Kubernetes-managed API
+
+AI:
+
+* Distributed GPU inference
+* Managed vector DB
+
+---
+
+# 13. Strategic Advantage of This Stack
+
+* AI isolated from ERP
+* Cloud migration ready
+* Multi-tenant safe
+* GPU-efficient
+* Cost-controlled
+* Dev-friendly
+
+This is not hobby architecture.
+
+It is bootstrap → scale infrastructure.
+
+

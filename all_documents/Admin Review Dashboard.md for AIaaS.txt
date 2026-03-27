@@ -1,0 +1,471 @@
+ **Admin Review Dashboard.md** for VidyaOS.
+
+This dashboard is not just UI — it is the control center for:
+
+* Institutional governance
+* AI oversight
+* Usage control
+* Academic visibility
+* Risk detection
+
+---
+
+# Admin Review Dashboard
+
+**Project:** VidyaOS – AI Infrastructure for Educational Institutions
+**Version:** v0.1 (Pilot → Scale)
+**Role:** Tenant Admin (School-Level)
+**Access Level:** Highest within Tenant
+
+---
+
+# 1. Dashboard Purpose
+
+The Admin Review Dashboard must allow:
+
+1. Visibility into institutional performance
+2. Monitoring AI usage & cost
+3. Reviewing system health
+4. Detecting abuse or anomalies
+5. Managing user roles
+6. Maintaining governance control
+
+Admin must feel in control.
+
+---
+
+# 2. High-Level Layout
+
+```text
+--------------------------------------------------------
+Top Bar: Logo | Notifications | Tenant Name | Profile
+--------------------------------------------------------
+
+Left Sidebar:
+- Overview
+- Academic Insights
+- AI Usage
+- Users
+- Complaints
+- Reports
+- Billing
+- System Health
+- Settings
+
+--------------------------------------------------------
+Main Content Area
+--------------------------------------------------------
+```
+
+---
+
+# 3. Overview Panel (Default View)
+
+## 3.1 KPI Cards
+
+Displayed at top:
+
+| Metric             | Description             |
+| ------------------ | ----------------------- |
+| Total Students     | Active student accounts |
+| Active Users Today | Logged in today         |
+| AI Queries Today   | Total AI requests       |
+| Avg Attendance     | Across all classes      |
+| Avg Performance    | Aggregated score        |
+| Open Complaints    | Pending resolution      |
+
+Cards must be:
+
+* Real-time (or near real-time)
+* Filterable by date range
+
+---
+
+# 4. Academic Insights Panel
+
+## 4.1 Performance Heatmap
+
+Grid:
+
+```text
+Subjects → 
+Classes ↓
+
+Color-coded:
+Green (strong)
+Yellow (moderate)
+Red (weak)
+```
+
+Data source:
+
+* subject_performance table
+
+---
+
+## 4.2 Weak Topic Distribution
+
+Pie/Bar chart:
+
+* Algebra – 32%
+* Geometry – 18%
+* Grammar – 24%
+
+Allows admin to:
+
+* Identify curriculum gaps
+* Allocate teacher attention
+
+---
+
+## 4.3 Attendance Trends
+
+Graph:
+
+* Monthly attendance %
+* Class-level breakdown
+* Absence spike detection
+
+---
+
+# 5. AI Usage Panel
+
+Critical for cost control.
+
+---
+
+## 5.1 Daily AI Query Graph
+
+Line graph:
+
+* Queries per day
+* Peak hours
+* Query spikes
+
+---
+
+## 5.2 AI Usage by Role
+
+| Role     | Queries |
+| -------- | ------- |
+| Students | 85%     |
+| Teachers | 10%     |
+| Admin    | 5%      |
+
+---
+
+## 5.3 Top Queried Subjects
+
+Bar chart:
+
+* Math
+* Science
+* English
+
+Helps understand academic demand.
+
+---
+
+## 5.4 Heavy Users Table
+
+| Student | Queries Today | Flag |
+| ------- | ------------- | ---- |
+
+Flag if:
+
+* Exceeds daily threshold
+* Suspicious usage pattern
+
+Admin can:
+
+* Temporarily restrict
+* Reset AI quota
+
+---
+
+# 6. AI Quality Review Panel
+
+Governance feature.
+
+---
+
+## 6.1 Random Sample AI Responses
+
+Display:
+
+* Query
+* AI Response
+* Citations
+* Response time
+
+Admin can:
+
+* Approve
+* Flag
+* Mark incorrect
+
+---
+
+## 6.2 Flagged AI Responses
+
+Students can report:
+
+* Incorrect answer
+* Inappropriate content
+
+Admin sees flagged responses.
+
+Must support:
+
+* Review
+* Dismiss
+* Escalate
+
+---
+
+# 7. User Management Panel
+
+---
+
+## 7.1 User Table
+
+Filters:
+
+* Role
+* Class
+* Active/Inactive
+* AI Usage Level
+
+Columns:
+
+* Name
+* Role
+* Class
+* Status
+* Last Login
+* AI Queries (30d)
+
+---
+
+## 7.2 Actions
+
+Admin can:
+
+* Activate/Deactivate
+* Reset password (if needed)
+* Change role
+* Reset AI quota
+
+All actions logged in audit_logs.
+
+---
+
+# 8. Complaints Review Panel
+
+---
+
+## 8.1 Complaint Overview
+
+Filters:
+
+* Open
+* In Review
+* Resolved
+* Category
+
+---
+
+## 8.2 Complaint Detail View
+
+Show:
+
+* Student
+* Description
+* Status
+* Resolution timeline
+
+Admin can:
+
+* Assign teacher
+* Mark resolved
+* Add resolution note
+
+---
+
+# 9. Reports Panel
+
+Generate:
+
+* Student performance report (PDF)
+* Class performance summary
+* AI usage summary
+* Attendance report
+
+Export formats:
+
+* CSV
+* PDF
+
+Reports must respect tenant isolation.
+
+---
+
+# 10. Billing Panel (If Enabled)
+
+Shows:
+
+* Current plan
+* AI credit usage
+* Estimated cost
+* Upgrade option
+
+For pilot:
+May be informational only.
+
+---
+
+# 11. System Health Panel
+
+Institution-level health.
+
+---
+
+## 11.1 AI System Status
+
+Display:
+
+* AI server status (Online/Offline)
+* Avg response time
+* Queue size
+* GPU load indicator
+
+---
+
+## 11.2 API Health
+
+* API uptime %
+* Error rate
+* Last downtime incident
+
+---
+
+# 12. Security Monitoring Panel
+
+Admin must see:
+
+* Failed login attempts
+* Role changes
+* Suspicious activity
+* Cross-tenant attempts (should be zero)
+
+Logs pulled from audit_logs.
+
+---
+
+# 13. Filtering Controls
+
+Admin dashboard must allow filtering by:
+
+* Date range
+* Academic year
+* Class
+* Subject
+* Role
+
+All queries must enforce tenant_id.
+
+---
+
+# 14. Data Refresh Strategy
+
+Real-time not required everywhere.
+
+Recommended:
+
+* KPI refresh: every 60 seconds
+* AI usage: every 5 minutes
+* Academic stats: daily recalculation
+* Reports: on-demand
+
+---
+
+# 15. Performance Optimization
+
+Admin dashboard queries can be heavy.
+
+Use:
+
+* Precomputed aggregation tables
+* Cached statistics
+* Background cron jobs
+
+Avoid real-time heavy joins.
+
+---
+
+# 16. UX Design Principles
+
+Admin UI must feel:
+
+* Institutional
+* Structured
+* Clean
+* Data-dense but readable
+* Not chat-focused
+
+Color coding:
+
+* Green: Healthy
+* Yellow: Warning
+* Red: Action Required
+
+---
+
+# 17. Permission Matrix
+
+| Feature                 | Student | Teacher | Admin |
+| ----------------------- | ------- | ------- | ----- |
+| View own performance    | Yes     | No      | Yes   |
+| View class performance  | No      | Yes     | Yes   |
+| View AI usage analytics | No      | No      | Yes   |
+| Manage users            | No      | No      | Yes   |
+| Review AI responses     | No      | Limited | Yes   |
+
+---
+
+# 18. Future Enhancements
+
+* Parent-level admin dashboard
+* AI risk scoring system
+* Predictive performance warnings
+* Institutional benchmark comparison
+* AI hallucination rate metric
+
+---
+
+# 19. Critical Governance Rule
+
+Admin must always be able to:
+
+* Disable AI for a class
+* Reduce AI quota
+* Temporarily disable user
+* Export all tenant data
+
+Control is non-negotiable.
+
+---
+
+# 20. Strategic Importance
+
+The Admin Review Dashboard transforms VidyaOS from:
+
+> “School app with AI”
+
+Into:
+
+> “Institutional AI governance platform”
+
+That increases trust and long-term adoption.
+
+

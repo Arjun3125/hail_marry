@@ -7,6 +7,7 @@ import uuid
 import sqlite3
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB as PG_JSONB
 from sqlalchemy.ext.compiler import compiles
 from config import settings
@@ -39,6 +40,11 @@ _db_url_ro = os.getenv("DATABASE_URL_RO", getattr(settings.database, "url_ro", "
 if _db_url_ro and _db_url_ro.startswith("postgres://"):
     _db_url_ro = _db_url_ro.replace("postgres://", "postgresql://", 1)
 
+# Async database URL - convert postgresql:// to postgresql+asyncpg://
+_async_db_url = _db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+if "sqlite" in _db_url:
+    _async_db_url = _db_url.replace("sqlite://", "sqlite+aiosqlite://", 1)
+
 if "sqlite" in _db_url:
     engine = create_engine(
         _db_url,
@@ -55,6 +61,13 @@ if "sqlite" in _db_url:
     engine.dialect.update_returning = False
     engine_ro.dialect.insert_returning = False
     engine_ro.dialect.update_returning = False
+    
+    # Async engine for SQLite
+    async_engine = create_async_engine(
+        _async_db_url,
+        echo=settings.database.echo,
+        connect_args={"check_same_thread": False},
+    )
 else:
     engine = create_engine(
         _db_url,
@@ -70,9 +83,20 @@ else:
         pool_size=10,
         max_overflow=20,
     )
+    # Async engine for PostgreSQL
+    async_engine = create_async_engine(
+        _async_db_url,
+        echo=settings.database.echo,
+        pool_pre_ping=True,
+        pool_size=10,
+        max_overflow=20,
+    )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 SessionLocalRO = sessionmaker(autocommit=False, autoflush=False, bind=engine_ro)
+
+# Async session factory
+AsyncSessionLocal = async_sessionmaker(autocommit=False, autoflush=False, bind=async_engine, class_=AsyncSession)
 
 
 class Base(DeclarativeBase):
@@ -96,3 +120,9 @@ def get_db_ro():
         yield db
     finally:
         db.close()
+
+
+async def get_async_session():
+    """FastAPI dependency that yields an async database session."""
+    async with AsyncSessionLocal() as session:
+        yield session

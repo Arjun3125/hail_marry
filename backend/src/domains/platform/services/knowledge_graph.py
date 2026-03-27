@@ -23,12 +23,19 @@ def add_concept(
     description: Optional[str] = None,
     subject_id: Optional[UUID] = None,
     source_document_id: Optional[UUID] = None,
+    notebook_id: Optional[UUID] = None,
 ) -> KGConcept:
     """Add a concept to the knowledge graph."""
-    existing = db.query(KGConcept).filter(
+    query = db.query(KGConcept).filter(
         KGConcept.tenant_id == tenant_id,
         KGConcept.name == name,
-    ).first()
+    )
+    if notebook_id:
+        query = query.filter(KGConcept.notebook_id == notebook_id)
+    else:
+        query = query.filter(KGConcept.notebook_id.is_(None))
+    
+    existing = query.first()
     if existing:
         return existing
 
@@ -38,6 +45,7 @@ def add_concept(
         description=description,
         subject_id=subject_id,
         source_document_id=source_document_id,
+        notebook_id=notebook_id,
     )
     db.add(concept)
     db.commit()
@@ -152,9 +160,38 @@ def traverse_graph(
     ]
 
 
-async def get_concept_context(db: Session, tenant_id: UUID, query: str, max_concepts: int = 5) -> list[dict]:
-    """Find concepts relevant to a query using semantic similarity matching (embeddings)."""
-    concepts = db.query(KGConcept).filter(KGConcept.tenant_id == tenant_id).all()
+async def get_concept_context(
+    db: Session, 
+    tenant_id: UUID, 
+    query: str, 
+    max_concepts: int = 5,
+    notebook_id: Optional[UUID] = None,
+) -> list[dict]:
+    """Find concepts relevant to a query using semantic similarity matching (embeddings).
+    
+    Args:
+        db: Database session
+        tenant_id: Tenant ID for filtering
+        query: Search query
+        max_concepts: Maximum number of concepts to return
+        notebook_id: Optional notebook ID to scope concepts to a specific notebook
+    """
+    # Build base query
+    concept_query = db.query(KGConcept).filter(KGConcept.tenant_id == tenant_id)
+    
+    # Filter by notebook if provided - include both notebook-specific and global concepts
+    if notebook_id:
+        concept_query = concept_query.filter(
+            sa.or_(
+                KGConcept.notebook_id == notebook_id,
+                KGConcept.notebook_id.is_(None)
+            )
+        )
+    else:
+        # Only global concepts (not associated with any notebook)
+        concept_query = concept_query.filter(KGConcept.notebook_id.is_(None))
+    
+    concepts = concept_query.all()
     if not concepts:
         return []
 

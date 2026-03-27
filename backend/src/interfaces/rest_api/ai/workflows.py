@@ -369,6 +369,7 @@ async def execute_text_query(request: InternalAIQueryRequest) -> dict:
         tenant_id=request.tenant_id,
         top_k=8,
         subject_id=request.subject_id,
+        notebook_id=request.notebook_id,
     )
     if not context_chunks:
         raise HTTPException(

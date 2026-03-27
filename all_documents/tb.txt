@@ -1,0 +1,14 @@
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+    import main
+  File "C:\Users\naren\Work\Projects\proxy_notebooklm\backend\main.py", line 16, in <module>
+    from middleware.observability import ObservabilityMiddleware
+  File "C:\Users\naren\Work\Projects\proxy_notebooklm\backend\middleware\observability.py", line 11, in <module>
+    from src.domains.platform.services.metrics_registry import observe_http_request
+  File "C:\Users\naren\Work\Projects\proxy_notebooklm\backend\src\domains\platform\services\metrics_registry.py", line 8, in <module>
+    from src.domains.platform.services.ai_queue import GLOBAL_METRICS_KEY, READY_TENANTS_ACTIVE_KEY, get_queue_metrics, _get_redis_client
+  File "C:\Users\naren\Work\Projects\proxy_notebooklm\backend\src\domains\platform\services\ai_queue.py", line 27, in <module>
+    from src.domains.platform.schemas.ai_runtime import (
+    ...<8 lines>...
+    )
+ImportError: cannot import name 'InternalIngestURLRequest' from 'src.domains.platform.schemas.ai_runtime' (C:\Users\naren\Work\Projects\proxy_notebooklm\backend\src\domains\platform\schemas\ai_runtime.py)

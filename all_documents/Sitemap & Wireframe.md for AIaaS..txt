@@ -1,0 +1,988 @@
+**Sitemap & Wireframe.md** for VidyaOS.
+
+This is structured for:
+
+* Multi-tenant SaaS
+* Role-based UI
+* AI-native workflows
+* Web-first (Android later)
+* Clean institutional UX
+
+---
+
+# Sitemap & Wireframe
+
+**Project:** VidyaOS – AI Infrastructure for Educational Institutions
+**Version:** v0.1 (Pilot UX Blueprint)
+**Primary Platform:** Web (Next.js)
+**Roles:** Student / Teacher / Admin
+
+---
+
+# 1. Global Sitemap (High-Level)
+
+```
+Landing
+│
+├── Login (Google OAuth)
+│
+└── Dashboard (Role-based)
+      │
+      ├── Student Portal
+      ├── Teacher Portal
+      └── Admin Portal
+```
+
+---
+
+# 2. Public Pages
+
+## 2.1 Landing Page
+
+Purpose:
+
+* Explain VidyaOS value
+* School onboarding
+* Demo request
+
+### Sections:
+
+* Hero (AI for Schools)
+* Features Overview
+* AI Demo Video
+* Pricing
+* Contact / Book Demo
+
+---
+
+## 2.2 Login Page
+
+* Google Sign-In
+* Tenant detection
+* Error state handling
+
+---
+
+# 3. Student Portal Sitemap
+
+```
+Student Dashboard
+│
+├── Overview
+├── Attendance
+├── Results
+├── Assignments
+├── Timetable
+├── Lecture Library
+├── AI Assistant
+├── Complaints
+└── Profile
+```
+
+---
+
+# 4. Student Portal Wireframes
+
+---
+
+## 4.1 Student Dashboard (Overview)
+
+### Layout:
+
+```
+-------------------------------------------------
+| Top Nav: Logo | Notifications | Profile      |
+-------------------------------------------------
+| Sidebar                                     |
+|---------------------------------------------|
+| Overview                                    |
+| Attendance                                  |
+| Results                                     |
+| Assignments                                 |
+| Timetable                                   |
+| AI Assistant                                |
+-------------------------------------------------
+
+Main Panel:
+
+| Quick Stats Cards |
+-------------------------------------
+| Attendance % | Avg Score | Due Assignments |
+-------------------------------------
+
+| Upcoming Classes |
+-------------------------------------
+
+| Weak Subjects Insight (AI-driven) |
+-------------------------------------
+```
+
+Purpose:
+
+* Snapshot view
+* Performance alerts
+* AI insights
+
+---
+
+## 4.2 Attendance Page
+
+```
+Attendance Summary (Bar Chart)
+---------------------------------
+Monthly Calendar View
+---------------------------------
+Status Legend
+```
+
+Filters:
+
+* Subject
+* Date range
+
+---
+
+## 4.3 Results Page
+
+```
+Subject Cards
+---------------------------------
+Subject: Mathematics
+Exam List:
+- Midterm
+- Final
+---------------------------------
+
+Performance Trend Graph
+---------------------------------
+
+AI Insight Panel:
+"Your performance dropped in Algebra. Review Chapter 3."
+```
+
+---
+
+## 4.4 Assignments Page
+
+```
+Tabs:
+[ Pending ] [ Submitted ] [ Graded ]
+
+Assignment Card:
+Title
+Subject
+Due Date
+Upload Button
+AI Help Button
+```
+
+AI Help opens contextual assistant.
+
+---
+
+## 4.5 Timetable Page
+
+Weekly Grid View:
+
+```
+Mon | Tue | Wed | Thu | Fri
+--------------------------------
+Math | Sci | Eng | ...
+```
+
+Click class → open lecture + notes.
+
+---
+
+## 4.6 Lecture Library
+
+```
+Subject Filter Dropdown
+--------------------------------
+
+Lecture Card:
+Thumbnail (YouTube embed)
+Title
+Description
+Transcript Available
+"Ask AI about this lecture"
+```
+
+---
+
+## 4.7 AI Assistant Page (Core Feature)
+
+```
+Header: AI Study Assistant
+
+Query Input Box:
+--------------------------------
+Ask about your notes...
+--------------------------------
+
+Mode Selector:
+[ Q&A ] [ Study Guide ] [ Quiz ] [ Concept Map ]
+
+Chat Window:
+--------------------------------
+AI Response
+Citations [Doc_p12]
+--------------------------------
+```
+
+Additional panel:
+
+* Token usage indicator
+* Daily AI limit progress
+* Citation sources expandable
+
+---
+
+## 4.8 Complaints Portal
+
+```
+Create Complaint Button
+--------------------------------
+Category Dropdown
+Description Field
+Submit
+--------------------------------
+Status Tracker:
+Open / In Review / Resolved
+```
+
+---
+
+# 5. Teacher Portal Sitemap
+
+```
+Teacher Dashboard
+│
+├── Classes
+├── Attendance Entry
+├── Marks Entry
+├── Assignments
+├── Lecture Upload
+├── AI Insights (Class Level)
+└── Profile
+```
+
+---
+
+# 6. Teacher Portal Wireframes
+
+---
+
+## 6.1 Teacher Dashboard
+
+```
+Class Overview Cards
+--------------------------------
+| Class A | Class B |
+--------------------------------
+
+Recent Submissions
+--------------------------------
+
+AI Class Analytics:
+"30% of students weak in Algebra."
+```
+
+---
+
+## 6.2 Marks Entry Page
+
+```
+Select Class
+Select Subject
+Select Exam
+
+Student List:
+Name | Marks Input Field
+Save Button
+```
+
+---
+
+## 6.3 Lecture Upload
+
+```
+Upload PDF
+OR
+Paste YouTube URL
+
+Ingestion Status:
+Processing...
+Completed
+```
+
+---
+
+## 6.4 AI Class Insights
+
+```
+Class Performance Chart
+--------------------------------
+Weak Topics Breakdown
+--------------------------------
+Generate Class-Level Study Guide
+```
+
+---
+
+# 7. Admin Portal Sitemap
+
+```
+Admin Dashboard
+│
+├── Users
+├── Classes
+├── Subjects
+├── Timetable
+├── Reports
+├── AI Usage Analytics
+├── Billing
+└── Settings
+```
+
+---
+
+# 8. Admin Wireframes
+
+---
+
+## 8.1 Admin Dashboard
+
+```
+Total Students
+Active Users
+AI Queries Today
+Revenue Summary
+```
+
+---
+
+## 8.2 AI Usage Analytics
+
+```
+Query Count by Day
+--------------------------------
+Top Subjects Queried
+--------------------------------
+Per-Student AI Usage
+--------------------------------
+GPU Load Indicator
+```
+
+---
+
+## 8.3 Billing Page
+
+```
+Current Plan
+AI Usage Credits
+Upgrade Plan
+Payment Status
+```
+
+---
+
+# 9. Navigation Structure
+
+## Sidebar (Role-Based)
+
+Student:
+
+* Overview
+* Attendance
+* Results
+* Assignments
+* Timetable
+* AI Assistant
+* Complaints
+
+Teacher:
+
+* Dashboard
+* Classes
+* Assignments
+* Upload
+* Insights
+
+Admin:
+
+* Dashboard
+* Users
+* Reports
+* AI Analytics
+* Billing
+
+---
+
+# 10. UX Design Principles
+
+1. Clean, minimal interface
+2. Institutional feel (not social media look)
+3. Clear data visualization
+4. AI responses clearly cited
+5. Avoid chat-style clutter
+6. Structured AI output
+
+---
+
+# 11. Mobile-First Consideration
+
+When converting to Android:
+
+* Sidebar → Bottom navigation bar
+* AI Assistant full-screen
+* Cards stack vertically
+* Charts simplified
+
+---
+
+# 12. MVP Wireframe Scope (Do Not Overbuild)
+
+For pilot:
+
+Implement only:
+
+* Login
+* Student Dashboard
+* Assignments
+* Lecture Library
+* AI Assistant (Q&A only)
+* Teacher upload
+* Admin user management
+
+Skip:
+
+* Billing UI (manual billing initially)
+* Advanced analytics
+* Concept map visualization
+
+---
+
+# 13. Long-Term UX Evolution
+
+Future upgrades:
+
+* Personalized AI dashboard
+* Parent portal
+* Student streaks
+* AI learning timeline
+* Gamified progress indicators
+
+---
+
+# 14. Visual Hierarchy Summary
+
+Primary Focus:
+
+1. Academic data
+2. AI insights
+3. Structured navigation
+
+AI is embedded inside workflow, not floating chatbot.
+
+---
+
+This sitemap is designed for:
+
+* Multi-tenant SaaS
+* Institutional clarity
+* AI-first but structured experience
+* Smooth migration to Android
+
+---
+Below is a production-grade **AI Engine Deep Design.md** engineered for VidyaOS (High-Scale, Multi-Tenant Educational AI Infrastructure).
+
+This document defines the internal mechanics of your AI layer — not marketing abstraction, but operational architecture.
+
+---
+
+# AI Engine Deep Design
+
+**Project:** VidyaOS – AI Infrastructure for Educational Institutions
+**Version:** v0.1 (Pilot → Cloud-Scale Ready)
+**Deployment:** Local GPU (Pilot) → Distributed GPU Cluster (Scale)
+
+---
+
+# 1. Design Objectives
+
+The AI Engine must:
+
+1. Provide NotebookLM-level grounded document intelligence
+2. Operate in strict multi-tenant isolation
+3. Enforce citation-first outputs
+4. Optimize GPU utilization
+5. Remain cloud-migration ready
+6. Never modify authoritative ERP records
+
+AI is augmentation layer only.
+
+---
+
+# 2. Core Responsibilities
+
+The AI Engine performs:
+
+* Document ingestion
+* Hierarchical chunking
+* Embedding generation
+* Vector storage
+* Semantic retrieval
+* Reranking
+* Context compression
+* LLM inference
+* Structured output generation
+* Citation enforcement
+
+---
+
+# 3. AI System Architecture
+
+```
+User Query
+    │
+    ▼
+Query Router
+    │
+    ▼
+Embedding Layer
+    │
+    ▼
+Vector Search (Top-K)
+    │
+    ▼
+Reranker
+    │
+    ▼
+Context Builder
+    │
+    ▼
+Prompt Template Engine
+    │
+    ▼
+LLM Inference
+    │
+    ▼
+Response Formatter + Citation Injector
+```
+
+---
+
+# 4. Multi-Tenant Isolation Model
+
+Each institution has:
+
+* Unique `tenant_id`
+* Isolated vector namespace
+* Independent document index
+* Usage tracking
+
+Vector DB structure:
+
+```
+namespace = f"tenant_{tenant_id}"
+```
+
+No cross-namespace retrieval permitted.
+
+Hard constraint.
+
+---
+
+# 5. Document Ingestion Pipeline
+
+## 5.1 Supported Sources
+
+* PDF notes
+* Lecture transcripts
+* DOCX files
+* Text uploads
+* YouTube transcript ingestion
+
+---
+
+## 5.2 Preprocessing Pipeline
+
+```
+Raw Document
+    │
+    ▼
+Text Extraction
+    │
+    ▼
+Cleaning (remove headers, noise)
+    │
+    ▼
+Hierarchical Segmentation
+    │
+    ▼
+Metadata Attachment
+    │
+    ▼
+Chunk Storage
+```
+
+---
+
+## 5.3 Hierarchical Chunking Strategy
+
+Flat chunking is insufficient.
+
+Instead:
+
+Document → Section → Subsection → Paragraph
+
+Each chunk stores:
+
+* tenant_id
+* document_id
+* chunk_id
+* page_number
+* section_title
+* subject
+* teacher_id
+* academic_year
+
+Chunk size:
+
+* 300–600 tokens
+* Overlap: 50–100 tokens
+
+---
+
+# 6. Embedding Engine
+
+## Model
+
+* nomic-embed-text (local)
+
+## Flow
+
+```
+Chunk → Embedding Model → 768-dim Vector → Vector DB
+```
+
+Embeddings generated:
+
+* On upload
+* On transcript ingestion
+* Async background job
+
+Stored in tenant namespace.
+
+---
+
+# 7. Retrieval Pipeline
+
+## 7.1 Query Flow
+
+```
+Student Query
+    │
+    ▼
+Query Embedding
+    │
+    ▼
+Vector Search (Top 8–12)
+```
+
+---
+
+## 7.2 Reranking (Optional but Recommended)
+
+Reranker:
+
+* Cross-encoder model
+* Scores semantic relevance
+
+Select top 5–8 post-rerank.
+
+This significantly improves answer quality.
+
+---
+
+## 7.3 Context Deduplication
+
+Remove:
+
+* Redundant chunks
+* Near-identical overlaps
+* Cross-page repetition
+
+---
+
+## 7.4 Context Compression
+
+If context > LLM limit:
+
+* Summarize lower-ranked chunks
+* Keep highest semantic weight chunks raw
+
+Goal:
+Maintain relevance under token budget.
+
+---
+
+# 8. Prompt Template Engine
+
+AI must not operate in free-form mode.
+
+All responses pass through structured templates.
+
+---
+
+## 8.1 Task Modes
+
+| Mode        | Description                 |
+| ----------- | --------------------------- |
+| Q&A         | Grounded question answering |
+| Study Guide | Structured summary          |
+| Quiz        | Question generation         |
+| Concept Map | Graph structure             |
+| Weak Topic  | Performance-based insight   |
+
+---
+
+## 8.2 Example Q&A Template
+
+```
+You are an academic assistant.
+Answer ONLY using provided context.
+Cite using [Document_Page].
+If not in context, say: Not found in material.
+```
+
+This reduces hallucination risk.
+
+---
+
+# 9. LLM Inference Layer
+
+## 9.1 Model Selection (Pilot)
+
+* Qwen 14B (4-bit quantized)
+* Llama 3 8B as fallback
+
+---
+
+## 9.2 Token Budget Strategy
+
+Example:
+
+* Query: 200 tokens
+* Context: 3000 tokens
+* Output: 600 tokens
+* Total: ~3800 tokens
+
+Must enforce strict caps.
+
+---
+
+## 9.3 GPU Utilization Strategy
+
+* Queue-based request handling
+* Max concurrency limit
+* Timeout protection
+* Batch embedding generation
+
+---
+
+# 10. Citation Enforcement Layer
+
+Post-processing step:
+
+1. Detect claim spans
+2. Attach citation markers
+3. Validate citation presence
+4. Reject output if no citation (for Q&A mode)
+
+Example output:
+
+```
+Photosynthesis occurs in chloroplasts. [Bio_Ch3_p12]
+```
+
+---
+
+# 11. Structured Output Engine
+
+For Quiz Mode:
+
+Return JSON:
+
+```
+{
+  "questions": [
+    {
+      "question": "...",
+      "options": ["A","B","C","D"],
+      "correct": "B"
+    }
+  ]
+}
+```
+
+For Concept Map Mode:
+
+Return graph schema:
+
+```
+{
+  "nodes": [...],
+  "edges": [...]
+}
+```
+
+Frontend renders visualization.
+
+---
+
+# 12. Weak Topic Intelligence (Advanced)
+
+Uses ERP data:
+
+* Marks
+* Subject performance
+* Attendance
+
+Flow:
+
+```
+Low Algebra Score
+    │
+    ▼
+Fetch Algebra Notes
+    │
+    ▼
+Generate Focused Study Guide
+    │
+    ▼
+Generate Targeted Quiz
+```
+
+This is your differentiator over generic NotebookLM.
+
+---
+
+# 13. Caching Strategy
+
+To reduce cost:
+
+* Cache embeddings
+* Cache top 20 frequent queries per subject
+* Cache study guides per chapter
+* TTL-based invalidation
+
+Redis used for short-term caching.
+
+---
+
+# 14. Rate Limiting
+
+Per student:
+
+* X queries per day
+* Tier-based AI credit system
+
+Prevents GPU overload.
+
+---
+
+# 15. Observability
+
+Track:
+
+* Query latency
+* Retrieval hit rate
+* Average token usage
+* GPU utilization
+* Cache hit ratio
+* Citation accuracy rate
+
+Without metrics, scaling is blind.
+
+---
+
+# 16. Failure Handling
+
+If:
+
+* No relevant chunks found → return controlled fallback
+* GPU overload → queue
+* Timeout → retry
+* AI hallucination detection triggered → reject output
+
+Never return ungrounded answer silently.
+
+---
+
+# 17. Security Controls
+
+* No external training
+* Tenant namespace isolation
+* Firewall-restricted AI server
+* Internal API key validation
+* No public model endpoint
+
+---
+
+# 18. Scaling Path
+
+## Pilot
+
+* Single GPU
+* Single vector DB
+
+## Growth
+
+* Multiple inference workers
+* Load balancer
+* Distributed vector DB
+
+## Enterprise
+
+* Kubernetes GPU pods
+* Auto-scaling
+* Model specialization per subject
+
+---
+
+# 19. Long-Term Evolution
+
+Future improvements:
+
+* Fine-tuned subject-specific models
+* Curriculum-aware retrieval weighting
+* Teacher feedback reinforcement
+* Performance-adaptive tutoring loops
+* Institutional knowledge graph
+
+---
+
+# 20. Strategic Positioning
+
+This AI engine is not a chatbot.
+
+It is:
+
+> A citation-grounded, multi-tenant, performance-aware educational reasoning layer.
+
+That is infrastructure-level AI.
+
+---
+
+Next possible engineering documents:
+
+* `Database Schema.md`
+* `Security & Compliance.md`
+* `Scaling to 10k+ Students.md`
+* `Cost Optimization & GPU Planning.md`
+* `Evaluation Framework for AI Accuracy.md`
+
+
+

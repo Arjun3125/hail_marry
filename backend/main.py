@@ -7,6 +7,7 @@ from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import PlainTextResponse
 from contextlib import asynccontextmanager
+from sqlalchemy import text
 
 from database import SessionLocal
 from src.domains.platform.services.feature_flags import init_feature_flags
@@ -147,14 +148,43 @@ app.include_router(ai_engine_router)
 app.include_router(platform_router)
 
 
+def _apply_demo_schema_compatibility_fixes() -> None:
+    """
+    Demo builds ship with a pre-seeded SQLite DB. Keep a tiny compatibility
+    shim here so newer model columns do not break older demo snapshots.
+    """
+    def ensure_column(connection, table_name: str, column_name: str, ddl: str) -> None:
+        if table_name not in table_names:
+            return
+        existing_columns = {
+            row[1]
+            for row in connection.exec_driver_sql(f"PRAGMA table_info({table_name})").fetchall()
+        }
+        if column_name not in existing_columns:
+            connection.exec_driver_sql(f"ALTER TABLE {table_name} ADD COLUMN {ddl}")
+
+    with engine.begin() as connection:
+        table_names = {
+            row[0]
+            for row in connection.exec_driver_sql(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            ).fetchall()
+        }
+        ensure_column(connection, "ai_queries", "notebook_id", "notebook_id CHAR(32)")
+        ensure_column(connection, "documents", "notebook_id", "notebook_id CHAR(32)")
+        ensure_column(connection, "kg_concepts", "notebook_id", "notebook_id CHAR(32)")
+
+
 # ── Auto-seed in DEMO_MODE ──
 if settings.app.demo_mode:
     import models  # noqa — register all models so create_all creates all tables
     from database import Base, engine
     Base.metadata.create_all(bind=engine)
+    _apply_demo_schema_compatibility_fixes()
     try:
         from database import SessionLocal
         _db = SessionLocal()
+        init_feature_flags(_db)
         from src.domains.identity.models.user import User
         if _db.query(User).count() == 0:
             from demo_seed import seed_demo_data

@@ -1,0 +1,1004 @@
+Below is a production-grade **Filtering Logic.md** for VidyaOS.
+
+This document defines:
+
+* Multi-tenant isolation rules
+* Role-based data filtering
+* Query-level safeguards
+* AI retrieval filtering
+* Performance-optimized filtering strategy
+
+Filtering errors are the fastest way to break a SaaS system. This layer must be precise.
+
+---
+
+# Filtering Logic
+
+**Project:** VidyaOS – AI Infrastructure for Educational Institutions
+**Version:** v0.1
+**Applies To:** ERP + AI Layer
+**Database:** PostgreSQL
+**Vector DB:** Namespace-Isolated
+
+---
+
+# 1. Filtering Philosophy
+
+Filtering exists at 4 layers:
+
+1. Tenant Isolation
+2. Role-Based Access Control (RBAC)
+3. Data Scope Filtering
+4. AI Context Filtering
+
+All 4 must be enforced independently.
+
+Never rely on frontend filtering alone.
+
+---
+
+# 2. Layer 1 — Tenant-Level Filtering
+
+Every query must include:
+
+```sql
+WHERE tenant_id = :tenant_id
+```
+
+This is non-negotiable.
+
+---
+
+## 2.1 Middleware Enforcement
+
+On every API request:
+
+1. Extract JWT
+2. Parse `tenant_id`
+3. Inject into request context
+4. Enforce in repository layer
+
+Example pseudo:
+
+```python
+def get_students(tenant_id):
+    return db.query(User).filter(
+        User.tenant_id == tenant_id
+    )
+```
+
+Never allow tenant_id from client body.
+
+Always derive from JWT.
+
+---
+
+# 3. Layer 2 — Role-Based Filtering
+
+Role determines dataset visibility.
+
+Roles:
+
+* Student
+* Teacher
+* Admin
+
+---
+
+## 3.1 Student Filtering Rules
+
+Student can:
+
+* View only their own:
+
+  * Attendance
+  * Marks
+  * Assignments
+  * AI queries
+
+Example:
+
+```sql
+SELECT * FROM marks
+WHERE tenant_id = :tenant_id
+AND student_id = :user_id;
+```
+
+Student must NEVER query other students' data.
+
+---
+
+## 3.2 Teacher Filtering Rules
+
+Teacher can:
+
+* View students in assigned classes only
+
+Filtering logic:
+
+```sql
+WHERE tenant_id = :tenant_id
+AND class_id IN (
+    SELECT class_id FROM teacher_assignments
+    WHERE teacher_id = :user_id
+)
+```
+
+Teachers cannot:
+
+* Access admin-level analytics
+* View financial/billing data
+
+---
+
+## 3.3 Admin Filtering Rules
+
+Admin can:
+
+* Access all tenant data
+* Manage users
+* View AI usage
+* Export reports
+
+But still constrained by tenant_id.
+
+---
+
+# 4. Layer 3 — Data Scope Filtering
+
+Filtering must apply to:
+
+* Academic year
+* Class
+* Subject
+* Date range
+
+---
+
+## 4.1 Date Filtering Example
+
+Attendance:
+
+```sql
+WHERE tenant_id = :tenant_id
+AND student_id = :user_id
+AND date BETWEEN :start_date AND :end_date;
+```
+
+---
+
+## 4.2 Academic Year Filtering
+
+All academic records must include `academic_year`.
+
+This prevents cross-year contamination.
+
+```sql
+WHERE academic_year = :current_year
+```
+
+---
+
+# 5. AI Layer Filtering (Critical)
+
+AI must not retrieve:
+
+* Other tenant data
+* Other class data (if restricted)
+* Unauthorized student records
+
+---
+
+## 5.1 Vector Namespace Isolation
+
+Each tenant has namespace:
+
+```
+tenant_{tenant_id}
+```
+
+Retrieval query:
+
+```python
+vector_db.search(
+    namespace=f"tenant_{tenant_id}",
+    query_embedding=embedding,
+    top_k=8
+)
+```
+
+No global search allowed.
+
+---
+
+## 5.2 Subject-Based Filtering
+
+If student asks:
+
+"Explain Chapter 3 of Math"
+
+You must filter vector retrieval by subject metadata:
+
+```python
+filter={
+    "subject_id": current_subject_id
+}
+```
+
+Prevents retrieval from unrelated subjects.
+
+---
+
+## 5.3 Class-Level Restriction (Optional Advanced)
+
+If required:
+
+Students retrieve only documents tagged to their class.
+
+Metadata filter:
+
+```python
+filter={
+    "class_id": student_class_id
+}
+```
+
+---
+
+# 6. AI Personalization Filtering
+
+When generating weak-topic insights:
+
+Flow:
+
+1. Fetch student performance
+2. Identify lowest subject
+3. Retrieve documents for that subject only
+4. Generate targeted study guide
+
+Filtering must combine:
+
+* tenant_id
+* subject_id
+* class_id
+
+---
+
+# 7. Pagination Filtering
+
+Large datasets must use pagination.
+
+Never allow:
+
+```sql
+SELECT * FROM ai_queries;
+```
+
+Use:
+
+```sql
+LIMIT 20 OFFSET 0;
+```
+
+Or cursor-based pagination.
+
+---
+
+# 8. Search Filtering Logic
+
+If implementing search:
+
+Example:
+
+```sql
+WHERE tenant_id = :tenant_id
+AND full_name ILIKE '%:search_term%'
+```
+
+Always include tenant constraint first.
+
+---
+
+# 9. API-Level Filtering Flow
+
+```text
+Request
+  ↓
+JWT Validation
+  ↓
+Extract tenant_id + role
+  ↓
+Apply role filter
+  ↓
+Apply scope filters (class/year/date)
+  ↓
+Execute DB query
+  ↓
+Return sanitized response
+```
+
+---
+
+# 10. Data Sanitization Layer
+
+Before returning response:
+
+* Remove internal IDs
+* Remove sensitive fields
+* Mask unnecessary metadata
+
+Example:
+
+Student view should not receive:
+
+* Other student UUIDs
+* Internal audit logs
+* System fields
+
+---
+
+# 11. Filtering for AI Usage Limits
+
+Before processing AI query:
+
+```python
+daily_count = count_ai_queries(user_id, today)
+
+if daily_count >= plan_limit:
+    reject_request()
+```
+
+Plan-based filtering must execute before GPU call.
+
+---
+
+# 12. Soft Delete Filtering
+
+Instead of deleting records:
+
+Use:
+
+```sql
+is_deleted BOOLEAN DEFAULT FALSE
+```
+
+Filter:
+
+```sql
+WHERE is_deleted = FALSE
+```
+
+Prevents accidental data loss.
+
+---
+
+# 13. Performance-Optimized Filtering
+
+To maintain speed at scale:
+
+Index these fields:
+
+* tenant_id
+* student_id
+* class_id
+* subject_id
+* academic_year
+* created_at
+
+Composite index example:
+
+```sql
+CREATE INDEX idx_marks_tenant_student
+ON marks(tenant_id, student_id);
+```
+
+---
+
+# 14. Common Filtering Vulnerabilities
+
+Avoid:
+
+❌ Filtering only in frontend
+❌ Trusting client-provided tenant_id
+❌ Missing tenant_id in joins
+❌ Cross-tenant vector search
+❌ Unbounded AI query history fetch
+
+---
+
+# 15. Join Filtering Example (Safe Pattern)
+
+Correct join:
+
+```sql
+SELECT m.*
+FROM marks m
+JOIN exams e ON m.exam_id = e.id
+WHERE m.tenant_id = :tenant_id
+AND m.student_id = :user_id;
+```
+
+Ensure both tables include tenant filter when applicable.
+
+---
+
+# 16. Logging for Security
+
+Log all queries that attempt:
+
+* Cross-tenant access
+* Unauthorized role access
+* Exceeding rate limits
+
+Store in `audit_logs`.
+
+---
+
+# 17. AI Output Filtering
+
+Before returning AI response:
+
+Validate:
+
+* Citation present
+* No sensitive student data included
+* No raw database dumps
+
+If violation detected → block response.
+
+---
+
+# 18. Future: Row-Level Security (Advanced)
+
+PostgreSQL supports:
+
+```sql
+ALTER TABLE marks ENABLE ROW LEVEL SECURITY;
+```
+
+Policy example:
+
+```sql
+CREATE POLICY tenant_isolation
+ON marks
+USING (tenant_id = current_setting('app.tenant_id')::UUID);
+```
+
+This enforces DB-level isolation.
+
+Recommended at scale.
+
+---
+
+# 19. Filtering Summary
+
+Filtering occurs at:
+
+| Layer            | Purpose               |
+| ---------------- | --------------------- |
+| JWT              | Tenant identity       |
+| RBAC             | Role control          |
+| DB Query         | Data isolation        |
+| Vector Namespace | AI isolation          |
+| Post-Processing  | Response sanitization |
+
+Failure in any one layer compromises system integrity.
+
+---
+
+# 20. Strategic Importance
+
+Multi-tenant SaaS does not fail because of UI.
+
+It fails because of data leaks.
+
+Filtering logic is not a feature — it is structural integrity.
+
+---
+
+Next logical engineering documents:
+
+* `Security & Compliance.md`
+* `Scaling to 50k Students.md`
+* `Cost Optimization & GPU Planning.md`
+* `Evaluation Framework for AI Accuracy.md`
+* `Revenue & Pricing Architecture.md`
+
+Which layer do you want to design next?
+ **Filtering Logic.md** for VidyaOS.
+
+This document defines:
+
+* Multi-tenant isolation rules
+* Role-based data filtering
+* Query-level safeguards
+* AI retrieval filtering
+* Performance-optimized filtering strategy
+
+Filtering errors are the fastest way to break a SaaS system. This layer must be precise.
+
+---
+
+# Filtering Logic
+
+**Project:** VidyaOS – AI Infrastructure for Educational Institutions
+**Version:** v0.1
+**Applies To:** ERP + AI Layer
+**Database:** PostgreSQL
+**Vector DB:** Namespace-Isolated
+
+---
+
+# 1. Filtering Philosophy
+
+Filtering exists at 4 layers:
+
+1. Tenant Isolation
+2. Role-Based Access Control (RBAC)
+3. Data Scope Filtering
+4. AI Context Filtering
+
+All 4 must be enforced independently.
+
+Never rely on frontend filtering alone.
+
+---
+
+# 2. Layer 1 — Tenant-Level Filtering
+
+Every query must include:
+
+```sql
+WHERE tenant_id = :tenant_id
+```
+
+This is non-negotiable.
+
+---
+
+## 2.1 Middleware Enforcement
+
+On every API request:
+
+1. Extract JWT
+2. Parse `tenant_id`
+3. Inject into request context
+4. Enforce in repository layer
+
+Example pseudo:
+
+```python
+def get_students(tenant_id):
+    return db.query(User).filter(
+        User.tenant_id == tenant_id
+    )
+```
+
+Never allow tenant_id from client body.
+
+Always derive from JWT.
+
+---
+
+# 3. Layer 2 — Role-Based Filtering
+
+Role determines dataset visibility.
+
+Roles:
+
+* Student
+* Teacher
+* Admin
+
+---
+
+## 3.1 Student Filtering Rules
+
+Student can:
+
+* View only their own:
+
+  * Attendance
+  * Marks
+  * Assignments
+  * AI queries
+
+Example:
+
+```sql
+SELECT * FROM marks
+WHERE tenant_id = :tenant_id
+AND student_id = :user_id;
+```
+
+Student must NEVER query other students' data.
+
+---
+
+## 3.2 Teacher Filtering Rules
+
+Teacher can:
+
+* View students in assigned classes only
+
+Filtering logic:
+
+```sql
+WHERE tenant_id = :tenant_id
+AND class_id IN (
+    SELECT class_id FROM teacher_assignments
+    WHERE teacher_id = :user_id
+)
+```
+
+Teachers cannot:
+
+* Access admin-level analytics
+* View financial/billing data
+
+---
+
+## 3.3 Admin Filtering Rules
+
+Admin can:
+
+* Access all tenant data
+* Manage users
+* View AI usage
+* Export reports
+
+But still constrained by tenant_id.
+
+---
+
+# 4. Layer 3 — Data Scope Filtering
+
+Filtering must apply to:
+
+* Academic year
+* Class
+* Subject
+* Date range
+
+---
+
+## 4.1 Date Filtering Example
+
+Attendance:
+
+```sql
+WHERE tenant_id = :tenant_id
+AND student_id = :user_id
+AND date BETWEEN :start_date AND :end_date;
+```
+
+---
+
+## 4.2 Academic Year Filtering
+
+All academic records must include `academic_year`.
+
+This prevents cross-year contamination.
+
+```sql
+WHERE academic_year = :current_year
+```
+
+---
+
+# 5. AI Layer Filtering (Critical)
+
+AI must not retrieve:
+
+* Other tenant data
+* Other class data (if restricted)
+* Unauthorized student records
+
+---
+
+## 5.1 Vector Namespace Isolation
+
+Each tenant has namespace:
+
+```
+tenant_{tenant_id}
+```
+
+Retrieval query:
+
+```python
+vector_db.search(
+    namespace=f"tenant_{tenant_id}",
+    query_embedding=embedding,
+    top_k=8
+)
+```
+
+No global search allowed.
+
+---
+
+## 5.2 Subject-Based Filtering
+
+If student asks:
+
+"Explain Chapter 3 of Math"
+
+You must filter vector retrieval by subject metadata:
+
+```python
+filter={
+    "subject_id": current_subject_id
+}
+```
+
+Prevents retrieval from unrelated subjects.
+
+---
+
+## 5.3 Class-Level Restriction (Optional Advanced)
+
+If required:
+
+Students retrieve only documents tagged to their class.
+
+Metadata filter:
+
+```python
+filter={
+    "class_id": student_class_id
+}
+```
+
+---
+
+# 6. AI Personalization Filtering
+
+When generating weak-topic insights:
+
+Flow:
+
+1. Fetch student performance
+2. Identify lowest subject
+3. Retrieve documents for that subject only
+4. Generate targeted study guide
+
+Filtering must combine:
+
+* tenant_id
+* subject_id
+* class_id
+
+---
+
+# 7. Pagination Filtering
+
+Large datasets must use pagination.
+
+Never allow:
+
+```sql
+SELECT * FROM ai_queries;
+```
+
+Use:
+
+```sql
+LIMIT 20 OFFSET 0;
+```
+
+Or cursor-based pagination.
+
+---
+
+# 8. Search Filtering Logic
+
+If implementing search:
+
+Example:
+
+```sql
+WHERE tenant_id = :tenant_id
+AND full_name ILIKE '%:search_term%'
+```
+
+Always include tenant constraint first.
+
+---
+
+# 9. API-Level Filtering Flow
+
+```text
+Request
+  ↓
+JWT Validation
+  ↓
+Extract tenant_id + role
+  ↓
+Apply role filter
+  ↓
+Apply scope filters (class/year/date)
+  ↓
+Execute DB query
+  ↓
+Return sanitized response
+```
+
+---
+
+# 10. Data Sanitization Layer
+
+Before returning response:
+
+* Remove internal IDs
+* Remove sensitive fields
+* Mask unnecessary metadata
+
+Example:
+
+Student view should not receive:
+
+* Other student UUIDs
+* Internal audit logs
+* System fields
+
+---
+
+# 11. Filtering for AI Usage Limits
+
+Before processing AI query:
+
+```python
+daily_count = count_ai_queries(user_id, today)
+
+if daily_count >= plan_limit:
+    reject_request()
+```
+
+Plan-based filtering must execute before GPU call.
+
+---
+
+# 12. Soft Delete Filtering
+
+Instead of deleting records:
+
+Use:
+
+```sql
+is_deleted BOOLEAN DEFAULT FALSE
+```
+
+Filter:
+
+```sql
+WHERE is_deleted = FALSE
+```
+
+Prevents accidental data loss.
+
+---
+
+# 13. Performance-Optimized Filtering
+
+To maintain speed at scale:
+
+Index these fields:
+
+* tenant_id
+* student_id
+* class_id
+* subject_id
+* academic_year
+* created_at
+
+Composite index example:
+
+```sql
+CREATE INDEX idx_marks_tenant_student
+ON marks(tenant_id, student_id);
+```
+
+---
+
+# 14. Common Filtering Vulnerabilities
+
+Avoid:
+
+❌ Filtering only in frontend
+❌ Trusting client-provided tenant_id
+❌ Missing tenant_id in joins
+❌ Cross-tenant vector search
+❌ Unbounded AI query history fetch
+
+---
+
+# 15. Join Filtering Example (Safe Pattern)
+
+Correct join:
+
+```sql
+SELECT m.*
+FROM marks m
+JOIN exams e ON m.exam_id = e.id
+WHERE m.tenant_id = :tenant_id
+AND m.student_id = :user_id;
+```
+
+Ensure both tables include tenant filter when applicable.
+
+---
+
+# 16. Logging for Security
+
+Log all queries that attempt:
+
+* Cross-tenant access
+* Unauthorized role access
+* Exceeding rate limits
+
+Store in `audit_logs`.
+
+---
+
+# 17. AI Output Filtering
+
+Before returning AI response:
+
+Validate:
+
+* Citation present
+* No sensitive student data included
+* No raw database dumps
+
+If violation detected → block response.
+
+---
+
+# 18. Future: Row-Level Security (Advanced)
+
+PostgreSQL supports:
+
+```sql
+ALTER TABLE marks ENABLE ROW LEVEL SECURITY;
+```
+
+Policy example:
+
+```sql
+CREATE POLICY tenant_isolation
+ON marks
+USING (tenant_id = current_setting('app.tenant_id')::UUID);
+```
+
+This enforces DB-level isolation.
+
+Recommended at scale.
+
+---
+
+# 19. Filtering Summary
+
+Filtering occurs at:
+
+| Layer            | Purpose               |
+| ---------------- | --------------------- |
+| JWT              | Tenant identity       |
+| RBAC             | Role control          |
+| DB Query         | Data isolation        |
+| Vector Namespace | AI isolation          |
+| Post-Processing  | Response sanitization |
+
+Failure in any one layer compromises system integrity.
+
+---
+
+# 20. Strategic Importance
+
+Multi-tenant SaaS does not fail because of UI.
+
+It fails because of data leaks.
+
+Filtering logic is not a feature — it is structural integrity.
+
+

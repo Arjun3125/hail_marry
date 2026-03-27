@@ -223,6 +223,7 @@ slowapi==0.1.9
 socksio==1.0.0
 soupsieve==2.8.3
 SQLAlchemy==2.0.47
+sqlmodel==0.0.24
 stack-data==0.6.3
 starlette==0.52.1
 structlog==25.5.0

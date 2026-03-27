@@ -1,0 +1,189 @@
+/* AI Study Studio Layout System */
+
+/* Main container - full height minus header */
+.ai-studio-container {
+    display: flex;
+    height: calc(100vh - 64px);
+    overflow: hidden;
+    background: var(--bg-page);
+}
+
+/* Tool Rail - Left Sidebar */
+.tool-rail {
+    flex-shrink: 0;
+    width: var(--rail-width, 256px);
+    height: 100%;
+    background: var(--bg-card);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    transition: width 0.3s ease;
+    overflow: hidden;
+}
+
+.tool-rail.collapsed {
+    width: var(--rail-collapsed-width, 64px);
+}
+
+/* Context Panel - Right Sidebar */
+.context-panel {
+    flex-shrink: 0;
+    width: var(--panel-width, 320px);
+    height: 100%;
+    background: var(--bg-card);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    transition: width 0.3s ease;
+    overflow: hidden;
+}
+
+.context-panel.collapsed {
+    width: var(--panel-collapsed-width, 48px);
+}
+
+/* Responsive Breakpoints */
+@media (max-width: 1024px) {
+    .tool-rail {
+        width: var(--rail-collapsed-width, 64px);
+    }
+    
+    .tool-rail.expanded {
+        width: var(--rail-width, 256px);
+        position: absolute;
+        z-index: 50;
+        box-shadow: var(--shadow-md);
+    }
+    
+    .context-panel {
+        width: var(--panel-width, 320px);
+    }
+}
+
+@media (max-width: 768px) {
+    .ai-studio-container {
+        flex-direction: column;
+    }
+    
+    .tool-rail {
+        width: 100% !important;
+        height: auto;
+        max-height: 180px;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+    }
+    
+    .context-panel {
+        width: 100% !important;
+        height: auto;
+        max-height: 200px;
+        border-left: none;
+        border-top: 1px solid var(--border);
+    }
+    
+    .learning-workspace {
+        flex: 1;
+        height: auto;
+        min-height: 0;
+    }
+}
+
+@media (max-width: 640px) {
+    .ai-studio-container {
+        height: calc(100vh - 56px);
+    }
+    
+    .tool-rail {
+        max-height: 140px;
+    }
+    
+    .context-panel {
+        max-height: 160px;
+    }
+}
+
+/* Tool Group Colors */
+.tool-group-learning { --group-color: var(--learning-primary, #6366f1); }
+.tool-group-practice { --group-color: var(--practice-primary, #10b981); }
+.tool-group-thinking { --group-color: var(--thinking-primary, #f59e0b); }
+.tool-group-visual { --group-color: var(--visual-primary, #06b6d4); }
+.tool-group-career { --group-color: var(--career-primary, #ec4899); }
+
+/* Collapse Toggle Button */
+.collapse-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-sm, 6px);
+    background: var(--bg-hover);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.collapse-toggle:hover {
+    background: var(--border-light);
+}
+
+/* Scrollbar Styling */
+.tool-rail::-webkit-scrollbar,
+.context-panel::-webkit-scrollbar,
+.learning-workspace::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+.tool-rail::-webkit-scrollbar-track,
+.context-panel::-webkit-scrollbar-track,
+.learning-workspace::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.tool-rail::-webkit-scrollbar-thumb,
+.context-panel::-webkit-scrollbar-thumb,
+.learning-workspace::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 3px;
+}
+
+.tool-rail::-webkit-scrollbar-thumb:hover,
+.context-panel::-webkit-scrollbar-thumb:hover,
+.learning-workspace::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
+}
+
+/* Focus Mode Overlay */
+.focus-mode-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: var(--bg-page);
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    padding: 2rem;
+    overflow-y: auto;
+}
+
+/* Animation Utilities */
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideIn {
+    from { transform: translateX(-10px); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+.animate-fade-in {
+    animation: fadeIn 0.2s ease-out;
+}
+
+.animate-slide-in {
+    animation: slideIn 0.3s ease-out;
+}

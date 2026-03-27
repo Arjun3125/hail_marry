@@ -1,0 +1,400 @@
+**UI Design.md** for VidyaOS.
+
+This is not decorative design.
+It is institutional-grade, calm, structured, and academically aligned.
+
+---
+
+# UI Design
+
+**Project:** VidyaOS – AI Infrastructure for Educational Institutions
+**Version:** v0.1
+**Design Goal:** Subtle Educational Vibe — Clean, Calm, Professional
+
+---
+
+# 1. Design Philosophy
+
+The UI must feel:
+
+* Academic
+* Structured
+* Trustworthy
+* Minimal
+* Quietly intelligent
+
+It must NOT feel:
+
+* Startup flashy
+* Social media-like
+* Gamified
+* Over-animated
+* Dark hacker-themed
+
+Education is clarity.
+
+---
+
+# 2. Visual Identity
+
+## 2.1 Core Tone
+
+Primary Emotion:
+Calm competence.
+
+Secondary Emotion:
+Organized structure.
+
+No aggressive colors. No gradients explosion.
+
+---
+
+# 3. Color System
+
+## 3.1 Primary Palette
+
+| Role         | Color   |
+| ------------ | ------- |
+| Primary Blue | #2C5AA0 |
+| Soft Blue    | #E8F0FE |
+| Neutral Dark | #1F2937 |
+| Neutral Gray | #6B7280 |
+| Light Gray   | #F3F4F6 |
+| White        | #FFFFFF |
+
+Blue signals education & trust.
+
+---
+
+## 3.2 Accent Colors (Minimal Use)
+
+| Purpose | Color   |
+| ------- | ------- |
+| Success | #16A34A |
+| Warning | #F59E0B |
+| Error   | #DC2626 |
+
+Used only for indicators.
+
+---
+
+# 4. Typography
+
+## 4.1 Font Family
+
+Recommended:
+
+* Inter
+* Or Source Sans Pro
+
+Avoid decorative fonts.
+
+---
+
+## 4.2 Typography Scale
+
+| Element       | Size |
+| ------------- | ---- |
+| Page Title    | 24px |
+| Section Title | 18px |
+| Card Title    | 16px |
+| Body Text     | 14px |
+| Metadata      | 12px |
+
+Line height:
+1.5–1.6
+
+Readable, not cramped.
+
+---
+
+# 5. Layout System
+
+## 5.1 Grid Structure
+
+* 12-column layout
+* 24px outer margin
+* 16px internal padding
+* 8px spacing increments
+
+Consistency builds trust.
+
+---
+
+# 6. Navigation Design
+
+## 6.1 Sidebar
+
+Width: 240px
+Background: White
+Border-right: subtle light gray
+
+Active item:
+
+* Soft blue background
+* Left accent line (3px blue)
+
+Hover:
+
+* Slight gray highlight
+
+No heavy animations.
+
+---
+
+## 6.2 Top Bar
+
+Minimal:
+
+* Logo (left)
+* Notifications (right)
+* Profile menu (right)
+
+Height: 60px
+Shadow: subtle (not heavy)
+
+---
+
+# 7. Card Design
+
+Cards are primary UI element.
+
+## Card Structure:
+
+* White background
+* 8px border radius
+* Soft shadow
+* 16px padding
+
+No thick borders.
+
+---
+
+## KPI Card Example
+
+```text
+----------------------------------
+Attendance
+92%
+----------------------------------
+Trend: +2%
+----------------------------------
+```
+
+Large number.
+Muted label.
+Minimal clutter.
+
+---
+
+# 8. Dashboard Design Principles
+
+Dashboard must be:
+
+* Scan-friendly
+* Balanced
+* Not overloaded
+
+Use:
+
+* 3–4 KPI cards per row
+* Charts below
+* AI insights as structured text block
+
+Avoid excessive widgets.
+
+---
+
+# 9. Chart Design
+
+Charts must:
+
+* Use primary blue
+* Use light gridlines
+* Avoid neon colors
+* Use minimal legends
+
+Academic clarity > visual noise.
+
+---
+
+# 10. AI Assistant UI
+
+AI must feel:
+
+Structured, not chatty.
+
+---
+
+## Layout:
+
+```text
+---------------------------------
+Ask about your notes...
+---------------------------------
+
+Mode:
+[ Q&A ] [ Study Guide ] [ Quiz ]
+
+---------------------------------
+AI Response
+---------------------------------
+Citations:
+[Biology_p12]
+```
+
+No speech bubbles like WhatsApp.
+
+Keep:
+
+* Left-aligned blocks
+* Clear separation
+* Structured outputs
+
+---
+
+# 11. Forms & Inputs
+
+Input fields:
+
+* 40px height
+* Subtle border
+* Rounded corners (6px)
+* Blue focus ring
+
+Labels above input.
+
+No placeholder-only labels.
+
+---
+
+# 12. Buttons
+
+Primary Button:
+
+* Blue background
+* White text
+* Medium weight
+
+Secondary Button:
+
+* White background
+* Blue border
+* Blue text
+
+Danger Button:
+
+* Red background (used rarely)
+
+No flashy gradients.
+
+---
+
+# 13. Tables
+
+Tables are critical for education systems.
+
+Style:
+
+* Zebra striping (very subtle)
+* Sticky header
+* Hover highlight
+* Sortable columns
+
+No heavy borders.
+
+---
+
+# 14. Icons
+
+Use:
+
+* Simple outline icons
+* Consistent icon set (Lucide / Heroicons)
+
+Avoid:
+
+* Emoji
+* Cartoonish icons
+* Overuse of symbols
+
+---
+
+# 15. Spacing & White Space
+
+White space is part of education aesthetic.
+
+Avoid cramped layout.
+
+Breathing room increases perceived quality.
+
+---
+
+# 16. Microinteractions
+
+Allowed:
+
+* Subtle hover effects
+* Smooth fade transitions (150–200ms)
+* Loading skeletons
+
+Not allowed:
+
+* Bounce animations
+* Slide transitions everywhere
+* Over-animated dashboards
+
+---
+
+# 17. Mobile Adaptation (Future Android)
+
+* Sidebar → Bottom nav
+* KPI cards stack vertically
+* AI assistant full-width
+* Charts simplified
+
+Design mobile-first but structured.
+
+---
+
+# 18. Accessibility
+
+Must include:
+
+* WCAG AA contrast
+* Keyboard navigation
+* Screen reader support
+* Proper label associations
+* Focus states
+
+Education tools must be accessible.
+
+---
+
+# 19. What We Avoid
+
+❌ Neon gradients
+❌ Dark hacker theme
+❌ Over-gamification
+❌ Confetti animations
+❌ Too many colors
+❌ Excessive drop shadows
+❌ ChatGPT-style bubble chaos
+
+This is institutional software.
+
+---
+
+# 20. Final Aesthetic Summary
+
+The UI should feel like:
+
+* A modern university portal
+* Calm academic workspace
+* Structured learning dashboard
+
+Subtle intelligence.
+Zero noise.
+Clear hierarchy.
+
+

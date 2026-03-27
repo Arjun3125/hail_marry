@@ -1,9 +1,12 @@
 "use client";
 
+import { Suspense } from "react";
 import { useEffect, useState } from "react";
-import { Bot, Send, Loader2, FileText, Sparkles, HelpCircle, BookOpen, MessageSquare, Shuffle, Swords, PenLine, Briefcase, Globe, Settings2 } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { Bot, Send, Loader2, FileText, Sparkles, HelpCircle, BookOpen, MessageSquare, Shuffle, Swords, PenLine, Briefcase, Globe, Settings2, History, Clock, Pin, ChevronRight } from "lucide-react";
 import { api, APIError } from "@/lib/api";
 import { AIErrorState } from "@/components/AIErrorState";
+import AIHistorySidebar from "@/components/AIHistorySidebar";
 
 type Citation = {
     source?: string;
@@ -55,6 +58,15 @@ const placeholders: Record<string, string> = {
 };
 
 export default function AIAssistant() {
+    return (
+        <Suspense fallback={<div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-[var(--primary)]" /></div>}>
+            <AIAssistantContent />
+        </Suspense>
+    );
+}
+
+function AIAssistantContent() {
+    const searchParams = useSearchParams();
     const [query, setQuery] = useState("");
     const [mode, setMode] = useState("qa");
     const [loading, setLoading] = useState(false);
@@ -72,7 +84,47 @@ export default function AIAssistant() {
     const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
     const QUEUED_MODES = isDemoMode ? new Set<string>() : new Set(["study_guide", "quiz"]);
 
+    const [showInlineHistory, setShowInlineHistory] = useState(true);
+    const [inlineHistory, setInlineHistory] = useState<Array<{id: string; query_text: string; title: string | null; created_at: string; is_pinned: boolean}>>([]);
+
     const activeMode = modes.find((m) => m.id === mode) || modes[0];
+
+    // Load inline history for current mode
+    useEffect(() => {
+        const loadInlineHistory = async () => {
+            try {
+                const res = await api.aiHistory.list({ mode, page: 1 }) as { items: Array<{id: string; query_text: string; title: string | null; created_at: string; is_pinned: boolean}> };
+                setInlineHistory(res.items?.slice(0, 5) || []);
+            } catch (err) {
+                console.error("Failed to load inline history:", err);
+            }
+        };
+        loadInlineHistory();
+    }, [mode]);
+
+    const handleHistorySelect = (item: { mode: string; query_text: string; response_text: string }) => {
+        setMode(item.mode);
+        setHistory([{
+            query: item.query_text,
+            response: {
+                answer: item.response_text,
+                citations: [],
+                mode: item.mode,
+            },
+        }]);
+    };
+
+    // Load history item from URL param
+    useEffect(() => {
+        const historyId = searchParams.get("history");
+        if (historyId) {
+            api.aiHistory.get(historyId).then((item) => {
+                handleHistorySelect(item as { mode: string; query_text: string; response_text: string });
+            }).catch((err) => {
+                console.error("Failed to load history item:", err);
+            });
+        }
+    }, [searchParams]);
 
     useEffect(() => {
         if (!jobId || !pendingQuery) return;
@@ -207,6 +259,9 @@ export default function AIAssistant() {
                 setLoading(false);
             }
         } catch (err) {
+            const fallbackMessage = err instanceof APIError
+                ? err.message
+                : "Cannot connect to AI service. Make sure the backend is running.";
             if (err instanceof APIError) {
                 setTypedError(err);
                 if (err.type === "rate_limit") {
@@ -215,7 +270,7 @@ export default function AIAssistant() {
             }
             setHistory((prev) => [...prev, {
                 query: submittedQuery, response: {
-                    answer: "Cannot connect to AI service. Make sure the backend is running.",
+                    answer: fallbackMessage,
                     citations: [],
                     mode,
                 }
@@ -238,8 +293,10 @@ export default function AIAssistant() {
     };
 
     return (
-        <div className="max-w-4xl mx-auto">
-            {/* Header */}
+        <div className="flex gap-4 max-w-6xl mx-auto">
+            {/* Main Content */}
+            <div className="flex-1 max-w-4xl">
+                {/* Header */}
             <div className="mb-4">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex items-center gap-3">
@@ -455,6 +512,47 @@ export default function AIAssistant() {
                 </div>
             )}
 
+            {/* Inline History - Recent queries for current mode */}
+            {inlineHistory.length > 0 && (
+                <div className="mb-4 bg-[var(--bg-card)] rounded-xl border border-[var(--border)]/50 overflow-hidden">
+                    <div 
+                        className="flex items-center justify-between px-4 py-2 bg-[var(--surface-hover)] cursor-pointer"
+                        onClick={() => setShowInlineHistory(!showInlineHistory)}
+                    >
+                        <div className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
+                            <History className="w-4 h-4" />
+                            <span>Recent {activeMode.label} queries</span>
+                            <span className="text-xs bg-[var(--primary)] text-white px-2 py-0.5 rounded-full">{inlineHistory.length}</span>
+                        </div>
+                        <ChevronRight className={`w-4 h-4 text-[var(--text-secondary)] transition-transform ${showInlineHistory ? 'rotate-90' : ''}`} />
+                    </div>
+                    {showInlineHistory && (
+                        <div className="divide-y divide-[var(--border)]/50">
+                            {inlineHistory.map((item) => (
+                                <div
+                                    key={item.id}
+                                    className="group flex items-center gap-3 px-4 py-2.5 hover:bg-[var(--surface-hover)] cursor-pointer transition-colors"
+                                    onClick={() => {
+                                        api.aiHistory.get(item.id).then((fullItem) => {
+                                            handleHistorySelect(fullItem as { mode: string; query_text: string; response_text: string });
+                                        });
+                                    }}
+                                >
+                                    {item.is_pinned && <Pin className="w-3.5 h-3.5 text-[var(--primary)]" />}
+                                    <span className="flex-1 text-sm text-[var(--text-primary)] truncate">
+                                        {item.title || item.query_text}
+                                    </span>
+                                    <div className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
+                                        <Clock className="w-3 h-3" />
+                                        <span>{new Date(item.created_at).toLocaleDateString()}</span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
+
             {/* Input */}
             <form onSubmit={handleSubmit} className="sticky bottom-4 bg-[var(--bg-card)] rounded-2xl shadow-xl p-3 flex items-center gap-2 sm:gap-3 border border-[var(--border)]/50">
                 <input
@@ -473,6 +571,16 @@ export default function AIAssistant() {
                     {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                 </button>
             </form>
+            </div>
+
+            {/* AI History Sidebar */}
+            <div className="hidden lg:block w-80">
+                <AIHistorySidebar 
+                    currentMode={mode} 
+                    onSelectItem={handleHistorySelect}
+                    className="sticky top-4"
+                />
+            </div>
         </div>
     );
 }

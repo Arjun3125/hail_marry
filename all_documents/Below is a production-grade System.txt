@@ -1,0 +1,322 @@
+Below is a production-grade **System Overview.md** suitable for a high-scale VidyaOS pilot targeting 2–3 schools with local inference infrastructure.
+
+You can use this directly in your repository.
+
+---
+
+# System Overview
+
+**Project Name:** VidyaOS – AI Infrastructure for Educational Institutions
+**Version:** v0.1 (Pilot Architecture)
+**Deployment Model:** Hybrid (Cloud ERP + Local AI Compute Node)
+**Target Stage:** 2–3 Pilot Schools
+
+---
+
+# 1. Executive Summary
+
+VidyaOS is a multi-tenant educational AI infrastructure platform that combines:
+
+* Institutional ERP capabilities
+* AI-powered document intelligence
+* Student performance-aware tutoring
+* Secure role-based access
+* Scalable microservice architecture
+
+The system is designed for bootstrap deployment using a local GPU inference server while keeping the core SaaS ERP layer cloud-hosted.
+
+This architecture enables:
+
+* Low operational cost during pilot
+* Full control over AI inference
+* Clear upgrade path to cloud GPU cluster
+
+---
+
+# 2. Architectural Philosophy
+
+## Design Principles
+
+1. Multi-tenant by default
+2. Strict separation of operational data and AI data
+3. AI as augmentation, not authority
+4. Cloud-ready architecture from day one
+5. Security-first design
+6. Observability and metrics-driven iteration
+
+---
+
+# 3. High-Level Architecture
+
+```
+                        ┌─────────────────────┐
+                        │   Web / Android UI  │
+                        └──────────┬──────────┘
+                                   │
+                        ┌──────────▼──────────┐
+                        │   API Gateway       │
+                        │  (Cloud VPS)        │
+                        └──────────┬──────────┘
+                                   │
+            ┌──────────────────────┼──────────────────────┐
+            │                      │                      │
+┌───────────▼──────────┐  ┌────────▼────────┐  ┌──────────▼─────────┐
+│ Core ERP Service     │  │ Auth Service    │  │ Notification Engine│
+│ (PostgreSQL)         │  │ (OAuth + JWT)   │  │ (Email / Push)     │
+└───────────┬──────────┘  └─────────────────┘  └────────────────────┘
+            │
+            │ Internal Secure API Call
+            ▼
+┌──────────────────────────────────────────────────────────┐
+│            AI Inference Node (Local GPU Server)         │
+│----------------------------------------------------------│
+│ - Document Ingestion Service                            │
+│ - Embedding Engine                                       │
+│ - Vector Database (Per Tenant Namespace)                │
+│ - Reranker                                               │
+│ - LLM Inference (Ollama / Quantized Model)              │
+│ - Task Template Engine                                   │
+└──────────────────────────────────────────────────────────┘
+```
+
+---
+
+# 4. Core System Components
+
+## 4.1 API Gateway (Cloud VPS)
+
+Responsibilities:
+
+* TLS termination
+* JWT validation
+* Role-based access control
+* Tenant routing
+* Rate limiting
+* Usage logging
+
+Tech stack:
+
+* Nginx
+* FastAPI
+* Redis (for caching and throttling)
+
+---
+
+## 4.2 Core ERP Service
+
+Handles deterministic institutional operations:
+
+### Modules
+
+* Student Management
+* Attendance Tracking
+* Marks & Results
+* Assignment Tracker
+* Timetable Engine
+* Complaint Portal
+* Lecture Library Management
+
+Database:
+
+* PostgreSQL
+* Strict `tenant_id` isolation
+
+---
+
+## 4.3 AI Engine (Local GPU Server)
+
+Runs on custom-built server with RTX 4090 (recommended).
+
+### Subsystems
+
+#### 4.3.1 Ingestion Service
+
+* PDF parsing
+* Transcript ingestion
+* Document chunking (hierarchical)
+* Metadata extraction
+
+#### 4.3.2 Embedding Service
+
+* Uses local embedding model
+* Stores vectors in tenant-isolated namespaces
+
+#### 4.3.3 Retrieval Layer
+
+* Top-K semantic search
+* Optional reranking
+* Deduplication
+* Context compression
+
+#### 4.3.4 LLM Inference Layer
+
+* Quantized 14B model (or equivalent)
+* Controlled context window
+* Structured prompting
+* Citation-enforced outputs
+
+#### 4.3.5 Task Template Engine
+
+Supports:
+
+* Q&A
+* Study Guide
+* Quiz Generation
+* Topic Summary
+* Concept Breakdown
+* Weak-topic remediation
+
+---
+
+# 5. Multi-Tenant Model
+
+Each institution has:
+
+* Unique tenant_id
+* Isolated Postgres rows
+* Separate vector namespace
+* Independent usage tracking
+* Configurable AI limits
+
+No cross-tenant data mixing.
+
+---
+
+# 6. Data Flow
+
+## Student AI Query Flow
+
+1. Student submits question
+2. API validates JWT + tenant
+3. Request routed to AI microservice
+4. Retrieval from tenant vector DB
+5. Reranking + context assembly
+6. LLM inference
+7. Citation injection
+8. Response returned
+9. Usage logged for billing
+
+---
+
+# 7. Infrastructure (Pilot Phase)
+
+## Cloud
+
+* VPS (₹500–₹1000/month)
+* PostgreSQL
+* Redis
+* SSL Certificate
+* Reverse Proxy
+
+## Local AI Node
+
+* RTX 4090 GPU
+* 64GB RAM
+* 2TB NVMe
+* UPS
+* Daily automated backups
+* Secure tunnel from VPS
+
+---
+
+# 8. Security Architecture
+
+* HTTPS only
+* JWT-based auth
+* Role-based access
+* Audit logging
+* Encrypted database storage
+* Firewall-restricted AI node
+* No direct public GPU exposure
+
+---
+
+# 9. Observability & Metrics
+
+Must track:
+
+* Query latency
+* Retrieval accuracy (manual evaluation)
+* AI cost per query
+* Daily active students
+* AI usage per student
+* Peak load time windows
+* System uptime
+
+---
+
+# 10. Scalability Roadmap
+
+## Phase 1 (Pilot)
+
+* 2–3 schools
+* Single GPU node
+* Manual scaling
+
+## Phase 2
+
+* Multiple inference workers
+* Load balancing
+* Cloud backup inference
+
+## Phase 3
+
+* Kubernetes GPU cluster
+* Horizontal scaling
+* Regional deployment
+
+---
+
+# 11. Revenue Model (Pilot)
+
+Tier-based:
+
+* Basic: ERP only
+* Pro: AI Q&A
+* Advanced: AI analytics + quiz engine
+* Enterprise: Custom models + SLA
+
+Optional:
+
+* Usage-based AI credits
+
+---
+
+# 12. Key Risks
+
+| Risk             | Mitigation                        |
+| ---------------- | --------------------------------- |
+| Power outage     | UPS + auto restart                |
+| Hardware failure | Daily backup + offsite copy       |
+| Latency spike    | Request queueing                  |
+| Overload         | Tenant-level rate limiting        |
+| Data breach      | Strict isolation + firewall rules |
+
+---
+
+# 13. Future Expansion
+
+* Performance-based adaptive tutoring
+* Weak-area auto-detection
+* Parent AI reports
+* Teacher workload analytics
+* Fine-tuned educational models
+* Cross-school anonymized benchmarking (opt-in)
+
+---
+
+# 14. Strategic Position
+
+VidyaOS is not an ERP with AI features.
+
+It is:
+
+> A verticalized, multi-tenant AI infrastructure layer for institutions, with ERP as the interface shell.
+
+The long-term moat lies in:
+
+* Institutional data accumulation
+* Personalized AI learning loops
+* Multi-year student performance memory
+* Proprietary evaluation benchmarks
+

@@ -11,6 +11,7 @@ class Document(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False, index=True)
     subject_id = Column(UUID(as_uuid=True), ForeignKey("subjects.id"), nullable=True)
+    notebook_id = Column(UUID(as_uuid=True), ForeignKey("notebooks.id"), nullable=True, index=True)
     uploaded_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     file_name = Column(String(255), nullable=False)
     file_type = Column(String(50), nullable=False)  # pdf, docx, youtube

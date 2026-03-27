@@ -13,6 +13,7 @@ class AIQueryRequest(StrictBaseModel):
     query: str
     mode: str = "qa"
     subject_id: str | None = None
+    notebook_id: str | None = None
     language: str = "english"
     response_length: str = "default"
     expertise_level: str = "standard"

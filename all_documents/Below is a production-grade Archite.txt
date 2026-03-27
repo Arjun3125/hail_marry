@@ -1,0 +1,438 @@
+Below is a production-grade **Architecture.md** designed for a high-scale VidyaOS platform, starting with local GPU bootstrap but architected for future cloud-scale deployment.
+
+You can place this directly in your repository.
+
+---
+
+# Architecture
+
+**Project:** VidyaOS – AI Infrastructure for Educational Institutions
+**Version:** v0.1 (Pilot, Cloud-Ready Design)
+**Deployment Model:** Hybrid (Cloud Control Plane + Local AI Data Plane)
+
+---
+
+# 1. Architectural Philosophy
+
+VidyaOS is designed using the following principles:
+
+1. Multi-tenant by default
+2. Separation of concerns (ERP vs AI)
+3. AI as stateless inference service
+4. Cloud migration readiness from day one
+5. Horizontal scalability of AI layer
+6. Deterministic operational core, probabilistic AI layer
+
+The system is divided into:
+
+* Control Plane (Cloud)
+* Data Plane (AI Inference Node)
+* Client Layer (Web / Android)
+
+---
+
+# 2. High-Level System Topology
+
+```
+                           ┌─────────────────────┐
+                           │  Web / Android App  │
+                           └──────────┬──────────┘
+                                      │ HTTPS
+                                      ▼
+                        ┌───────────────────────────┐
+                        │ API Gateway (Cloud VPS)  │
+                        └──────────┬────────────────┘
+                                   │
+        ┌──────────────────────────┼──────────────────────────┐
+        │                          │                          │
+        ▼                          ▼                          ▼
+┌────────────────┐        ┌────────────────┐        ┌────────────────┐
+│ Auth Service   │        │ Core ERP       │        │ Usage/Billing  │
+│ OAuth + JWT    │        │ PostgreSQL     │        │ Metrics        │
+└────────────────┘        └────────────────┘        └────────────────┘
+                                   │
+                                   │ Secure Internal API
+                                   ▼
+          ┌────────────────────────────────────────────────┐
+          │ AI Inference Node (Local GPU Server)          │
+          │------------------------------------------------│
+          │ Ingestion → Embedding → Vector DB → Rerank    │
+          │ → LLM Inference → Structured Output           │
+          └────────────────────────────────────────────────┘
+```
+
+---
+
+# 3. Layered Architecture
+
+## 3.1 Client Layer
+
+### Web Application
+
+* React / Next.js
+* Role-based dashboard
+* Student, Teacher, Admin views
+* JWT-based session handling
+
+### Android (Future Phase)
+
+* React Native or Flutter
+* Same backend APIs
+* Push notification integration
+
+---
+
+## 3.2 API Gateway Layer (Cloud)
+
+Responsibilities:
+
+* TLS termination
+* Request validation
+* JWT verification
+* Role enforcement
+* Tenant routing
+* Rate limiting
+* API logging
+
+Recommended stack:
+
+* Nginx
+* FastAPI
+* Redis (throttling + caching)
+
+No business logic here. Only routing and enforcement.
+
+---
+
+## 3.3 Authentication & Authorization
+
+### Authentication
+
+* Google OAuth 2.0
+* JWT issued after login
+
+### Authorization
+
+Role-based access control:
+
+| Role    | Permissions                      |
+| ------- | -------------------------------- |
+| Student | View own data, AI queries        |
+| Teacher | Manage assignments, upload notes |
+| Admin   | Full tenant control              |
+
+Tenant isolation enforced at:
+
+* Database level
+* AI namespace level
+* API routing level
+
+---
+
+# 4. Core ERP Service Architecture
+
+ERP layer is deterministic and authoritative.
+
+## Modules
+
+### 4.1 Student Module
+
+* Profile
+* Attendance
+* Marks
+* Results
+
+### 4.2 Academic Module
+
+* Assignment management
+* Timetable
+* Lecture scheduling
+
+### 4.3 Complaint Portal
+
+* Ticketing workflow
+* Status tracking
+* Escalation
+
+### 4.4 Lecture Library
+
+* Private YouTube embedding
+* Metadata tagging
+* Transcript ingestion trigger
+
+---
+
+## Database Model
+
+Single PostgreSQL instance with strict multi-tenant isolation:
+
+* All tables include `tenant_id`
+* Row-level filtering
+* Indexed by tenant + user_id
+* Audit logging enabled
+
+ERP database must NEVER be modified by AI.
+
+AI is read-only regarding academic records.
+
+---
+
+# 5. AI System Architecture
+
+AI runs as independent microservice.
+
+## 5.1 Core Components
+
+### 5.1.1 Ingestion Service
+
+Handles:
+
+* PDF parsing
+* Lecture transcript extraction
+* Chunk segmentation
+* Metadata tagging
+
+Hierarchical chunking strategy:
+
+* Document → Section → Subsection → Paragraph
+
+---
+
+### 5.1.2 Embedding Engine
+
+* Uses local embedding model
+* Generates vector representation
+* Stores in tenant-specific namespace
+
+Each vector record contains:
+
+* tenant_id
+* document_id
+* chunk_id
+* page_number
+* section_title
+* subject
+* embedding_vector
+
+---
+
+### 5.1.3 Vector Database
+
+Options:
+
+* FAISS (local)
+* Chroma (local or server)
+* Future: Distributed vector DB
+
+Each tenant has isolated namespace.
+
+No cross-tenant retrieval allowed.
+
+---
+
+### 5.1.4 Retrieval Pipeline
+
+```
+Query → Embed → Vector Search (Top-K)
+      → Rerank
+      → Context Deduplication
+      → Context Compression
+```
+
+Top-K typically 6–10.
+
+Reranking improves precision.
+
+---
+
+### 5.1.5 LLM Inference Layer
+
+Runs on local GPU.
+
+Responsibilities:
+
+* Structured prompting
+* Citation enforcement
+* Output validation
+* Token optimization
+
+Strict prompt templates per task:
+
+* Q&A
+* Summary
+* Quiz
+* Concept map
+* Study guide
+
+---
+
+### 5.1.6 Response Formatter
+
+Adds:
+
+* Citation tags
+* Source references
+* Structured JSON when required
+
+Example:
+
+```
+Answer text... [Biology_Chapter3_p12]
+```
+
+---
+
+# 6. AI Task Engine
+
+AI supports multiple modes:
+
+| Mode                | Description                  |
+| ------------------- | ---------------------------- |
+| Q&A                 | Grounded document answering  |
+| Study Guide         | Structured topic summary     |
+| Quiz                | Question generation          |
+| Concept Map         | Structured graph output      |
+| Weak Topic Analysis | Performance-based suggestion |
+
+Task engine selects prompt template dynamically.
+
+---
+
+# 7. Infrastructure Deployment (Pilot)
+
+## 7.1 Cloud Control Plane
+
+* VPS (₹500–₹1000/month)
+* PostgreSQL
+* Redis
+* Reverse proxy
+* SSL certificate
+
+Handles:
+
+* All user-facing APIs
+* ERP logic
+* Authentication
+
+---
+
+## 7.2 Local AI Node (Data Plane)
+
+Hardware:
+
+* RTX 4090 recommended
+* 64GB RAM
+* 2TB NVMe
+* UPS backup
+
+Runs:
+
+* LLM server
+* Embedding model
+* Vector DB
+* Ingestion service
+
+Exposed via secure tunnel to VPS.
+
+No direct public IP exposure.
+
+---
+
+# 8. Scaling Strategy
+
+## Phase 1 (Pilot)
+
+* Single GPU
+* Manual scaling
+* Rate limiting per tenant
+
+## Phase 2
+
+* Multiple inference workers
+* Load balancing
+* Model quantization tuning
+
+## Phase 3
+
+* Kubernetes deployment
+* GPU auto-scaling
+* Distributed vector DB
+* Multi-region failover
+
+---
+
+# 9. Reliability & Resilience
+
+### Backups
+
+* Daily Postgres dump
+* Offsite storage backup
+* Vector DB snapshot
+
+### Monitoring
+
+* GPU utilization
+* Query latency
+* Error rates
+* Memory usage
+
+### Failover
+
+* API health checks
+* AI queue retry mechanism
+
+---
+
+# 10. Security Model
+
+* HTTPS everywhere
+* JWT with expiry
+* Firewall-restricted AI node
+* Rate limiting per user
+* Audit logs
+* Data encryption at rest
+
+No student data used for external training.
+
+---
+
+# 11. Cost Model (Pilot)
+
+| Component   | Monthly Cost |
+| ----------- | ------------ |
+| VPS         | ₹1000        |
+| Electricity | ₹2500        |
+| Internet    | ₹2000        |
+| Misc        | ₹1000        |
+
+Total ≈ ₹5000–₹7000/month
+
+One-time server ≈ ₹3L
+
+---
+
+# 12. Cloud Migration Path
+
+AI node can later be:
+
+* Containerized
+* Deployed on Kubernetes
+* Connected to managed GPU nodes
+* Moved to distributed inference cluster
+
+Because ERP and AI are separated, migration is non-disruptive.
+
+---
+
+# 13. Long-Term Moat
+
+The architecture enables:
+
+* Multi-year student learning memory
+* Performance-based tutoring
+* Institutional knowledge graph
+* AI evaluation benchmarks
+* Proprietary learning analytics
+
+This transitions VidyaOS from tool → infrastructure layer.
+

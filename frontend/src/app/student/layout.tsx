@@ -19,6 +19,8 @@ import {
     Presentation,
     Network,
     Trophy,
+    Library,
+    Wand2,
 } from "lucide-react";
 import GuidedTour, { studentTourSteps } from "@/components/GuidedTour";
 import { MobileBottomNav } from "@/components/ui/SharedUI";
@@ -32,7 +34,9 @@ const studentNav = [
     { label: "Lectures", href: "/student/lectures", icon: BookOpen },
     { label: "Upload", href: "/student/upload", icon: Upload },
     { label: "AI Assistant", href: "/student/ai", icon: Bot },
+    { label: "AI Studio", href: "/student/ai-studio", icon: Wand2 },
     { label: "Study Tools", href: "/student/tools", icon: Sparkles },
+    { label: "AI Library", href: "/student/ai-library", icon: Library },
     { label: "Mind Map", href: "/student/mind-map", icon: Network },
     { label: "Audio Overview", href: "/student/audio-overview", icon: Headphones },
     { label: "Video Overview", href: "/student/video-overview", icon: Presentation },
@@ -45,7 +49,7 @@ const studentNav = [
 const mobileNav = [
     { label: "Home", href: "/student/overview", icon: LayoutDashboard },
     { label: "Attendance", href: "/student/attendance", icon: CalendarCheck },
-    { label: "AI", href: "/student/ai", icon: Bot },
+    { label: "AI Studio", href: "/student/ai-studio", icon: Wand2 },
     { label: "Ranks", href: "/student/leaderboard", icon: Trophy },
     { label: "Profile", href: "/student/profile", icon: User },
 ];

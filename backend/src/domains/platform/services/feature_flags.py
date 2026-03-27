@@ -1,8 +1,10 @@
 import json
 from pathlib import Path
 from typing import List, Optional
+from uuid import uuid4
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status, Depends
+from config import settings
 from src.domains.platform.models.feature_flag import FeatureFlag
 from database import get_db
 
@@ -32,6 +34,7 @@ def init_feature_flags(db: Session):
         else:
             # Create new feature flag
             new_flag = FeatureFlag(
+                id=uuid4(),
                 feature_id=item["feature_id"],
                 name=item["name"],
                 description=item.get("description", ""),
@@ -45,6 +48,16 @@ def init_feature_flags(db: Session):
 
 def get_all_feature_flags(db: Session) -> List[FeatureFlag]:
     return db.query(FeatureFlag).all()
+
+
+def _bootstrap_feature_flags_if_empty(db: Session) -> None:
+    """
+    Self-heal empty demo/local databases where the table exists but the catalog
+    was never populated.
+    """
+    existing = db.query(FeatureFlag.id).limit(1).first()
+    if existing is None:
+        init_feature_flags(db)
 
 def toggle_feature_flag(db: Session, feature_id: str, enabled: bool) -> FeatureFlag:
     flag = db.query(FeatureFlag).filter(FeatureFlag.feature_id == feature_id).first()
@@ -104,11 +117,13 @@ def require_feature(feature_id: str):
     Usage: @app.get('/route', dependencies=[Depends(require_feature('ai_chat'))])
     """
     def dependency(db: Session = Depends(get_db)):
+        _bootstrap_feature_flags_if_empty(db)
         flag = db.query(FeatureFlag).filter(FeatureFlag.feature_id == feature_id).first()
         if not flag:
-            # If not in DB at all, we assume disabled to be safe or enabled.
-            # Usually safe to assume if it's missing, it's not enabled or it's an error.
             print(f"⚠️ Feature {feature_id} guard checked but not found in DB.")
+            if settings.app.demo_mode:
+                print(f"⚠️ Allowing missing feature {feature_id} in DEMO_MODE.")
+                return True
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Feature '{feature_id}' is conditionally disabled."

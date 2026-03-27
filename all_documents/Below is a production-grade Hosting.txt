@@ -1,0 +1,425 @@
+Below is a production-grade **Hosting and Development Env.md** for VidyaOS.
+
+This document defines:
+
+* How you host during pilot
+* How you develop locally
+* How you separate control plane vs data plane
+* How you migrate to scale
+
+---
+
+# Hosting and Development Environment
+
+**Project:** VidyaOS – AI Infrastructure for Educational Institutions
+**Version:** v0.1 (Pilot → Scale Ready)
+**Architecture Model:** Hybrid (Cloud Control Plane + Local AI Data Plane)
+
+---
+
+# 1. Hosting Strategy Overview
+
+VidyaOS is deployed in two planes:
+
+| Plane         | Location         | Purpose                  |
+| ------------- | ---------------- | ------------------------ |
+| Control Plane | Cloud VPS        | ERP, API Gateway, Auth   |
+| Data Plane    | Local GPU Server | AI Inference + Vector DB |
+
+This separation ensures:
+
+* Low AI cost during pilot
+* Secure GPU exposure
+* Cloud migration flexibility
+* Infrastructure modularity
+
+---
+
+# 2. Pilot Hosting Architecture
+
+```id="9m1fj7"
+Users
+  │
+  ▼
+Cloud VPS (API + ERP)
+  │
+  │ Secure Tunnel
+  ▼
+Local AI Node (GPU Server)
+```
+
+---
+
+# 3. Cloud Hosting (Control Plane)
+
+## 3.1 VPS Provider Options
+
+Recommended:
+
+* Hetzner (cost-effective)
+* DigitalOcean
+* Linode
+
+---
+
+## 3.2 VPS Minimum Specs (Pilot)
+
+| Resource  | Minimum   |
+| --------- | --------- |
+| CPU       | 2 vCPU    |
+| RAM       | 4GB       |
+| Storage   | 80GB SSD  |
+| Bandwidth | 2TB/month |
+
+Cost: ₹800–₹1500/month
+
+---
+
+## 3.3 Software Stack on VPS
+
+* Ubuntu 22.04 LTS
+* Nginx (reverse proxy)
+* FastAPI backend
+* PostgreSQL
+* Redis
+* SSL (Let’s Encrypt)
+* UFW firewall
+
+---
+
+## 3.4 VPS Responsibilities
+
+* HTTPS termination
+* JWT validation
+* Tenant routing
+* ERP logic
+* Rate limiting
+* API logging
+* Secure forwarding to AI node
+
+GPU never exposed publicly.
+
+---
+
+# 4. Local AI Server (Data Plane)
+
+## 4.1 Hardware (Pilot Recommended)
+
+| Component | Spec       |
+| --------- | ---------- |
+| GPU       | RTX 4090   |
+| RAM       | 64GB       |
+| CPU       | 12–16 core |
+| Storage   | 2TB NVMe   |
+| Power     | UPS        |
+
+One-time cost ≈ ₹3L
+
+---
+
+## 4.2 Software Stack on AI Node
+
+* Ubuntu 22.04
+* Ollama
+* Embedding model
+* FAISS / Qdrant
+* FastAPI AI microservice
+* Docker (optional)
+
+---
+
+## 4.3 Network Setup
+
+Never expose raw GPU server IP.
+
+Use:
+
+* Reverse SSH tunnel
+* Tailscale
+* Cloudflare Tunnel
+
+Connection must be:
+
+Encrypted
+IP-restricted
+API-key authenticated
+
+---
+
+# 5. Environment Separation
+
+## 5.1 Development Environment
+
+Local machine:
+
+* Python 3.11+
+* Node 20+
+* Docker Desktop
+* Postgres (local)
+* Redis (local)
+* Ollama (optional small model)
+
+Use `.env` files for:
+
+```id="g5e8df"
+DATABASE_URL=
+REDIS_URL=
+JWT_SECRET=
+AI_SERVICE_URL=
+GOOGLE_CLIENT_ID=
+```
+
+Never commit `.env` files.
+
+---
+
+## 5.2 Staging Environment
+
+Optional but recommended:
+
+* Separate VPS
+* Smaller instance
+* Mock AI model
+* Test domain
+
+Used for:
+
+* Integration testing
+* Performance testing
+* Schema migrations
+
+---
+
+## 5.3 Production Environment
+
+Strict separation from development.
+
+Production includes:
+
+* Stronger firewall rules
+* Monitoring tools
+* Automated backups
+* Daily DB dump
+
+---
+
+# 6. Containerization Strategy
+
+## Pilot
+
+Use Docker Compose:
+
+```id="04o9ti"
+services:
+  api:
+  postgres:
+  redis:
+  ai-service:
+```
+
+---
+
+## Scale Phase
+
+Move to:
+
+* Kubernetes
+* Separate pods:
+
+  * API
+  * Worker
+  * AI inference
+  * Vector DB
+* Horizontal scaling
+
+---
+
+# 7. Deployment Workflow
+
+## 7.1 CI/CD
+
+Use:
+
+* GitHub
+* GitHub Actions
+
+Pipeline:
+
+1. Push to main
+2. Run tests
+3. Build Docker image
+4. Deploy to VPS
+5. Restart service
+
+---
+
+## 7.2 Database Migrations
+
+Use:
+
+* Alembic (Python)
+
+Never manually modify production schema.
+
+All changes via migration scripts.
+
+---
+
+# 8. Monitoring & Observability
+
+## On VPS
+
+* Uptime Kuma
+* Prometheus
+* Grafana
+* Nginx access logs
+
+---
+
+## On AI Node
+
+Monitor:
+
+* GPU utilization
+* VRAM usage
+* Query latency
+* Error rate
+* Queue length
+
+Use:
+
+```id="t8mci8"
+nvidia-smi --query-gpu=utilization.gpu,memory.used --format=csv
+```
+
+---
+
+# 9. Backup Strategy
+
+## ERP Database
+
+* Daily automated Postgres dump
+* Stored offsite (S3-compatible storage)
+* Weekly restore test
+
+---
+
+## Vector DB
+
+* Snapshot every 24h
+* Store on secondary drive
+
+---
+
+## Config Backups
+
+* Git repository
+* Infrastructure configs versioned
+
+---
+
+# 10. Security Hardening
+
+### VPS
+
+* Disable root login
+* SSH key only
+* UFW firewall rules
+* Fail2ban
+* Auto security updates
+
+### AI Node
+
+* Private network only
+* Firewall restricted
+* Only VPS IP allowed
+
+---
+
+# 11. Cost Breakdown (Pilot)
+
+| Item        | Monthly |
+| ----------- | ------- |
+| VPS         | ₹1000   |
+| Internet    | ₹2000   |
+| Electricity | ₹2500   |
+| Misc        | ₹1000   |
+
+Total ≈ ₹6000/month
+
+One-time AI server ≈ ₹3L
+
+---
+
+# 12. Migration Path to Cloud GPU
+
+When exceeding:
+
+> 5,000–10,000 students
+
+Move AI layer to:
+
+* Cloud GPU instances
+* Managed Kubernetes
+* Distributed vector DB
+
+Because ERP and AI are decoupled, migration is smooth.
+
+---
+
+# 13. Development Workflow Structure
+
+Recommended folder structure:
+
+```id="u6c3jg"
+/backend
+  /api
+  /models
+  /services
+  /migrations
+/ai-engine
+  /ingestion
+  /retrieval
+  /templates
+  /inference
+/frontend
+  /components
+  /pages
+```
+
+Keep ERP and AI separate repos if possible.
+
+---
+
+# 14. Failure Scenarios & Recovery
+
+| Scenario       | Action                |
+| -------------- | --------------------- |
+| Power outage   | UPS + auto restart    |
+| GPU crash      | Health check restart  |
+| DB corruption  | Restore from backup   |
+| Tunnel failure | Auto reconnect script |
+
+Always assume hardware failure.
+
+---
+
+# 15. Hosting Philosophy Summary
+
+Pilot:
+
+* Local GPU
+* Cloud ERP
+* Secure tunnel
+
+Scale:
+
+* Cloud GPU
+* Kubernetes
+* Managed vector DB
+
+The architecture is intentionally modular.
+
+VidyaOS is designed to evolve from bootstrap hardware to infrastructure-grade deployment without rewriting core systems.
+
+

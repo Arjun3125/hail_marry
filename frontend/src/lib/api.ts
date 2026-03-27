@@ -430,8 +430,81 @@ export const api = {
         audioReport: (childId?: string) =>
             apiFetch(`/api/parent/audio-report${childId ? `?child_id=${childId}` : ""}`),
     },
+    aiHistory: {
+        list: (params?: {
+            page?: number;
+            mode?: string;
+            folder_id?: string;
+            is_pinned?: boolean;
+            search?: string;
+            date_from?: string;
+            date_to?: string;
+            sort_by?: string;
+            sort_order?: string;
+        }) => {
+            const query = new URLSearchParams();
+            if (params?.page) query.set("page", String(params.page));
+            if (params?.mode) query.set("mode", params.mode);
+            if (params?.folder_id) query.set("folder_id", params.folder_id);
+            if (params?.is_pinned !== undefined) query.set("is_pinned", String(params.is_pinned));
+            if (params?.search) query.set("search", params.search);
+            if (params?.date_from) query.set("date_from", params.date_from);
+            if (params?.date_to) query.set("date_to", params.date_to);
+            if (params?.sort_by) query.set("sort_by", params.sort_by);
+            if (params?.sort_order) query.set("sort_order", params.sort_order);
+            const suffix = query.toString();
+            return apiFetch(`/api/student/ai-history${suffix ? `?${suffix}` : ""}`);
+        },
+        get: (id: string) => apiFetch(`/api/student/ai-history/${id}`),
+        updateTitle: (id: string, title: string) =>
+            apiFetch(`/api/student/ai-history/${id}/title`, {
+                method: "PATCH",
+                body: JSON.stringify({ title }),
+            }),
+        togglePin: (id: string) =>
+            apiFetch(`/api/student/ai-history/${id}/pin`, { method: "POST" }),
+        delete: (id: string) =>
+            apiFetch(`/api/student/ai-history/${id}`, { method: "DELETE" }),
+        moveToFolder: (id: string, folder_id: string | null) =>
+            apiFetch(`/api/student/ai-history/${id}/move`, {
+                method: "POST",
+                body: JSON.stringify({ folder_id }),
+            }),
+        folders: {
+            list: () => apiFetch("/api/student/ai-history/folders"),
+            create: (name: string, color?: string) =>
+                apiFetch("/api/student/ai-history/folders", {
+                    method: "POST",
+                    body: JSON.stringify({ name, color }),
+                }),
+            update: (id: string, name?: string, color?: string) =>
+                apiFetch(`/api/student/ai-history/folders/${id}`, {
+                    method: "PATCH",
+                    body: JSON.stringify({ name, color }),
+                }),
+            delete: (id: string) =>
+                apiFetch(`/api/student/ai-history/folders/${id}`, { method: "DELETE" }),
+        },
+        stats: () => apiFetch("/api/student/ai-history/stats"),
+    },
+    notebooks: {
+        list: () => apiFetch("/api/notebooks"),
+        create: (data: { name: string; description?: string; subject?: string; color?: string; icon?: string }) =>
+            apiFetch("/api/notebooks", {
+                method: "POST",
+                body: JSON.stringify(data),
+            }),
+        get: (id: string) => apiFetch(`/api/notebooks/${id}`),
+        update: (id: string, data: Partial<{ name: string; description: string; subject: string; color: string; icon: string; is_active: boolean }>) =>
+            apiFetch(`/api/notebooks/${id}`, {
+                method: "PUT",
+                body: JSON.stringify(data),
+            }),
+        delete: (id: string) => apiFetch(`/api/notebooks/${id}`, { method: "DELETE" }),
+        stats: (id: string) => apiFetch(`/api/notebooks/${id}/stats`),
+    },
     ai: {
-        query: (data: { query: string; mode: string; subject_id?: string; language?: string; response_length?: string; expertise_level?: string }) =>
+        query: (data: { query: string; mode: string; subject_id?: string; notebook_id?: string | null; language?: string; response_length?: string; expertise_level?: string }) =>
             apiFetch("/api/ai/query", {
                 method: "POST",
                 body: JSON.stringify(data),
