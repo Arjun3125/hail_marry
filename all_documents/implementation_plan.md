@@ -167,6 +167,6 @@ Tests for weakness alert generation threshold logic.
 
 ### Automated Tests
 ```bash
-cd backend && python -m pytest tests/ -v   # 382 tests across 48 files
+cd backend && python -m pytest tests/ -v
 cd frontend && npm run lint && npm run build
 ```

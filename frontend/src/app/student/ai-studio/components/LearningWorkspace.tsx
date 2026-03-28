@@ -1,23 +1,62 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+    AssistantRuntimeProvider,
+    ComposerPrimitive,
+    MessagePrimitive,
+    ThreadPrimitive,
+    useAui,
+    useAuiState,
+    useLocalRuntime,
+} from "@assistant-ui/react";
+import { APIError, api } from "@/lib/api";
 import {
     Bot,
-    Send,
-    Loader2,
-    Sparkles,
-    BookText,
-    Copy,
-    ThumbsUp,
-    ThumbsDown,
     Bookmark,
+    Copy,
+    History,
+    Loader2,
+    MessageSquarePlus,
+    MoreHorizontal,
+    Send,
+    Sparkles,
+    ThumbsDown,
+    ThumbsUp,
+    Trash2,
 } from "lucide-react";
-import { api, APIError } from "@/lib/api";
+
 import { ActionBar } from "./ActionBar";
+import { AIMessageRenderer } from "./AIMessageRenderer";
+import {
+    AIResponse,
+    buildThreadPreview,
+    buildThreadTitle,
+    createEmptyPersistedThread,
+    createPersistedThreadFromExchange,
+    deletePersistedThread,
+    getActivePersistedThreadId,
+    listPersistedThreads,
+    makeThreadScopeKey,
+    PersistedAssistantThread,
+    PersistedThreadRepository,
+    setActivePersistedThreadId,
+    upsertPersistedThread,
+} from "./threadPersistence";
 
 interface LearningWorkspaceProps {
     activeTool: string;
     notebookId: string | null;
+    workspaceScope?: string;
+    requestOptions?: {
+        language?: string;
+        responseLength?: string;
+        expertiseLevel?: string;
+    };
+    initialExchange?: {
+        query: string;
+        response: AIResponse;
+    } | null;
 }
 
 type Citation = {
@@ -26,19 +65,6 @@ type Citation = {
     url?: string | null;
     text?: string;
 };
-
-interface AIResponse {
-    answer: string;
-    citations: Citation[];
-    mode: string;
-}
-
-interface ConversationItem {
-    id: string;
-    query: string;
-    response: AIResponse;
-    timestamp: Date;
-}
 
 const toolConfig: Record<string, { placeholder: string; title: string; desc: string }> = {
     qa: { placeholder: "Ask anything about your materials...", title: "Q&A", desc: "Get answers with citations from your notes" },
@@ -52,254 +78,471 @@ const toolConfig: Record<string, { placeholder: string; title: string; desc: str
     mindmap: { placeholder: "What topic should we map out?", title: "Mind Map", desc: "Visual topic hierarchy" },
     flowchart: { placeholder: "What process should we diagram?", title: "Flowchart", desc: "Step-by-step visualization" },
     concept_map: { placeholder: "What concepts should we connect?", title: "Concept Map", desc: "Relationship visualization" },
-    career_sim: { placeholder: "Enter a career to explore (doctor, engineer, etc.)...", title: "Career Simulation", desc: "Role-play professional scenarios" },
 };
 
-export function LearningWorkspace({ activeTool, notebookId }: LearningWorkspaceProps) {
-    const [query, setQuery] = useState("");
-    const [loading, setLoading] = useState(false);
-    const [conversation, setConversation] = useState<ConversationItem[]>([]);
-    const [currentResponse, setCurrentResponse] = useState<AIResponse | null>(null);
-    const messagesEndRef = useRef<HTMLDivElement>(null);
+function extractTextContent(
+    parts: ReadonlyArray<{ type: string; text?: string; data?: unknown }> | undefined,
+) {
+    if (!parts) return "";
+    return parts
+        .filter((part) => part.type === "text" && typeof part.text === "string")
+        .map((part) => part.text || "")
+        .join("\n")
+        .trim();
+}
 
-    const config = toolConfig[activeTool] || toolConfig.qa;
+function StarterSuggestions({ activeTool }: { activeTool: string }) {
+    const aui = useAui();
 
-    const scrollToBottom = () => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    };
+    return (
+        <div className="flex flex-col items-center justify-center h-full text-center">
+            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-violet-600/20 flex items-center justify-center mb-4">
+                <Sparkles className="w-10 h-10 text-indigo-500" />
+            </div>
+            <h3 className="text-lg font-medium text-[var(--text-primary)] mb-2">Ready to learn?</h3>
+            <p className="text-sm text-[var(--text-muted)] max-w-md mb-6">
+                {toolConfig[activeTool]?.desc}. Type your query below to get started.
+            </p>
+            <div className="flex flex-wrap justify-center gap-2">
+                {getSuggestions(activeTool).map((suggestion) => (
+                    <button
+                        key={suggestion}
+                        type="button"
+                        onClick={() => aui.composer().setText(suggestion)}
+                        className="px-4 py-2 text-xs bg-[var(--bg-page)] hover:bg-[var(--surface-hover)] text-[var(--text-secondary)] rounded-full border border-[var(--border)] transition-colors"
+                    >
+                        {suggestion}
+                    </button>
+                ))}
+            </div>
+        </div>
+    );
+}
 
-    useEffect(() => {
-        scrollToBottom();
-    }, [conversation, currentResponse]);
+function MessageBubble() {
+    const role = useAuiState((s) => s.message.role);
+    const text = useAuiState((s) => extractTextContent(s.message.content as ReadonlyArray<{ type: string; text?: string; data?: unknown }>));
+    const createdAt = useAuiState((s) => s.message.createdAt);
+    const messageIndex = useAuiState((s) => s.message.index);
+    const threadMessages = useAuiState((s) => s.thread.messages);
+    const metadata = useAuiState((s) => s.message.metadata.custom as { aiResponse?: AIResponse } | undefined);
+    const response = metadata?.aiResponse;
+    const previousUserText =
+        messageIndex > 0
+            ? extractTextContent(
+                threadMessages[messageIndex - 1]?.content as ReadonlyArray<{ type: string; text?: string; data?: unknown }>
+            )
+            : "";
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!query.trim() || loading) return;
+    if (role === "user") {
+        return (
+            <div className="flex justify-end">
+                <div className="max-w-[85%] bg-gradient-to-br from-indigo-500 to-violet-600 text-white px-5 py-3 rounded-2xl rounded-br-md shadow-md">
+                    <p className="text-sm">{text}</p>
+                </div>
+            </div>
+        );
+    }
 
-        const submittedQuery = query.trim();
-        setLoading(true);
-        setQuery("");
-
-        try {
-            const data = await api.ai.query({
-                query: submittedQuery,
-                mode: activeTool,
-                notebook_id: notebookId,
-            }) as { answer?: string; response_text?: string; citations?: Citation[] };
-
-            const response: AIResponse = {
-                answer: data.answer || data.response_text || "No response received.",
-                citations: data.citations || [],
-                mode: activeTool,
-            };
-
-            const newItem: ConversationItem = {
-                id: Date.now().toString(),
-                query: submittedQuery,
-                response,
-                timestamp: new Date(),
-            };
-
-            setConversation((prev) => [...prev, newItem]);
-            setCurrentResponse(response);
-        } catch (err) {
-            const errorResponse: AIResponse = {
-                answer: err instanceof APIError ? err.message : "Failed to get response. Please try again.",
-                citations: [],
-                mode: activeTool,
-            };
-
-            const newItem: ConversationItem = {
-                id: Date.now().toString(),
-                query: submittedQuery,
-                response: errorResponse,
-                timestamp: new Date(),
-            };
-
-            setConversation((prev) => [...prev, newItem]);
-            setCurrentResponse(errorResponse);
-        } finally {
-            setLoading(false);
-        }
+    const fallbackResponse: AIResponse = response || {
+        answer: text || "No response received.",
+        citations: [],
+        mode: "qa",
     };
 
     return (
-        <div className="flex flex-col h-full">
-            {/* Tool Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border)]">
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-lg">
-                        <Bot className="w-5 h-5 text-white" />
+        <div className="bg-[var(--bg-page)] rounded-2xl border border-[var(--border)]/50 overflow-hidden">
+            <div className="p-5">
+                <div className="flex items-center gap-2 mb-4">
+                    <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center">
+                        <Bot className="w-4 h-4 text-white" />
                     </div>
-                    <div>
-                        <h2 className="font-semibold text-[var(--text-primary)]">{config.title}</h2>
-                        <p className="text-xs text-[var(--text-muted)]">{config.desc}</p>
-                    </div>
+                    <span className="text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">
+                        AI Assistant
+                    </span>
+                    <span className="text-xs text-[var(--text-muted)]">
+                        {createdAt ? new Date(createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : ""}
+                    </span>
                 </div>
-                <div className="flex items-center gap-2">
-                    {conversation.length > 0 && (
-                        <button
-                            onClick={() => {
-                                setConversation([]);
-                                setCurrentResponse(null);
-                            }}
-                            className="px-3 py-1.5 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
-                        >
-                            Clear
-                        </button>
-                    )}
-                </div>
+
+                <AIMessageRenderer response={fallbackResponse} />
             </div>
 
-            {/* Conversation Area */}
-            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
-                {conversation.length === 0 && !loading && (
-                    <div className="flex flex-col items-center justify-center h-full text-center">
-                        <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-violet-600/20 flex items-center justify-center mb-4">
-                            <Sparkles className="w-10 h-10 text-indigo-500" />
+            <div className="flex items-center gap-1 px-5 py-2 bg-[var(--surface-hover)] border-t border-[var(--border)]/50">
+                <button className="p-1.5 rounded hover:bg-[var(--bg-page)] text-[var(--text-muted)] transition-colors" title="Copy">
+                    <Copy className="w-3.5 h-3.5" />
+                </button>
+                <button className="p-1.5 rounded hover:bg-[var(--bg-page)] text-[var(--text-muted)] transition-colors" title="Helpful">
+                    <ThumbsUp className="w-3.5 h-3.5" />
+                </button>
+                <button className="p-1.5 rounded hover:bg-[var(--bg-page)] text-[var(--text-muted)] transition-colors" title="Not helpful">
+                    <ThumbsDown className="w-3.5 h-3.5" />
+                </button>
+                <button className="p-1.5 rounded hover:bg-[var(--bg-page)] text-[var(--text-muted)] transition-colors" title="Save">
+                    <Bookmark className="w-3.5 h-3.5" />
+                </button>
+                <div className="flex-1" />
+                <ActionBar response={fallbackResponse} query={previousUserText} />
+            </div>
+        </div>
+    );
+}
+
+function ComposerBox({ activeTool }: { activeTool: string }) {
+    const isRunning = useAuiState((s) => s.thread.isRunning);
+    const config = toolConfig[activeTool] || toolConfig.qa;
+
+    return (
+        <div className="border-t border-[var(--border)] p-4">
+            <ComposerPrimitive.Root className="relative">
+                <div className="flex items-end gap-2 bg-[var(--bg-page)] rounded-xl border border-[var(--border)] p-2 focus-within:ring-2 focus-within:ring-[var(--primary)]/50 focus-within:border-[var(--primary)] transition-all">
+                    <ComposerPrimitive.Input
+                        placeholder={config.placeholder}
+                        rows={1}
+                        maxRows={6}
+                        className="flex-1 min-h-[44px] px-3 py-2.5 text-sm bg-transparent border-0 resize-none focus:outline-none text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
+                    />
+                    <ComposerPrimitive.Send
+                        className="p-2.5 rounded-lg bg-gradient-to-r from-indigo-500 to-violet-600 text-white hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {isRunning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                    </ComposerPrimitive.Send>
+                </div>
+                <p className="mt-2 text-[10px] text-[var(--text-muted)] text-center">
+                    Press Enter to send, Shift+Enter for new line
+                </p>
+            </ComposerPrimitive.Root>
+        </div>
+    );
+}
+
+function ThreadBootstrap({
+    thread,
+}: {
+    thread: PersistedAssistantThread;
+}) {
+    const aui = useAui();
+
+    useEffect(() => {
+        aui.thread().import(thread.repository as never);
+    }, [aui, thread.id, thread.repository]);
+
+    return null;
+}
+
+function ThreadPersistenceSync({
+    activeTool,
+    thread,
+    onPersist,
+}: {
+    activeTool: string;
+    thread: PersistedAssistantThread;
+    onPersist: (thread: PersistedAssistantThread) => void;
+}) {
+    const aui = useAui();
+    const isRunning = useAuiState((s) => s.thread.isRunning);
+    const messages = useAuiState((s) => s.thread.messages);
+    const lastSerializedRef = useRef("");
+
+    useEffect(() => {
+        if (isRunning) return;
+
+        const repository = aui.thread().export() as PersistedThreadRepository;
+        const serialized = JSON.stringify(repository);
+        if (serialized === lastSerializedRef.current) return;
+        lastSerializedRef.current = serialized;
+
+        const userMessages = messages.filter((message) => message.role === "user");
+        const assistantMessages = messages.filter((message) => message.role === "assistant");
+        const firstUserText = extractTextContent(
+            userMessages[0]?.content as ReadonlyArray<{ type: string; text?: string; data?: unknown }>
+        );
+        const lastAssistantText = extractTextContent(
+            assistantMessages.at(-1)?.content as ReadonlyArray<{ type: string; text?: string; data?: unknown }>
+        );
+
+        onPersist({
+            ...thread,
+            title: userMessages.length ? buildThreadTitle(firstUserText) : thread.title,
+            preview: buildThreadPreview(firstUserText, lastAssistantText),
+            updatedAt: new Date().toISOString(),
+            repository,
+        });
+    }, [activeTool, aui, isRunning, messages, onPersist, thread]);
+
+    return null;
+}
+
+function AssistantStudioThread({
+    activeTool,
+    notebookId,
+    thread,
+    onPersistThread,
+    requestOptions,
+}: {
+    activeTool: string;
+    notebookId: string | null;
+    thread: PersistedAssistantThread;
+    onPersistThread: (thread: PersistedAssistantThread) => void;
+    requestOptions?: {
+        language?: string;
+        responseLength?: string;
+        expertiseLevel?: string;
+    };
+}) {
+    const chatModel = useMemo(
+        () => ({
+            run: async ({ messages }: { messages: ReadonlyArray<{ role: string; content: ReadonlyArray<{ type: string; text?: string }> }> }) => {
+                const latestUser = [...messages].reverse().find((message) => message.role === "user");
+                const query = extractTextContent(latestUser?.content as ReadonlyArray<{ type: string; text?: string }>);
+
+                try {
+                    const data = await api.ai.query({
+                        query,
+                        mode: activeTool,
+                        notebook_id: notebookId,
+                        language: requestOptions?.language,
+                        response_length: requestOptions?.responseLength,
+                        expertise_level: requestOptions?.expertiseLevel,
+                    }) as {
+                        answer?: string;
+                        response_text?: string;
+                        citations?: Citation[];
+                        runtime_mode?: string;
+                        is_demo_response?: boolean;
+                        demo_notice?: string | null;
+                    };
+
+                    const aiResponse: AIResponse = {
+                        answer: data.answer || data.response_text || "No response received.",
+                        citations: data.citations || [],
+                        mode: activeTool,
+                        runtime_mode: data.runtime_mode,
+                        is_demo_response: data.is_demo_response,
+                        demo_notice: data.demo_notice,
+                    };
+
+                    const sourceParts = (aiResponse.citations || [])
+                        .filter((citation) => citation.url)
+                        .map((citation, index) => ({
+                            type: "source" as const,
+                            sourceType: "url" as const,
+                            id: `${activeTool}-source-${index}`,
+                            url: citation.url || "",
+                            title: citation.text || citation.source || `Source ${index + 1}`,
+                        }));
+
+                    return {
+                        content: [
+                            { type: "text" as const, text: aiResponse.answer },
+                            ...sourceParts,
+                        ],
+                        metadata: {
+                            custom: {
+                                aiResponse,
+                            },
+                        },
+                    };
+                } catch (err) {
+                    const message = err instanceof APIError ? err.message : "Failed to get response. Please try again.";
+                    return {
+                        content: [{ type: "text" as const, text: message }],
+                        metadata: {
+                            custom: {
+                                aiResponse: {
+                                    answer: message,
+                                    citations: [],
+                                    mode: activeTool,
+                                } satisfies AIResponse,
+                            },
+                        },
+                    };
+                }
+            },
+        }),
+        [activeTool, notebookId, requestOptions?.language, requestOptions?.responseLength, requestOptions?.expertiseLevel],
+    );
+
+    const runtime = useLocalRuntime(chatModel);
+
+    return (
+        <AssistantRuntimeProvider runtime={runtime}>
+            <ThreadBootstrap thread={thread} />
+            <ThreadPersistenceSync activeTool={activeTool} thread={thread} onPersist={onPersistThread} />
+            <div className="flex flex-col h-full">
+                <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border)]">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-lg">
+                            <Bot className="w-5 h-5 text-white" />
                         </div>
-                        <h3 className="text-lg font-medium text-[var(--text-primary)] mb-2">
-                            Ready to learn?
-                        </h3>
-                        <p className="text-sm text-[var(--text-muted)] max-w-md mb-6">
-                            {config.desc}. Type your query below to get started.
-                        </p>
-                        <div className="flex flex-wrap justify-center gap-2">
-                            {getSuggestions(activeTool).map((suggestion) => (
-                                <button
-                                    key={suggestion}
-                                    onClick={() => setQuery(suggestion)}
-                                    className="px-4 py-2 text-xs bg-[var(--bg-page)] hover:bg-[var(--surface-hover)] text-[var(--text-secondary)] rounded-full border border-[var(--border)] transition-colors"
-                                >
-                                    {suggestion}
-                                </button>
-                            ))}
+                        <div>
+                            <h2 className="font-semibold text-[var(--text-primary)]">{toolConfig[activeTool]?.title || "AI Studio"}</h2>
+                            <p className="text-xs text-[var(--text-muted)]">{toolConfig[activeTool]?.desc || "Learn with AI"}</p>
                         </div>
                     </div>
-                )}
+                </div>
 
-                {conversation.map((item) => (
-                    <div key={item.id} className="space-y-4">
-                        {/* User Query */}
-                        <div className="flex justify-end">
-                            <div className="max-w-[85%] bg-gradient-to-br from-indigo-500 to-violet-600 text-white px-5 py-3 rounded-2xl rounded-br-md shadow-md">
-                                <p className="text-sm">{item.query}</p>
-                            </div>
+                <ThreadPrimitive.Root className="flex min-h-0 flex-1 flex-col">
+                    <ThreadPrimitive.Viewport className="flex-1 overflow-y-auto px-6 py-4">
+                        <ThreadPrimitive.Empty>
+                            <StarterSuggestions activeTool={activeTool} />
+                        </ThreadPrimitive.Empty>
+                        <div className="space-y-6">
+                            <ThreadPrimitive.Messages>
+                                {() => <MessageBubble />}
+                            </ThreadPrimitive.Messages>
                         </div>
+                    </ThreadPrimitive.Viewport>
+                    <ThreadPrimitive.ViewportFooter>
+                        <ComposerBox activeTool={activeTool} />
+                    </ThreadPrimitive.ViewportFooter>
+                </ThreadPrimitive.Root>
+            </div>
+        </AssistantRuntimeProvider>
+    );
+}
 
-                        {/* AI Response */}
-                        <div className="bg-[var(--bg-page)] rounded-2xl border border-[var(--border)]/50 overflow-hidden">
-                            <div className="p-5">
-                                <div className="flex items-center gap-2 mb-4">
-                                    <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center">
-                                        <Bot className="w-4 h-4 text-white" />
-                                    </div>
-                                    <span className="text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">
-                                        AI Assistant
-                                    </span>
-                                    <span className="text-xs text-[var(--text-muted)]">
-                                        {item.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                                    </span>
-                                </div>
+export function LearningWorkspace({ activeTool, notebookId, requestOptions, initialExchange }: LearningWorkspaceProps) {
+    const [hydrated, setHydrated] = useState(false);
+    const [threads, setThreads] = useState<PersistedAssistantThread[]>([]);
+    const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
+    const consumedInitialExchangeRef = useRef<string | null>(null);
+    const workspaceScopeKey = useMemo(
+        () => makeThreadScopeKey(workspaceScope || "ai-studio", activeTool, notebookId),
+        [activeTool, notebookId, workspaceScope],
+    );
 
-                                <div className="prose prose-sm max-w-none text-[var(--text-primary)] leading-relaxed">
-                                    {item.response.answer}
-                                </div>
+    const activeThread = useMemo(
+        () => threads.find((thread) => thread.id === activeThreadId) || threads[0] || null,
+        [activeThreadId, threads],
+    );
 
-                                {item.response.citations.length > 0 && (
-                                    <div className="mt-4 pt-4 border-t border-[var(--border)]/50">
-                                        <p className="text-[10px] font-medium text-[var(--text-muted)] uppercase tracking-wider mb-2">
-                                            Sources
-                                        </p>
-                                        <div className="flex flex-wrap gap-2">
-                                            {item.response.citations.map((citation, idx) => (
-                                                <span
-                                                    key={idx}
-                                                    className="inline-flex items-center gap-1.5 px-2 py-1 text-[10px] bg-[var(--bg-card)] text-[var(--text-secondary)] rounded-md border border-[var(--border)]/50"
-                                                >
-                                                    <BookText className="w-3 h-3" />
-                                                    {citation.text || `${citation.source}${citation.page ? ` p.${citation.page}` : ""}`}
-                                                </span>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
+    useEffect(() => {
+        const existing = listPersistedThreads(workspaceScopeKey);
+        const preferredId = getActivePersistedThreadId(workspaceScopeKey);
+        const selected = existing.find((thread) => thread.id === preferredId) || existing[0] || createEmptyPersistedThread();
 
-                            {/* Response Actions */}
-                            <div className="flex items-center gap-1 px-5 py-2 bg-[var(--surface-hover)] border-t border-[var(--border)]/50">
-                                <button className="p-1.5 rounded hover:bg-[var(--bg-page)] text-[var(--text-muted)] transition-colors" title="Copy">
-                                    <Copy className="w-3.5 h-3.5" />
-                                </button>
-                                <button className="p-1.5 rounded hover:bg-[var(--bg-page)] text-[var(--text-muted)] transition-colors" title="Helpful">
-                                    <ThumbsUp className="w-3.5 h-3.5" />
-                                </button>
-                                <button className="p-1.5 rounded hover:bg-[var(--bg-page)] text-[var(--text-muted)] transition-colors" title="Not helpful">
-                                    <ThumbsDown className="w-3.5 h-3.5" />
-                                </button>
-                                <button className="p-1.5 rounded hover:bg-[var(--bg-page)] text-[var(--text-muted)] transition-colors" title="Save">
-                                    <Bookmark className="w-3.5 h-3.5" />
-                                </button>
-                                <div className="flex-1" />
-                                <ActionBar response={item.response} query={item.query} />
-                            </div>
-                        </div>
+        if (existing.length === 0) {
+            upsertPersistedThread(workspaceScopeKey, selected);
+        }
+
+        setThreads(existing.length === 0 ? [selected] : existing);
+        setActiveThreadId(selected.id);
+        setHydrated(true);
+    }, [workspaceScopeKey]);
+
+    useEffect(() => {
+        if (!hydrated || !initialExchange) return;
+
+        const signature = `${workspaceScopeKey}:${initialExchange.query}:${initialExchange.response.answer}`;
+        if (consumedInitialExchangeRef.current === signature) return;
+        consumedInitialExchangeRef.current = signature;
+
+        const seededThread = createPersistedThreadFromExchange(initialExchange.query, initialExchange.response);
+        const nextThreads = upsertPersistedThread(workspaceScopeKey, seededThread);
+        setThreads(nextThreads);
+        setActiveThreadId(seededThread.id);
+    }, [hydrated, initialExchange, workspaceScopeKey]);
+
+    useEffect(() => {
+        if (!activeThreadId) return;
+        setActivePersistedThreadId(workspaceScopeKey, activeThreadId);
+    }, [activeThreadId, workspaceScopeKey]);
+
+    const persistThread = (thread: PersistedAssistantThread) => {
+        const nextThreads = upsertPersistedThread(workspaceScopeKey, thread);
+        setThreads(nextThreads);
+    };
+
+    const createThread = () => {
+        const thread = createEmptyPersistedThread();
+        const nextThreads = upsertPersistedThread(workspaceScopeKey, thread);
+        setThreads(nextThreads);
+        setActiveThreadId(thread.id);
+    };
+
+    const removeThread = (threadId: string) => {
+        const nextThreads = deletePersistedThread(workspaceScopeKey, threadId);
+        if (nextThreads.length === 0) {
+            const replacement = createEmptyPersistedThread();
+            const seeded = upsertPersistedThread(workspaceScopeKey, replacement);
+            setThreads(seeded);
+            setActiveThreadId(replacement.id);
+            return;
+        }
+        setThreads(nextThreads);
+        setActiveThreadId(nextThreads[0]?.id || null);
+    };
+
+    if (!hydrated || !activeThread) {
+        return (
+            <div className="flex h-full items-center justify-center text-sm text-[var(--text-muted)]">
+                Loading workspace...
+            </div>
+        );
+    }
+
+    return (
+        <div className="flex h-full min-h-0 flex-col">
+            <div className="flex items-center gap-2 overflow-x-auto border-b border-[var(--border)] bg-[var(--bg-page)]/70 px-4 py-3">
+                <div className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--bg-card)] px-3 py-1.5 text-[11px] uppercase tracking-[0.2em] text-[var(--text-muted)]">
+                    <History className="h-3.5 w-3.5" />
+                    Threads
+                </div>
+                {threads.slice(0, 6).map((thread) => (
+                    <div
+                        key={thread.id}
+                        className={`group flex min-w-0 items-center gap-1 rounded-full border px-3 py-1.5 text-sm transition-colors ${
+                            thread.id === activeThreadId
+                                ? "border-indigo-500/60 bg-indigo-500/12 text-indigo-100"
+                                : "border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-secondary)] hover:border-[var(--primary)]/40 hover:text-[var(--text-primary)]"
+                        }`}
+                    >
+                        <button
+                            type="button"
+                            onClick={() => setActiveThreadId(thread.id)}
+                            className="min-w-0 truncate"
+                            title={thread.preview}
+                        >
+                            {thread.title}
+                        </button>
+                        {threads.length > 1 ? (
+                            <button
+                                type="button"
+                                onClick={() => removeThread(thread.id)}
+                                className="rounded-full p-0.5 text-[var(--text-muted)] opacity-70 transition hover:bg-black/10 hover:text-red-300"
+                                title="Delete thread"
+                            >
+                                <Trash2 className="h-3 w-3" />
+                            </button>
+                        ) : null}
                     </div>
                 ))}
-
-                {loading && (
-                    <div className="flex items-start gap-3">
-                        <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center animate-pulse">
-                            <Bot className="w-4 h-4 text-white" />
-                        </div>
-                        <div className="flex items-center gap-2 py-2">
-                            <span className="w-2 h-2 rounded-full bg-[var(--primary)] animate-bounce" style={{ animationDelay: "0ms" }} />
-                            <span className="w-2 h-2 rounded-full bg-[var(--primary)] animate-bounce" style={{ animationDelay: "150ms" }} />
-                            <span className="w-2 h-2 rounded-full bg-[var(--primary)] animate-bounce" style={{ animationDelay: "300ms" }} />
-                            <span className="ml-2 text-sm text-[var(--text-muted)]">Thinking...</span>
-                        </div>
+                {threads.length > 6 ? (
+                    <div className="inline-flex items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--bg-card)] px-3 py-1.5 text-xs text-[var(--text-muted)]">
+                        <MoreHorizontal className="h-3.5 w-3.5" />
+                        {threads.length - 6} more
                     </div>
-                )}
-
-                <div ref={messagesEndRef} />
+                ) : null}
+                <div className="ml-auto" />
+                <button
+                    type="button"
+                    onClick={createThread}
+                    className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--bg-card)] px-3 py-1.5 text-sm text-[var(--text-secondary)] transition-colors hover:border-[var(--primary)]/50 hover:text-[var(--text-primary)]"
+                >
+                    <MessageSquarePlus className="h-3.5 w-3.5" />
+                    New thread
+                </button>
             </div>
 
-            {/* Input Area */}
-            <div className="border-t border-[var(--border)] p-4">
-                <form onSubmit={handleSubmit} className="relative">
-                    <div className="flex items-end gap-2 bg-[var(--bg-page)] rounded-xl border border-[var(--border)] p-2 focus-within:ring-2 focus-within:ring-[var(--primary)]/50 focus-within:border-[var(--primary)] transition-all">
-                        <textarea
-                            value={query}
-                            onChange={(e) => setQuery(e.target.value)}
-                            onKeyDown={(e) => {
-                                if (e.key === "Enter" && !e.shiftKey) {
-                                    e.preventDefault();
-                                    handleSubmit(e);
-                                }
-                            }}
-                            placeholder={config.placeholder}
-                            rows={1}
-                            className="flex-1 min-h-[44px] max-h-[120px] px-3 py-2.5 text-sm bg-transparent border-0 resize-none focus:outline-none text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
-                            style={{ height: "auto" }}
-                            onInput={(e) => {
-                                const target = e.target as HTMLTextAreaElement;
-                                target.style.height = "auto";
-                                target.style.height = `${Math.min(target.scrollHeight, 120)}px`;
-                            }}
-                        />
-                        <button
-                            type="submit"
-                            disabled={loading || !query.trim()}
-                            className="p-2.5 rounded-lg bg-gradient-to-r from-indigo-500 to-violet-600 text-white hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                        </button>
-                    </div>
-                    <p className="mt-2 text-[10px] text-[var(--text-muted)] text-center">
-                        Press Enter to send, Shift+Enter for new line
-                    </p>
-                </form>
-            </div>
+            <AssistantStudioThread
+                key={`${workspaceScopeKey}-${activeThread.id}`}
+                activeTool={activeTool}
+                notebookId={notebookId}
+                thread={activeThread}
+                onPersistThread={persistThread}
+                requestOptions={requestOptions}
+            />
         </div>
     );
 }
@@ -317,7 +560,6 @@ function getSuggestions(tool: string): string[] {
         mindmap: ["Ecosystem", "Human body", "Water cycle"],
         flowchart: ["Photosynthesis process", "Decision making", "Algorithm"],
         concept_map: ["Climate change", "Economic systems", "Cell division"],
-        career_sim: ["Doctor", "Software engineer", "Teacher", "Lawyer"],
     };
     return suggestions[tool] || ["Try asking anything..."];
 }

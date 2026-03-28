@@ -2,7 +2,7 @@
 
 **Project:** VidyaOS  
 **Version:** v0.1 current implementation  
-**Status:** Updated to match the repository runtime on 2026-03-25
+**Status:** Updated to match the repository runtime on 2026-03-28
 
 ---
 
@@ -13,68 +13,77 @@ The current AI engine is designed to:
 - preserve tenant isolation across retrieval, queueing, and usage tracking
 - support multiple educational task modes through structured prompts
 - keep ERP records authoritative and read-only from the AI layer
-- expose a service boundary for public synchronous generation
+- support both synchronous requests and queued heavy workloads
 
 ## 2. Current AI Runtime Architecture
 
-There are now two execution paths.
+There are two execution paths.
 
 ### Synchronous public AI path
+
 ```text
 public API request
-  -> AI gateway
-  -> dedicated AI service
+  -> ai/routes/ai.py
+  -> ai_gateway.py
+  -> workflows.py
       -> embed
-      -> retrieve from tenant-scoped FAISS store
-      -> rerank / dedup / compress
-      -> prompt template assembly
-      -> apply language, response length, and expertise level personalization
+      -> retrieve from tenant-scoped vector store
+      -> rerank, dedup, compress
+      -> prompt assembly
+      -> apply language, response length, and expertise-level controls
       -> Ollama generation
-      -> sanitize + citation validation / source fallback
-  -> AIQuery log + trace events + webhook
+      -> sanitize plus citation handling
+  -> AIQuery log plus trace events plus optional webhook
 ```
 
 ### Queued heavy-work path
+
 ```text
 request
   -> Redis enqueue
   -> worker claim
-  -> dispatch queued workflow to dedicated AI service
-  -> queue metrics + audit history + trace events
+  -> ai_queue.py
+  -> ai_gateway.py
+  -> workflows.py or ingestion workflow
+  -> queue metrics plus audit history plus trace events
   -> result polling
 ```
 
+Important clarification:
+- the current repo does not route either path through a standalone AI-service process
+
 ## 3. Supported Sources
 
-Implemented in the active ingestion pipeline:
+Implemented in the active ingestion and retrieval surface:
 - PDF
 - DOCX
 - YouTube transcript ingestion
-- URL ingestion (via discovery or direct URL)
-- DuckDuckGo-powered educational source discovery
-- Image OCR to PDF for student uploads (image-to-PDF preprocessing)
+- URL ingestion
+- DuckDuckGo-powered discovery search
+- image-to-PDF preprocessing for student uploads
 
-Present in code but not yet wired into ingestion workflows:
-- PPTX connector
-- Excel connector
-- Google Docs connector
-- Notion connector
+Present in code with partial wiring or dependency requirements:
+- PPTX handling
+- XLSX handling
+- Google Docs ingestion
+- Notion ingestion
 
 ## 4. Chunking and Retrieval
 
 ### Chunking
-- hierarchical chunking for parsed content
-- metadata includes document, page, subject, and source details where available
+- parsed content is chunked into retrieval-friendly slices
+- metadata can include document, page, subject, and source details
 
 ### Retrieval
-- query embedding with `nomic-embed-text`
-- FAISS semantic search over tenant-specific vector files
+- query embedding through the internal embedding layer
+- FAISS semantic search by default
+- optional Qdrant backend
 - optional cross-encoder reranking when dependencies are available
 - deduplication and context compression before prompting
 
 ## 5. Current Task Surface
 
-### Text generation modes (13)
+### Text generation modes (12)
 - Q&A
 - Study Guide
 - Quiz
@@ -87,47 +96,38 @@ Present in code but not yet wired into ingestion workflows:
 - Perturbation
 - Debate
 - Essay Review
-- Career Simulation
 
 ### Additional AI outputs
-- Audio overview (podcast-style dialogue between two hosts)
-- Video overview (narrated slide presentation)
+- Audio overview
+- Video overview
 
 ### Teacher-specific AI workflows
-- Assessment generation (NCERT-aligned formative assessments via RAG + LLM)
-- Doubt heatmap data aggregation
+- assessment generation
+- doubt heatmap aggregation
 
-### Integrated into Main Query Flow
-The primary AI request pipeline now applies:
+### Additional orchestration
 - HyDE query transform
-- Knowledge graph context retrieval
-- Agent orchestration workflows (via /api/ai/workflows)
-
-### Personalization controls
-- ingestion-heavy flows (document, YouTube, URL)
+- knowledge graph context retrieval
+- workflow orchestration through `/api/ai/workflows`
 
 ## 6. Model Configuration
 
-Current default configuration comes from `backend/settings.yaml` and environment overrides.
-
 ### LLM
-- provider path: Ollama over HTTP
-- default model: `llama3.2`
-- fallback model: configurable, default currently also `llama3.2`
+- primary runtime: Ollama over HTTP
+- model selection is config-driven
 
 ### Embeddings
-- model: `nomic-embed-text`
-- dimension: 768
+- current embedding path targets `nomic-embed-text`
 
 ## 7. Citation Behavior
 
-Current behavior is grounded and citation-aware, but not a universal hard-reject policy.
+Current behavior is grounded and citation-aware, but not a universal hard-block policy.
 
 What happens now:
 - retrieved chunks are formatted with citation markers
-- responses are checked for citations
-- when citations are missing but grounded sources exist, the system can append source fallback text rather than reject every response outright
-- citation enrichment to clickable document URLs exists as a helper but is not applied in the main response flow
+- responses are checked for citation presence
+- when citations are missing but grounded sources exist, the system can append source fallback text
+- citation enrichment to clickable document URLs is applied in the main API response flow
 
 ## 8. Queueing and Control Plane
 
@@ -136,49 +136,39 @@ Implemented now:
 - tenant-fair scheduling
 - static priority ordering by job type
 - queue admission limits
-- cancel / retry / dead-letter controls
+- cancel, retry, and dead-letter controls
 - admin queue metrics and audit history
 
 Current durability model:
 - live queue state lives in Redis
 - durable lifecycle state is mirrored into relational `ai_jobs` and `ai_job_events`
-- queue lifecycle actions are also written to `audit_logs`
+- queue lifecycle actions are written to `audit_logs`
 
-Current limitation:
-- `ai_grade` jobs return OCR extraction + review_required output; automated rubric scoring is not implemented yet
-
-## 9. Spaced Repetition Integration
+## 9. Notebook Integration
 
 Implemented now:
-- SM-2 algorithm for review card scheduling
-- Students create review cards tied to topics and subjects
-- Quality self-rating (1=Again to 5=Perfect) adjusts interval and ease factor
-- Next review date calculated from interval and ease factor
-- Due and upcoming cards surfaced in student UI
+- `notebook_id` is logged on AI query history when provided
+- generated quiz/flashcard/mindmap-like outputs can be persisted per notebook
+- notebook CRUD and generated-content APIs exist
+
+Known limitation:
+- notebook-aware retrieval filtering is only partially wired in the current core RAG path
 
 ## 10. Logging, Tracing, and Reviewability
 
-Current query and job observability includes:
+Current observability includes:
 - structured logs
 - per-job event timelines
-- `trace_id` propagation across API, queue, worker, and AI service
+- `trace_id` propagation across API and worker flows
 - persistent trace events
 - admin trace viewer
-- alert evaluation plus webhook dispatch
+- alert evaluation and dispatch
 
-Current limitation:
-- observability includes email/SMS alert transports, but full pager escalation is still external
+## 11. Current Limitations
 
-## 11. Execution Limits
+- FAISS remains the default local-file vector path
+- queue results remain Redis-TTL-backed even though lifecycle state is mirrored durably
+- `ai_grade` remains narrower than the broader grading vision
+- the OpenAI-compatible API has a different provider/auth path than the core RAG pipeline
 
-Important current limits:
-- FAISS is still local-file based (Qdrant is available for larger, multi-node deployments)
-- queue results remain Redis TTL-based even though lifecycle state and event history are durable
-
-## 12. Roadmap, Not Current Implementation
-
-Still future-state:
-- deeper trace explorer with prompt and retrieval replay
-- automated rubric scoring for AI grading
-
-Use this document as the source of truth for the current AI runtime.
+Use this document as the source of truth for the current AI runtime in the repository.

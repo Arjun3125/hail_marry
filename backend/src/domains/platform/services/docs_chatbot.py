@@ -1,5 +1,5 @@
 """Docs-as-AI chatbot — AI trained on VidyaOS documentation for self-service support."""
-import os
+import asyncio
 from typing import Optional
 
 
@@ -83,7 +83,7 @@ def get_faqs_by_category(category: str) -> list[dict]:
     ]
 
 
-async def generate_support_response(query: str) -> dict:
+async def generate_support_response_async(query: str) -> dict:
     """Generate a support response using FAQ matching and RAG over documentation."""
     # Step 1: Try FAQ first (fast path)
     faq_result = search_docs_faq(query)
@@ -103,7 +103,7 @@ async def generate_support_response(query: str) -> dict:
 
         # Search for documentation in the 'vidyaos_docs' collection
         # Note: This assumes a 'vidyaos_docs' collection was indexed
-        chunks = retrieve_documents(query, collection="vidyaos_docs", top_k=3)
+        chunks = await retrieve_documents(query, collection="vidyaos_docs", top_k=3)
         
         if chunks:
             context = "\n\n".join([c["text"] for c in chunks])
@@ -139,3 +139,8 @@ async def generate_support_response(query: str) -> dict:
         "category": "general",
         "matched_question": None,
     }
+
+
+def generate_support_response(query: str) -> dict:
+    """Synchronous compatibility wrapper used by tests and legacy callers."""
+    return asyncio.run(generate_support_response_async(query))

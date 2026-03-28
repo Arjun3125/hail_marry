@@ -2,8 +2,8 @@
 
 **Project Name:** VidyaOS  
 **Version:** v0.1 pilot  
-**Current Deployment Model:** Split application runtime with frontend, public API, dedicated AI service, worker, and optional observability stack  
-**Status:** Updated to match the repository on 2026-03-25
+**Current Deployment Model:** Frontend, FastAPI modular monolith, Redis worker, and optional observability stack  
+**Status:** Updated to match the repository on 2026-03-28
 
 ---
 
@@ -13,138 +13,151 @@ VidyaOS is a multi-tenant school platform that combines:
 - a deterministic ERP for school operations
 - a grounded AI assistance layer for curriculum materials
 - an admin governance and operations surface
-- a parent reporting portal
+- parent reporting and communication paths
 
-The product goal is privacy-conscious, institution-ready AI for schools. The implementation now reaches that through a split runtime rather than the older single-backend description.
+The current repository implements that as one main API process plus a worker, not as separate public API and AI-service processes.
 
 ## 2. Current System Pillars
 
 | Pillar | Current Meaning |
 |---|---|
-| Multi-tenant by default | Major data paths, queue metrics, and audit trails are scoped by `tenant_id` |
-| AI as augmentation | AI reads school data and materials, but does not authoritatively write ERP records |
-| Citation-grounded responses | Retrieval-backed responses include citation validation and source fallback behavior |
-| Governance visibility | Admins can inspect AI usage, review responses, inspect traces, and operate the queue |
-| Operational pragmatism | The stack now uses a dedicated AI service and worker queue, while keeping Ollama external |
+| Multi-tenant by default | Major ERP, queue, and audit paths are scoped by `tenant_id` |
+| AI as augmentation | AI reads school data and materials but does not authoritatively mutate ERP facts |
+| Citation-grounded responses | Retrieval-backed responses include sanitation and citation-aware response handling |
+| Governance visibility | Admins can inspect AI usage, traces, alerts, and queue state |
+| Operational pragmatism | The stack uses an API plus a worker, while keeping Ollama external |
 
 ## 3. Current Product Scope
 
 ### ERP
 - Student, class, enrollment, attendance, marks, assignments, timetable, complaints, lectures
-- Student file upload with RAG ingestion
+- Student file upload and ingestion support
 - Assignment file submission
-- CSV exports for attendance, performance, AI usage
+- CSV exports for attendance, performance, and AI usage
+- Fee management, library, admissions, onboarding, and invitations
 
 ### AI
-- 13 text-generation / study modes: Q&A, Study Guide, Quiz, Concept Map, Weak Topic, Flowchart, Mind Map, Flashcards, Socratic, Perturbation, Debate, Essay Review, Career Simulation
-- Audio overview generation (podcast-style dialogue)
-- Video overview generation (narrated slide presentation)
-- Discovery search (DuckDuckGo-powered) and URL ingestion
-- Teacher assessment generation (NCERT-aligned formative assessments)
+- 12 text modes: Q&A, Study Guide, Quiz, Concept Map, Weak Topic, Flowchart, Mind Map, Flashcards, Socratic, Perturbation, Debate, Essay Review
+- Audio overview generation
+- Video overview generation
+- Discovery search and URL ingestion
+- Teacher assessment generation
 - Tenant-scoped retrieval over uploaded materials
-- Language, response length, and expertise level personalization
-- SM-2 spaced repetition scheduling for review cards
+- Language, response length, and expertise-level personalization
+- Spaced repetition scheduling for review cards
+- OpenAI-compatible `/v1/*` endpoints
 
 ### Governance and operations
-- Admin KPIs and performance heatmap (subjects × classes)
-- AI review actions (approve / flag)
-- Queue operations and metrics (pause / resume / drain / cancel / retry / dead-letter controls)
-- Persistent audit history for queue actions
+- Admin KPIs and performance heatmap
+- AI review actions
+- Queue operations and metrics
+- Queue audit history
 - Trace viewer and observability alerts
-- QR login card generation for student accounts
-- Incident routing plus acknowledge / resolve workflow
+- QR login support for student accounts
+- Incident routing plus acknowledge/resolve workflow
 - Compliance export and deletion-request tracking
 - Webhook subscriptions and delivery logs
-- Parent link management
-- Constraint-based timetable generator (auto-scheduling)
+- Parent-link management
 
 ### Feature management and branding
-- Global feature management system controlling 61 platform capabilities
-- AI intensity classification (Heavy AI, Medium AI, Low AI, No AI) for each feature
-- ERP module mapping (Student Management, Learning, Finance, Admissions, etc.)
-- Runtime feature guards blocking disabled features at the API level
-- Predefined system configuration profiles (AI Tutor, AI Helper, Full ERP)
-- White-label branding engine with automated logo color extraction (colorthief + WCAG 2.1)
-- Dynamic CSS variable injection for per-tenant visual customization
+- Feature catalog and runtime feature guards
+- Three system profiles: AI Tutor, AI Helper, Full ERP
+- White-label branding engine with logo color extraction
 - Admin dashboards at `/admin/feature-flags` and `/admin/branding`
+
+Current inventory:
+- the feature catalog currently contains 55 entries
 
 ### Teacher tools
 - Class insights with weak topic analysis
-- Doubt heatmap (aggregated student AI queries by subject)
-- Assessment generator (RAG + LLM)
+- Doubt heatmap
+- Assessment generator
 - Source discovery and URL ingestion
 - YouTube transcript ingestion
 
 ### Parent experience
-- Simplified dashboard with attendance, latest marks, and next class
+- Dashboard with attendance, marks, and next-class context
 - Attendance and results views
-- Downloadable reports and audio report generation
+- Downloadable reports and audio reporting hooks
 
 ### Demo mode
-- Role switching between student, teacher, admin, parent
-- Guided walkthrough for each role
+- Role switching between student, teacher, admin, and parent
+- Guided walkthrough support
 - Database reset capability
+
+### Notebook system
+- Notebook CRUD
+- Notebook-linked AI history
+- Notebook-linked generated content
+- Notebook-linked document metadata
+
+Known limitation:
+- notebook-scoped retrieval is not yet fully converged in the core RAG path
 
 ## 4. Current Operational Flows
 
 ### Public AI query flow
+
 ```text
 student or teacher request
-  -> public API auth + tenant validation
-  -> AI gateway
-  -> dedicated AI service
-  -> retrieval + Ollama generation
-  -> sanitize, validate citations, log AIQuery
+  -> API auth and tenant validation
+  -> internal AI gateway
+  -> retrieval and generation workflow
+  -> sanitize, enrich citations, log AIQuery
   -> optional webhook emission
 ```
 
 ### Queued heavy-work flow
+
 ```text
 request
-  -> public API validation
+  -> API validation
   -> Redis enqueue
   -> worker claim
-  -> dispatch workflow to dedicated AI service
+  -> execute internal workflow
   -> queue metrics, audit history, trace events
   -> client polls status
 ```
 
 ### Ingestion flow
+
 ```text
 upload or URL input
   -> extraction and chunking
   -> embedding generation
-  -> FAISS storage in tenant namespace
+  -> vector storage
   -> ingestion status update
 ```
 
 ### Parent reporting flow
+
 ```text
 parent request
-  -> auth + parent role validation
-  -> parent_links lookup for child_id
-  -> child's attendance / marks / performance
+  -> auth and parent-role validation
+  -> parent_links lookup
+  -> child attendance and marks retrieval
   -> optional audio report generation
 ```
 
 ## 5. Current Constraints
 
 Important current realities:
-- Public synchronous generation goes through the AI service
-- Generation-heavy long-running tasks are queue-backed
-- Queue status responses include position + depth metadata for users
-- All queued workflows (ingestion, teacher assessment, study tools) dispatch through the dedicated AI service
-- Ollama is still external to the tracked stack
-- SAML SSO configuration backend is implemented; no dedicated admin UI for it yet
+- public synchronous generation runs inside the API process
+- long-running jobs are queue-backed
+- Ollama is external to the tracked stack
+- enterprise admin pages exist for SSO, compliance, and incidents
 
-## 5.1 Known Gaps (Current Implementation)
+## 6. Known Gaps
 
-The following features remain partially wired or incomplete:
-- AI grading currently returns OCR extraction + manual review; full rubric scoring is pending.
-- Extended connectors are wired for PPTX/XLSX uploads and Google Docs/Notion URL ingestion when dependencies and API tokens are configured
+The following areas are still partial or inconsistent:
+- notebook-scoped retrieval filtering in the core RAG path
+- compliance and incidents frontend pages need response-schema cleanup
+- some admin API clients still assume `/api/...` prefixes where backend routes currently use non-`/api` prefixes
+- the plugin architecture is a hook registry, not a full plugin installation system
+- AI grading remains limited compared with the broader product vision
 
-## 6. Roadmap Items Still Pending
+## 7. Maturity Statement
 
-- Android Play Store packaging (TWA/Capacitor) beyond the shell guide
+The repo is broader than a prototype and supports meaningful local/demo workflows, but it should still be treated as pilot-stage software rather than a fully converged production platform.
 
 Use this overview as the current product picture.

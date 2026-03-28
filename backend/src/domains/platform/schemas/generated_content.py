@@ -1,9 +1,9 @@
 """Schemas for generated content API endpoints."""
 from datetime import datetime
-from typing import Optional, Any
+from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class GeneratedContentBase(BaseModel):
@@ -37,8 +37,7 @@ class GeneratedContentResponse(GeneratedContentBase):
     updated_at: datetime
     is_archived: bool
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class GeneratedContentListResponse(BaseModel):

@@ -1,7 +1,8 @@
-"""Redis-backed queue where the worker orchestrates execution through the dedicated AI service."""
+"""Redis-backed queue where the worker executes AI jobs through the in-process runtime."""
 from __future__ import annotations
 
 import json
+import os
 import time
 import uuid
 from collections import Counter
@@ -149,7 +150,12 @@ def _get_redis_client():
         try:
             import redis as redis_lib
 
-            _redis = redis_lib.from_url(settings.redis.broker_url, decode_responses=True)
+            redis_url = (
+                os.getenv("REDIS_BROKER_URL")
+                or os.getenv("REDIS_URL")
+                or settings.redis.broker_url
+            )
+            _redis = redis_lib.from_url(redis_url, decode_responses=True)
             _redis.ping()
             _redis_available = True
         except Exception:
@@ -908,7 +914,7 @@ async def process_job(job_id: str, worker_id: str | None = None) -> dict[str, An
         job["updated_at"] = now
         job["attempts"] = int(job.get("attempts", 0)) + 1
         _append_event(job, "worker.started", "worker", f"Attempt {job['attempts']}")
-        _append_event(job, "ai_service.requested", "worker", "Dispatching to dedicated AI service")
+        _append_event(job, "ai_service.requested", "worker", "Dispatching to AI runtime")
         save_job(job)
         _record_audit_event(job, "ai_job.started", detail=job["worker_id"])
 
@@ -944,7 +950,7 @@ async def process_job(job_id: str, worker_id: str | None = None) -> dict[str, An
                     logger.exception("WhatsApp failed-job notification failed for %s", job.get("job_id"))
             return job
 
-        _append_event(job, "ai_service.completed", "worker", "Dedicated AI service returned successfully")
+        _append_event(job, "ai_service.completed", "worker", "AI runtime returned successfully")
 
         acknowledge_job(job_id)
         client = _require_queue_client()

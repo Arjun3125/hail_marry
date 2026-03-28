@@ -49,7 +49,6 @@ const modeIcons: Record<string, string> = {
     perturbation: "🔄",
     debate: "⚔️",
     essay_review: "✍️",
-    career_sim: "💼",
     weak_topic: "📉",
 };
 
@@ -65,7 +64,6 @@ const modeLabels: Record<string, string> = {
     perturbation: "Exam Prep",
     debate: "Debate",
     essay_review: "Essay Review",
-    career_sim: "Career Sim",
     weak_topic: "Weak Topics",
 };
 

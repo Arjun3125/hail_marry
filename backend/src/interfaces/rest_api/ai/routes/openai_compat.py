@@ -4,13 +4,15 @@ Allows external tools (LangChain, AutoGen, etc.) to connect to VidyaOS
 as if it were an OpenAI API, routing to the configured LLM provider
 (Ollama self-hosted by default, or any 3rd-party provider).
 """
+import hmac
 import time
 import uuid
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 from pydantic import BaseModel
 from typing import Optional
 
+from config import settings
 from src.domains.platform.services.llm_providers import ProviderRegistry
 
 router = APIRouter(prefix="/v1", tags=["OpenAI-Compatible API"])
@@ -34,19 +36,51 @@ class ChatCompletionRequest(BaseModel):
 
 # ── Auth helper ──
 
-def _validate_api_key(authorization: str = Header(default="")):
-    """Validate Bearer token or API key.
-
-    For MVP, accepts any non-empty Bearer token. In production,
-    validate against stored API keys per tenant.
-    """
-    if not authorization:
-        raise HTTPException(status_code=401, detail="Missing Authorization header")
-    if authorization.startswith("Bearer "):
-        token = authorization[7:]
+def _extract_auth_token(authorization: str, x_api_key: str) -> str:
+    if authorization:
+        if not authorization.startswith("Bearer "):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authorization header must use Bearer auth",
+            )
+        token = authorization[7:].strip()
         if not token:
-            raise HTTPException(status_code=401, detail="Empty bearer token")
-    return authorization
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Empty bearer token",
+            )
+        return token
+
+    if x_api_key:
+        token = x_api_key.strip()
+        if token:
+            return token
+
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Missing API key. Provide Authorization: Bearer <key> or X-API-Key.",
+    )
+
+
+def _validate_api_key(
+    authorization: str = Header(default=""),
+    x_api_key: str = Header(default="", alias="X-API-Key"),
+):
+    valid_keys = settings.ai_service.resolved_compat_api_keys()
+    if not valid_keys:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="OpenAI-compatible API is not configured with any access keys.",
+        )
+
+    token = _extract_auth_token(authorization, x_api_key)
+    if not any(hmac.compare_digest(token, key) for key in valid_keys):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid API key.",
+        )
+
+    return token
 
 
 # ── Endpoints ──

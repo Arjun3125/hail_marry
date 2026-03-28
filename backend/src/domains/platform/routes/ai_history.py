@@ -1,6 +1,6 @@
 """AI History API routes for viewing and managing past AI queries."""
 from typing import Optional
-from datetime import datetime
+from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, HTTPException
@@ -26,6 +26,13 @@ from src.domains.platform.schemas.ai_history import (
 )
 
 router = APIRouter(prefix="/api/student/ai-history", tags=["AI History"])
+
+
+def _parse_uuid(value: str, *, field_name: str) -> UUID:
+    try:
+        return UUID(str(value))
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid {field_name}") from exc
 
 
 def _query_to_item(query, folder_name=None):
@@ -58,8 +65,8 @@ async def get_ai_history(
     date_to: Optional[datetime] = Query(None, description="End date"),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
-    sort_by: str = Query("created_at", regex="^(created_at|title|mode)$"),
-    sort_order: str = Query("desc", regex="^(asc|desc)$"),
+    sort_by: str = Query("created_at", pattern="^(created_at|title|mode)$"),
+    sort_order: str = Query("desc", pattern="^(asc|desc)$"),
 ):
     """Get paginated AI history for current user."""
     # Base query - filter by user and not deleted
@@ -73,7 +80,7 @@ async def get_ai_history(
     if mode:
         base_query = base_query.filter(AIQuery.mode == mode)
     if folder_id:
-        base_query = base_query.filter(AIQuery.folder_id == folder_id)
+        base_query = base_query.filter(AIQuery.folder_id == _parse_uuid(folder_id, field_name="folder_id"))
     if is_pinned is not None:
         base_query = base_query.filter(AIQuery.is_pinned == is_pinned)
     if search:
@@ -124,8 +131,9 @@ async def get_ai_history_item(
     current_user: User = Depends(get_current_user),
 ):
     """Get a single AI history item."""
+    item_uuid = _parse_uuid(item_id, field_name="item_id")
     query = db.query(AIQuery).filter(
-        AIQuery.id == item_id,
+        AIQuery.id == item_uuid,
         AIQuery.user_id == current_user.id,
         AIQuery.tenant_id == current_user.tenant_id,
         AIQuery.deleted_at.is_(None),
@@ -150,8 +158,9 @@ async def update_item_title(
     current_user: User = Depends(get_current_user),
 ):
     """Update the title of an AI history item."""
+    item_uuid = _parse_uuid(item_id, field_name="item_id")
     query = db.query(AIQuery).filter(
-        AIQuery.id == item_id,
+        AIQuery.id == item_uuid,
         AIQuery.user_id == current_user.id,
         AIQuery.tenant_id == current_user.tenant_id,
     ).first()
@@ -171,8 +180,9 @@ async def toggle_pin(
     current_user: User = Depends(get_current_user),
 ):
     """Toggle pin status of an AI history item."""
+    item_uuid = _parse_uuid(item_id, field_name="item_id")
     query = db.query(AIQuery).filter(
-        AIQuery.id == item_id,
+        AIQuery.id == item_uuid,
         AIQuery.user_id == current_user.id,
         AIQuery.tenant_id == current_user.tenant_id,
     ).first()
@@ -192,8 +202,9 @@ async def delete_history_item(
     current_user: User = Depends(get_current_user),
 ):
     """Soft delete an AI history item."""
+    item_uuid = _parse_uuid(item_id, field_name="item_id")
     query = db.query(AIQuery).filter(
-        AIQuery.id == item_id,
+        AIQuery.id == item_uuid,
         AIQuery.user_id == current_user.id,
         AIQuery.tenant_id == current_user.tenant_id,
     ).first()
@@ -201,7 +212,7 @@ async def delete_history_item(
     if not query:
         raise HTTPException(status_code=404, detail="Item not found")
     
-    query.deleted_at = datetime.utcnow()
+    query.deleted_at = datetime.now(UTC)
     db.commit()
     return {"success": True, "deleted": True}
 
@@ -214,8 +225,9 @@ async def move_to_folder(
     current_user: User = Depends(get_current_user),
 ):
     """Move AI history item to a folder."""
+    item_uuid = _parse_uuid(item_id, field_name="item_id")
     query = db.query(AIQuery).filter(
-        AIQuery.id == item_id,
+        AIQuery.id == item_uuid,
         AIQuery.user_id == current_user.id,
         AIQuery.tenant_id == current_user.tenant_id,
     ).first()
@@ -225,17 +237,20 @@ async def move_to_folder(
     
     # Verify folder exists and belongs to user
     if data.folder_id:
+        folder_uuid = _parse_uuid(data.folder_id, field_name="folder_id")
         folder = db.query(AIFolder).filter(
-            AIFolder.id == data.folder_id,
+            AIFolder.id == folder_uuid,
             AIFolder.user_id == current_user.id,
             AIFolder.tenant_id == current_user.tenant_id,
         ).first()
         if not folder:
             raise HTTPException(status_code=404, detail="Folder not found")
+    else:
+        folder_uuid = None
     
-    query.folder_id = data.folder_id
+    query.folder_id = folder_uuid
     db.commit()
-    return {"success": True, "folder_id": data.folder_id}
+    return {"success": True, "folder_id": str(folder_uuid) if folder_uuid else None}
 
 
 # Folder management endpoints
@@ -312,8 +327,9 @@ async def update_folder(
     current_user: User = Depends(get_current_user),
 ):
     """Update an AI folder."""
+    folder_uuid = _parse_uuid(folder_id, field_name="folder_id")
     folder = db.query(AIFolder).filter(
-        AIFolder.id == folder_id,
+        AIFolder.id == folder_uuid,
         AIFolder.user_id == current_user.id,
         AIFolder.tenant_id == current_user.tenant_id,
     ).first()
@@ -351,8 +367,9 @@ async def delete_folder(
     current_user: User = Depends(get_current_user),
 ):
     """Delete a folder and move items to uncategorized."""
+    folder_uuid = _parse_uuid(folder_id, field_name="folder_id")
     folder = db.query(AIFolder).filter(
-        AIFolder.id == folder_id,
+        AIFolder.id == folder_uuid,
         AIFolder.user_id == current_user.id,
         AIFolder.tenant_id == current_user.tenant_id,
     ).first()
@@ -361,7 +378,7 @@ async def delete_folder(
         raise HTTPException(status_code=404, detail="Folder not found")
     
     # Move items to uncategorized
-    db.query(AIQuery).filter(AIQuery.folder_id == folder_id).update({"folder_id": None})
+    db.query(AIQuery).filter(AIQuery.folder_id == folder_uuid).update({"folder_id": None})
     
     db.delete(folder)
     db.commit()
@@ -399,7 +416,7 @@ async def get_stats(
     
     # Time-based stats
     from datetime import timedelta
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
     week_ago = now - timedelta(days=7)
     month_ago = now - timedelta(days=30)
     

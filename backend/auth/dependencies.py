@@ -8,9 +8,19 @@ import uuid
 from auth.jwt import decode_access_token
 from src.domains.identity.models.user import User
 
-# Demo mode check (fails-closed if APP_ENV is production)
-APP_ENV = os.getenv("APP_ENV", "development").lower()
-DEMO_MODE = settings.app.demo_mode and APP_ENV != "production"
+def is_demo_mode() -> bool:
+    """Resolve demo mode dynamically so tests/runtime env changes are honored."""
+    app_env = os.getenv("APP_ENV", settings.app.env or "development").lower()
+    env_demo_mode = os.getenv("DEMO_MODE")
+    if env_demo_mode is None:
+        configured_demo_mode = settings.app.demo_mode
+    else:
+        configured_demo_mode = env_demo_mode.strip().lower() in ("true", "1", "yes")
+    return configured_demo_mode and app_env != "production"
+
+
+# Backward-compatible module constant for legacy imports/tests.
+DEMO_MODE = is_demo_mode()
 
 # Cache for demo user to avoid repeated DB queries
 _demo_user_cache: dict = {}
@@ -21,7 +31,7 @@ async def get_current_user(request: Request, db: Session = Depends(get_db)) -> U
     In DEMO_MODE, returns a demo user based on the X-Demo-Role header or defaults to student.
     """
     # ── DEMO MODE: bypass JWT validation ──
-    if DEMO_MODE:
+    if is_demo_mode():
         role = request.headers.get("X-Demo-Role") or request.cookies.get("demo_role") or "student"
         cache_key = role
 
@@ -107,7 +117,7 @@ def require_role(*roles: str):
     """Dependency factory: require user to have one of the specified roles."""
     async def role_checker(current_user: User = Depends(get_current_user)) -> User:
         # In DEMO_MODE, skip role enforcement
-        if DEMO_MODE:
+        if is_demo_mode():
             return current_user
         if current_user.role not in roles:
             raise HTTPException(

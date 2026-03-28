@@ -4,7 +4,11 @@ from pydantic import BaseModel
 
 from auth.dependencies import get_current_user
 from src.domains.identity.models.user import User
-from src.domains.platform.services.docs_chatbot import generate_support_response, get_docs_categories, get_faqs_by_category
+from src.domains.platform.services.docs_chatbot import (
+    generate_support_response_async,
+    get_docs_categories,
+    get_faqs_by_category,
+)
 
 router = APIRouter(prefix="/api/support", tags=["Support"])
 
@@ -23,7 +27,7 @@ async def docs_chat(
     query = request.query.strip()
     if not query:
         raise HTTPException(status_code=400, detail="query is required")
-    return generate_support_response(query)
+    return await generate_support_response_async(query)
 
 
 @router.get("/docs-chat/categories")

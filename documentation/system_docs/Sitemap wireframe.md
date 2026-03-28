@@ -136,7 +136,7 @@ endpoints. See `documentation/system_docs/Admin review dashboard.md` for the lat
 │ Mode: [Q&A] [Study Guide] [Quiz] [Concept]  │
 │       [Flowchart] [Mind Map] [Flashcards]   │
 │       [Socratic] [Perturbation] [Debate]    │
-│       [Essay Review] [Career Simulation]    │
+│       [Essay Review]                        │
 │                                              │
 │ ┌──────────────────────────────────────┐     │
 │ │ AI Response                          │     │
@@ -322,4 +322,3 @@ Subjects × Classes grid, color-coded by average score.
 | | | Enterprise | |
 | | | Security | |
 | | | Settings | |
-

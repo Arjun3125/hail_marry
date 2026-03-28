@@ -25,6 +25,8 @@ from auth.token_blacklist import BlacklistedToken
 from src.domains.administrative.models.library import Book, BookLending
 from src.domains.platform.models.notification import Notification
 from src.domains.platform.models.feature_flag import FeatureFlag
+from src.domains.platform.models.notebook import Notebook
+from src.domains.platform.models.generated_content import GeneratedContent
 
 __all__ = [
     "Tenant", "User",
@@ -64,5 +66,7 @@ __all__ = [
     "BookLending",
     "Notification",
     "FeatureFlag",
+    "Notebook",
+    "GeneratedContent",
 ]
 

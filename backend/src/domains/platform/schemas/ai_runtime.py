@@ -1,22 +1,53 @@
-"""Shared schemas for AI runtime and optional AI service separation."""
+"""Shared schemas for the in-process AI runtime and worker execution paths."""
 from typing import Literal
+from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
+
+try:
+    from pydantic import field_validator
+except ImportError:  # Pydantic v1 compatibility
+    from pydantic import validator as field_validator
+
+
+AI_QUERY_MODE = Literal[
+    "qa",
+    "study_guide",
+    "quiz",
+    "concept_map",
+    "weak_topic",
+    "flowchart",
+    "mindmap",
+    "flashcards",
+    "socratic",
+    "perturbation",
+    "debate",
+    "essay_review",
+]
+AI_RESPONSE_LENGTH = Literal["brief", "default", "detailed"]
+AI_EXPERTISE_LEVEL = Literal["simple", "standard", "advanced"]
 
 
 class StrictBaseModel(BaseModel):
-    class Config:
-        extra = "forbid"
+    model_config = ConfigDict(extra="forbid")
 
 
 class AIQueryRequest(StrictBaseModel):
     query: str
-    mode: str = "qa"
+    mode: AI_QUERY_MODE = "qa"
     subject_id: str | None = None
-    notebook_id: str | None = None
+    notebook_id: UUID | None = None
     language: str = "english"
-    response_length: str = "default"
-    expertise_level: str = "standard"
+    response_length: AI_RESPONSE_LENGTH = "default"
+    expertise_level: AI_EXPERTISE_LEVEL = "standard"
+
+    @field_validator("query")
+    @classmethod
+    def validate_query(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("Query must not be empty.")
+        return normalized
 
 
 class InternalAIQueryRequest(AIQueryRequest):

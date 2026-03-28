@@ -1,4 +1,4 @@
-"""Sentry initialization helper for API, AI service, and worker runtimes."""
+"""Sentry initialization helper for API and worker runtimes."""
 from __future__ import annotations
 
 import logging

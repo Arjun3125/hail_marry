@@ -40,7 +40,6 @@ const modeIcons: Record<string, string> = {
     perturbation: "🔄",
     debate: "⚔️",
     essay_review: "✍️",
-    career_sim: "💼",
     weak_topic: "📉",
 };
 

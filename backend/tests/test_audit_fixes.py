@@ -8,30 +8,26 @@ backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if backend_dir not in sys.path:
     sys.path.insert(0, backend_dir)
 
-from auth.dependencies import get_current_user
-from config import settings
+from auth.dependencies import is_demo_mode
 
 class TestAuditFixes(unittest.TestCase):
-    
-    @patch('auth.dependencies.os.getenv')
-    @patch('auth.dependencies.settings')
-    async def test_demo_mode_production_guard(self, mock_settings, mock_getenv):
-        """Verify that DEMO_MODE is disabled when APP_ENV is production."""
-        # Setup: config says demo_mode=True, but ENV says production
+
+    @patch("auth.dependencies.os.getenv")
+    @patch("auth.dependencies.settings")
+    def test_demo_mode_production_guard(self, mock_settings, mock_getenv):
+        """Verify that demo mode is forced off in production."""
         mock_settings.app.demo_mode = True
-        mock_getenv.side_effect = lambda key, default=None: "production" if key == "APP_ENV" else default
-        
-        # We need to re-import or re-evaluate the module level variables
-        # Since they are evaluated at import time, we'll check the logic directly 
-        # or mock the specific check in the function.
-        # However, our fix used:
-        # APP_ENV = os.getenv("APP_ENV", "development").lower()
-        # DEMO_MODE = settings.app.demo_mode and APP_ENV != "production"
-        
-        from auth.dependencies import DEMO_MODE as actual_demo_mode
-        # This will be tricky because it was already imported. 
-        # Let's just check the logic in a fresh process or mock the variable.
-        pass
+        mock_settings.app.env = "local"
+
+        def fake_getenv(key, default=None):
+            if key == "APP_ENV":
+                return "production"
+            if key == "DEMO_MODE":
+                return "true"
+            return default
+
+        mock_getenv.side_effect = fake_getenv
+        self.assertFalse(is_demo_mode())
 
     def test_faiss_deletion_logic(self):
         """Test the new delete_document logic in TenantVectorStore."""

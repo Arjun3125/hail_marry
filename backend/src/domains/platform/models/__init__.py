@@ -8,3 +8,5 @@ from .spaced_repetition import ReviewSchedule
 from .engagement import LoginStreak
 from .observability import TraceEventRecord, ObservabilityAlertRecord, ObservabilityAlertEvent
 from .knowledge_graph import KGConcept, KGRelationship
+from .notebook import Notebook
+from .generated_content import GeneratedContent

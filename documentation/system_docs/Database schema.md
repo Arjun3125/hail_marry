@@ -316,7 +316,7 @@ CREATE INDEX idx_ai_queries_user ON ai_queries(user_id);
 CREATE INDEX idx_ai_queries_tenant_date ON ai_queries(tenant_id, created_at);
 ```
 
-Supported `mode` values: `qa`, `study_guide`, `quiz`, `concept_map`, `weak_topic`, `flowchart`, `mind_map`, `flashcards`, `socratic`, `perturbation`, `debate`, `essay_review`, `career_simulation`.
+Supported `mode` values: `qa`, `study_guide`, `quiz`, `concept_map`, `weak_topic`, `flowchart`, `mind_map`, `flashcards`, `socratic`, `perturbation`, `debate`, `essay_review`.
 
 Used for: billing, rate limiting, analytics, AI quality review, trace debugging, and doubt heatmap aggregation.
 

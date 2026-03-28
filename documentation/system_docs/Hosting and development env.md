@@ -2,47 +2,43 @@
 
 **Project:** VidyaOS  
 **Version:** v0.1 current implementation  
-**Current Architecture Model:** Frontend, public API, dedicated AI service, worker, and optional observability stack
+**Current Architecture Model:** Frontend, FastAPI API, Redis worker, and optional observability stack  
+**Status:** Updated to match the repository on 2026-03-28
 
 ---
 
 ## 1. Hosting Model Today
 
-The current repo supports two practical deployment patterns:
+The current repo supports two practical patterns.
 
-### Local / self-hosted development
+### Local or self-hosted development
 - Next.js frontend
-- FastAPI public API
-- FastAPI AI service
+- FastAPI API
 - Redis worker
 - PostgreSQL
 - Redis
-- Ollama available at `OLLAMA_URL`
+- Ollama available over HTTP
 
 ### Containerized stack
 Tracked in `docker-compose.yml`:
 - `postgres`
 - `redis`
 - `api`
-- `api`
 - `worker`
 - `frontend`
 - `nginx`
 
-Optional observability profile:
-- `prometheus`
-- `loki`
-- `promtail`
-- `tempo`
-- `grafana`
-- `dcgm-exporter`
+Optional profiles:
+- observability: `prometheus`, `loki`, `promtail`, `tempo`, `grafana`, `dcgm-exporter`
+- vector: `qdrant`
 
-Optional vector profile:
-- `qdrant`
+Important clarification:
+- the repo does not currently define a separate AI-service container
+- Ollama is not included in the compose stack and must run separately
 
-Ollama is not included in the compose stack. It must run separately and be reachable from both API-side generation workflows and the AI service.
+## 2. Environment Variables That Matter
 
-## 2. Environment Variables That Matter Now
+Core variables for the current runtime:
 
 ```env
 DATABASE_URL=postgresql://user:pass@localhost:5432/vidyaos
@@ -51,33 +47,27 @@ JWT_SECRET=<strong-secret>
 GOOGLE_CLIENT_ID=<google-client-id>
 GOOGLE_CLIENT_SECRET=<google-client-secret>
 OLLAMA_URL=http://localhost:11434
-AI_SERVICE_URL=http://localhost:8001
-AI_SERVICE_URLS=http://localhost:8001
-AI_SERVICE_KEY=<internal-shared-secret>
 APP_ENV=local
 APP_CORS_ORIGINS=["http://localhost:3000"]
-VidyaOS_STORAGE_ROOT=<optional shared storage root>
+VidyaOS_STORAGE_ROOT=<optional storage root>
 VidyaOS_VECTOR_STORE_DIR=<optional vector path override>
 VECTOR_BACKEND_PROVIDER=faiss
 QDRANT_URL=http://localhost:6333
 QDRANT_API_KEY=
 OBSERVABILITY_OTLP_ENDPOINT=http://localhost:4318/v1/traces
 OBSERVABILITY_LOG_PATH=<service log file path>
-OBSERVABILITY_ALERT_EMAILS=ops@example.com
-OBSERVABILITY_ALERT_SMS=+15551234567
-SENTRY_DSN=https://examplePublicKey@o0.ingest.sentry.io/0
-SENTRY_ENVIRONMENT=local
-SENTRY_TRACES_SAMPLE_RATE=0.05
-SENTRY_PROFILES_SAMPLE_RATE=0.0
-SENTRY_SEND_PII=false
-SMS_ENABLED=false
-SMS_PROVIDER=twilio
-SMS_ACCOUNT_SID=
-SMS_AUTH_TOKEN=
-SMS_FROM_NUMBER=
-STARTUP_CHECKS_STRICT=true
 WORKER_HEALTH_PORT=8010
 ```
+
+Present in config but not part of the active core execution path:
+
+```env
+AI_SERVICE_URL=http://localhost:8001
+AI_SERVICE_URLS=http://localhost:8001
+AI_SERVICE_KEY=<reserved/internal>
+```
+
+These values currently support admin guidance and future separation work more than the live request path.
 
 ## 3. Current Config Files
 
@@ -94,11 +84,7 @@ Behavior:
 
 ### Public API
 - entrypoint: `backend/main.py`
-- responsibility: auth, ERP, admin APIs, queue enqueue/status, public AI routes
-
-### AI service
-- entrypoint: `backend/src/domains/ai_engine/router.py`
-- responsibility: synchronous generation runtime
+- responsibility: auth, ERP, admin APIs, public AI routes, queue enqueue/status, observability surfaces
 
 ### Worker
 - entrypoint: `backend/ai_worker.py`
@@ -114,37 +100,31 @@ Behavior:
 
 ## 5. Observability Deployment
 
-Compose now includes a first-class observability profile:
-- Prometheus scrapes service metrics
-- Loki receives logs through Promtail
-- Tempo receives OpenTelemetry traces
-- Grafana is provisioned with datasources for all three
-- Prometheus also loads prebuilt alert rules
-- Grafana also loads a prebuilt overview dashboard
-
-This is tracked in:
-- `ops/observability/prometheus.yml`
-- `ops/observability/loki-config.yml`
-- `ops/observability/promtail-config.yml`
-- `ops/observability/tempo.yml`
-- `ops/observability/grafana/provisioning/`
+Tracked under `ops/observability/`:
+- Prometheus scrape config
+- Loki config
+- Promtail config
+- Tempo config
+- Grafana provisioning
+- alert rules
 
 ## 6. Current Operational Guidance
 
 ### Development
-- run frontend, API, AI service, and worker directly, or use compose
+- run frontend, API, and worker directly, or use compose
 - keep Ollama running separately
 - use local settings for iterative work
 
 ### Production-like deployment
-- deploy API and AI service as separate processes
-- run worker against the same Redis and storage paths
-- provide a strong `JWT_SECRET` and internal `AI_SERVICE_KEY`
-- configure `APP_CORS_ORIGINS`, `NEXT_PUBLIC_API_URL`, and metrics / tracing env vars
+- deploy API and worker as separate processes
+- run both against the same Redis and storage paths
+- provide a strong `JWT_SECRET`
+- configure `APP_CORS_ORIGINS`, `NEXT_PUBLIC_API_URL`, and observability env vars
 
-## 7. Remaining Gaps
+## 7. Known Gaps
 
-Still not complete:
-- admin UI for enterprise SSO + incident routing (APIs exist, UI pending)
+- some frontend admin clients still assume `/api/...` prefixes where backend platform routes currently use `/branding`, `/features`, or `/whatsapp`
+- enterprise compliance and incident pages are present, but still need API-contract cleanup
+- the current docs previously overstated a dedicated AI-service topology; that is no longer the recommended deployment description for this repo
 
-This file should be treated as current deployment truth for the repository.
+Treat this file as the current deployment truth for the repository.

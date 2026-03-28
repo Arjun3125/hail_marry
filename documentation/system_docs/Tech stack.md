@@ -2,72 +2,67 @@
 
 **Project:** VidyaOS  
 **Version:** v0.1 current implementation  
-**Status:** Updated to match the repository on 2026-03-25
+**Status:** Updated to match the repository on 2026-03-28
 
 ---
 
 ## 1. Frontend Stack
 
-| Layer | Actual Technology in Repo |
+| Layer | Technology in Repo |
 |---|---|
 | Framework | Next.js 16 |
 | UI runtime | React 19 |
 | Language | TypeScript |
 | Styling | Tailwind CSS 4 |
-| Theme engine | CSS Custom Properties via `BrandingProvider` context |
 | Icons | lucide-react |
-| Routing | Next.js app router |
+| Routing | Next.js App Router |
 | E2E testing | Playwright |
 
 ## 2. Backend Stack
 
-| Layer | Actual Technology in Repo |
+| Layer | Technology in Repo |
 |---|---|
-| Public API framework | FastAPI |
-| Dedicated AI service | FastAPI |
-| Worker runtime | Python process using Redis queue service |
+| API framework | FastAPI |
+| Worker runtime | Python process using Redis-backed queue services |
 | Language | Python 3.11+ |
 | ORM | SQLAlchemy |
 | Validation | Pydantic |
-| Migration tooling | Alembic |
-| Auth | Google OAuth + email/password + JWT (SAML config via enterprise routes) |
-| Queue state and cache support | Redis |
+| Migrations | Alembic |
+| Auth | Google OAuth, email/password, JWT, SAML configuration APIs |
+| Queue/cache support | Redis |
 
 ### Middleware Stack
 
 | Middleware | Purpose |
 |---|---|
-| `ObservabilityMiddleware` | Structured logging, request metrics |
+| `ObservabilityMiddleware` | Structured logging and request metrics |
 | `CORSMiddleware` | Cross-origin request control |
-| `CSRFMiddleware` | CSRF protection on state-changing requests (disabled in demo mode) |
+| `CSRFMiddleware` | CSRF protection when enabled |
 | `TenantMiddleware` | Tenant context injection from JWT |
-| `RateLimitMiddleware` | Request throttling (disabled in demo mode) |
+| `RateLimitMiddleware` | Request throttling when enabled |
+| `CaptchaMiddleware` | Public-endpoint bot protection when configured |
 
 ## 3. AI Stack
 
 | Capability | Current Implementation |
 |---|---|
-| Public synchronous execution boundary | `backend/services/ai_gateway.py` -> `backend/src/domains/ai_engine/router.py` |
+| Public synchronous execution boundary | `backend/src/interfaces/rest_api/ai/routes/ai.py` -> `backend/src/domains/platform/services/ai_gateway.py` -> `backend/src/interfaces/rest_api/ai/workflows.py` |
+| Queued execution boundary | `backend/ai_worker.py` -> `backend/src/domains/platform/services/ai_queue.py` -> same internal gateway/workflow layer |
 | LLM runner | Ollama over HTTP |
-| Default model | `llama3.2` |
-| Fallback model | configurable, default currently also `llama3.2` |
-| Embedding model | `nomic-embed-text` |
-| Vector store | FAISS |
-| Reranking | `cross-encoder/ms-marco-MiniLM-L-2-v2` when available |
-| Provider abstraction | implemented for internal Ollama usage; multi-provider use is limited to the OpenAI-compatible API |
-| Queueing | Redis-backed tenant-fair queue |
-| Enterprise SSO library | `python3-saml` when installed |
-| Service-grade vector option | Qdrant HTTP provider path |
+| Default model | Config-driven, default local path targets Ollama |
+| Embeddings | `nomic-embed-text` through the internal embedding layer |
+| Vector store | FAISS by default |
+| Optional vector backend | Qdrant |
+| Reranking | cross-encoder reranking when dependencies are available |
+| Agent orchestration | LangGraph-based workflow helper in `agent_orchestrator.py` |
+| OpenAI compatibility | `/v1/*` routes with separate provider registry |
 | Source discovery | DuckDuckGo HTML search |
-| Spaced repetition | SM-2 algorithm (custom implementation) |
-| Brand color extraction | `colorthief` + WCAG 2.1 luminance math |
-| Feature management | `features_catalog.json` + `FeatureFlag` model + runtime guards |
+| Spaced repetition | SM-2 algorithm |
+| Brand color extraction | `colorthief` plus WCAG contrast logic |
 
 Important current reality:
-- public synchronous generation is no longer executed directly in the public API
-- queued generation calls the dedicated AI service
-- queued ingestion and teacher assessment also dispatch through the dedicated AI service
-- multi-provider support (OpenAI/Anthropic) is exposed via `/v1/*` endpoints, not the core RAG pipeline
+- the repo does not contain a dedicated FastAPI AI service
+- `AI_SERVICE_URL` settings exist, but they are not the active execution path for core AI requests
 
 ## 4. Infrastructure and Local Deployment
 
@@ -76,22 +71,25 @@ Important current reality:
 | Local container orchestration | Docker Compose |
 | Reverse proxy | Nginx |
 | Database | PostgreSQL 15+ |
-| Queue / cache | Redis 7 |
-| Frontend container | tracked `frontend/Dockerfile` |
-| API container | tracked `backend/Dockerfile` |
-| Worker container | tracked `backend/Dockerfile.worker` |
+| Queue/cache | Redis 7 |
+| Frontend container | `frontend/Dockerfile` |
+| API container | `backend/Dockerfile` |
+| Worker container | `backend/Dockerfile.worker` |
 
 Current compose stack:
-- postgres
-- redis
-- api
-- api
-- worker
-- frontend
-- nginx
+- `postgres`
+- `redis`
+- `api`
+- `worker`
+- `frontend`
+- `nginx`
+
+Optional profiles:
+- observability
+- vector (`qdrant`)
 
 External dependency:
-- Ollama reachable via `OLLAMA_URL`
+- Ollama reachable over HTTP
 
 ## 5. Observability Stack
 
@@ -99,35 +97,36 @@ External dependency:
 |---|---|
 | Structured logs | JSON logs written by app services |
 | Metrics export | Prometheus-style `/metrics` endpoints |
-| Tracing | OpenTelemetry export hooks plus Tempo profile |
-| Log aggregation | Loki + Promtail compose profile |
-| Dashboarding | Grafana compose profile with provisioned overview dashboard |
-| Error tracking | Sentry SDK wired into API, AI service, worker |
-| GPU monitoring | DCGM exporter + Grafana GPU dashboard |
+| Tracing | OpenTelemetry hooks plus Tempo profile |
+| Log aggregation | Loki plus Promtail |
+| Dashboarding | Grafana |
+| Error tracking | Sentry integration in backend services |
+| GPU monitoring | DCGM exporter |
 | Alert rules | Prometheus rule file in `ops/observability/alert_rules.yml` |
-| Admin observability UI | queue metrics UI + alert/trace APIs exposed |
-| Incident routing | webhook, Slack webhook, PagerDuty Events API, Opsgenie API, email/SMS |
 
 ## 6. Testing and Verification
 
-| Area | Tooling in Repo | Current Count |
-|---|---|---|
-| Backend tests | pytest | 382 tests across 48 files |
-| Frontend lint | eslint | 0 errors |
-| Frontend build verification | next build | All 50 pages compile |
-| E2E framework | Playwright | — |
+Current static inventory in the repository:
+- backend: 53 `test_*.py` files under `backend/tests`
+- frontend: 3 Playwright specs under `frontend/tests/e2e`
 
-## 7. Code Quality
+Do not treat static inventory as pass/fail status. Run:
+- `cd backend && python -m pytest tests/ -q`
+- `cd frontend && npm run build`
+- `cd frontend && npm run test:e2e`
+
+## 7. Code Quality Notes
 
 | Layer | Implementation |
 |---|---|
-| Backend constants | `backend/constants.py` — centralized thresholds, file limits, helpers |
-| Frontend design tokens | `frontend/src/app/globals.css` — 50+ dark-mode-safe semantic CSS utilities |
-| Upload security | `backend/utils/upload_security.py` — DOCX macro stripping, storage path validation |
+| Backend constants | `backend/constants.py` centralizes thresholds, file limits, and helpers |
+| Frontend design tokens | `frontend/src/app/globals.css` carries semantic CSS variables and utility tokens |
+| Upload security | `backend/utils/upload_security.py` strips DOCX macros and validates storage paths |
 
-## 8. Not Yet Implemented in the Tracked Stack
+## 8. Current Caveats
 
-Still not first-class runtime components:
-- Weaviate / Pinecone (Qdrant available)
+- Feature-flag and branding routes exist, but frontend/backend route prefixes are not fully normalized yet.
+- OpenAI-compatible auth is present, but still MVP-grade.
+- The platform contains two provider abstractions: one for core RAG/runtime use and one for `/v1/*` compatibility routes.
 
-Use this document for the actual runtime stack, not the older roadmap-only descriptions.
+Use this document for the actual runtime stack in the repo.

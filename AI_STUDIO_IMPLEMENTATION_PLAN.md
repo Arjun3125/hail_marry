@@ -46,7 +46,6 @@ Establish the core 3-column layout structure and navigation system.
      --practice-primary: #10b981;
      --thinking-primary: #f59e0b;
      --visual-primary: #06b6d4;
-     --career-primary: #ec4899;
    }
    ```
 
@@ -116,7 +115,7 @@ Establish the core 3-column layout structure and navigation system.
    - Icon-only mode when collapsed
    - Hover tooltip for tool names
 
-**Deliverable:** Functional ToolRail with 5 groups, 13 tools  
+**Deliverable:** Functional ToolRail with 4 groups, 12 tools  
 **Success Criteria:** Can select any tool, collapse/expand works smoothly
 
 ---
@@ -161,7 +160,7 @@ Establish the core 3-column layout structure and navigation system.
 
 ### Sprint 1 Review Checklist
 - [ ] Layout renders at all breakpoints
-- [ ] ToolRail shows all 5 groups
+- [ ] ToolRail shows all 4 groups
 - [ ] ContextPanel tabs work
 - [ ] Collapse/expand animations smooth
 - [ ] No console errors

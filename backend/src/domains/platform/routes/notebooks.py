@@ -1,28 +1,49 @@
 """API routes for notebook management."""
 from datetime import datetime
-from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from auth.dependencies import get_current_user
 from database import get_async_session
+from src.domains.identity.models.user import User
 from src.domains.platform.models.notebook import Notebook
 from src.domains.platform.schemas.notebook import (
+    BulkNotebookOperation,
+    BulkOperationResult,
     NotebookCreate,
+    NotebookExport,
     NotebookListResponse,
     NotebookResponse,
     NotebookStats,
     NotebookUpdate,
-    NotebookExport,
-    BulkNotebookOperation,
-    BulkOperationResult,
 )
-from auth.dependencies import get_current_user
-from src.domains.identity.models.user import User
 
-router = APIRouter(prefix="/notebooks", tags=["notebooks"])
+router = APIRouter(prefix="/api/notebooks", tags=["notebooks"])
+
+
+def _to_notebook_response(notebook: Notebook) -> NotebookResponse:
+    return NotebookResponse.model_validate(notebook)
+
+
+async def _get_user_notebook(
+    notebook_id: UUID,
+    current_user: User,
+    session: AsyncSession,
+) -> Notebook:
+    result = await session.execute(
+        select(Notebook).where(
+            Notebook.id == notebook_id,
+            Notebook.tenant_id == current_user.tenant_id,
+            Notebook.user_id == current_user.id,
+        )
+    )
+    notebook = result.scalar_one_or_none()
+    if not notebook:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notebook not found")
+    return notebook
 
 
 @router.get("", response_model=NotebookListResponse)
@@ -33,17 +54,16 @@ async def list_notebooks(
 ) -> NotebookListResponse:
     """List all notebooks for the current user."""
     query = select(Notebook).where(Notebook.user_id == current_user.id)
-    
+    query = query.where(Notebook.tenant_id == current_user.tenant_id)
     if not include_inactive:
-        query = query.where(Notebook.is_active == True)
-    
+        query = query.where(Notebook.is_active.is_(True))
     query = query.order_by(Notebook.updated_at.desc())
-    
+
     result = await session.execute(query)
     notebooks = result.scalars().all()
-    
+
     return NotebookListResponse(
-        items=[NotebookResponse.from_orm(n) for n in notebooks],
+        items=[_to_notebook_response(notebook) for notebook in notebooks],
         total=len(notebooks),
     )
 
@@ -56,6 +76,7 @@ async def create_notebook(
 ) -> NotebookResponse:
     """Create a new notebook."""
     notebook = Notebook(
+        tenant_id=current_user.tenant_id,
         user_id=current_user.id,
         name=data.name,
         description=data.description,
@@ -63,12 +84,10 @@ async def create_notebook(
         color=data.color,
         icon=data.icon,
     )
-    
     session.add(notebook)
     await session.commit()
     await session.refresh(notebook)
-    
-    return NotebookResponse.from_orm(notebook)
+    return _to_notebook_response(notebook)
 
 
 @router.get("/{notebook_id}", response_model=NotebookResponse)
@@ -78,21 +97,8 @@ async def get_notebook(
     session: AsyncSession = Depends(get_async_session),
 ) -> NotebookResponse:
     """Get a specific notebook by ID."""
-    result = await session.execute(
-        select(Notebook).where(
-            Notebook.id == notebook_id,
-            Notebook.user_id == current_user.id,
-        )
-    )
-    notebook = result.scalar_one_or_none()
-    
-    if not notebook:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Notebook not found",
-        )
-    
-    return NotebookResponse.from_orm(notebook)
+    notebook = await _get_user_notebook(notebook_id, current_user, session)
+    return _to_notebook_response(notebook)
 
 
 @router.put("/{notebook_id}", response_model=NotebookResponse)
@@ -103,21 +109,8 @@ async def update_notebook(
     session: AsyncSession = Depends(get_async_session),
 ) -> NotebookResponse:
     """Update a notebook."""
-    result = await session.execute(
-        select(Notebook).where(
-            Notebook.id == notebook_id,
-            Notebook.user_id == current_user.id,
-        )
-    )
-    notebook = result.scalar_one_or_none()
-    
-    if not notebook:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Notebook not found",
-        )
-    
-    # Update fields
+    notebook = await _get_user_notebook(notebook_id, current_user, session)
+
     if data.name is not None:
         notebook.name = data.name
     if data.description is not None:
@@ -130,13 +123,11 @@ async def update_notebook(
         notebook.icon = data.icon
     if data.is_active is not None:
         notebook.is_active = data.is_active
-    
+
     notebook.updated_at = datetime.utcnow()
-    
     await session.commit()
     await session.refresh(notebook)
-    
-    return NotebookResponse.from_orm(notebook)
+    return _to_notebook_response(notebook)
 
 
 @router.delete("/{notebook_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -146,23 +137,9 @@ async def delete_notebook(
     session: AsyncSession = Depends(get_async_session),
 ) -> None:
     """Soft delete a notebook (mark as inactive)."""
-    result = await session.execute(
-        select(Notebook).where(
-            Notebook.id == notebook_id,
-            Notebook.user_id == current_user.id,
-        )
-    )
-    notebook = result.scalar_one_or_none()
-    
-    if not notebook:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Notebook not found",
-        )
-    
+    notebook = await _get_user_notebook(notebook_id, current_user, session)
     notebook.is_active = False
     notebook.updated_at = datetime.utcnow()
-    
     await session.commit()
 
 
@@ -173,99 +150,88 @@ async def get_notebook_stats(
     session: AsyncSession = Depends(get_async_session),
 ) -> NotebookStats:
     """Get comprehensive statistics for a notebook."""
-    # Verify notebook exists and belongs to user
-    result = await session.execute(
-        select(Notebook).where(
-            Notebook.id == notebook_id,
-            Notebook.user_id == current_user.id,
-        )
-    )
-    notebook = result.scalar_one_or_none()
-    
-    if not notebook:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Notebook not found",
-        )
-    
-    # Count documents in notebook
+    await _get_user_notebook(notebook_id, current_user, session)
+
+    from src.domains.platform.models.ai import AIQuery
     from src.domains.platform.models.document import Document
+    from src.domains.platform.models.generated_content import GeneratedContent
+
     doc_result = await session.execute(
         select(func.count(Document.id)).where(
+            Document.tenant_id == current_user.tenant_id,
             Document.notebook_id == notebook_id,
-            Document.user_id == current_user.id,
+            Document.uploaded_by == current_user.id,
         )
     )
     document_count = doc_result.scalar() or 0
-    
-    # Count AI queries in notebook
-    from src.domains.platform.models.ai import AIQuery
+
     query_result = await session.execute(
         select(func.count(AIQuery.id)).where(
+            AIQuery.tenant_id == current_user.tenant_id,
             AIQuery.notebook_id == notebook_id,
             AIQuery.user_id == current_user.id,
             AIQuery.deleted_at.is_(None),
         )
     )
     question_count = query_result.scalar() or 0
-    
-    # Count generated content by type
-    from src.domains.platform.models.generated_content import GeneratedContent
-    
-    # Quiz count
+
     quiz_result = await session.execute(
         select(func.count(GeneratedContent.id)).where(
+            GeneratedContent.tenant_id == current_user.tenant_id,
             GeneratedContent.notebook_id == notebook_id,
             GeneratedContent.user_id == current_user.id,
             GeneratedContent.type == "quiz",
-            GeneratedContent.is_archived == False,
+            GeneratedContent.is_archived.is_(False),
         )
     )
     quiz_count = quiz_result.scalar() or 0
-    
-    # Flashcard count
+
     flashcard_result = await session.execute(
         select(func.count(GeneratedContent.id)).where(
+            GeneratedContent.tenant_id == current_user.tenant_id,
             GeneratedContent.notebook_id == notebook_id,
             GeneratedContent.user_id == current_user.id,
             GeneratedContent.type == "flashcards",
-            GeneratedContent.is_archived == False,
+            GeneratedContent.is_archived.is_(False),
         )
     )
     flashcard_count = flashcard_result.scalar() or 0
-    
-    # Mind map count
+
     mindmap_result = await session.execute(
         select(func.count(GeneratedContent.id)).where(
+            GeneratedContent.tenant_id == current_user.tenant_id,
             GeneratedContent.notebook_id == notebook_id,
             GeneratedContent.user_id == current_user.id,
-            GeneratedContent.type.in_(["mindmap", "concept_map"]),
-            GeneratedContent.is_archived == False,
+            GeneratedContent.type.in_(["mindmap", "concept_map", "flowchart"]),
+            GeneratedContent.is_archived.is_(False),
         )
     )
     mindmap_count = mindmap_result.scalar() or 0
-    
-    # Get last accessed time (most recent AI query or document upload)
+
     last_query_result = await session.execute(
-        select(AIQuery.created_at).where(
+        select(AIQuery.created_at)
+        .where(
+            AIQuery.tenant_id == current_user.tenant_id,
             AIQuery.notebook_id == notebook_id,
             AIQuery.user_id == current_user.id,
-        ).order_by(AIQuery.created_at.desc()).limit(1)
+            AIQuery.deleted_at.is_(None),
+        )
+        .order_by(AIQuery.created_at.desc())
+        .limit(1)
     )
     last_accessed = last_query_result.scalar()
-    
-    # Calculate total study time (sum of response times as proxy)
+
     study_time_result = await session.execute(
         select(func.sum(AIQuery.response_time_ms)).where(
+            AIQuery.tenant_id == current_user.tenant_id,
             AIQuery.notebook_id == notebook_id,
             AIQuery.user_id == current_user.id,
+            AIQuery.deleted_at.is_(None),
         )
     )
     total_response_time = study_time_result.scalar() or 0
-    # Convert to minutes (rough estimate: response time is just AI processing)
-    # Add 30 seconds per query as estimated user reading time
     total_study_time = (total_response_time / 1000 + question_count * 30) / 60
-    
+
     return NotebookStats(
         document_count=document_count,
         question_count=question_count,
@@ -284,82 +250,72 @@ async def export_notebook(
     session: AsyncSession = Depends(get_async_session),
 ) -> NotebookExport:
     """Export all notebook data for backup or sharing."""
-    # Verify notebook exists and belongs to user
-    result = await session.execute(
-        select(Notebook).where(
-            Notebook.id == notebook_id,
-            Notebook.user_id == current_user.id,
-        )
-    )
-    notebook = result.scalar_one_or_none()
-    
-    if not notebook:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Notebook not found",
-        )
-    
-    # Get documents
+    notebook = await _get_user_notebook(notebook_id, current_user, session)
+
+    from src.domains.platform.models.ai import AIQuery
     from src.domains.platform.models.document import Document
+    from src.domains.platform.models.generated_content import GeneratedContent
+
     doc_result = await session.execute(
         select(Document).where(
+            Document.tenant_id == current_user.tenant_id,
             Document.notebook_id == notebook_id,
-            Document.user_id == current_user.id,
+            Document.uploaded_by == current_user.id,
         )
     )
     documents = [
         {
-            "id": str(d.id),
-            "filename": d.filename,
-            "file_type": d.file_type,
-            "uploaded_at": d.uploaded_at.isoformat() if d.uploaded_at else None,
+            "id": str(document.id),
+            "filename": document.file_name,
+            "file_type": document.file_type,
+            "uploaded_at": document.created_at.isoformat() if document.created_at else None,
         }
-        for d in doc_result.scalars().all()
+        for document in doc_result.scalars().all()
     ]
-    
-    # Get AI history
-    from src.domains.platform.models.ai import AIQuery
+
     history_result = await session.execute(
-        select(AIQuery).where(
+        select(AIQuery)
+        .where(
+            AIQuery.tenant_id == current_user.tenant_id,
             AIQuery.notebook_id == notebook_id,
             AIQuery.user_id == current_user.id,
             AIQuery.deleted_at.is_(None),
-        ).order_by(AIQuery.created_at.desc()).limit(100)
+        )
+        .order_by(AIQuery.created_at.desc())
+        .limit(100)
     )
     ai_history = [
         {
-            "id": str(h.id),
-            "query": h.query_text,
-            "mode": h.mode,
-            "created_at": h.created_at.isoformat() if h.created_at else None,
+            "id": str(item.id),
+            "query": item.query_text,
+            "mode": item.mode,
+            "created_at": item.created_at.isoformat() if item.created_at else None,
         }
-        for h in history_result.scalars().all()
+        for item in history_result.scalars().all()
     ]
-    
-    # Get generated content
-    from src.domains.platform.models.generated_content import GeneratedContent
+
     content_result = await session.execute(
         select(GeneratedContent).where(
+            GeneratedContent.tenant_id == current_user.tenant_id,
             GeneratedContent.notebook_id == notebook_id,
             GeneratedContent.user_id == current_user.id,
-            GeneratedContent.is_archived == False,
+            GeneratedContent.is_archived.is_(False),
         )
     )
     generated_content = [
         {
-            "id": str(c.id),
-            "type": c.type,
-            "title": c.title,
-            "created_at": c.created_at.isoformat() if c.created_at else None,
+            "id": str(item.id),
+            "type": item.type,
+            "title": item.title,
+            "created_at": item.created_at.isoformat() if item.created_at else None,
         }
-        for c in content_result.scalars().all()
+        for item in content_result.scalars().all()
     ]
-    
-    # Get stats (reuse existing logic)
+
     stats = await get_notebook_stats(notebook_id, current_user, session)
-    
+
     return NotebookExport(
-        notebook=NotebookResponse.from_orm(notebook),
+        notebook=_to_notebook_response(notebook),
         documents=documents,
         ai_history=ai_history,
         generated_content=generated_content,
@@ -375,44 +331,31 @@ async def bulk_notebook_operation(
     session: AsyncSession = Depends(get_async_session),
 ) -> BulkOperationResult:
     """Perform bulk operations on multiple notebooks."""
-    success = []
-    failed = []
-    
+    success: list[UUID] = []
+    failed: list[dict] = []
+
     for notebook_id in data.notebook_ids:
         try:
-            result = await session.execute(
-                select(Notebook).where(
-                    Notebook.id == notebook_id,
-                    Notebook.user_id == current_user.id,
-                )
-            )
-            notebook = result.scalar_one_or_none()
-            
-            if not notebook:
-                failed.append({"id": str(notebook_id), "error": "Notebook not found"})
-                continue
-            
-            if data.operation == "archive":
+            notebook = await _get_user_notebook(notebook_id, current_user, session)
+            if data.operation in {"archive", "delete"}:
                 notebook.is_active = False
-                notebook.updated_at = datetime.utcnow()
-            elif data.operation == "delete":
-                notebook.is_active = False
-                notebook.updated_at = datetime.utcnow()
             elif data.operation == "restore":
                 notebook.is_active = True
-                notebook.updated_at = datetime.utcnow()
             else:
                 failed.append({"id": str(notebook_id), "error": f"Unknown operation: {data.operation}"})
                 continue
-            
+
+            notebook.updated_at = datetime.utcnow()
             success.append(notebook_id)
-        except Exception as e:
-            failed.append({"id": str(notebook_id), "error": str(e)})
-    
+        except HTTPException as exc:
+            failed.append({"id": str(notebook_id), "error": exc.detail})
+        except Exception as exc:
+            failed.append({"id": str(notebook_id), "error": str(exc)})
+
     await session.commit()
-    
+
     return BulkOperationResult(
-        success=[str(s) for s in success],
+        success=[str(item) for item in success],
         failed=failed,
         total_processed=len(data.notebook_ids),
     )

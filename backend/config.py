@@ -169,7 +169,7 @@ class DatabaseSettings(BaseSettings):
 
 class RedisSettings(BaseSettings):
     url: str = Field(
-        default=os.getenv(
+        default_factory=lambda: os.getenv(
             "REDIS_URL",
             _yaml_config.get("redis", {}).get(
                 "url", "redis://localhost:6379/0"
@@ -177,13 +177,13 @@ class RedisSettings(BaseSettings):
         )
     )
     broker_url: str = Field(
-        default=os.getenv(
+        default_factory=lambda: os.getenv(
             "REDIS_BROKER_URL",
             os.getenv("REDIS_URL", _yaml_config.get("redis", {}).get("broker_url", "redis://localhost:6379/0"))
         )
     )
     state_url: str = Field(
-        default=os.getenv(
+        default_factory=lambda: os.getenv(
             "REDIS_STATE_URL",
             os.getenv("REDIS_URL", _yaml_config.get("redis", {}).get("state_url", "redis://localhost:6379/0"))
         )
@@ -241,6 +241,11 @@ class AIServiceSettings(BaseSettings):
             _yaml_config.get("ai_service", {}).get("api_key", ""),
         )
     )
+    compat_api_keys: list[str] = Field(
+        default_factory=lambda: _parse_csv_list(
+            os.getenv("OPENAI_COMPAT_API_KEYS") or _yaml_config.get("ai_service", {}).get("compat_api_keys", [])
+        )
+    )
     timeout_seconds: int = Field(
         default=int(_yaml_config.get("ai_service", {}).get("timeout_seconds", 90))
     )
@@ -250,6 +255,12 @@ class AIServiceSettings(BaseSettings):
         if not urls and self.url:
             urls = [self.url]
         return urls
+
+    def resolved_compat_api_keys(self) -> list[str]:
+        keys = [key for key in self.compat_api_keys if key]
+        if not keys and self.api_key:
+            keys = [self.api_key]
+        return keys
 
 
 class AIQueueSettings(BaseSettings):

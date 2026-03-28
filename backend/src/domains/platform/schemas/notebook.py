@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class NotebookBase(BaseModel):
@@ -38,8 +38,7 @@ class NotebookResponse(NotebookBase):
     updated_at: datetime
     is_active: bool
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class NotebookListResponse(BaseModel):
@@ -55,7 +54,7 @@ class NotebookStats(BaseModel):
     quiz_count: int
     flashcard_count: int
     mindmap_count: int
-    total_study_time: int  # in minutes
+    total_study_time: float  # in minutes
     last_accessed: Optional[datetime] = None
 
 

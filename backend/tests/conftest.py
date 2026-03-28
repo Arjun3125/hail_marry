@@ -1,6 +1,10 @@
 import pytest
 import os
+import shutil
 import sys
+import tempfile
+import uuid
+from pathlib import Path
 from importlib.util import find_spec
 
 # Ensure backend modules can be imported when tests are run from backend dir.
@@ -25,6 +29,67 @@ os.environ["DEBUG"] = "true"
 os.environ["DEMO_MODE"] = "false"
 os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 os.environ["TESTING"] = "true"
+
+_TEST_TEMP_DIR = os.path.join(project_root, ".pytest_tmp")
+os.makedirs(_TEST_TEMP_DIR, exist_ok=True)
+os.environ["TMP"] = _TEST_TEMP_DIR
+os.environ["TEMP"] = _TEST_TEMP_DIR
+os.environ["TMPDIR"] = _TEST_TEMP_DIR
+tempfile.tempdir = _TEST_TEMP_DIR
+
+
+def _make_safe_temp_dir() -> str:
+    path = os.path.join(_TEST_TEMP_DIR, f"tmp_{uuid.uuid4().hex}")
+    os.makedirs(path, exist_ok=True)
+    return path
+
+
+class _SafeTemporaryDirectory:
+    def __init__(self, suffix="", prefix="tmp", dir=None, ignore_cleanup_errors=False):
+        base_dir = dir or _TEST_TEMP_DIR
+        os.makedirs(base_dir, exist_ok=True)
+        self.name = os.path.join(base_dir, f"{prefix}_{uuid.uuid4().hex}{suffix}")
+        os.makedirs(self.name, exist_ok=True)
+        self._ignore_cleanup_errors = ignore_cleanup_errors
+
+    def __enter__(self):
+        return self.name
+
+    def cleanup(self):
+        shutil.rmtree(self.name, ignore_errors=self._ignore_cleanup_errors or True)
+
+    def __exit__(self, exc_type, exc, tb):
+        self.cleanup()
+
+
+class _NamedTemporaryFileWrapper:
+    def __init__(self, file_obj, path: str, delete: bool):
+        self._file = file_obj
+        self.name = path
+        self._delete = delete
+
+    def __getattr__(self, item):
+        return getattr(self._file, item)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        self.close()
+
+    def close(self):
+        if not self._file.closed:
+            self._file.close()
+        if self._delete and os.path.exists(self.name):
+            os.unlink(self.name)
+
+
+def _safe_named_temporary_file(mode="w+b", suffix="", prefix="tmp", dir=None, delete=True, encoding=None, **_kwargs):
+    base_dir = dir or _TEST_TEMP_DIR
+    os.makedirs(base_dir, exist_ok=True)
+    path = os.path.join(base_dir, f"{prefix}_{uuid.uuid4().hex}{suffix}")
+    file_obj = open(path, mode, encoding=encoding)
+    return _NamedTemporaryFileWrapper(file_obj, path, delete)
 
 _LIGHTWEIGHT_TEST_ALLOWLIST = {
     os.path.join("backend", "tests", "test_whatsapp_gateway.py"),
@@ -87,7 +152,49 @@ def pytest_report_header(config):
         f"(LIGHTWEIGHT_TEST_MODE={mode}; missing dependencies skipped during collection: {', '.join(missing_modules)})"
     )
 
+
+@pytest.fixture(autouse=True)
+def _patch_tempfile(monkeypatch):
+    monkeypatch.setattr(tempfile, "TemporaryDirectory", _SafeTemporaryDirectory)
+    monkeypatch.setattr(tempfile, "NamedTemporaryFile", _safe_named_temporary_file)
+
+
+@pytest.fixture(autouse=True)
+def _stabilize_runtime_env(monkeypatch):
+    monkeypatch.setenv("DEMO_MODE", "false")
+    monkeypatch.setenv("APP_ENV", "local")
+    monkeypatch.setenv("TESTING", "true")
+
+    try:
+        from auth import dependencies as auth_dependencies
+
+        auth_dependencies._demo_user_cache.clear()
+    except Exception:
+        pass
+
+
+@pytest.fixture(autouse=True)
+def _clear_app_dependency_overrides():
+    try:
+        from main import app
+
+        app.dependency_overrides.clear()
+        yield
+        app.dependency_overrides.clear()
+    except Exception:
+        yield
+
+
+@pytest.fixture
+def tmp_path():
+    path = Path(_make_safe_temp_dir())
+    try:
+        yield path
+    finally:
+        shutil.rmtree(path, ignore_errors=True)
+
 if create_engine and sessionmaker:
+    import models  # noqa: F401  # Ensure SQLAlchemy model modules are imported before create_all
     from database import Base
 
     engine = create_engine(
@@ -127,12 +234,35 @@ def db_session(setup_database):
 def client(db_session):
     fastapi = pytest.importorskip("fastapi.testclient")
     from main import app
-    from database import get_db
+    from database import get_db, get_async_session
+
+    class AsyncSessionAdapter:
+        def __init__(self, session):
+            self._session = session
+
+        async def execute(self, *args, **kwargs):
+            return self._session.execute(*args, **kwargs)
+
+        def add(self, instance):
+            self._session.add(instance)
+
+        async def commit(self):
+            self._session.commit()
+
+        async def refresh(self, instance):
+            self._session.refresh(instance)
+
+        async def rollback(self):
+            self._session.rollback()
 
     def override_get_db():
         yield db_session
 
+    async def override_get_async_session():
+        yield AsyncSessionAdapter(db_session)
+
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_async_session] = override_get_async_session
     with fastapi.TestClient(app) as c:
         yield c
     app.dependency_overrides.clear()

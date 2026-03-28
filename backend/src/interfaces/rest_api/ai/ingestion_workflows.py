@@ -22,6 +22,7 @@ def _chunk_payload(chunks: list[Any]) -> list[dict[str, Any]]:
             "page_number": chunk.page_number,
             "section_title": chunk.section_title or "",
             "subject_id": chunk.subject_id or "",
+            "notebook_id": chunk.notebook_id or "",
             "source_file": chunk.source_file or "",
         }
         for chunk in chunks
@@ -46,6 +47,7 @@ async def execute_teacher_document_ingestion(request: InternalTeacherDocumentIng
             document_id=request.document_id,
             tenant_id=request.tenant_id,
             subject_id=request.subject_id,
+            notebook_id=str(document.notebook_id) if document.notebook_id else None,
         )
 
         if chunks:

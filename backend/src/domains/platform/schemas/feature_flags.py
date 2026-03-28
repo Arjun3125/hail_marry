@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 class FeatureFlagBase(BaseModel):
     feature_id: str
@@ -12,8 +12,7 @@ class FeatureFlagBase(BaseModel):
 class FeatureFlagResponse(FeatureFlagBase):
     id: int
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class FeatureFlagToggleRequest(BaseModel):
     enabled: bool

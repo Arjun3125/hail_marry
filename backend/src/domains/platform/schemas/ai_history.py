@@ -1,7 +1,7 @@
 """Pydantic schemas for AI history feature."""
 from datetime import datetime
 from typing import Optional, List
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class AIHistoryItem(BaseModel):
@@ -21,8 +21,7 @@ class AIHistoryItem(BaseModel):
     notebook_id: Optional[str] = None
     notebook_name: Optional[str] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class AIHistoryFilter(BaseModel):
@@ -65,8 +64,7 @@ class AIFolderResponse(BaseModel):
     created_at: datetime
     item_count: int = 0
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class AIFolderListResponse(BaseModel):

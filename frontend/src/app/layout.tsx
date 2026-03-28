@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "katex/dist/katex.min.css";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import { LanguageProvider } from "@/i18n/LanguageProvider";
 import { BrandingProvider } from "@/components/theme/BrandingProvider";
 import DemoToolbarWrapper from "@/components/DemoToolbarWrapper";
+import { QueryProvider } from "@/components/providers/QueryProvider";
 
 
 
@@ -42,13 +44,15 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <LanguageProvider>
-            <BrandingProvider>
-              <main id="main-content">
-                {children}
-              </main>
-              <DemoToolbarWrapper />
-              <div aria-live="polite" aria-atomic="true" className="sr-only" id="screen-reader-announcer" />
-            </BrandingProvider>
+            <QueryProvider>
+              <BrandingProvider>
+                <main id="main-content">
+                  {children}
+                </main>
+                <DemoToolbarWrapper />
+                <div aria-live="polite" aria-atomic="true" className="sr-only" id="screen-reader-announcer" />
+              </BrandingProvider>
+            </QueryProvider>
           </LanguageProvider>
         </ThemeProvider>
         <script

@@ -1,7 +1,7 @@
 """Context memory service for notebook-scoped conversation history."""
 from typing import Optional
 from uuid import UUID
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc
@@ -33,7 +33,7 @@ class ContextMemoryService:
         Returns:
             List of conversation entries with query and response
         """
-        since = datetime.utcnow() - timedelta(hours=hours)
+        since = datetime.now(UTC) - timedelta(hours=hours)
         
         query = self.db.query(AIQuery).filter(
             AIQuery.user_id == user_id,
@@ -166,7 +166,7 @@ class ContextMemoryService:
         )
         
         # Get today's count
-        today = datetime.utcnow().date()
+        today = datetime.now(UTC).date()
         today_count = (
             base_query
             .filter(func.date(AIQuery.created_at) == today)

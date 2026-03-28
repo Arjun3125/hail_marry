@@ -2,26 +2,30 @@
 
 **Project:** VidyaOS  
 **Version:** v0.1 current implementation  
-**Status:** Source of truth for the repo as implemented on 2026-03-25
+**Status:** Source of truth for the repository structure as of 2026-03-28
 
 ---
 
 ## 1. Architecture Decision
 
-The repository no longer matches the earlier fully monolithic description.
+The current repository is a modular monolith with a separate worker process.
 
-Current implementation is a split runtime with four practical service roles:
+Current practical service roles:
 - Next.js frontend
 - FastAPI public API
-- dedicated FastAPI AI service
 - Redis-backed worker
 
 Core data services:
 - PostgreSQL
 - Redis
-- FAISS vector storage (default)
-- Qdrant vector store (optional external backend)
+- FAISS vector storage by default
+- Qdrant as an optional vector backend
 - Ollama over HTTP
+
+Important clarification:
+- the current repo does not implement a separate FastAPI AI service
+- synchronous AI runs inside the API process
+- queued AI runs inside the worker process through the same internal gateway/workflow layer
 
 ## 2. Current System Topology
 
@@ -32,15 +36,15 @@ browser
   -> FastAPI public API
       -> PostgreSQL
       -> Redis
-      -> AI gateway
-          -> dedicated AI service
+      -> internal AI gateway
+          -> workflow execution
               -> Ollama
-              -> FAISS retrieval runtime
-      -> worker queue producer
+              -> retrieval runtime
 
 Redis-backed worker
   -> queued job orchestration
-  -> dedicated AI service for all AI-heavy execution
+  -> internal AI gateway
+  -> same workflow layer used by the API
 ```
 
 ## 3. Module Responsibilities
@@ -51,87 +55,86 @@ Implemented in `frontend/src/app`:
 - queue operations UI
 - dashboard alert UI
 - trace viewer UI
-- demo mode with role switching and guided walkthrough
-- feature management dashboard with AI intensity badges and profile switches
-- white-label branding configuration with live preview
+- demo mode with role switching
+- feature management dashboard
+- branding dashboard
+- enterprise admin pages for SSO, compliance, and incidents
 
 ### Public API
-Implemented in `backend/main.py` and `backend/routes/`:
+Implemented in `backend/main.py` and routed through domain modules:
 - auth and JWT handling
 - tenant scoping and RBAC
 - ERP APIs
 - admin APIs
 - queue enqueue/status routes
+- AI query routes
 - webhook emission
 - dashboard and observability APIs
-- demo management APIs (role switching, data reset)
-- enterprise APIs (SSO, compliance, incidents)
+- demo management APIs
+- enterprise APIs
 
-### Platform Domain
-Implemented in `backend/src/domains/platform/`:
-- Feature flag management (CRUD, toggle, bulk profile application)
-- Feature catalog with AI intensity and ERP module classification
-- Runtime `require_feature()` dependency for route-level feature gating
-- White-label branding API (logo upload, color extraction, config persistence)
-- Branding color extractor using `colorthief` with WCAG 2.1 contrast
+### AI Execution Layer
+Implemented across:
+- `backend/src/interfaces/rest_api/ai/routes/`
+- `backend/src/domains/platform/services/ai_gateway.py`
+- `backend/src/interfaces/rest_api/ai/workflows.py`
 
-### Shared Backend Constants
-Implemented in `backend/constants.py`:
-- centralized grading thresholds and `compute_grade()` helper
-- attendance/performance thresholds with `attendance_emoji()` and `performance_color()` helpers
-- file upload limits and allowed extensions per role
-- rate limiting window, PDF color constants, test defaults
-
-### Dedicated AI service
-Implemented in `backend/src/domains/ai_engine/router.py`:
-- query generation
-- audio overview generation
-- video overview generation
-- study-tool generation
-- teacher assessment generation
-- URL ingestion
-- teacher document ingestion
-- teacher YouTube ingestion
+Responsibilities:
+- synchronous text/audio/video AI requests
+- queued AI task execution
+- retrieval, prompt assembly, generation, and sanitation
+- citations, cache hooks, trace IDs, and AI query logging
 
 ### Worker
-Implemented in `backend/ai_worker.py` and `backend/services/ai_queue.py`:
+Implemented in:
+- `backend/ai_worker.py`
+- `backend/src/domains/platform/services/ai_queue.py`
+- `backend/worker_health_app.py`
+
+Responsibilities:
 - Redis job claiming and execution
 - queue state transitions
 - retry and dead-letter handling
-- dedicated AI service dispatch
-- worker health/readiness endpoint served by `backend/worker_health_app.py`
+- worker health/readiness endpoint
+
+### Platform Domain
+Implemented in `backend/src/domains/platform/`:
+- feature flag management
+- feature catalog bootstrap
+- runtime feature gating
+- branding API
+- docs chatbot
+- notifications
+- WhatsApp routes and gateway
+- notebook and generated-content APIs
 
 ## 4. Execution Boundaries
 
 ### Public synchronous AI requests
-- Public API does not execute generation locally.
-- It calls the dedicated AI service through `backend/services/ai_gateway.py`.
+- The public API executes generation locally through `ai_gateway.py`.
+- The active path is route handler -> gateway -> workflow function -> retrieval/provider layer.
 
 ### Queued AI jobs
-- Worker claims jobs from Redis.
-- Worker dispatches all AI-heavy job types to the dedicated AI service.
-- Job status responses include queue depth + position metadata for interactive UI feedback.
-- AI service routing supports multiple endpoints via `AI_SERVICE_URLS` for multi-GPU pools.
+- The worker claims jobs from Redis.
+- The worker also executes AI-heavy job types locally through the same internal gateway/workflow functions.
+- There is no external AI-service hop in the current runtime.
 
 ## 5. Data Flow
 
 ### Synchronous generation
+
 ```text
 client request
-  -> public API auth / tenant checks
-  -> AI gateway
-  -> AI service
-      -> embed
-      -> FAISS retrieval
-      -> rerank / dedup / compress
-      -> prompt assembly
-      -> Ollama generation
-      -> sanitize + citation validation
-  -> AIQuery log + trace events
+  -> public API auth and tenant checks
+  -> AI route
+  -> ai_gateway.py
+  -> retrieval and generation workflow
+  -> AIQuery log and trace events
   -> response
 ```
 
 ### Queued heavy work
+
 ```text
 client request
   -> public API validation
@@ -142,33 +145,45 @@ client request
   -> client polls status endpoint
 ```
 
+### Document watch ingestion
+
+```text
+watched folder change
+  -> runtime_scheduler.py
+  -> document row creation
+  -> queue enqueue
+  -> worker ingestion workflow
+```
+
 ## 6. Governance and Operations
 
 Implemented operator surfaces:
-- admin AI review with approve / flag
-- admin queue operations with pause / resume / drain / cancel / retry / dead-letter
+- admin AI review
+- admin queue operations
 - queue metrics and audit history
 - trace lookup by `trace_id`
-- active alert evaluation and dispatch through webhook subscriptions and email transports
-- enterprise APIs for SAML SSO settings, compliance exports, deletion tracking, and incident lifecycle
+- alert evaluation and dispatch
+- enterprise APIs for SSO, compliance, and incidents
+
+Known convergence gaps:
+- compliance and incident frontend pages exist, but their payload contracts still need cleanup
 
 ## 7. Observability Architecture
 
 Implemented in app code:
 - structured JSON logging
-- metrics endpoints on API, AI service, and worker
+- metrics endpoints on API and worker health app
 - OpenTelemetry instrumentation hooks
 - persistent trace-event recording
-- Sentry error tracking (API, AI service, worker)
+- Sentry integration
 
-Implemented in compose:
+Implemented in compose profiles:
 - Prometheus
 - Loki
 - Promtail
 - Tempo
 - Grafana
-- DCGM exporter for GPU metrics
-- prebuilt alert rules and Grafana dashboards provisioned from `ops/observability/`
+- DCGM exporter
 
 ## 8. Deployment Model
 
@@ -177,64 +192,31 @@ Tracked services in `docker-compose.yml`:
 - `postgres`
 - `redis`
 - `api`
-- `api`
 - `worker`
 - `frontend`
 - `nginx`
 
-Optional compose profile:
-Observability profile:
-- `prometheus`
-- `loki`
-- `promtail`
-- `tempo`
-- `grafana`
-- `dcgm-exporter`
+Optional compose profiles:
+- observability: `prometheus`, `loki`, `promtail`, `tempo`, `grafana`, `dcgm-exporter`
+- vector: `qdrant`
 
-Vector profile:
-- `qdrant`
-
-### External dependency
-- Ollama is still external to the compose stack and is reached through `OLLAMA_URL`.
-
-### Horizontal scaling
-- Nginx upstreams resolve Docker DNS, enabling `docker compose up --scale api=2 --scale worker=2`.
-- Shared Postgres/Redis/Qdrant backends keep API instances stateless.
+External dependency:
+- Ollama remains external to the compose stack and is reached over HTTP.
 
 ## 9. Middleware Stack
 
-The public API applies these middleware layers (last added executes first):
-- `ObservabilityMiddleware` — structured logging and request metrics
-- `CORSMiddleware` — cross-origin request control
-- `CSRFMiddleware` — CSRF protection (disabled in demo mode)
-- `TenantMiddleware` — tenant context injection from JWT
-- `RateLimitMiddleware` — request throttling (disabled in demo mode)
+The public API applies these middleware layers:
+- `ObservabilityMiddleware`
+- `CORSMiddleware`
+- `CSRFMiddleware` when enabled
+- `TenantMiddleware`
+- `RateLimitMiddleware` when enabled
+- `CaptchaMiddleware` when configured
 
-## 10. Test Suite
+## 10. Architectural Gaps to Keep in Mind
 
-382 tests across 48 files covering:
-- auth security, RBAC, JWT validation
-- CSRF middleware, tenant isolation
-- AI queue, alerting, gamification
-- file uploads, upload security (DOCX macro stripping)
-- constants validation, grading logic
-- whatsapp notifications, webhooks
-- leaderboard, rate limiting
-- compliance, incident management
-- structured logging, pagination
+- `AI_SERVICE_URL` settings are present, but they do not correspond to a real service boundary in the current implementation.
+- New notebook-related models do not fully follow the "all core tables carry tenant_id" rule described in some schema docs.
+- Feature flag, branding, and enterprise admin surfaces still need route-contract cleanup before they can be treated as fully converged.
 
-## 11. Remaining Architectural Gaps
-
-Still not fully closed:
-- Extended connectors are wired for PPTX/XLSX uploads and Google Docs/Notion URL ingestion when dependencies and API tokens are configured
-
-## 12. Convergence Rule
-
-Use this file as the source of truth for current runtime topology. Older references to:
-- fully monolithic AI execution
-- no worker queue
-- no observability stack
-- no parent portal
-- no demo mode
-
-should be treated as historical unless updated.
+Use this file as the source of truth for current runtime topology.

@@ -64,7 +64,7 @@ async def build_operations_summary(tenant_id: str) -> dict[str, Any]:
 
     recommended_actions: list[str] = []
     if ai_service_nodes and ai_healthy == 0:
-        recommended_actions.append("Dedicated AI service is down on all configured nodes; fail over or restart AI service pods.")
+        recommended_actions.append("AI runtime health checks are failing on all configured nodes; fail over or restart the affected API/worker processes.")
     if ollama_nodes and ollama_healthy == 0:
         recommended_actions.append("All Ollama endpoints are unavailable; switch provider or restore centralized Ollama capacity.")
     if queue_metrics.get("pending_depth", 0) > 100:

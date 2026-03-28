@@ -1,5 +1,6 @@
 """Tests for the WhatsApp notification service."""
 import asyncio
+import inspect
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 
@@ -121,7 +122,7 @@ class TestSendExamResult:
 for _name, _value in list(vars().items()):
     if _name.startswith("Test") and isinstance(_value, type):
         for _attr, _fn in list(vars(_value).items()):
-            if _attr.startswith("test_") and asyncio.iscoroutinefunction(_fn):
+            if _attr.startswith("test_") and inspect.iscoroutinefunction(_fn):
                 def _wrap(fn):
                     def _runner(*args, **kwargs):
                         return asyncio.run(fn(*args, **kwargs))

@@ -24,7 +24,12 @@ def _get_redis():
     if _redis_available is None:
         try:
             import redis as redis_lib
-            _redis = redis_lib.from_url(settings.redis.state_url, decode_responses=True)
+            redis_url = (
+                os.getenv("REDIS_STATE_URL")
+                or os.getenv("REDIS_URL")
+                or settings.redis.state_url
+            )
+            _redis = redis_lib.from_url(redis_url, decode_responses=True)
             _redis.ping()
             _redis_available = True
         except Exception:

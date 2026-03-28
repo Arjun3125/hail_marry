@@ -68,6 +68,8 @@ if "sqlite" in _db_url:
         echo=settings.database.echo,
         connect_args={"check_same_thread": False},
     )
+    async_engine.sync_engine.dialect.insert_returning = False
+    async_engine.sync_engine.dialect.update_returning = False
 else:
     engine = create_engine(
         _db_url,

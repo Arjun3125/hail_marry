@@ -241,8 +241,6 @@ def seed_demo_data(db):
          "While transitioning to renewable energy is essential for climate goals, your argument ignores the 'base-load' problem. Solar and wind are intermittent. Without massive, incredibly expensive battery infrastructure, a grid cannot provide 24/7 continuous power strictly on renewables alone. Should we rely entirely on weather patterns?", 310, 850, 0),
         ("Can you review my essay on Macbeth's ambition?", "essay_review",
          "**Structure**: Strong introduction; thesis is clear in paragraph 1.\n**Evidence**: Paragraph 3 lacks supporting quotes. Consider adding a citation regarding Lady Macbeth's influence in Act 1, Scene 5.\n**Grammar/Flow**: Your transitions between paragraph 2 and 3 feel abrupt. Try using a transition phrase like 'Furthermore' or 'Consequently'.\n\nOverall Score: 7.5/10. Focus on embedding your quotes smoothly.", 400, 950, 0),
-        ("I want to be a startup CEO. Simulate a scenario.", "career_sim",
-         "You are the CEO of *EdTech Solutions Inc*. Your Head of Marketing wants to double the ad budget to aggressively acquire users, but your CFO warns that doing so will cut your runway from 12 months down to 4 months.\n\nOption A: Approve the budget to drive rapid growth.\nOption B: Deny the budget and prioritize runway survival.\nOption C: Propose a compromise pilot program.\n\nWhat do you do, and why?", 450, 1000, 0),
     ]
     for i, (query, mode, response, tokens, time_ms, citations) in enumerate(ai_queries):
         db.add(AIQuery(
@@ -368,6 +366,6 @@ def seed_demo_data(db):
         ))
 
     db.commit()
-    print("✅ Demo data seeded successfully!")
+    print("Demo data seeded successfully.")
     return True
 

@@ -23,9 +23,6 @@
 - Flowcharts - Process visualization
 - Concept Maps - Relationship networks
 
-**Career Center**
-- Career Simulation - Role-play scenarios
-
 ## Phase 3: Layout Redesign
 
 ### New 3-Column Layout:
@@ -40,7 +37,7 @@
 │  • Practice     │  │                    │  │  • Quick Notes  │
 │  • Thinking     │  │   Main Content     │  │  • Suggestions  │
 │  • Visual       │  │   (Response/       │  │  • History      │
-│  • Career       │  │    Activity)       │  │                 │
+│                 │  │    Activity)       │  │                 │
 │                 │  │                    │  │                 │
 │  ─────────────  │  └────────────────────┘  │  ─────────────  │
 │                 │                          │                 │
@@ -136,7 +133,6 @@ frontend/src/app/student/ai-studio/
 --practice-accent: #10b981;      /* Emerald */
 --thinking-accent: #f59e0b;       /* Amber */
 --visual-accent: #06b6d4;         /* Cyan */
---career-accent: #ec4899;         /* Pink */
 
 /* Neutral Scale */
 --surface-50: #fafafa;
@@ -198,7 +194,7 @@ frontend/src/app/student/ai-studio/
 | `Esc` | Exit focus mode / close panels |
 | `Cmd/Ctrl + Enter` | Submit query |
 | `Cmd/Ctrl + L` | Toggle library panel |
-| `1-5` | Quick tool group switch |
+| `1-4` | Quick tool group switch |
 | `?` | Show keyboard help |
 
 ### Drag & Drop:

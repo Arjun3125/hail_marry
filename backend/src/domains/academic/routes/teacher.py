@@ -566,6 +566,7 @@ async def upload_document(
             file_path=str(file_path),
             document_id=str(doc.id),
             tenant_id=str(current_user.tenant_id),
+            notebook_id=str(doc.notebook_id) if doc.notebook_id else None,
         )
 
         if chunks:
@@ -578,6 +579,7 @@ async def upload_document(
                 "page_number": c.page_number,
                 "section_title": c.section_title or "",
                 "subject_id": c.subject_id or "",
+                "notebook_id": c.notebook_id or "",
                 "source_file": c.source_file or "",
             } for c in chunks]
             store.add_chunks(chunk_dicts, embeddings)

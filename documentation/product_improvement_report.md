@@ -1,6 +1,6 @@
 # VidyaOS Product Improvement Report
 
-> Deployment context: VidyaOS is intended to run as a hosted website where users log in from browser, while a centralized Ollama-backed AI service handles inference.
+> Deployment context: VidyaOS is intended to run as a hosted website where users log in from browser, with the current repository executing AI through the main API runtime plus a worker for queued jobs.
 
 This report is now split into two explicit parts as requested:
 - **Part A — User Product Experience** (admins/teachers/students/parents)

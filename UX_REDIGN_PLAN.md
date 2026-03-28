@@ -92,8 +92,6 @@ Problem: Context loss, duplicate input, 2-page navigation
 │  ├─ Flowcharts - Process visualization                       │
 │  └─ Concept Maps - Relationship networks                    │
 ├─────────────────────────────────────────────────────────────┤
-│  CAREER CENTER (Pink theme)                                 │
-│  └─ Career Simulation - Role-play professional scenarios   │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -104,7 +102,7 @@ Problem: Context loss, duplicate input, 2-page navigation
 2. **Practice** (Practice Lab) → Test knowledge
 3. **Deepen** (Thinking Studio) → Critical analysis
 4. **Visualize** (Visual Studio) → Structure understanding
-5. **Apply** (Career Center) → Real-world context
+5. **Apply** (Projects and assessments) → Real-world context
 
 ### 2.3 Visual Grouping Design
 
@@ -159,9 +157,6 @@ Problem: Context loss, duplicate input, 2-page navigation
 │    ○ Concept    │                          │                 │
 │                 │                          │                 │
 │  ─────────────  │                          │                 │
-│                 │                          │                 │
-│  ● Career       │                          │                 │
-│    ○ Career Sim │                          │                 │
 │                 │                          │                 │
 └─────────────────┴──────────────────────────┴─────────────────┘
 ```
@@ -396,10 +391,6 @@ const handleGenerateQuiz = (response) => {
 --visual-secondary: #3b82f6;
 --visual-gradient: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%);
 
-/* Pink - Career Center */
---career-primary: #ec4899;
---career-secondary: #d946ef;
---career-gradient: linear-gradient(135deg, #ec4899 0%, #d946ef 100%);
 ```
 
 **Neutral Scale:**
@@ -609,7 +600,7 @@ Estimated time: 45 minutes
 | `Cmd/Ctrl + B` | Toggle tool rail | Global |
 | `Cmd/Ctrl + Shift + Delete` | Clear conversation | Global |
 | `?` | Show keyboard help | Global |
-| `1-5` | Quick tool group switch | Global |
+| `1-4` | Quick tool group switch | Global |
 | `↑ / ↓` | Navigate history | Chat context |
 | `Space` | Page down | Reading mode |
 | `F` (flashcards) | Flip card | Flashcard mode |
@@ -651,8 +642,6 @@ Estimated time: 45 minutes
 - `2` → Practice Lab
 - `3` → Thinking Studio
 - `4` → Visual Studio
-- `5` → Career Center
-
 **Method 2: Command Palette**
 - Type tool name
 - Recent tools prioritized

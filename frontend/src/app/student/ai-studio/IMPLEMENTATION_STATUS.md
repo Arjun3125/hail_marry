@@ -24,7 +24,6 @@
    - Practice (Quiz, Flashcards, Exam Prep)
    - Thinking (Debate, Essay Review)
    - Visual (Mind Map, Flowchart, Concept Map)
-   - Career (Career Simulation)
 
 2. **3-Column Layout**:
    - Left: Collapsible ToolRail

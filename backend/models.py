@@ -26,5 +26,9 @@ from src.domains.administrative.models.complaint import Complaint  # noqa: F401
 from src.domains.platform.models.ai import AIQuery          # noqa: F401
 from src.domains.platform.models.document import Document    # noqa: F401
 from src.domains.platform.models.audit import AuditLog       # noqa: F401
+from src.domains.platform.models.feature_flag import FeatureFlag  # noqa: F401
 from src.domains.platform.models.webhook import WebhookSubscription, WebhookDelivery  # noqa: F401
 from src.domains.platform.models.spaced_repetition import ReviewSchedule  # noqa: F401
+from src.domains.platform.models.notebook import Notebook  # noqa: F401
+from src.domains.platform.models.generated_content import GeneratedContent  # noqa: F401
+from src.domains.platform.models.knowledge_graph import KGConcept, KGRelationship  # noqa: F401

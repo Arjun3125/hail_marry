@@ -1,4 +1,6 @@
 """AI query route orchestrating cache, quotas, logging, and AI execution."""
+import json
+import random
 from typing import Optional
 from uuid import UUID
 import time
@@ -27,6 +29,7 @@ from src.domains.platform.models.ai import AIQuery
 from src.domains.identity.models.tenant import Tenant
 from src.domains.identity.models.user import User
 from src.domains.platform.models.generated_content import GeneratedContent
+from src.domains.platform.models.notebook import Notebook
 from src.domains.platform.schemas.ai_runtime import AIQueryRequest, InternalAIQueryRequest
 from src.domains.platform.services.ai_gateway import run_text_query
 from src.domains.platform.services.context_memory import get_context_memory_service
@@ -35,6 +38,168 @@ from src.domains.platform.services.webhooks import emit_webhook_event
 from src.domains.platform.services.feature_flags import require_feature
 
 router = APIRouter(prefix="/api/ai", tags=["AI"])
+
+
+def _compact_topic(query: str, *, fallback: str = "the selected topic") -> str:
+    topic = " ".join(query.strip().split())
+    if not topic:
+        return fallback
+    return topic[:120]
+
+
+def _build_demo_ai_result(request: AIQueryRequest) -> dict:
+    """Return prompt-aware demo content instead of replaying stale historical logs."""
+    topic = _compact_topic(request.query)
+    topic_label = topic.title()
+    source_label = "Demo notebook preview" if request.notebook_id else "Demo source preview"
+    demo_notice = "Demo mode preview. This response is generated from the current prompt without live retrieval or citations."
+
+    if request.mode == "quiz":
+        answer = json.dumps(
+            {
+                "questions": [
+                    {
+                        "q": f"What is the main idea behind {topic}?",
+                        "options": [
+                            f"It explains a core principle of {topic}.",
+                            f"It describes an unrelated historical event.",
+                            f"It is only a mathematical formula.",
+                            f"It has no practical meaning.",
+                        ],
+                        "answer": 0,
+                    },
+                    {
+                        "q": f"Which study action best helps review {topic}?",
+                        "options": [
+                            "Ignore examples and memorize headings only.",
+                            f"Summarize {topic} in your own words and test recall.",
+                            "Skip revision and move to a different chapter.",
+                            "Only copy notes without checking understanding.",
+                        ],
+                        "answer": 1,
+                    },
+                ]
+            }
+        )
+    elif request.mode == "flashcards":
+        answer = json.dumps(
+            {
+                "cards": [
+                    {
+                        "front": f"What is {topic}?",
+                        "back": f"{topic_label} is the focus of this demo prompt. In live mode, the back would be grounded in uploaded materials.",
+                    },
+                    {
+                        "front": f"Why does {topic} matter?",
+                        "back": f"It helps the student understand the core concepts, vocabulary, and applications connected to {topic}.",
+                    },
+                ]
+            }
+        )
+    elif request.mode == "mindmap":
+        answer = json.dumps(
+            {
+                "label": topic_label,
+                "children": [
+                    {"label": "Definition"},
+                    {"label": "Key Steps"},
+                    {"label": "Examples"},
+                ],
+            }
+        )
+    elif request.mode == "concept_map":
+        answer = json.dumps(
+            {
+                "nodes": [
+                    {"id": "topic", "label": topic_label},
+                    {"id": "basics", "label": "Basics"},
+                    {"id": "application", "label": "Application"},
+                ],
+                "edges": [
+                    {"from": "topic", "to": "basics", "label": "includes"},
+                    {"from": "topic", "to": "application", "label": "supports"},
+                ],
+            }
+        )
+    elif request.mode == "flowchart":
+        answer = "\n".join(
+            [
+                "flowchart TD",
+                f'A["Start: {topic_label}"] --> B["Review core idea"]',
+                'B --> C["Break into steps"]',
+                'C --> D["Apply to an example"]',
+                'D --> E["Check understanding"]',
+            ]
+        )
+    elif request.mode == "study_guide":
+        answer = "\n".join(
+            [
+                f"# Demo Study Guide: {topic_label}",
+                "",
+                "## What to learn",
+                f"- Define {topic}",
+                f"- Identify the main parts or stages of {topic}",
+                f"- Explain one example or application of {topic}",
+                "",
+                "## Revision prompts",
+                f"- How would you explain {topic} to a classmate?",
+                f"- What are the most important terms connected to {topic}?",
+                "",
+                "_Demo mode note: use live mode for grounded study guidance from uploaded materials._",
+            ]
+        )
+    elif request.mode == "socratic":
+        answer = (
+            f"Demo Socratic prompt for '{topic}': what do you already know about it, "
+            f"and which part feels least clear right now? Start there and try one concrete example."
+        )
+    elif request.mode == "perturbation":
+        answer = "\n".join(
+            [
+                f"1. Explain {topic} using a simpler real-world example.",
+                f"2. Compare {topic} with a related but different concept.",
+                f"3. Solve a variation where one condition of {topic} changes.",
+                "",
+                "Great that you're practicing deeply - this builds real mastery!",
+            ]
+        )
+    elif request.mode == "debate":
+        answer = (
+            f"Demo debate response for '{topic}': your starting claim needs one clear reason, "
+            f"one counterargument, and one example before it becomes persuasive."
+        )
+    elif request.mode == "essay_review":
+        answer = "\n".join(
+            [
+                f"Demo essay review for '{topic}':",
+                "- Strength: the topic is clearly stated.",
+                "- Improve: add more evidence or examples.",
+                "- Next question: which paragraph best supports your thesis, and why?",
+            ]
+        )
+    elif request.mode == "weak_topic":
+        answer = (
+            f"Demo remediation plan for '{topic}': review the definition, practice one worked example, "
+            "and test yourself with two short recall questions."
+        )
+    else:
+        answer = (
+            f"Demo answer for '{topic}'. Live mode would retrieve notebook or document context before generating a grounded response."
+        )
+
+    return {
+        "answer": answer,
+        "mode": request.mode,
+        "citations": [],
+        "token_usage": random.randint(120, 260),
+        "citation_count": 0,
+        "has_context": False,
+        "citation_valid": False,
+        "is_demo_response": True,
+        "runtime_mode": "demo",
+        "demo_notice": demo_notice,
+        "demo_sources": [source_label],
+    }
 
 
 def _format_knowledge_graph_context(context: list[dict]) -> str:
@@ -56,6 +221,19 @@ def _format_knowledge_graph_context(context: list[dict]) -> str:
     if not lines:
         return ""
     return "Relevant concepts:\n" + "\n".join(lines)
+
+
+def _validate_notebook_access(db: Session, current_user: User, notebook_id: UUID | None) -> None:
+    if not notebook_id:
+        return
+    notebook = db.query(Notebook).filter(
+        Notebook.id == notebook_id,
+        Notebook.tenant_id == current_user.tenant_id,
+        Notebook.user_id == current_user.id,
+        Notebook.is_active == True,
+    ).first()
+    if not notebook:
+        raise HTTPException(status_code=404, detail="Notebook not found")
 
 
 async def _prepare_ai_query(
@@ -106,6 +284,8 @@ async def ai_query(
     _feat: bool = Depends(require_feature("ai_chat")),
 ):
     """Process an AI query while keeping quota, caching, and audit logging in the API tier."""
+    _validate_notebook_access(db, current_user, request.notebook_id)
+
     trace_id = str(uuid.uuid4())[:8]
     start_time = time.time()
 
@@ -125,25 +305,11 @@ async def ai_query(
         )
 
     from config import settings
-    import random
     knowledge_context: list[dict] = []
     hyde_query = request.query
     conversation_context = ""
     if settings.app.demo_mode:
-        demo_log = db.query(AIQuery).filter(
-            AIQuery.tenant_id == current_user.tenant_id,
-            AIQuery.mode == request.mode
-        ).first()
-
-        ai_result = {
-            "answer": demo_log.response_text if demo_log else f"This is a mocked response for {request.mode} mode generated in Demo Mode.",
-            "mode": request.mode,
-            "citations": [],
-            "token_usage": random.randint(150, 500),
-            "citation_count": 0,
-            "has_context": True,
-            "citation_valid": True,
-        }
+        ai_result = _build_demo_ai_result(request)
     else:
         cached = get_cached_response(
             tenant_id=current_user.tenant_id,
@@ -189,11 +355,12 @@ async def ai_query(
         "hyde_query": hyde_query if hyde_query != request.query else None,
         "knowledge_graph": knowledge_context,
         "conversation_context_used": bool(conversation_context),
+        "runtime_mode": ai_result.get("runtime_mode", "live"),
+        "is_demo_response": ai_result.get("is_demo_response", False),
+        "demo_notice": ai_result.get("demo_notice"),
+        "demo_sources": ai_result.get("demo_sources", []),
     }
     result = make_citations_clickable(result, current_user.tenant_id, db)
-
-    if settings.app.demo_mode:
-        return result
 
     ai_log = AIQuery(
         tenant_id=current_user.tenant_id,
@@ -209,29 +376,30 @@ async def ai_query(
     )
     db.add(ai_log)
     db.commit()
+    db.refresh(ai_log)
 
-    try:
-        await emit_webhook_event(
-            db=db,
-            tenant_id=current_user.tenant_id,
-            event_type="ai.query.completed",
-            data={
-                "query_id": str(ai_log.id),
-                "user_id": str(current_user.id),
-                "mode": ai_result["mode"],
-                "trace_id": trace_id,
-                "token_usage": ai_result.get("token_usage", 0),
-                "response_time_ms": elapsed_ms,
-            },
-        )
-    except Exception:
-        pass
+    if not settings.app.demo_mode:
+        try:
+            await emit_webhook_event(
+                db=db,
+                tenant_id=current_user.tenant_id,
+                event_type="ai.query.completed",
+                data={
+                    "query_id": str(ai_log.id),
+                    "user_id": str(current_user.id),
+                    "mode": ai_result["mode"],
+                    "trace_id": trace_id,
+                    "token_usage": ai_result.get("token_usage", 0),
+                    "response_time_ms": elapsed_ms,
+                },
+            )
+        except Exception:
+            pass
 
     # Save structured content (quiz, flashcards, mindmap, etc.) to generated_content table
     structured_modes = {"quiz", "flashcards", "mindmap", "concept_map", "flowchart"}
     if request.notebook_id and ai_result["mode"] in structured_modes:
         try:
-            import json
             content_data = {
                 "query": request.query,
                 "mode": ai_result["mode"],
@@ -246,19 +414,21 @@ async def ai_query(
                 title=f"{ai_result['mode'].replace('_', ' ').title()} - {request.query[:50]}",
                 content=content_data,
                 source_query=request.query,
+                parent_conversation_id=ai_log.id,
             )
             db.add(generated)
             db.commit()
         except Exception:
             pass  # Don't fail the request if saving content fails
 
-    cache_response(
-        tenant_id=str(current_user.tenant_id),
-        query=request.query,
-        mode=ai_result["mode"],
-        response=result,
-        subject_id=request.subject_id or "",
-    )
+    if not settings.app.demo_mode:
+        cache_response(
+            tenant_id=str(current_user.tenant_id),
+            query=request.query,
+            mode=ai_result["mode"],
+            response=result,
+            subject_id=request.subject_id or "",
+        )
 
     return result
 
@@ -307,7 +477,7 @@ async def run_ai_workflow_step(
     if not step:
         return {"workflow": get_workflow(workflow_id), "completed": True}
 
-    prepared_query, knowledge_context, hyde_query = await _prepare_ai_query(
+    prepared_query, knowledge_context, hyde_query, _conversation_context = await _prepare_ai_query(
         db=db,
         tenant_id=str(current_user.tenant_id),
         query=step["prompt"],

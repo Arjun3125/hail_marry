@@ -21,11 +21,11 @@ These caveats should be applied when interpreting the ratings below.
 ### Strengths (what sells)
 | Area | Rating | Why |
 |------|--------|-----|
-| **Feature depth** | 9/10 | 61 features across 4 roles — comprehensive school ERP + AI platform + feature management + branding |
+| **Feature depth** | 9/10 | Broad feature coverage across 4 roles, including ERP, AI workflows, feature management, and branding |
 | **AI integration** | 8/10 | Grounded Q&A and study tools are implemented; citations and docs chatbot are wired; connectors are wired when tokens are configured |
 | **Architecture** | 9/10 | Multi-tenant, role-based, plugin architecture, OpenAI-compat API, structured logging, telemetry |
 | **Security** | 8/10 | CSRF, rate limiting, tenant isolation, JWT, RBAC, DPDP compliance; reCAPTCHA + refresh token blacklist enforced when configured |
-| **Test coverage** | 9/10 | 382 tests across 48 files covering auth, RBAC, fees, library, AI, connectors, plugins, and more |
+| **Test coverage** | 9/10 | A substantial backend test suite covers auth, RBAC, fees, library, AI, connectors, plugins, and more |
 
 ### Weaknesses (what needs work before scaling)
 | Area | Rating | Gap |

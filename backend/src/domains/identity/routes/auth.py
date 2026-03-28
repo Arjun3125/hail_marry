@@ -17,8 +17,6 @@ from src.domains.identity.models.tenant import Tenant
 from src.domains.identity.models.user import User
 from src.domains.identity.schemas.auth import GoogleLoginRequest, TokenResponse, UserResponse
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 from src.domains.identity.services.saml_sso import (
     build_service_provider_metadata,
     create_or_update_saml_user,
@@ -27,6 +25,7 @@ from src.domains.identity.services.saml_sso import (
     saml_login_redirect,
 )
 
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 
 
@@ -45,6 +44,14 @@ def _refresh_expiry(payload: dict) -> datetime | None:
         return datetime.fromtimestamp(int(exp), tz=timezone.utc)
     except (TypeError, ValueError):
         return None
+
+
+def _coerce_utc(value: datetime | None) -> datetime | None:
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
 
 
 def _issue_login_tokens(user: User, response: Response) -> str:
@@ -248,7 +255,8 @@ def _consume_qr_token(db: Session, token: str) -> User:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid QR token")
 
     now = datetime.now(timezone.utc)
-    if user.qr_login_expires_at and user.qr_login_expires_at <= now:
+    expires_at = _coerce_utc(user.qr_login_expires_at)
+    if expires_at and expires_at <= now:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="QR token expired")
 
     user.qr_login_token = None
@@ -451,56 +459,3 @@ async def logout(
 
 # ─── QR Code Auto-Login ─────────────────────────────────────
 
-@router.get("/qr-login/{token}")
-async def qr_login(
-    token: str,
-    response: Response,
-    db: Session = Depends(get_db),
-):
-    """Auto-login via QR code token. Redirects to student dashboard on success."""
-    if not token or len(token) < 10:
-        raise HTTPException(status_code=400, detail="Invalid QR token")
-
-    user = db.query(User).filter(
-        User.qr_login_token == token,
-        User.is_active == True,
-    ).first()
-
-    if not user:
-        raise HTTPException(status_code=404, detail="Invalid or expired QR token")
-
-    # Update last login
-    user.last_login = datetime.now(timezone.utc)
-    # Invalidate the token after first use for security
-    user.qr_login_token = None
-    db.commit()
-
-    token_data = {
-        "user_id": str(user.id),
-        "tenant_id": str(user.tenant_id),
-        "email": user.email,
-        "role": user.role,
-    }
-    access_token = create_access_token(token_data)
-    refresh_token_val = create_refresh_token(token_data)
-    cookie_secure, cookie_samesite = _cookie_policy()
-
-    response = RedirectResponse(url="/student/overview", status_code=302)
-    response.set_cookie(
-        key="access_token",
-        value=access_token,
-        httponly=True,
-        secure=cookie_secure,
-        samesite=cookie_samesite,
-        max_age=3600,
-    )
-    response.set_cookie(
-        key="refresh_token",
-        value=refresh_token_val,
-        httponly=True,
-        secure=cookie_secure,
-        samesite=cookie_samesite,
-        max_age=7 * 24 * 3600,
-        path="/api/auth/refresh",
-    )
-    return response

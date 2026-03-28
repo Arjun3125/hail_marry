@@ -1,4 +1,4 @@
-"""Startup dependency checks for API, AI service, and worker processes."""
+"""Startup dependency checks for API and worker processes."""
 from __future__ import annotations
 
 import logging

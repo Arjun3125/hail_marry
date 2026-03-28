@@ -107,7 +107,6 @@
 .tool-group-practice { --group-color: var(--practice-primary, #10b981); }
 .tool-group-thinking { --group-color: var(--thinking-primary, #f59e0b); }
 .tool-group-visual { --group-color: var(--visual-primary, #06b6d4); }
-.tool-group-career { --group-color: var(--career-primary, #ec4899); }
 
 /* Collapse Toggle Button */
 .collapse-toggle {

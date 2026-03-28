@@ -12,7 +12,6 @@ import {
     Brain,
     GitBranch,
     Network,
-    Briefcase,
     ChevronLeft,
     ChevronRight,
 } from "lucide-react";
@@ -70,16 +69,6 @@ const toolGroups = [
             { id: "mindmap", label: "Mind Map", icon: Brain, desc: "Hierarchies" },
             { id: "flowchart", label: "Flowchart", icon: GitBranch, desc: "Processes" },
             { id: "concept_map", label: "Concept Map", icon: Network, desc: "Relationships" },
-        ],
-    },
-    {
-        id: "career",
-        label: "Career",
-        color: "from-pink-500 to-rose-600",
-        bgColor: "bg-pink-500/10",
-        textColor: "text-pink-600",
-        tools: [
-            { id: "career_sim", label: "Career Sim", icon: Briefcase, desc: "Role-play" },
         ],
     },
 ];

@@ -191,4 +191,4 @@ if settings.app.demo_mode:
             seed_demo_data(_db)
         _db.close()
     except Exception as e:
-        print(f"⚠️ Demo seed check: {e}")
+        print(f"Warning: demo seed check failed: {e}")

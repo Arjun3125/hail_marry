@@ -5,14 +5,21 @@
 > It is **NOT** a live or continuously updated architectural reference. Many gaps identified here have since been resolved.
 > Do not use this as the single source of truth for the current state.
 >
+> Some claims below are now stale, including older hardcoded test counts and the previously documented dedicated AI-service split.
+> For the current repository state, use:
+> - `README.md`
+> - `documentation/system_docs/Architecture.md`
+> - `documentation/system_docs/System overview.md`
+> - `documentation/system_docs/Testing.md`
+>
 > **Gaps resolved since this audit (as of 2026-03-13):**
-> - ✅ Test suite: 382 tests across 48 files (was "near-zero")
+> - ✅ Test coverage expanded substantially beyond the original "near-zero" state
 > - ✅ Observability stack deployed (Prometheus, Grafana, Loki, Tempo)
 > - ✅ Sentry error tracking integrated
 > - ✅ GPU monitoring via DCGM exporter + Grafana dashboard
 > - ✅ CI/CD pipeline via GitHub Actions
 > - ✅ AI request queue implemented (Redis-backed worker)
-> - ✅ AI separated into dedicated microservice (`src/domains/ai_engine/router.py`)
+> - ✅ AI queue implemented and worker execution expanded
 > - ✅ Provider abstraction wired
 > - ✅ Multi-AI-service routing for GPU pools (`AI_SERVICE_URLS`)
 > - ✅ Queue position/depth feedback in job status
@@ -134,7 +141,7 @@ Schools continue using generic chatbots (hallucination risk), expensive cloud AI
 | **Document Ingestion** | `ai/ingestion.py` — PDF (PyMuPDF), DOCX (python-docx), YouTube transcripts, hierarchical chunking (400 tokens, 80 overlap) | ✅ Matches docs |
 | **Provider Abstraction** | `ai/providers.py` — `BaseLLM`, `BaseEmbedding`, `BaseVectorStore`, `BaseParser` ABCs | ✅ Implemented |
 | **LLM Inference** | Direct `httpx` call to Ollama API | ⚠️ **Does NOT use provider abstraction** |
-| **Prompt Templates** | 13 modes: Q&A, Study Guide, Quiz, Concept Map, Weak Topic, Flowchart, Mindmap, Flashcards, Socratic, Perturbation, Debate, Essay Review, Career Sim | ✅ Exceeds docs (docs list 5, code has 13) |
+| **Prompt Templates** | 12 modes: Q&A, Study Guide, Quiz, Concept Map, Weak Topic, Flowchart, Mindmap, Flashcards, Socratic, Perturbation, Debate, Essay Review | ✅ Exceeds docs (docs list 5, code has 12) |
 | **Output Sanitization** | `sanitize_ai_output()` — strips file paths, API keys, config leakage | ✅ Implemented |
 | **Caching** | `ai/cache.py` — query-level caching with TTL | ✅ Implemented |
 | **Webhooks** | `services/webhooks.py` — event emission on AI query completion | ✅ Implemented |
@@ -253,8 +260,6 @@ Student submits query via /api/ai/query
 | **Perturbation (Exam Prep)** | `perturbation` | Novel question variations | Same | Variations may drift from syllabus scope |
 | **Debate Partner** | `debate` | Counter-arguments with evidence | Same | May confuse younger students |
 | **Essay Review** | `essay_review` | Structural feedback on writing | Same | Limited to text analysis, no grammar engine |
-| **Career Simulation** | `career_sim` | Professional scenario role-play | Same | Scenarios are AI-generated, not verified |
-
 ## Admin Governance Features
 
 | Feature | Routes | Purpose |
@@ -400,7 +405,7 @@ Malicious student modifies JWT → injects different tenant_id
 | Provider abstraction | ✅ Wired | Retrieval/workflows use provider adapters |
 | Configuration | ✅ Good | YAML-based with env overrides, Pydantic settings |
 | Frontend structure | ✅ Good | Next.js app router, role-based route organization |
-| Test coverage | ✅ Strong | `backend/tests/` has 382 tests across 48 files covering auth, RBAC, CSRF, rate limiting, tenant isolation, constants, services, fees, AI orchestration, plugins, and more |
+| Test coverage | ✅ Strong | The repository contains a substantial backend test suite covering auth, RBAC, CSRF, rate limiting, tenant isolation, constants, services, fees, AI orchestration, plugins, and more. See `documentation/system_docs/Testing.md` for current guidance. |
 
 ## Vendor Lock-in Risks
 
@@ -477,7 +482,7 @@ Tier-based pricing (documented):
 |---|---|---|---|
 | **GPU hardware failure** | 🔴 High | Reversible | Single point of failure; no failover GPU. Daily backups mitigate data loss but not downtime. |
 | **Provider abstraction not wired** | ✅ Resolved | Resolved | Provider adapters wired in retrieval/workflows. |
-| **No test suite** | ✅ Resolved | Resolved | 382 tests across 48 files: auth, RBAC, CSRF, rate limit, tenant isolation, constants, whatsapp, webhooks, leaderboard, compliance, incidents, upload security, fees, connectors, HyDE, citations, agents, plugins. |
+| **No test suite** | ✅ Resolved | Resolved | A substantial backend test suite now exists across auth, RBAC, CSRF, rate limiting, tenant isolation, constants, WhatsApp, webhooks, leaderboard, compliance, incidents, upload security, fees, connectors, HyDE, citations, agents, and plugins. |
 | **No CI/CD pipeline** | ✅ Resolved | GitHub Actions pipeline runs backend + frontend checks. |
 | **Refresh token not blacklisted** | ✅ Resolved | Resolved | Refresh token blacklist enforced during refresh/logout. |
 | **No monitoring/alerting** | ✅ Resolved | Resolved | Prometheus, Grafana, Loki, Tempo deployed. Structured JSON logging, metrics endpoints, OpenTelemetry hooks, admin alert UI, incident routing all implemented. |
@@ -602,7 +607,7 @@ Tier-based pricing (documented):
 **Yes, with caveats.** The core RAG pipeline works end-to-end. The architecture is sound. However:
 - Provider abstraction is designed but not wired (direct Ollama calls bypass the ABCs)
 - The documented model (Qwen 14B) differs from the implemented model (llama3.2)
-- Test coverage is strong (382 tests across 48 files)
+- Test coverage is materially stronger than at the time this audit was first written
 - Monitoring/observability is deployed (Prometheus/Grafana/Loki/Tempo + Sentry + GPU metrics)
 - AI inference uses a Redis-backed queue for heavy workloads; interactive chat remains synchronous
 

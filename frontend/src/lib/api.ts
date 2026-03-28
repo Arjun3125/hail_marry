@@ -1,7 +1,40 @@
-export const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000").replace(/\s+/g, "").replace(/\/+$/, "");
+const RAW_API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? "").replace(/\s+/g, "").replace(/\/+$/, "");
 const ACCESS_TOKEN_KEY = "vidyaos_access_token";
 
 export type APIErrorType = "auth" | "rate_limit" | "validation" | "service_unavailable" | "unknown";
+
+function isLoopbackHost(hostname: string): boolean {
+    return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1" || hostname === "[::1]";
+}
+
+function resolveAPIBase(): string {
+    if (typeof window === "undefined") {
+        return RAW_API_BASE || "http://localhost:8000";
+    }
+
+    if (!RAW_API_BASE) {
+        return "";
+    }
+
+    try {
+        const currentOrigin = new URL(window.location.origin);
+        const configuredOrigin = new URL(RAW_API_BASE, currentOrigin.origin);
+
+        if (isLoopbackHost(configuredOrigin.hostname) && !isLoopbackHost(currentOrigin.hostname)) {
+            return "";
+        }
+
+        return configuredOrigin.origin === currentOrigin.origin ? "" : configuredOrigin.origin;
+    } catch {
+        return "";
+    }
+}
+
+function buildApiUrl(base: string, path: string): string {
+    return base ? `${base}${path}` : path;
+}
+
+export const API_BASE = resolveAPIBase();
 
 export class APIError extends Error {
     status: number;
@@ -48,8 +81,59 @@ export function clearStoredAccessToken() {
     window.localStorage.removeItem(ACCESS_TOKEN_KEY);
 }
 
+function getApiBaseCandidates(path: string): string[] {
+    const candidates = new Set<string>();
+
+    if (API_BASE) {
+        candidates.add(API_BASE);
+    }
+
+    if (typeof window !== "undefined") {
+        candidates.add(`${window.location.protocol}//${window.location.hostname}:8000`);
+        candidates.add("");
+    } else {
+        candidates.add("http://localhost:8000");
+    }
+
+    return Array.from(candidates).map((base) => buildApiUrl(base, path));
+}
+
+async function fetchWithFallback(path: string, options: RequestInit): Promise<Response> {
+    let lastError: unknown;
+
+    for (const url of getApiBaseCandidates(path)) {
+        try {
+            const response = await fetch(url, options);
+
+            // In local demo/dev mode, a same-origin `/api/*` miss means the
+            // request hit Next.js instead of the FastAPI backend. Fall through
+            // to the explicit backend candidate before surfacing the 404.
+            if (
+                typeof window !== "undefined" &&
+                response.status === 404 &&
+                path.startsWith("/api/") &&
+                (url.startsWith("/") || url.startsWith(window.location.origin))
+            ) {
+                continue;
+            }
+
+            return response;
+        } catch (error) {
+            lastError = error;
+        }
+    }
+
+    throw new APIError(
+        lastError instanceof Error
+            ? `Failed to reach the API service. ${lastError.message}`
+            : "Failed to reach the API service.",
+        0,
+        "service_unavailable",
+        "Retry now",
+    );
+}
+
 export async function apiFetch(path: string, options: RequestInit = {}) {
-    const url = `${API_BASE}${path}`;
     const headers = new Headers(options.headers || {});
     const token = getStoredAccessToken();
 
@@ -60,7 +144,7 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
         headers.set("Authorization", `Bearer ${token}`);
     }
 
-    const res = await fetch(url, {
+    const res = await fetchWithFallback(path, {
         credentials: "include",
         headers,
         ...options,
@@ -69,6 +153,15 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
     if (!res.ok) {
         const error = await res.json().catch(() => ({ detail: "Request failed" }));
         throw classifyAPIError(res.status, error.detail || `HTTP ${res.status}`);
+    }
+
+    if (res.status === 204) {
+        return null;
+    }
+
+    const contentType = res.headers.get("content-type") || "";
+    if (!contentType.includes("application/json")) {
+        return null;
     }
 
     return res.json();
@@ -81,7 +174,7 @@ async function apiFormFetch(path: string, formData: FormData) {
         headers.set("Authorization", `Bearer ${token}`);
     }
 
-    const res = await fetch(`${API_BASE}${path}`, {
+    const res = await fetchWithFallback(path, {
         method: "POST",
         credentials: "include",
         headers,

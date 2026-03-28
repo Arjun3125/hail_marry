@@ -2,12 +2,11 @@
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class StrictBaseModel(BaseModel):
-    class Config:
-        extra = "forbid"
+    model_config = ConfigDict(extra="forbid")
 
 
 class GoogleLoginRequest(StrictBaseModel):
@@ -20,10 +19,7 @@ class TokenResponse(StrictBaseModel):
 
 
 class UserResponse(StrictBaseModel):
-    class Config:
-        extra = "forbid"
-        orm_mode = True
-        from_attributes = True
+    model_config = ConfigDict(extra="forbid", from_attributes=True)
 
     id: UUID
     tenant_id: UUID

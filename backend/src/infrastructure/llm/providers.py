@@ -53,6 +53,7 @@ class BaseVectorStore(ABC):
         query_embedding: List[float],
         top_k: int = 8,
         subject_id: Optional[str] = None,
+        notebook_id: Optional[str] = None,
     ) -> List[tuple]:
         raise NotImplementedError
 
@@ -205,8 +206,14 @@ class TenantVectorStoreAdapter(BaseVectorStore):
         query_embedding: List[float],
         top_k: int = 8,
         subject_id: Optional[str] = None,
+        notebook_id: Optional[str] = None,
     ) -> List[tuple]:
-        return self.store.search(query_embedding=query_embedding, top_k=top_k, subject_id=subject_id)
+        return self.store.search(
+            query_embedding=query_embedding,
+            top_k=top_k,
+            subject_id=subject_id,
+            notebook_id=notebook_id,
+        )
 
     def delete_document(self, document_id: str) -> int:
         before = self.store.chunk_count
@@ -272,6 +279,7 @@ class QdrantVectorStoreAdapter(BaseVectorStore):
         query_embedding: List[float],
         top_k: int = 8,
         subject_id: Optional[str] = None,
+        notebook_id: Optional[str] = None,
     ) -> List[tuple]:
         self._ensure_collection()
         payload: dict = {
@@ -279,15 +287,23 @@ class QdrantVectorStoreAdapter(BaseVectorStore):
             "limit": top_k,
             "with_payload": True,
         }
+        must_filters: list[dict] = []
         if subject_id:
-            payload["filter"] = {
-                "must": [
-                    {
-                        "key": "subject_id",
-                        "match": {"value": subject_id},
-                    }
-                ]
-            }
+            must_filters.append(
+                {
+                    "key": "subject_id",
+                    "match": {"value": subject_id},
+                }
+            )
+        if notebook_id:
+            must_filters.append(
+                {
+                    "key": "notebook_id",
+                    "match": {"value": notebook_id},
+                }
+            )
+        if must_filters:
+            payload["filter"] = {"must": must_filters}
         with httpx.Client(timeout=settings.vector_backend.timeout_seconds) as client:
             response = client.post(
                 f"{self._base_url()}/collections/{self.collection_name}/points/search",

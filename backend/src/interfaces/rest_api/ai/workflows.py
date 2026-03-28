@@ -1,4 +1,4 @@
-"""Shared AI workflows that can run in-process or behind a dedicated AI service."""
+"""Shared AI workflows used by the monolith and background worker."""
 from __future__ import annotations
 
 import json
@@ -269,28 +269,6 @@ Context from study materials:
 {context}
 
 Your review (strengths first, then guiding questions for improvement):""",
-    "career_sim": """You are an AI Career Simulator. You will role-play as a professional client or stakeholder in a specific career field.
-The student has chosen to explore a career, and you will present them with a realistic day-to-day professional scenario to solve.
-
-Your role:
-1. Briefly describe the career context and your role (e.g., "I'm the project manager at a tech startup...")
-2. Present a realistic professional problem or decision the student must address
-3. Ask the student specific questions a real professional would need to answer
-4. If the student responds, evaluate their approach and present follow-up challenges
-5. Connect the scenario to skills they're learning in school using the provided context
-
-Rules:
-- Keep it realistic but age-appropriate for high school students
-- Be encouraging: "It's great that you're exploring this career path!"
-- Ground the scenario in concepts from their study materials where possible
-- After presenting the scenario, always end with a specific question for the student to answer
-
-Career/Topic: {query}
-
-Context from study materials:
-{context}
-
-Your career simulation scenario:""",
 }
 
 AUDIO_PROMPTS = {
@@ -406,11 +384,11 @@ async def execute_text_query(request: InternalAIQueryRequest) -> dict:
                 num_predict=LENGTH_TOKENS.get(request.response_length, settings.llm.max_new_tokens),
             )
     except httpx.ConnectError as exc:
-        raise HTTPException(status_code=503, detail="Cannot connect to AI service (Ollama).") from exc
+        raise HTTPException(status_code=503, detail="Cannot connect to AI runtime (Ollama).") from exc
     except httpx.TimeoutException as exc:
         raise HTTPException(status_code=504, detail="AI request timed out. Try a simpler question.") from exc
     except httpx.HTTPStatusError as exc:
-        raise HTTPException(status_code=502, detail="AI service temporarily unavailable.") from exc
+        raise HTTPException(status_code=502, detail="AI runtime temporarily unavailable.") from exc
 
     answer = sanitize_ai_output(data.get("response", "No response generated."))
     citation_result = enforce_citations(
@@ -452,7 +430,7 @@ async def execute_audio_overview(request: InternalAudioOverviewRequest) -> dict:
     except httpx.TimeoutException as exc:
         raise HTTPException(status_code=504, detail="AI request timed out") from exc
     except httpx.HTTPStatusError as exc:
-        raise HTTPException(status_code=502, detail="AI service error") from exc
+        raise HTTPException(status_code=502, detail="AI runtime error") from exc
 
     return data.get("response", {})
     return {
@@ -485,7 +463,7 @@ async def execute_video_overview(request: InternalVideoOverviewRequest) -> dict:
     except httpx.TimeoutException as exc:
         raise HTTPException(status_code=504, detail="AI request timed out") from exc
     except httpx.HTTPStatusError as exc:
-        raise HTTPException(status_code=502, detail="AI service error") from exc
+        raise HTTPException(status_code=502, detail="AI runtime error") from exc
 
     return data.get("response", {})
     return {

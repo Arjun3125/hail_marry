@@ -258,7 +258,7 @@ This is what makes VidyaOS different from every other school software. **Your pa
 
 ## ⚙️ Feature Management & AI Configuration Profiles
 
-VidyaOS includes a **Feature Management System** that catalogs all 61 platform capabilities. Each feature is classified by:
+VidyaOS includes a **Feature Management System** that currently catalogs 55 platform capabilities. Each feature is classified by:
 - **AI Intensity Level**: Heavy AI, Medium AI, Low AI, No AI
 - **ERP Module**: Student Management, Learning Management, Finance, Admissions, etc.
 
