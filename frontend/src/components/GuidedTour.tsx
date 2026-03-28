@@ -37,7 +37,7 @@ export const teacherTourSteps: TourStep[] = [
 
 export const studentTourSteps: TourStep[] = [
     { target: "[href='/student/overview']", title: "Your Overview", description: "See your attendance, marks, and login streak at a glance." },
-    { target: "[href='/student/ai']", title: "AI Study Assistant", description: "Ask questions about your subjects — get grounded answers with citations." },
+    { target: "[href='/student/ai-studio']", title: "AI Study Studio", description: "Your all-in-one AI learning workspace with chat, flashcards, quizzes, and mind maps." },
     { target: "[href='/student/attendance']", title: "Attendance", description: "Track your daily attendance across all classes." },
     { target: "[href='/student/results']", title: "Results", description: "View your exam results and performance trends." },
 ];

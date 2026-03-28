@@ -1,4 +1,6 @@
 "use client";
+/* eslint-disable no-alert */
+console.log("[MindMap MODULE v2] mind-map/page.tsx LOADED at", new Date().toISOString());
 
 import { useRef, useState, useEffect, useCallback } from "react";
 import { Network, Loader2, ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
@@ -41,89 +43,120 @@ export default function InteractiveMindMapPage() {
         setError(null);
         setData(null);
         try {
-            const result = await api.student.generateTool({ tool: "mindmap", topic: topic.trim() }) as { content?: MindNode; mindmap?: MindNode };
-            const tree = result?.content || result?.mindmap || result;
+            console.log("[MindMap v2] generate() called with topic:", topic.trim());
+            const result = await api.student.generateTool({ tool: "mindmap", topic: topic.trim() });
+            console.log("[MindMap v2] Raw result type:", typeof result, "value:", JSON.stringify(result)?.slice(0, 200));
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const r = result as any;
+            const tree = r?.data || r?.content || r?.mindmap || r;
+            console.log("[MindMap v2] Extracted tree type:", typeof tree, "has label:", tree?.label);
             if (tree && typeof tree === "object" && "label" in tree) {
                 setData(tree as MindNode);
             } else {
-                setError("Could not parse mind map data");
+                setError("Could not parse mind map data. Keys: " + (r ? Object.keys(r).join(",") : "null"));
             }
-        } catch (err) {
-            setError(err instanceof Error ? err.message : "Failed to generate mind map");
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : String(err);
+            console.error("[MindMap v2] CAUGHT ERROR:", msg, err);
+            setError("Error: " + msg);
         } finally {
             setLoading(false);
         }
     };
 
     const draw = useCallback(() => {
-        const canvas = canvasRef.current;
-        if (!canvas || !data) return;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) return;
+        try {
+            const canvas = canvasRef.current;
+            if (!canvas || !data) return;
+            const ctx = canvas.getContext("2d");
+            if (!ctx) return;
 
-        const dpr = window.devicePixelRatio || 1;
-        canvas.width = canvas.offsetWidth * dpr;
-        canvas.height = canvas.offsetHeight * dpr;
-        ctx.scale(dpr, dpr);
+            const dpr = window.devicePixelRatio || 1;
+            const w0 = canvas.offsetWidth;
+            const h0 = canvas.offsetHeight;
+            // Guard: skip drawing if the canvas has no dimensions yet
+            if (!w0 || !h0 || w0 < 1 || h0 < 1) return;
 
-        ctx.clearRect(0, 0, canvas.offsetWidth, canvas.offsetHeight);
-        ctx.save();
-        ctx.translate(pan.x, pan.y + canvas.offsetHeight / (2 * dpr));
-        ctx.scale(zoom, zoom);
+            canvas.width = w0 * dpr;
+            canvas.height = h0 * dpr;
+            ctx.scale(dpr, dpr);
 
-        const positions: NodePos[] = [];
-        flattenTree(data, 0, 0, 0, positions);
+            ctx.clearRect(0, 0, w0, h0);
+            ctx.save();
+            ctx.translate(pan.x, pan.y + h0 / (2 * dpr));
+            ctx.scale(zoom, zoom);
 
-        // Draw edges
-        positions.forEach((pos) => {
-            if (pos.parent) {
+            const positions: NodePos[] = [];
+            flattenTree(data, 0, 0, 0, positions);
+
+            // Draw edges
+            positions.forEach((pos) => {
+                if (pos.parent) {
+                    ctx.beginPath();
+                    ctx.moveTo(pos.parent.x + 60, pos.parent.y);
+                    const cpx = pos.parent.x + 155;
+                    ctx.bezierCurveTo(cpx, pos.parent.y, cpx, pos.y, pos.x - 10, pos.y);
+                    ctx.strokeStyle = COLORS[pos.depth % COLORS.length] + "40";
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                }
+            });
+
+            // Draw nodes
+            positions.forEach((pos) => {
+                const color = COLORS[pos.depth % COLORS.length];
+                const w = Math.min(Math.max(ctx.measureText(pos.label).width + 30, 80), 200);
+                const h = 36;
+                const rx = 12;
+
+                // Shadow
+                ctx.shadowColor = color + "30";
+                ctx.shadowBlur = 8;
+                ctx.shadowOffsetY = 3;
+
+                // Rounded rect (with fallback)
                 ctx.beginPath();
-                ctx.moveTo(pos.parent.x + 60, pos.parent.y);
-                const cpx = pos.parent.x + 155;
-                ctx.bezierCurveTo(cpx, pos.parent.y, cpx, pos.y, pos.x - 10, pos.y);
-                ctx.strokeStyle = COLORS[pos.depth % COLORS.length] + "40";
-                ctx.lineWidth = 2;
-                ctx.stroke();
-            }
-        });
+                if (ctx.roundRect) {
+                    ctx.roundRect(pos.x - 10, pos.y - h / 2, w, h, rx);
+                } else {
+                    // Fallback for older browsers
+                    const x = pos.x - 10, y = pos.y - h / 2;
+                    ctx.moveTo(x + rx, y);
+                    ctx.lineTo(x + w - rx, y);
+                    ctx.quadraticCurveTo(x + w, y, x + w, y + rx);
+                    ctx.lineTo(x + w, y + h - rx);
+                    ctx.quadraticCurveTo(x + w, y + h, x + w - rx, y + h);
+                    ctx.lineTo(x + rx, y + h);
+                    ctx.quadraticCurveTo(x, y + h, x, y + h - rx);
+                    ctx.lineTo(x, y + rx);
+                    ctx.quadraticCurveTo(x, y, x + rx, y);
+                    ctx.closePath();
+                }
+                ctx.fillStyle = pos.depth === 0 ? color : "#ffffff";
+                ctx.fill();
+                ctx.shadowColor = "transparent";
+                ctx.strokeStyle = color;
+                ctx.lineWidth = pos.depth === 0 ? 0 : 2;
+                if (pos.depth > 0) ctx.stroke();
 
-        // Draw nodes
-        positions.forEach((pos) => {
-            const color = COLORS[pos.depth % COLORS.length];
-            const w = Math.min(Math.max(ctx.measureText(pos.label).width + 30, 80), 200);
-            const h = 36;
-            const rx = 12;
+                // Text
+                ctx.fillStyle = pos.depth === 0 ? "#ffffff" : color;
+                ctx.font = `${pos.depth === 0 ? "bold " : ""}13px Inter, system-ui, sans-serif`;
+                ctx.textAlign = "left";
+                ctx.textBaseline = "middle";
+                const maxTextW = w - 20;
+                let text = pos.label;
+                if (ctx.measureText(text).width > maxTextW) {
+                    while (ctx.measureText(text + "…").width > maxTextW && text.length > 0) text = text.slice(0, -1);
+                    text += "…";
+                }
+                ctx.fillText(text, pos.x, pos.y);
+            });
 
-            // Shadow
-            ctx.shadowColor = color + "30";
-            ctx.shadowBlur = 8;
-            ctx.shadowOffsetY = 3;
-
-            // Rounded rect
-            ctx.beginPath();
-            ctx.roundRect(pos.x - 10, pos.y - h / 2, w, h, rx);
-            ctx.fillStyle = pos.depth === 0 ? color : "#ffffff";
-            ctx.fill();
-            ctx.shadowColor = "transparent";
-            ctx.strokeStyle = color;
-            ctx.lineWidth = pos.depth === 0 ? 0 : 2;
-            if (pos.depth > 0) ctx.stroke();
-
-            // Text
-            ctx.fillStyle = pos.depth === 0 ? "#ffffff" : color;
-            ctx.font = `${pos.depth === 0 ? "bold " : ""}13px Inter, system-ui, sans-serif`;
-            ctx.textAlign = "left";
-            ctx.textBaseline = "middle";
-            const maxTextW = w - 20;
-            let text = pos.label;
-            if (ctx.measureText(text).width > maxTextW) {
-                while (ctx.measureText(text + "…").width > maxTextW && text.length > 0) text = text.slice(0, -1);
-                text += "…";
-            }
-            ctx.fillText(text, pos.x, pos.y);
-        });
-
-        ctx.restore();
+            ctx.restore();
+        } catch (err) {
+            console.warn("[MindMap] Canvas draw error:", err);
+        }
     }, [data, zoom, pan]);
 
     useEffect(() => { draw(); }, [draw]);

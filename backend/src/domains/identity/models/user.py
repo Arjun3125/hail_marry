@@ -25,6 +25,8 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     preferred_locale = Column(String(10), default="en", server_default="en")
+    phone_number = Column(String(20), unique=True, nullable=True, index=True)
+    whatsapp_linked = Column(Boolean, default=False)
 
     # Relationships
     tenant = relationship("Tenant", back_populates="users")

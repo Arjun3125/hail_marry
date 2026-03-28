@@ -4,6 +4,7 @@ from typing import Optional
 from uuid import UUID
 
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 import numpy as np
 
 from src.domains.platform.models.knowledge_graph import KGConcept, KGRelationship

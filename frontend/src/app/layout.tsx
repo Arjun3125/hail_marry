@@ -32,7 +32,7 @@ export default function RootLayout({
           defer
         />
       </head>
-      <body className="antialiased bg-[var(--bg-page)] text-[var(--text-primary)] transition-colors duration-300">
+      <body className="antialiased bg-[var(--bg-page)] text-[var(--text-primary)] transition-colors duration-300" suppressHydrationWarning>
         <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:px-4 focus:py-2 focus:bg-[var(--bg-page)] focus:text-[var(--text-primary)] focus:outline focus:outline-2 focus:rounded">
           Skip to main content
         </a>

@@ -691,9 +691,9 @@ async def generate_study_tool(
         demo_tools = {
             "quiz": {
                 "data": [
-                    {"question": f"What is {topic}?", "options": [f"A branch of science", f"A type of art", f"A form of literature", f"None of the above"], "correct": f"A branch of science", "citation": "Demo Materials p.1"},
-                    {"question": f"Which concept is central to {topic}?", "options": ["Equilibrium", "Entropy", "Evolution", "Elasticity"], "correct": "Equilibrium", "citation": "Demo Materials p.3"},
-                    {"question": f"Who is a notable contributor to {topic}?", "options": ["Albert Einstein", "Isaac Newton", "Marie Curie", "Charles Darwin"], "correct": "Isaac Newton", "citation": "Demo Materials p.5"},
+                    {"question": f"What is {topic}?", "options": ["A. A branch of science", "B. A type of art", "C. A form of literature", "D. None of the above"], "correct": "A", "citation": "Demo Materials p.1"},
+                    {"question": f"Which concept is central to {topic}?", "options": ["A. Equilibrium", "B. Entropy", "C. Evolution", "D. Elasticity"], "correct": "A", "citation": "Demo Materials p.3"},
+                    {"question": f"Who is a notable contributor to {topic}?", "options": ["A. Albert Einstein", "B. Isaac Newton", "C. Marie Curie", "D. Charles Darwin"], "correct": "B", "citation": "Demo Materials p.5"},
                 ],
                 "citations": [{"source": "Demo Study Materials", "page": "1-5"}],
             },
@@ -707,6 +707,14 @@ async def generate_study_tool(
             },
             "mindmap": {
                 "data": {
+                    "label": topic,
+                    "children": [
+                        {"label": "Fundamentals", "children": [{"label": "Core Concepts"}, {"label": "Key Theories"}]},
+                        {"label": "Applications", "children": [{"label": "Engineering"}, {"label": "Medicine"}]},
+                        {"label": "History", "children": [{"label": "Key Discoveries"}, {"label": "Notable Scientists"}]},
+                    ]
+                },
+                "content": {
                     "label": topic,
                     "children": [
                         {"label": "Fundamentals", "children": [{"label": "Core Concepts"}, {"label": "Key Theories"}]},

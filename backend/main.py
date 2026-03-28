@@ -73,10 +73,14 @@ _demo_origins = [
     "http://localhost:3000",
     "http://localhost:3001",
     "http://localhost:3002",
+    "http://localhost:3006",
+    "http://localhost:3008",
     "http://localhost:4000",
     "http://localhost:4005",
     "http://127.0.0.1:3000",
     "http://127.0.0.1:3001",
+    "http://127.0.0.1:3006",
+    "http://127.0.0.1:3008",
     "http://127.0.0.1:4000",
     "http://127.0.0.1:4005",
 ]
@@ -140,12 +144,14 @@ from src.domains.academic.router import router as academic_router
 from src.domains.administrative.router import router as administrative_router
 from src.interfaces.rest_api.ai.router import router as ai_engine_router
 from src.domains.platform.router import router as platform_router
+from src.interfaces.rest_api.whatsapp.router import router as whatsapp_router
 
 app.include_router(identity_router)
 app.include_router(academic_router)
 app.include_router(administrative_router)
 app.include_router(ai_engine_router)
 app.include_router(platform_router)
+app.include_router(whatsapp_router)
 
 
 def _apply_demo_schema_compatibility_fixes() -> None:

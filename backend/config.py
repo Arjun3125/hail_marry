@@ -820,6 +820,12 @@ class SentrySettings(BaseSettings):
     )
 
 
+class TwilioSettings(BaseSettings):
+    ACCOUNT_SID: str = Field(default=os.getenv("TWILIO_ACCOUNT_SID", ""))
+    AUTH_TOKEN: str = Field(default=os.getenv("TWILIO_AUTH_TOKEN", ""))
+    WHATSAPP_NUMBER: str = Field(default=os.getenv("TWILIO_WHATSAPP_NUMBER", ""))
+
+
 class AppSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="APP_", extra="ignore")
 
@@ -872,6 +878,7 @@ class Settings:
         self.incidents = IncidentSettings()
         self.observability = ObservabilitySettings()
         self.sentry = SentrySettings()
+        self.twilio = TwilioSettings()
         self._validate_security_defaults()
 
     def _validate_security_defaults(self):

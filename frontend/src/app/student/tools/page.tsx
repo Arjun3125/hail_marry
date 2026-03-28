@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import {
     Brain,
     ChevronLeft,
@@ -517,15 +517,97 @@ function MindNodeView({ node, depth }: { node: MindNode; depth: number }) {
 }
 
 function FlowchartView({ code }: { code: string }) {
+    const containerRef = useRef<HTMLDivElement>(null);
+    const [svg, setSvg] = useState<string>("");
+    const [renderError, setRenderError] = useState(false);
+
+    useEffect(() => {
+        let cancelled = false;
+        if (!code) return;
+        
+        // Dynamic import to avoid SSR issues with Mermaid
+        import("mermaid").then(async (mod) => {
+            const mermaid = mod.default;
+            mermaid.initialize({ startOnLoad: false, theme: "neutral" });
+            try {
+                // Mermaid needs a unique ID per render
+                const id = `mermaid-${Math.random().toString(36).substring(2, 9)}`;
+                const { svg: rendered } = await mermaid.render(id, code);
+                if (!cancelled) {
+                    setSvg(rendered);
+                    setRenderError(false);
+                }
+            } catch (err) {
+                console.error("Mermaid parsing error:", err);
+                if (!cancelled) setRenderError(true);
+            }
+        });
+        
+        return () => { cancelled = true; };
+    }, [code]);
+
     return (
         <div className="bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] p-6">
-            <h3 className="text-base font-semibold text-[var(--text-primary)] mb-3">Generated Mermaid Flowchart</h3>
-            <pre className="text-xs p-3 rounded-[var(--radius-sm)] bg-[var(--bg-page)] overflow-x-auto whitespace-pre-wrap">{code}</pre>
+            <h3 className="text-base font-semibold text-[var(--text-primary)] mb-3">Generated Flowchart</h3>
+            
+            <div className="bg-[var(--bg-page)] rounded-[var(--radius-sm)] overflow-hidden">
+                {svg ? (
+                    <div className="p-4 w-full overflow-x-auto flex justify-center" dangerouslySetInnerHTML={{ __html: svg }} />
+                ) : renderError ? (
+                    <div className="p-4 text-center text-red-500 text-sm">Failed to render diagram visually. Raw code below.</div>
+                ) : (
+                    <div className="flex justify-center items-center h-32 text-[var(--text-muted)] gap-2">
+                        <Loader2 className="w-5 h-5 animate-spin" /> Rendering Diagram...
+                    </div>
+                )}
+            </div>
+
+            <details className="mt-4 group">
+                <summary className="text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--primary)] cursor-pointer select-none">
+                    View Raw Syntax
+                </summary>
+                <div className="mt-2 border border-[var(--border-light)] rounded-[var(--radius-sm)]">
+                    <pre className="text-xs p-3 bg-black text-green-400 overflow-x-auto whitespace-pre-wrap">{code}</pre>
+                </div>
+            </details>
         </div>
     );
 }
 
 function ConceptMapView({ data }: { data: ConceptMap }) {
+    // Convert ConceptMap JSON to Mermaid Flowchart syntax
+    const mermaidCode = useMemo(() => {
+        if (!data || !data.nodes || !data.edges) return "";
+        try {
+            let code = "graph LR\n";
+            // Map IDs to labels for valid Mermaid syntax (avoiding special character breaks)
+            const escapeLabel = (l: string) => `"${l.replace(/"/g, "'")}"`;
+            
+            data.nodes.forEach(n => {
+                const safeId = n.id.replace(/[^a-zA-Z0-9]/g, "_");
+                code += `    ${safeId}[${escapeLabel(n.label)}]\n`;
+            });
+            
+            data.edges.forEach(e => {
+                const safeFrom = e.from.replace(/[^a-zA-Z0-9]/g, "_");
+                const safeTo = e.to.replace(/[^a-zA-Z0-9]/g, "_");
+                if (e.label) {
+                    code += `    ${safeFrom} -->|${escapeLabel(e.label)}| ${safeTo}\n`;
+                } else {
+                    code += `    ${safeFrom} --> ${safeTo}\n`;
+                }
+            });
+            return code;
+        } catch {
+            return "";
+        }
+    }, [data]);
+
+    if (mermaidCode) {
+        return <FlowchartView code={mermaidCode} />;
+    }
+
+    // Fallback to text lists if data structure is corrupted
     return (
         <div className="bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] p-6">
             <h3 className="text-base font-semibold text-[var(--text-primary)] mb-3">Concept Map</h3>
@@ -535,13 +617,13 @@ function ConceptMapView({ data }: { data: ConceptMap }) {
                     <div className="space-y-1">
                         {data.nodes.map((node) => (
                             <div key={node.id} className="text-xs px-2 py-1 rounded bg-[var(--bg-page)] text-[var(--text-secondary)]">
-                                {node.id}: {node.label}
+                                {node.label}
                             </div>
                         ))}
                     </div>
                 </div>
                 <div>
-                    <p className="text-xs font-semibold text-[var(--text-secondary)] mb-2">Edges</p>
+                    <p className="text-xs font-semibold text-[var(--text-secondary)] mb-2">Relationships</p>
                     <div className="space-y-1">
                         {data.edges.map((edge, idx) => (
                             <div key={`${edge.from}-${edge.to}-${idx}`} className="text-xs px-2 py-1 rounded bg-[var(--bg-page)] text-[var(--text-secondary)]">

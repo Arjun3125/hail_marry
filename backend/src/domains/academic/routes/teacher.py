@@ -744,7 +744,6 @@ async def onboard_students(
     # Cleanup temp file
     if os.path.exists(tmp_path):
         os.unlink(tmp_path)
-        raise HTTPException(status_code=400, detail="Only CSV, TXT, JPG, JPEG, PNG allowed")
 
     if not students_to_create:
         raise HTTPException(status_code=400, detail="No readable names found in the file")

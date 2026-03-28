@@ -10,3 +10,4 @@ from .observability import TraceEventRecord, ObservabilityAlertRecord, Observabi
 from .knowledge_graph import KGConcept, KGRelationship
 from .notebook import Notebook
 from .generated_content import GeneratedContent
+from .study_session import StudySession

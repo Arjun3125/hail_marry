@@ -119,7 +119,7 @@ function StarterSuggestions({ activeTool }: { activeTool: string }) {
     );
 }
 
-function MessageBubble() {
+function MessageBubble({ activeTool }: { activeTool?: string }) {
     const role = useAuiState((s) => s.message.role);
     const text = useAuiState((s) => extractTextContent(s.message.content as ReadonlyArray<{ type: string; text?: string; data?: unknown }>));
     const createdAt = useAuiState((s) => s.message.createdAt);
@@ -147,7 +147,7 @@ function MessageBubble() {
     const fallbackResponse: AIResponse = response || {
         answer: text || "No response received.",
         citations: [],
-        mode: "qa",
+        mode: activeTool || "qa",
     };
 
     return (
@@ -389,7 +389,7 @@ function AssistantStudioThread({
                         </ThreadPrimitive.Empty>
                         <div className="space-y-6">
                             <ThreadPrimitive.Messages>
-                                {() => <MessageBubble />}
+                                {() => <MessageBubble activeTool={activeTool} />}
                             </ThreadPrimitive.Messages>
                         </div>
                     </ThreadPrimitive.Viewport>
@@ -402,7 +402,7 @@ function AssistantStudioThread({
     );
 }
 
-export function LearningWorkspace({ activeTool, notebookId, requestOptions, initialExchange }: LearningWorkspaceProps) {
+export function LearningWorkspace({ activeTool, notebookId, requestOptions, initialExchange, workspaceScope }: LearningWorkspaceProps) {
     const [hydrated, setHydrated] = useState(false);
     const [threads, setThreads] = useState<PersistedAssistantThread[]>([]);
     const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
@@ -417,6 +417,8 @@ export function LearningWorkspace({ activeTool, notebookId, requestOptions, init
         [activeThreadId, threads],
     );
 
+    const prevToolRef = useRef(activeTool);
+
     useEffect(() => {
         const existing = listPersistedThreads(workspaceScopeKey);
         const preferredId = getActivePersistedThreadId(workspaceScopeKey);
@@ -430,6 +432,17 @@ export function LearningWorkspace({ activeTool, notebookId, requestOptions, init
         setActiveThreadId(selected.id);
         setHydrated(true);
     }, [workspaceScopeKey]);
+
+    useEffect(() => {
+        if (!hydrated) return;
+        if (prevToolRef.current !== activeTool) {
+            prevToolRef.current = activeTool;
+            const fresh = createEmptyPersistedThread();
+            const next = upsertPersistedThread(workspaceScopeKey, fresh);
+            setThreads(next);
+            setActiveThreadId(fresh.id);
+        }
+    }, [activeTool, hydrated, workspaceScopeKey]);
 
     useEffect(() => {
         if (!hydrated || !initialExchange) return;

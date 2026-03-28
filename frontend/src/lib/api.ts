@@ -4,14 +4,27 @@ const ACCESS_TOKEN_KEY = "vidyaos_access_token";
 export type APIErrorType = "auth" | "rate_limit" | "validation" | "service_unavailable" | "unknown";
 
 function isLoopbackHost(hostname: string): boolean {
-    return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1" || hostname === "[::1]";
+    return (
+        hostname === "localhost" ||
+        hostname === "127.0.0.1" ||
+        hostname === "::1" ||
+        hostname === "[::1]" ||
+        hostname.startsWith("192.168.") ||
+        hostname.startsWith("10.") ||
+        hostname.startsWith("172.") ||
+        hostname.startsWith("169.254.")
+    );
 }
 
 function resolveAPIBase(): string {
+    // Server-side (SSR): use configured URL or default for server-to-server calls
     if (typeof window === "undefined") {
-        return RAW_API_BASE || "http://localhost:8000";
+        return RAW_API_BASE || "http://127.0.0.1:8000";
     }
 
+    // Client-side: ALWAYS use relative paths so requests go through
+    // the Next.js proxy rewrites configured in next.config.ts.
+    // This completely avoids CORS issues in local development.
     if (!RAW_API_BASE) {
         return "";
     }
@@ -20,7 +33,8 @@ function resolveAPIBase(): string {
         const currentOrigin = new URL(window.location.origin);
         const configuredOrigin = new URL(RAW_API_BASE, currentOrigin.origin);
 
-        if (isLoopbackHost(configuredOrigin.hostname) && !isLoopbackHost(currentOrigin.hostname)) {
+        // If both are local/private, always proxy through Next.js
+        if (isLoopbackHost(configuredOrigin.hostname) || isLoopbackHost(currentOrigin.hostname)) {
             return "";
         }
 
@@ -89,10 +103,12 @@ function getApiBaseCandidates(path: string): string[] {
     }
 
     if (typeof window !== "undefined") {
-        candidates.add(`${window.location.protocol}//${window.location.hostname}:8000`);
+        // Client-side: only use relative paths (Next.js proxy).
+        // Never add a direct cross-origin :8000 URL — that causes CORS.
         candidates.add("");
     } else {
-        candidates.add("http://localhost:8000");
+        // Server-side: direct backend calls are fine
+        candidates.add("http://127.0.0.1:8000");
     }
 
     return Array.from(candidates).map((base) => buildApiUrl(base, path));

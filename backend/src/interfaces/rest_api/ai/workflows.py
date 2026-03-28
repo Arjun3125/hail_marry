@@ -433,11 +433,6 @@ async def execute_audio_overview(request: InternalAudioOverviewRequest) -> dict:
         raise HTTPException(status_code=502, detail="AI runtime error") from exc
 
     return data.get("response", {})
-    return {
-        "dialogue": [{"speaker": "Anika", "text": raw}],
-        "title": f"Overview: {request.topic}",
-        "duration_estimate": "3 minutes",
-    }
 
 
 async def execute_video_overview(request: InternalVideoOverviewRequest) -> dict:
@@ -466,8 +461,3 @@ async def execute_video_overview(request: InternalVideoOverviewRequest) -> dict:
         raise HTTPException(status_code=502, detail="AI runtime error") from exc
 
     return data.get("response", {})
-    return {
-        "slides": [{"title": request.topic, "bullets": [raw[:200]], "narration": raw[:300]}],
-        "presentation_title": request.topic,
-        "total_slides": 1,
-    }

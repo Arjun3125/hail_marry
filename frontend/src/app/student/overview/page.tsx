@@ -132,7 +132,8 @@ export default function StudentOverview() {
     }, [load]);
 
     useEffect(() => {
-        setChartsReady(true);
+        const id = requestAnimationFrame(() => setChartsReady(true));
+        return () => cancelAnimationFrame(id);
     }, []);
 
     const onboardingChecklist = [
