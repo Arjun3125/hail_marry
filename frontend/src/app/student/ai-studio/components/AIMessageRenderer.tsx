@@ -38,7 +38,19 @@ type QuizQuestion = {
     citation?: string | null;
 };
 
-type Flashcard = { front: string; back: string };
+type Flashcard = { front: string; back: string; citation?: string | null };
+
+type FlowchartStep = {
+    id: string;
+    label: string;
+    detail: string;
+    citation: string;
+};
+
+type FlowchartArtifact = {
+    mermaid?: string;
+    steps?: FlowchartStep[];
+};
 
 function parseJson<T>(value: string): T | null {
     try {
@@ -102,8 +114,28 @@ function renderConceptMap(answer: string) {
 }
 
 function renderFlowchart(answer: string) {
-    const chart = answer.trim();
-    return chart ? <MermaidDiagram chart={chart} /> : null;
+    const parsed = parseJson<FlowchartArtifact>(answer);
+    const chart = typeof parsed?.mermaid === "string" ? parsed.mermaid.trim() : answer.trim();
+    if (!chart) return null;
+
+    return (
+        <div className="space-y-3">
+            <MermaidDiagram chart={chart} />
+            {(parsed?.steps || []).length ? (
+                <div className="grid gap-2">
+                    {parsed?.steps?.map((step, index) => (
+                        <div key={`${step.id}-${index}`} className="rounded-2xl border border-[var(--border)] bg-[var(--bg-page)] p-4">
+                            <p className="text-sm font-semibold text-[var(--text-primary)]">
+                                {index + 1}. {step.label}
+                            </p>
+                            <p className="mt-1 text-xs text-[var(--text-secondary)]">{step.detail}</p>
+                            <p className="mt-2 text-[10px] text-[var(--text-muted)]">Citation: {step.citation}</p>
+                        </div>
+                    ))}
+                </div>
+            ) : null}
+        </div>
+    );
 }
 
 function renderEditableDoc(mode: string, answer: string) {

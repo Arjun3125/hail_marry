@@ -22,10 +22,15 @@ type UploadActivity = {
     type: "document" | "youtube";
     status: "processing" | "completed" | "failed";
     detail?: string;
+    ocrWarning?: string;
+    ocrReviewRequired?: boolean;
+    ocrPending?: boolean;
+    ocrProcessed?: boolean;
+    ocrConfidence?: number;
 };
 type AIJobStatus = "queued" | "running" | "completed" | "failed";
 
-const ALLOWED_EXTENSIONS = ["pdf", "docx"];
+const ALLOWED_EXTENSIONS = ["pdf", "docx", "pptx", "xlsx", "jpg", "jpeg", "png"];
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
 
 export default function UploadPage() {
@@ -120,17 +125,19 @@ export default function UploadPage() {
         for (const file of Array.from(fileList)) {
             const ext = file.name.split(".").pop()?.toLowerCase() || "";
             const id = `${Date.now()}-${file.name}-${Math.random().toString(36).slice(2, 8)}`;
+            const isImage = ["jpg", "jpeg", "png"].includes(ext);
             pushActivity({
                 id,
                 name: file.name,
                 type: "document",
                 status: "processing",
+                ocrPending: isImage,
             });
 
             if (!ALLOWED_EXTENSIONS.includes(ext)) {
                 updateActivity(id, {
                     status: "failed",
-                    detail: "Only PDF and DOCX are allowed",
+                    detail: "Only PDF, DOCX, PPTX, XLSX, JPG, PNG are allowed",
                 });
                 continue;
             }
@@ -152,6 +159,10 @@ export default function UploadPage() {
                     job_id?: string;
                     status?: AIJobStatus;
                     error?: string;
+                    ocr_processed?: boolean;
+                    ocr_review_required?: boolean;
+                    ocr_warning?: string;
+                    ocr_confidence?: number;
                 };
 
                 if (payload?.success === false) {
@@ -159,20 +170,31 @@ export default function UploadPage() {
                 }
 
                 if (!payload.job_id) {
-                    throw new Error("Upload job was not created");
-                }
-
-                updateActivity(id, {
-                    status: "processing",
-                    detail: "Queued for ingestion",
-                });
-
-                void pollJob(id, payload.job_id, (result) => {
                     updateActivity(id, {
                         status: "completed",
-                        detail: `Ingested (${Number(result?.chunks ?? 0)} chunks)`,
+                        detail: "Ingested",
+                        ocrProcessed: payload.ocr_processed,
+                        ocrReviewRequired: payload.ocr_review_required,
+                        ocrWarning: payload.ocr_warning,
+                        ocrConfidence: typeof payload.ocr_confidence === "number" ? payload.ocr_confidence : undefined,
                     });
-                });
+                } else {
+                    updateActivity(id, {
+                        status: "processing",
+                        detail: "Queued for ingestion",
+                    });
+
+                    void pollJob(id, payload.job_id, (result) => {
+                        updateActivity(id, {
+                            status: "completed",
+                            detail: `Ingested (${Number(result?.chunks ?? 0)} chunks)`,
+                            ocrProcessed: payload.ocr_processed,
+                            ocrReviewRequired: payload.ocr_review_required,
+                            ocrWarning: payload.ocr_warning,
+                            ocrConfidence: typeof payload.ocr_confidence === "number" ? payload.ocr_confidence : undefined,
+                        });
+                    });
+                }
             } catch (err) {
                 updateActivity(id, {
                     status: "failed",
@@ -249,7 +271,7 @@ export default function UploadPage() {
         <div>
             <div className="mb-6">
                 <h1 className="text-2xl font-bold text-[var(--text-primary)]">Upload Notes</h1>
-                <p className="text-sm text-[var(--text-secondary)]">Upload PDFs/DOCX files or ingest YouTube lectures for AI retrieval.</p>
+                <p className="text-sm text-[var(--text-secondary)]">Upload PDFs, documents, or photos. Images are converted with OCR for AI retrieval.</p>
             </div>
 
             {error ? (
@@ -267,8 +289,15 @@ export default function UploadPage() {
                     <label className="block border-2 border-dashed border-[var(--border)] rounded-[var(--radius)] p-8 text-center cursor-pointer hover:border-[var(--primary)] hover:bg-[var(--primary-light)] transition-all">
                         <FileText className="w-10 h-10 text-[var(--text-muted)] mx-auto mb-3" />
                         <p className="text-sm font-medium text-[var(--text-primary)]">Click to upload or drag files</p>
-                        <p className="text-xs text-[var(--text-muted)] mt-1">PDF, DOCX (max 50MB)</p>
-                        <input type="file" accept=".pdf,.docx" multiple onChange={handleFileUpload} className="hidden" />
+                        <p className="text-xs text-[var(--text-muted)] mt-1">PDF, DOCX, PPTX, XLSX, JPG, PNG (max 50MB)</p>
+                        <input
+                            type="file"
+                            accept=".pdf,.docx,.pptx,.xlsx,image/*"
+                            capture="environment"
+                            multiple
+                            onChange={handleFileUpload}
+                            className="hidden"
+                        />
                     </label>
                 </div>
 
@@ -355,7 +384,14 @@ export default function UploadPage() {
                                                 {activity.status}
                                             </span>
                                         </td>
-                                        <td className="px-5 py-3 text-xs text-[var(--text-secondary)]">{activity.detail || "-"}</td>
+                                        <td className="px-5 py-3 text-xs text-[var(--text-secondary)]">
+                                            {activity.detail || "-"}
+                                            {activity.status === "processing" && activity.ocrPending ? " | OCR in progress" : ""}
+                                            {activity.status === "completed" && activity.ocrProcessed ? " | OCR completed" : ""}
+                                            {activity.ocrReviewRequired ? " | OCR review recommended" : ""}
+                                            {typeof activity.ocrConfidence === "number" ? ` | OCR confidence ${Math.round(activity.ocrConfidence * 100)}%` : ""}
+                                            {activity.ocrWarning ? ` | ${activity.ocrWarning}` : ""}
+                                        </td>
                                     </tr>
                                 ))
                             )}

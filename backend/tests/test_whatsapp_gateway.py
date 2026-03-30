@@ -2,15 +2,17 @@
 RBAC enforcement, and webhook pipeline.
 """
 import asyncio
+import functools
 import inspect
 import hashlib
 import hmac
+import httpx
 import json
 import os
 import secrets
 from datetime import datetime, timezone
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, mock_open, patch
 from uuid import uuid4
 
 import pytest
@@ -24,7 +26,9 @@ from src.domains.platform.routes.whatsapp import (
     whatsapp_webhook_verify,
     whatsapp_webhook_inbound,
     whatsapp_tool_catalog,
+    whatsapp_release_gate_snapshot,
     _extract_messages,
+    _chunk_whatsapp_text,
     SendMessageRequest,
     _dispatch_outbound_response,
     whatsapp_report_card_download,
@@ -33,15 +37,21 @@ from src.domains.platform.services.whatsapp_gateway import (
     verify_webhook_signature,
     generate_otp,
     verify_otp,
+    get_whatsapp_metrics,
     get_session,
     create_session,
     save_session,
     delete_session,
+    unlink_phone,
     is_rate_limited,
     is_duplicate_message,
+    send_text_message,
     handle_system_command,
     format_ai_job_status_message,
     process_inbound_message,
+    _handle_unlinked_phone,
+    _handle_signup_email,
+    _ingest_whatsapp_url,
     _build_child_switch_response,
     _handle_child_switch_selection,
     _build_report_card_response,
@@ -50,14 +60,20 @@ from src.domains.platform.services.whatsapp_gateway import (
 from src.shared.ai_tools.whatsapp_tools import (
     authorize_tool,
     TOOL_ROLE_MAP,
+    _format_study_tool_payload,
     get_tools_for_role,
     get_tool_spec,
     get_tool_specs_for_role,
     serialize_tool_catalog,
+    serialize_tier_4_5_feature_matrix,
 )
 from src.interfaces.whatsapp_bot.agent import (
+    classify_intent,
+    execute_tool,
+    generate_response,
     _classify_intent_heuristic,
     _extract_topic_from_message,
+    format_for_whatsapp,
     WhatsAppAgentState,
     build_whatsapp_agent_graph,
 )
@@ -73,7 +89,7 @@ def reset_app_secret():
     yield
     whatsapp_gateway.WHATSAPP_APP_SECRET = original
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def mock_redis():
     """Mock Redis with an in-memory dict."""
     storage = {}
@@ -159,6 +175,49 @@ class TestSignatureVerification:
         assert verify_webhook_signature(b"anything", "sha256=whatever") is True
 
 
+@pytest.mark.asyncio
+async def test_whatsapp_release_gate_snapshot_includes_metrics_and_rates():
+    current_user = SimpleNamespace(role="admin", tenant_id=uuid4())
+    db = MagicMock()
+    metrics = {
+        "inbound_total": 20,
+        "duplicate_inbound_total": 2,
+        "rate_limited_total": 1,
+        "unlinked_inbound_total": 3,
+        "routing_success_total": 15,
+        "routing_failure_total": 5,
+        "upload_ingest_success_total": 4,
+        "upload_ingest_failure_total": 1,
+        "link_ingest_success_total": 3,
+        "link_ingest_failure_total": 1,
+        "outbound_success_total": 12,
+        "outbound_failure_total": 3,
+        "outbound_retryable_failure_total": 2,
+        "outbound_non_retryable_failure_total": 1,
+        "visible_failure_total": 4,
+    }
+    analytics = {
+        "period_days": 7,
+        "total_messages": 40,
+        "inbound": 20,
+        "outbound": 20,
+        "unique_users": 6,
+        "avg_latency_ms": 850,
+        "top_intents": [{"intent": "quiz", "count": 5}],
+    }
+
+    with patch("src.domains.platform.routes.whatsapp._build_whatsapp_usage_snapshot", return_value=analytics), \
+         patch("src.domains.platform.routes.whatsapp.get_whatsapp_metrics", return_value=metrics):
+        result = await whatsapp_release_gate_snapshot(current_user=current_user, db=db, days=7)
+
+    assert result["analytics"] == analytics
+    assert result["release_gate_metrics"] == metrics
+    assert result["derived_rates"]["routing_failure_pct"] == 25.0
+    assert result["derived_rates"]["duplicate_inbound_pct"] == 10.0
+    assert result["derived_rates"]["visible_failure_pct"] == 20.0
+    assert result["derived_rates"]["outbound_retryable_failure_pct"] == round((2 / 15) * 100, 2)
+
+
 # ─── OTP Tests ────────────────────────────────────────────────
 
 class TestOTPFlow:
@@ -204,6 +263,70 @@ class TestOTPFlow:
 
 # ─── Session Management Tests ─────────────────────────────────
 
+class TestUnlinkedPhoneAuth:
+    async def test_unlinked_phone_welcome_mentions_signup(self):
+        db = MagicMock()
+        with patch("src.domains.platform.services.whatsapp_gateway.get_session", return_value=None), \
+             patch("src.domains.platform.services.whatsapp_gateway.save_session"):
+            result = await _handle_unlinked_phone(db, "919876543210", "hello")
+
+        assert "registered email address" in result["response_text"].lower()
+        assert "signup" in result["response_text"].lower()
+
+    async def test_unlinked_phone_accepts_direct_email_on_first_message(self):
+        db = MagicMock()
+        with patch("src.domains.platform.services.whatsapp_gateway.get_session", return_value=None), \
+             patch("src.domains.platform.services.whatsapp_gateway.save_session") as save_mock, \
+             patch("src.domains.platform.services.whatsapp_gateway._handle_email_lookup", new=AsyncMock(return_value={
+                 "response_text": "OTP sent",
+                 "response_type": "text",
+             })) as email_lookup:
+            result = await _handle_unlinked_phone(db, "919876543210", "student@school.edu")
+
+        assert result["response_text"] == "OTP sent"
+        save_mock.assert_called_once()
+        email_lookup.assert_awaited_once()
+
+    async def test_unlinked_phone_signup_command_enters_signup_state(self):
+        db = MagicMock()
+        with patch("src.domains.platform.services.whatsapp_gateway.get_session", return_value=None), \
+             patch("src.domains.platform.services.whatsapp_gateway.save_session") as save_mock:
+            result = await _handle_unlinked_phone(db, "919876543210", "signup")
+
+        assert "new student account" in result["response_text"].lower()
+        saved_session = save_mock.call_args.args[2]
+        assert saved_session["pending_action"] == "awaiting_signup_email"
+
+    async def test_handle_signup_email_creates_authenticated_session(self):
+        db = MagicMock()
+        session = {
+            "session_id": "ws-123",
+            "phone": "919876543210",
+            "user_id": None,
+            "tenant_id": None,
+            "role": None,
+            "active_notebook_id": None,
+            "pending_action": "awaiting_signup_email",
+            "conversation_history": [],
+            "last_activity": datetime.now(timezone.utc).isoformat(),
+        }
+        fake_user = SimpleNamespace(
+            id=uuid4(),
+            tenant_id=uuid4(),
+            full_name="New Student",
+            role="student",
+        )
+
+        with patch("src.domains.platform.services.whatsapp_gateway._create_whatsapp_signup_user", return_value=(fake_user, None)), \
+             patch("src.domains.platform.services.whatsapp_gateway.save_session") as save_mock:
+            result = await _handle_signup_email(db, "919876543210", "new@school.edu", session)
+
+        assert "created and linked" in result["response_text"].lower()
+        assert session["pending_action"] is None
+        assert session["user_id"] == str(fake_user.id)
+        save_mock.assert_called_once()
+
+
 class TestSessionManagement:
     def test_create_and_load_session(self, mock_redis):
         """Create a session and load it back."""
@@ -223,6 +346,24 @@ class TestSessionManagement:
         delete_session(MagicMock(), "919876543210")
         assert get_session(MagicMock(), "919876543210") is None
 
+    def test_unlink_phone_clears_session_and_phone_cache(self, mock_redis):
+        fake_redis, storage = mock_redis
+        create_session(MagicMock(), "919876543210", "user-123", "tenant-456", "student")
+        storage["wa:phone:919876543210"] = json.dumps({
+            "id": str(uuid4()),
+            "phone": "919876543210",
+            "user_id": str(uuid4()),
+            "tenant_id": str(uuid4()),
+        })
+        db = MagicMock()
+
+        unlink_phone(db, "919876543210")
+
+        assert get_session(MagicMock(), "919876543210") is None
+        assert "wa:phone:919876543210" not in storage
+        assert db.query.return_value.filter.return_value.delete.call_count >= 1
+        db.commit.assert_called()
+
     def test_session_not_found(self, mock_redis):
         """Loading a non-existent session returns None."""
         fake_redis, storage = mock_redis
@@ -230,6 +371,45 @@ class TestSessionManagement:
 
 
 # ─── Rate Limiting Tests ─────────────────────────────────────
+
+class TestReturningUserReEntry:
+    async def test_process_inbound_message_recreates_session_for_linked_user_without_active_session(self):
+        link = SimpleNamespace(user_id=uuid4(), tenant_id=uuid4())
+        db = MagicMock()
+        db.query.return_value.filter.return_value.first.return_value = SimpleNamespace(role="student")
+        recreated_session = {
+            "phone": "919876543210",
+            "user_id": str(link.user_id),
+            "tenant_id": str(link.tenant_id),
+            "role": "student",
+            "active_child_id": None,
+            "active_notebook_id": None,
+            "conversation_history": [],
+        }
+
+        with patch("src.domains.platform.services.whatsapp_gateway.resolve_phone_to_user", return_value=link), \
+             patch("src.domains.platform.services.whatsapp_gateway.get_session", return_value=None), \
+             patch("src.domains.platform.services.whatsapp_gateway.create_session", return_value=recreated_session) as create_session_mock, \
+             patch("src.interfaces.whatsapp_bot.agent.run_whatsapp_agent", new=AsyncMock(return_value={
+                 "response": "Welcome back",
+                 "response_type": "text",
+                 "intent": "ask_ai_question",
+                 "tool_name": "ask_ai_question",
+             })) as agent_mock, \
+             patch("src.domains.platform.services.whatsapp_gateway.save_session"), \
+             patch("src.domains.platform.services.whatsapp_gateway.log_message"):
+            result = await process_inbound_message(db, "919876543210", "Explain photosynthesis")
+
+        assert result["response_text"] == "Welcome back"
+        create_session_mock.assert_called_once_with(
+            db,
+            "919876543210",
+            str(link.user_id),
+            str(link.tenant_id),
+            "student",
+        )
+        agent_mock.assert_awaited_once()
+
 
 class TestRateLimiting:
     def test_under_limit(self, mock_redis):
@@ -259,6 +439,23 @@ class TestDeduplication:
         fake_redis, storage = mock_redis
         is_duplicate_message("msg-002")
         assert is_duplicate_message("msg-002") is True
+
+    async def test_process_inbound_message_short_circuits_duplicate_events(self, mock_redis):
+        fake_redis, storage = mock_redis
+        db = MagicMock()
+        with patch("src.domains.platform.services.whatsapp_gateway.is_duplicate_message", return_value=True), \
+             patch("src.domains.platform.services.whatsapp_gateway.resolve_phone_to_user") as resolve_mock:
+            result = await process_inbound_message(
+                db,
+                "919876543210",
+                "Explain photosynthesis",
+                wa_message_id="wamid-dup-1",
+            )
+
+        assert result == {"response_text": None, "response_type": "none", "duplicate": True}
+        resolve_mock.assert_not_called()
+        metrics = get_whatsapp_metrics()
+        assert metrics["duplicate_inbound_total"] == 1
 
 
 # ─── Parent Child Switching Tests ─────────────────────────────
@@ -355,6 +552,21 @@ class TestSystemCommands:
         session = {"role": "student", "phone": "919876543210"}
         response = handle_system_command(MagicMock(), "/logout", session)
         assert "logged out" in response.lower()
+        assert "wa:session:919876543210" not in storage
+
+    def test_help_command_mentions_relink(self):
+        session = {"role": "student", "phone": "919876543210"}
+        response = handle_system_command(MagicMock(), "help", session)
+        assert "/relink" in response
+
+    def test_relink_command_unlinks_phone(self):
+        session = {"role": "student", "phone": "919876543210"}
+        with patch("src.domains.platform.services.whatsapp_gateway.unlink_phone") as unlink_mock:
+            response = handle_system_command(MagicMock(), "/relink", session)
+
+        unlink_mock.assert_called_once()
+        assert "unlinked" in response.lower()
+        assert "registered email" in response.lower()
 
     def test_status_command(self):
         """Status should return session info."""
@@ -395,6 +607,15 @@ class TestRBAC:
 
     def test_student_authorized_for_generate_audio_overview(self):
         assert authorize_tool("generate_audio_overview", "student") is True
+
+    def test_teacher_authorized_for_generate_study_guide(self):
+        assert authorize_tool("generate_study_guide", "teacher") is True
+
+    def test_parent_authorized_for_generate_study_guide(self):
+        assert authorize_tool("generate_study_guide", "parent") is True
+
+    def test_admin_authorized_for_generate_audio_overview(self):
+        assert authorize_tool("generate_audio_overview", "admin") is True
 
     def test_parent_authorized_for_child_attendance(self):
         assert authorize_tool("get_child_attendance", "parent") is True
@@ -464,6 +685,26 @@ class TestRBAC:
         assert audio_tool["execution_mode"] == "async"
         assert audio_tool["feature_category"] == "ai_async"
 
+    def test_serialized_catalog_marks_diagram_tools_summary_plus_link(self):
+        catalog = serialize_tool_catalog("student")
+        flowchart_tool = next(item for item in catalog if item["name"] == "generate_flowchart")
+        mindmap_tool = next(item for item in catalog if item["name"] == "generate_mindmap")
+        concept_map_tool = next(item for item in catalog if item["name"] == "generate_concept_map")
+        assert flowchart_tool["channel_suitability"] == "summary_plus_link"
+        assert mindmap_tool["channel_suitability"] == "summary_plus_link"
+        assert concept_map_tool["channel_suitability"] == "summary_plus_link"
+
+    def test_tier_4_5_feature_matrix_is_complete(self):
+        matrix = serialize_tier_4_5_feature_matrix()
+        incomplete = [item for item in matrix if item["status"] != "complete"]
+        assert incomplete == []
+
+    def test_tier_4_5_feature_matrix_covers_ai_assistant_roles_for_study_guide(self):
+        matrix = serialize_tier_4_5_feature_matrix()
+        study_guide = next(item for item in matrix if item["feature_key"] == "study_guide")
+        assert study_guide["required_roles"] == ["admin", "parent", "student", "teacher"]
+        assert study_guide["tools"][0]["missing_roles"] == []
+
 
 # ─── Intent Classification Tests ──────────────────────────────
 
@@ -490,6 +731,16 @@ class TestAsyncJobNotifications:
         assert "failed" in message.lower()
         assert "atoms" in message
         assert "worker timeout" in message
+
+    def test_format_completed_media_ingest_job_status_message_uses_result_text(self):
+        message = format_ai_job_status_message({
+            "status": "completed",
+            "job_id": "job-789",
+            "job_type": "whatsapp_media_ingest",
+            "request": {"display_name": "lesson.mp4"},
+            "result": {"response_text": "Received *lesson.mp4* and added it to your knowledge base."},
+        })
+        assert message == "Received *lesson.mp4* and added it to your knowledge base."
 
 
 class TestIntentClassification:
@@ -568,6 +819,226 @@ class TestIntentClassification:
         assert topic == "photosynthesis"
 
 
+class TestLlmIntentInterpretation:
+    def test_classify_intent_uses_llm_translation_for_mixed_language_flashcards(self):
+        fake_provider = SimpleNamespace(
+            generate_structured=AsyncMock(
+                return_value={
+                    "response": {
+                        "normalized_message": "mala flashcards pahije photosynthesis var",
+                        "translated_message": "Create flashcards for photosynthesis",
+                        "tool_name": "generate_flashcards",
+                        "question": "Create flashcards for photosynthesis",
+                        "topic": "photosynthesis",
+                        "is_general_chat": False,
+                    }
+                }
+            )
+        )
+        state: WhatsAppAgentState = {
+            "message": "mala flashcards pahije photosynthesis var",
+            "user_id": str(uuid4()),
+            "tenant_id": str(uuid4()),
+            "role": "student",
+            "conversation_history": [],
+            "intent": None,
+            "tool_name": None,
+            "tool_args": None,
+            "tool_result": None,
+            "response": None,
+            "response_type": "text",
+        }
+
+        with patch("src.infrastructure.llm.providers.get_llm_provider", return_value=fake_provider):
+            result = classify_intent(state)
+
+        assert result["tool_name"] == "generate_flashcards"
+        assert result["tool_args"]["topic"] == "photosynthesis"
+        assert result["tool_args"]["translated_message"] == "Create flashcards for photosynthesis"
+        fake_provider.generate_structured.assert_awaited_once()
+
+    def test_classify_intent_requests_clarification_for_missing_topic(self):
+        state: WhatsAppAgentState = {
+            "message": "quiz bana",
+            "user_id": str(uuid4()),
+            "tenant_id": str(uuid4()),
+            "notebook_id": None,
+            "role": "student",
+            "conversation_history": [],
+            "intent": None,
+            "tool_name": None,
+            "tool_args": None,
+            "tool_result": None,
+            "response": None,
+            "response_type": "text",
+        }
+
+        result = classify_intent(state)
+
+        assert result["intent"] == "clarify_request"
+        assert result["tool_name"] is None
+        assert result["tool_args"]["clarification_reason"] == "missing_topic"
+        assert "topic" in result["tool_args"]["clarification_prompt"].lower()
+
+    def test_classify_intent_requests_clarification_for_conflicting_study_tools(self):
+        state: WhatsAppAgentState = {
+            "message": "quiz or flashcards bana photosynthesis par",
+            "user_id": str(uuid4()),
+            "tenant_id": str(uuid4()),
+            "notebook_id": None,
+            "role": "student",
+            "conversation_history": [],
+            "intent": None,
+            "tool_name": None,
+            "tool_args": None,
+            "tool_result": None,
+            "response": None,
+            "response_type": "text",
+        }
+
+        result = classify_intent(state)
+
+        assert result["intent"] == "clarify_request"
+        assert result["tool_args"]["clarification_reason"] == "multiple_study_tools"
+        assert "choose one format" in result["tool_args"]["clarification_prompt"].lower()
+
+    def test_generate_response_returns_clarification_prompt_directly(self):
+        state: WhatsAppAgentState = {
+            "message": "quiz bana",
+            "user_id": str(uuid4()),
+            "tenant_id": str(uuid4()),
+            "notebook_id": None,
+            "role": "student",
+            "conversation_history": [],
+            "intent": "clarify_request",
+            "tool_name": None,
+            "tool_args": {
+                "clarification_prompt": "Tell me the topic too. Example: *quiz on photosynthesis*.",
+                "clarification_reason": "missing_topic",
+            },
+            "tool_result": None,
+            "response": None,
+            "response_type": "text",
+        }
+
+        result = generate_response(state)
+        assert result["response"].startswith("Tell me the topic too.")
+
+    def test_execute_tool_maps_generate_quiz_alias_to_direct_whatsapp_tool(self):
+        fake_tool = SimpleNamespace(
+            name="generate_quiz_now",
+            invoke=MagicMock(return_value="Quiz ready"),
+        )
+        state: WhatsAppAgentState = {
+            "message": "Generate quiz for photosynthesis",
+            "user_id": str(uuid4()),
+            "tenant_id": str(uuid4()),
+            "notebook_id": str(uuid4()),
+            "role": "student",
+            "conversation_history": [],
+            "intent": "generate_quiz",
+            "tool_name": "generate_quiz",
+            "tool_args": {"topic": "photosynthesis"},
+            "tool_result": None,
+            "response": None,
+            "response_type": "text",
+        }
+
+        with patch("src.shared.ai_tools.whatsapp_tools.authorize_tool", return_value=True), patch(
+            "src.shared.ai_tools.whatsapp_tools.ALL_WHATSAPP_TOOLS",
+            [fake_tool],
+        ):
+            result = execute_tool(state)
+
+        assert result["tool_result"] == "Quiz ready"
+        fake_tool.invoke.assert_called_once_with(
+            {
+                "user_id": state["user_id"],
+                "tenant_id": state["tenant_id"],
+                "topic": "photosynthesis",
+                "notebook_id": state["notebook_id"],
+            }
+        )
+
+    def test_execute_tool_passes_notebook_id_to_audio_overview(self):
+        fake_tool = SimpleNamespace(
+            name="generate_audio_overview",
+            invoke=MagicMock(return_value="Audio queued"),
+        )
+        state: WhatsAppAgentState = {
+            "message": "Create audio overview for photosynthesis",
+            "user_id": str(uuid4()),
+            "tenant_id": str(uuid4()),
+            "notebook_id": str(uuid4()),
+            "role": "student",
+            "conversation_history": [],
+            "intent": "generate_audio_overview",
+            "tool_name": "generate_audio_overview",
+            "tool_args": {"topic": "photosynthesis"},
+            "tool_result": None,
+            "response": None,
+            "response_type": "text",
+        }
+
+        with patch("src.shared.ai_tools.whatsapp_tools.authorize_tool", return_value=True), patch(
+            "src.shared.ai_tools.whatsapp_tools.ALL_WHATSAPP_TOOLS",
+            [fake_tool],
+        ):
+            result = execute_tool(state)
+
+        assert result["tool_result"] == "Audio queued"
+        fake_tool.invoke.assert_called_once_with(
+            {
+                "user_id": state["user_id"],
+                "tenant_id": state["tenant_id"],
+                "topic": "photosynthesis",
+                "notebook_id": state["notebook_id"],
+            }
+        )
+
+
+class TestWhatsAppFormatting:
+    def test_flowchart_whatsapp_payload_hides_raw_mermaid(self):
+        result = _format_study_tool_payload(
+            "flowchart",
+            "Photosynthesis",
+            {
+                "data": {
+                    "mermaid": "flowchart TD\nA[Light] --> B[Glucose]",
+                    "steps": [
+                        {"label": "Capture light", "detail": "Leaves absorb sunlight.", "citation": "Biology p.10"},
+                        {"label": "Make glucose", "detail": "Plants produce glucose.", "citation": "Biology p.11"},
+                    ],
+                },
+                "citations": [{"source": "Biology Textbook"}],
+            },
+        )
+
+        assert "flowchart TD" not in result
+        assert "Capture light" in result
+        assert "Open the web app for the full visual diagram." in result
+
+    def test_format_for_whatsapp_keeps_long_text_for_router_chunking(self):
+        long_text = "A" * 5000
+        state: WhatsAppAgentState = {
+            "message": "Explain this",
+            "user_id": str(uuid4()),
+            "tenant_id": str(uuid4()),
+            "notebook_id": None,
+            "role": "student",
+            "conversation_history": [],
+            "intent": None,
+            "tool_name": None,
+            "tool_args": None,
+            "tool_result": None,
+            "response": long_text,
+            "response_type": "text",
+        }
+
+        result = format_for_whatsapp(state)
+        assert result["response"] == long_text
+
+
 class TestInteractiveReplyExtraction:
     def test_extract_messages_prefers_interactive_reply_id(self):
         payload = {
@@ -592,6 +1063,33 @@ class TestInteractiveReplyExtraction:
 
         messages = _extract_messages(payload)
         assert messages[0]["text"] == "child:abc123"
+
+    def test_extract_messages_includes_document_media_metadata(self):
+        payload = {
+            "entry": [{
+                "changes": [{
+                    "value": {
+                        "messages": [{
+                            "type": "document",
+                            "from": "919876543210",
+                            "id": "wamid-doc",
+                            "document": {
+                                "id": "media-123",
+                                "filename": "biology_notes.pdf",
+                                "mime_type": "application/pdf",
+                                "caption": "biology notes",
+                            },
+                        }]
+                    }
+                }]
+            }]
+        }
+
+        messages = _extract_messages(payload)
+        assert messages[0]["message_type"] == "document"
+        assert messages[0]["media_id"] == "media-123"
+        assert messages[0]["media_filename"] == "biology_notes.pdf"
+        assert messages[0]["text"] == "biology notes"
 
 
 class TestReportCardDelivery:
@@ -654,6 +1152,109 @@ class TestDocumentMessages:
 
         send_document.assert_awaited_once()
 
+    async def test_dispatch_outbound_text_response_chunks_long_messages(self):
+        long_text = ("Photosynthesis summary paragraph.\n\n" * 120).strip()
+        with patch("src.domains.platform.routes.whatsapp.send_text_message", new_callable=AsyncMock) as send_text:
+            send_text.return_value = {"success": True}
+            await _dispatch_outbound_response("919876543210", {
+                "response_type": "text",
+                "response_text": long_text,
+            })
+
+        assert send_text.await_count >= 2
+        for call in send_text.await_args_list:
+            assert len(call.args[1]) <= 1500
+
+    def test_chunk_whatsapp_text_splits_paragraphs_without_empty_chunks(self):
+        long_text = ("Cell respiration explanation.\n\n" * 100).strip()
+        chunks = _chunk_whatsapp_text(long_text, chunk_size=500)
+        assert len(chunks) >= 2
+        assert all(chunk.strip() for chunk in chunks)
+        assert all(len(chunk) <= 500 for chunk in chunks)
+
+    async def test_send_text_message_marks_429_as_retryable(self, mock_redis):
+        fake_redis, storage = mock_redis
+        request = httpx.Request("POST", "https://graph.facebook.com/v18.0/messages")
+        response = httpx.Response(429, request=request, text="rate limited")
+        error = httpx.HTTPStatusError("429 Too Many Requests", request=request, response=response)
+
+        class FakeClient:
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return False
+
+            async def post(self, *args, **kwargs):
+                raise error
+
+        with patch("src.domains.platform.services.whatsapp_gateway.WHATSAPP_TOKEN", "token"), \
+             patch("src.domains.platform.services.whatsapp_gateway.WHATSAPP_PHONE_ID", "phone-id"), \
+             patch("src.domains.platform.services.whatsapp_gateway.httpx.AsyncClient", return_value=FakeClient()):
+            result = await send_text_message("919876543210", "Hello")
+
+        assert result["success"] is False
+        assert result["retryable"] is True
+        assert result["error_type"] == "http_retryable"
+        assert result["status_code"] == 429
+        metrics = get_whatsapp_metrics()
+        assert metrics["outbound_failure_total"] == 1
+        assert metrics["outbound_retryable_failure_total"] == 1
+
+    async def test_send_text_message_marks_400_as_non_retryable(self, mock_redis):
+        fake_redis, storage = mock_redis
+        request = httpx.Request("POST", "https://graph.facebook.com/v18.0/messages")
+        response = httpx.Response(400, request=request, text="bad request")
+        error = httpx.HTTPStatusError("400 Bad Request", request=request, response=response)
+
+        class FakeClient:
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return False
+
+            async def post(self, *args, **kwargs):
+                raise error
+
+        with patch("src.domains.platform.services.whatsapp_gateway.WHATSAPP_TOKEN", "token"), \
+             patch("src.domains.platform.services.whatsapp_gateway.WHATSAPP_PHONE_ID", "phone-id"), \
+             patch("src.domains.platform.services.whatsapp_gateway.httpx.AsyncClient", return_value=FakeClient()):
+            result = await send_text_message("919876543210", "Hello")
+
+        assert result["success"] is False
+        assert result["retryable"] is False
+        assert result["error_type"] == "http_non_retryable"
+        assert result["status_code"] == 400
+        metrics = get_whatsapp_metrics()
+        assert metrics["outbound_failure_total"] == 1
+        assert metrics["outbound_non_retryable_failure_total"] == 1
+
+    async def test_send_text_message_records_success_metric(self, mock_redis):
+        fake_redis, storage = mock_redis
+
+        class FakeClient:
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return False
+
+            async def post(self, *args, **kwargs):
+                return SimpleNamespace(
+                    raise_for_status=lambda: None,
+                    json=lambda: {"messages": [{"id": "wamid-out-1"}]},
+                )
+
+        with patch("src.domains.platform.services.whatsapp_gateway.WHATSAPP_TOKEN", "token"), \
+             patch("src.domains.platform.services.whatsapp_gateway.WHATSAPP_PHONE_ID", "phone-id"), \
+             patch("src.domains.platform.services.whatsapp_gateway.httpx.AsyncClient", return_value=FakeClient()):
+            result = await send_text_message("919876543210", "Hello")
+
+        assert result["success"] is True
+        metrics = get_whatsapp_metrics()
+        assert metrics["outbound_success_total"] == 1
+
 
 # ─── Webhook Endpoint Tests ──────────────────────────────────
 
@@ -703,6 +1304,46 @@ class TestWebhookEndpoints:
         # Reset
         whatsapp_gateway.WHATSAPP_APP_SECRET = ""
 
+    async def test_webhook_inbound_schedules_document_message_without_caption(self):
+        payload = {
+            "entry": [{
+                "changes": [{
+                    "value": {
+                        "messages": [{
+                            "type": "document",
+                            "from": "919876543210",
+                            "id": "wamid-doc",
+                            "document": {
+                                "id": "media-123",
+                                "filename": "biology_notes.pdf",
+                                "mime_type": "application/pdf",
+                            },
+                        }]
+                    }
+                }]
+            }]
+        }
+        scheduled = []
+
+        class FakeRequest:
+            headers = {"X-Hub-Signature-256": ""}
+
+            async def body(self):
+                return json.dumps(payload).encode("utf-8")
+
+            async def json(self):
+                return payload
+
+        background_tasks = SimpleNamespace(add_task=lambda fn, **kwargs: scheduled.append((fn, kwargs)))
+        with patch("src.domains.platform.routes.whatsapp.verify_webhook_signature", return_value=True):
+            result = await whatsapp_webhook_inbound(request=FakeRequest(), background_tasks=background_tasks)
+
+        assert result == {"status": "ok"}
+        assert len(scheduled) == 1
+        assert scheduled[0][1]["message_type"] == "document"
+        assert scheduled[0][1]["media_id"] == "media-123"
+        assert scheduled[0][1]["media_filename"] == "biology_notes.pdf"
+
 
 class TestToolCatalogEndpoint:
     def test_admin_can_get_full_tool_catalog(self):
@@ -744,6 +1385,649 @@ class TestAgentGraph:
         assert "format_for_whatsapp" in node_names
 
 
+class TestMediaIngestion:
+    async def test_ingest_whatsapp_media_upload_queues_video_transcription_job(self):
+        from src.domains.platform.services import whatsapp_gateway as whatsapp_mod
+
+        tenant_id = str(uuid4())
+        user_id = str(uuid4())
+        notebook = SimpleNamespace(id=uuid4())
+
+        class _DBStub:
+            def add(self, obj):
+                if getattr(obj, "id", None) is None:
+                    obj.id = uuid4()
+
+            def commit(self):
+                return None
+
+            def refresh(self, obj):
+                if getattr(obj, "id", None) is None:
+                    obj.id = uuid4()
+
+        db = _DBStub()
+
+        with patch.object(whatsapp_mod, "_download_whatsapp_media", new=AsyncMock(return_value=(b"video-bytes", "video/mp4"))), \
+             patch.object(whatsapp_mod, "_create_whatsapp_notebook", return_value=notebook), \
+             patch("builtins.open", mock_open()), \
+             patch("src.domains.platform.services.ai_queue.enqueue_job", return_value={"job_id": "job-123"}) as enqueue_mock:
+            payload = await whatsapp_mod._ingest_whatsapp_media_upload(
+                db,
+                user_id=user_id,
+                tenant_id=tenant_id,
+                media_id="media-video-123",
+                message_type="video",
+                text="Explain the key ideas",
+                media_filename="lesson.mp4",
+                media_mime_type="video/mp4",
+            )
+
+        assert payload["status"] == "queued"
+        assert payload["ingestion_mode"] == "async"
+        assert payload["job_id"] == "job-123"
+        assert "queued transcript extraction" in payload["response_text"].lower()
+        enqueue_mock.assert_called_once()
+        queued_payload = enqueue_mock.call_args.args[1]
+        assert queued_payload["follow_up_message"] == "Explain the key ideas"
+        assert queued_payload["follow_up_user_id"] == user_id
+
+    async def test_execute_whatsapp_media_ingestion_runs_deferred_follow_up(self):
+        from src.domains.platform.schemas.ai_runtime import InternalWhatsAppMediaIngestRequest
+        from src.interfaces.rest_api.ai import ingestion_workflows
+
+        document = SimpleNamespace(
+            id=uuid4(),
+            tenant_id=uuid4(),
+            notebook_id=uuid4(),
+            ingestion_status="processing",
+            chunk_count=0,
+        )
+        db = MagicMock()
+        db.query.return_value.filter.return_value.first.return_value = document
+        embedding_provider = SimpleNamespace(embed_batch=AsyncMock(return_value=[[0.1, 0.2]]))
+        vector_store = SimpleNamespace(add_chunks=MagicMock())
+        fake_chunk = SimpleNamespace(
+            text="Transcript chunk",
+            document_id="doc-1",
+            page_number=1,
+            section_title="Transcript",
+            subject_id="",
+            notebook_id=str(document.notebook_id),
+            source_file="lesson.mp4",
+        )
+
+        request = InternalWhatsAppMediaIngestRequest(
+            document_id=str(document.id),
+            file_path="C:/tmp/lesson.mp4",
+            display_name="lesson.mp4",
+            media_kind="video",
+            follow_up_message="Explain the key ideas",
+            follow_up_user_id="11111111-1111-1111-1111-111111111111",
+            role="student",
+            conversation_history=[{"role": "user", "content": "earlier context"}],
+            tenant_id=str(document.tenant_id),
+        )
+
+        with patch.object(ingestion_workflows, "SessionLocal", return_value=db), \
+             patch("src.infrastructure.vector_store.ingestion.ingest_media_transcript", return_value=[fake_chunk]), \
+             patch("src.infrastructure.llm.providers.get_embedding_provider", return_value=embedding_provider), \
+             patch("src.infrastructure.llm.providers.get_vector_store_provider", return_value=vector_store), \
+             patch.object(ingestion_workflows, "invalidate_tenant_cache"), \
+             patch("src.interfaces.whatsapp_bot.agent.run_whatsapp_agent", new=AsyncMock(return_value={
+                 "response": "Here is a grounded answer from the transcript.",
+                 "intent": "ask_ai_question",
+                 "tool_name": "ask_ai_question",
+             })) as agent_mock:
+            payload = await ingestion_workflows.execute_whatsapp_media_ingestion(request)
+
+        assert payload["status"] == "completed"
+        assert "grounded answer from the transcript" in payload["response_text"].lower()
+        agent_mock.assert_awaited_once_with(
+            message="Explain the key ideas",
+            user_id="11111111-1111-1111-1111-111111111111",
+            tenant_id=str(document.tenant_id),
+            role="student",
+            notebook_id=str(document.notebook_id),
+            conversation_history=[{"role": "user", "content": "earlier context"}],
+            session_id=None,
+            pending_confirmation_id=None,
+        )
+
+    async def test_process_inbound_message_routes_media_uploads_to_ingestion_pipeline(self):
+        link = SimpleNamespace(user_id=uuid4(), tenant_id=uuid4())
+        session = {
+            "phone": "919876543210",
+            "user_id": str(link.user_id),
+            "tenant_id": str(link.tenant_id),
+            "role": "student",
+            "active_child_id": None,
+            "active_notebook_id": None,
+            "conversation_history": [],
+        }
+        db = MagicMock()
+        media_result = {
+            "response_text": "Received *biology_notes.pdf* and added it to your knowledge base.",
+            "response_type": "text",
+            "intent": "media_upload",
+            "tool_name": "ingest_whatsapp_media",
+            "notebook_id": str(uuid4()),
+        }
+
+        with patch("src.domains.platform.services.whatsapp_gateway.resolve_phone_to_user", return_value=link), \
+             patch("src.domains.platform.services.whatsapp_gateway.get_session", return_value=session), \
+             patch("src.domains.platform.services.whatsapp_gateway._ingest_whatsapp_media_upload", new=AsyncMock(return_value=media_result)) as ingest_mock, \
+             patch("src.domains.platform.services.whatsapp_gateway.save_session") as save_mock, \
+             patch("src.domains.platform.services.whatsapp_gateway.log_message") as log_mock:
+            result = await process_inbound_message(
+                db,
+                "919876543210",
+                "biology notes",
+                wa_message_id="wamid-doc",
+                message_type="document",
+                media_id="media-123",
+                media_filename="biology_notes.pdf",
+                media_mime_type="application/pdf",
+            )
+
+        assert result["response_text"] == media_result["response_text"]
+        ingest_mock.assert_awaited_once_with(
+            db,
+            user_id=str(link.user_id),
+            tenant_id=str(link.tenant_id),
+            media_id="media-123",
+            message_type="document",
+            text="biology notes",
+            media_filename="biology_notes.pdf",
+            media_mime_type="application/pdf",
+            role="student",
+            follow_up_user_id=str(link.user_id),
+            conversation_history=[],
+        )
+        save_mock.assert_called_once()
+        assert session["active_notebook_id"] == media_result["notebook_id"]
+        assert any(call.kwargs.get("message_type") == "document" for call in log_mock.call_args_list)
+
+    async def test_process_inbound_message_passes_active_notebook_id_to_agent(self, mock_redis):
+        fake_redis, storage = mock_redis
+        link = SimpleNamespace(user_id=uuid4(), tenant_id=uuid4())
+        session = {
+            "phone": "919876543210",
+            "session_id": "ws-scope-123",
+            "user_id": str(link.user_id),
+            "tenant_id": str(link.tenant_id),
+            "role": "student",
+            "active_child_id": None,
+            "active_notebook_id": str(uuid4()),
+            "conversation_history": [],
+        }
+        db = MagicMock()
+
+        with patch("src.domains.platform.services.whatsapp_gateway.resolve_phone_to_user", return_value=link), \
+             patch("src.domains.platform.services.whatsapp_gateway.get_session", return_value=session), \
+             patch("src.interfaces.whatsapp_bot.agent.run_whatsapp_agent", new=AsyncMock(return_value={
+                 "response": "Scoped answer",
+                 "response_type": "text",
+                 "intent": "ask_ai_question",
+                 "tool_name": "ask_ai_question",
+             })) as agent_mock, \
+             patch("src.domains.platform.services.whatsapp_gateway.save_session"), \
+             patch("src.domains.platform.services.whatsapp_gateway.log_message"):
+            result = await process_inbound_message(db, "919876543210", "Explain my uploaded notes")
+
+        assert result["response_text"] == "Scoped answer"
+        agent_mock.assert_awaited_once_with(
+            message="Explain my uploaded notes",
+            user_id=str(link.user_id),
+            tenant_id=str(link.tenant_id),
+            role="student",
+            notebook_id=session["active_notebook_id"],
+            conversation_history=[],
+            session_id=session["session_id"],
+            pending_confirmation_id=session.get("pending_mascot_confirmation_id"),
+        )
+        metrics = get_whatsapp_metrics(str(link.tenant_id))
+        assert metrics["inbound_total"] == 1
+        assert metrics["routing_success_total"] == 1
+
+    async def test_process_inbound_message_stores_pending_mascot_confirmation(self, mock_redis):
+        fake_redis, storage = mock_redis
+        link = SimpleNamespace(user_id=uuid4(), tenant_id=uuid4())
+        session = {
+            "phone": "919876543210",
+            "session_id": "ws-confirm-123",
+            "user_id": str(link.user_id),
+            "tenant_id": str(link.tenant_id),
+            "role": "student",
+            "active_child_id": None,
+            "active_notebook_id": None,
+            "conversation_history": [],
+        }
+        db = MagicMock()
+
+        with patch("src.domains.platform.services.whatsapp_gateway.resolve_phone_to_user", return_value=link), \
+             patch("src.domains.platform.services.whatsapp_gateway.get_session", return_value=session), \
+             patch("src.interfaces.whatsapp_bot.agent.run_whatsapp_agent", new=AsyncMock(return_value={
+                 "response": "Please confirm before I archive that notebook.\n\nReply *CONFIRM* to continue or *CANCEL* to stop.",
+                 "response_type": "text",
+                 "intent": "notebook_update",
+                 "tool_name": "notebook_update",
+                 "requires_confirmation": True,
+                 "confirmation_id": "mascot-confirm-123",
+                 "confirmation_cleared": False,
+                 "notebook_id": None,
+             })), \
+             patch("src.domains.platform.services.whatsapp_gateway.save_session") as save_mock, \
+             patch("src.domains.platform.services.whatsapp_gateway.log_message"):
+            result = await process_inbound_message(db, "919876543210", "Delete Biology notebook")
+
+        assert result["response_text"].startswith("Please confirm")
+        saved_session = save_mock.call_args.args[2]
+        assert saved_session["pending_mascot_confirmation_id"] == "mascot-confirm-123"
+
+    async def test_process_inbound_message_clears_pending_mascot_confirmation_after_confirm(self, mock_redis):
+        fake_redis, storage = mock_redis
+        link = SimpleNamespace(user_id=uuid4(), tenant_id=uuid4())
+        session = {
+            "phone": "919876543210",
+            "session_id": "ws-confirm-456",
+            "user_id": str(link.user_id),
+            "tenant_id": str(link.tenant_id),
+            "role": "student",
+            "active_child_id": None,
+            "active_notebook_id": None,
+            "pending_mascot_confirmation_id": "mascot-confirm-456",
+            "conversation_history": [],
+        }
+        db = MagicMock()
+
+        with patch("src.domains.platform.services.whatsapp_gateway.resolve_phone_to_user", return_value=link), \
+             patch("src.domains.platform.services.whatsapp_gateway.get_session", return_value=session), \
+             patch("src.interfaces.whatsapp_bot.agent.run_whatsapp_agent", new=AsyncMock(return_value={
+                 "response": "Archived notebook 'Biology'.",
+                 "response_type": "text",
+                 "intent": "confirm",
+                 "tool_name": "confirm",
+                 "requires_confirmation": False,
+                 "confirmation_id": None,
+                 "confirmation_cleared": True,
+                 "notebook_id": None,
+             })), \
+             patch("src.domains.platform.services.whatsapp_gateway.save_session") as save_mock, \
+             patch("src.domains.platform.services.whatsapp_gateway.log_message"):
+            result = await process_inbound_message(db, "919876543210", "confirm")
+
+        assert result["response_text"] == "Archived notebook 'Biology'."
+        saved_session = save_mock.call_args.args[2]
+        assert "pending_mascot_confirmation_id" not in saved_session
+
+    async def test_process_inbound_message_updates_active_notebook_from_mascot_result(self, mock_redis):
+        fake_redis, storage = mock_redis
+        link = SimpleNamespace(user_id=uuid4(), tenant_id=uuid4())
+        notebook_id = str(uuid4())
+        session = {
+            "phone": "919876543210",
+            "session_id": "ws-notebook-123",
+            "user_id": str(link.user_id),
+            "tenant_id": str(link.tenant_id),
+            "role": "student",
+            "active_child_id": None,
+            "active_notebook_id": None,
+            "conversation_history": [],
+        }
+        db = MagicMock()
+
+        with patch("src.domains.platform.services.whatsapp_gateway.resolve_phone_to_user", return_value=link), \
+             patch("src.domains.platform.services.whatsapp_gateway.get_session", return_value=session), \
+             patch("src.interfaces.whatsapp_bot.agent.run_whatsapp_agent", new=AsyncMock(return_value={
+                 "response": "Created notebook 'Biology Chapter 10'.",
+                 "response_type": "text",
+                 "intent": "notebook_create",
+                 "tool_name": "notebook_create",
+                 "requires_confirmation": False,
+                 "confirmation_id": None,
+                 "confirmation_cleared": False,
+                 "notebook_id": notebook_id,
+             })), \
+             patch("src.domains.platform.services.whatsapp_gateway.save_session") as save_mock, \
+             patch("src.domains.platform.services.whatsapp_gateway.log_message"):
+            result = await process_inbound_message(db, "919876543210", "Create notebook for Biology Chapter 10")
+
+        assert result["response_text"] == "Created notebook 'Biology Chapter 10'."
+        saved_session = save_mock.call_args.args[2]
+        assert saved_session["active_notebook_id"] == notebook_id
+
+    async def test_process_inbound_message_reuses_mascot_created_notebook_on_next_turn(self, mock_redis):
+        fake_redis, storage = mock_redis
+        link = SimpleNamespace(user_id=uuid4(), tenant_id=uuid4())
+        notebook_id = str(uuid4())
+        session = {
+            "phone": "919876543210",
+            "session_id": "ws-notebook-chain",
+            "user_id": str(link.user_id),
+            "tenant_id": str(link.tenant_id),
+            "role": "student",
+            "active_child_id": None,
+            "active_notebook_id": None,
+            "conversation_history": [],
+        }
+        db = MagicMock()
+        agent_mock = AsyncMock(
+            side_effect=[
+                {
+                    "response": "Created notebook 'Biology Chapter 10'.",
+                    "response_type": "text",
+                    "intent": "notebook_create",
+                    "tool_name": "notebook_create",
+                    "requires_confirmation": False,
+                    "confirmation_id": None,
+                    "confirmation_cleared": False,
+                    "notebook_id": notebook_id,
+                },
+                {
+                    "response": "Scoped answer",
+                    "response_type": "text",
+                    "intent": "ask_ai_question",
+                    "tool_name": "ask_ai_question",
+                    "requires_confirmation": False,
+                    "confirmation_id": None,
+                    "confirmation_cleared": False,
+                    "notebook_id": notebook_id,
+                },
+            ]
+        )
+
+        with patch("src.domains.platform.services.whatsapp_gateway.resolve_phone_to_user", return_value=link), \
+             patch("src.domains.platform.services.whatsapp_gateway.get_session", return_value=session), \
+             patch("src.interfaces.whatsapp_bot.agent.run_whatsapp_agent", new=agent_mock), \
+             patch("src.domains.platform.services.whatsapp_gateway.save_session"), \
+             patch("src.domains.platform.services.whatsapp_gateway.log_message"):
+            first = await process_inbound_message(db, "919876543210", "Create notebook for Biology Chapter 10")
+            second = await process_inbound_message(db, "919876543210", "Explain photosynthesis")
+
+        assert first["response_text"] == "Created notebook 'Biology Chapter 10'."
+        assert second["response_text"] == "Scoped answer"
+        assert session["active_notebook_id"] == notebook_id
+        second_call = agent_mock.await_args_list[1]
+        assert second_call.kwargs["notebook_id"] == notebook_id
+
+    async def test_process_inbound_message_answers_follow_up_from_media_caption(self):
+        link = SimpleNamespace(user_id=uuid4(), tenant_id=uuid4())
+        notebook_id = str(uuid4())
+        session = {
+            "phone": "919876543210",
+            "user_id": str(link.user_id),
+            "tenant_id": str(link.tenant_id),
+            "role": "student",
+            "active_child_id": None,
+            "active_notebook_id": None,
+            "conversation_history": [],
+        }
+        db = MagicMock()
+        media_result = {
+            "response_text": "Received *biology_notes.pdf* and added it to your knowledge base.",
+            "response_type": "text",
+            "intent": "media_upload",
+            "tool_name": "ingest_whatsapp_media",
+            "notebook_id": notebook_id,
+        }
+
+        with patch("src.domains.platform.services.whatsapp_gateway.resolve_phone_to_user", return_value=link), \
+             patch("src.domains.platform.services.whatsapp_gateway.get_session", return_value=session), \
+             patch("src.domains.platform.services.whatsapp_gateway._ingest_whatsapp_media_upload", new=AsyncMock(return_value=media_result)), \
+             patch("src.domains.platform.services.whatsapp_gateway._run_post_ingest_follow_up", new=AsyncMock(return_value={
+                 "response": "Here is a grounded summary from your uploaded notes.",
+                 "intent": "ask_ai_question",
+                 "tool_name": "ask_ai_question",
+             })) as follow_up_mock, \
+             patch("src.domains.platform.services.whatsapp_gateway.save_session"), \
+             patch("src.domains.platform.services.whatsapp_gateway.log_message"):
+            result = await process_inbound_message(
+                db,
+                "919876543210",
+                "Explain this chapter briefly",
+                wa_message_id="wamid-doc-followup",
+                message_type="document",
+                media_id="media-123",
+                media_filename="biology_notes.pdf",
+                media_mime_type="application/pdf",
+            )
+
+        assert "Received *biology_notes.pdf*" in result["response_text"]
+        assert "Here is a grounded summary" in result["response_text"]
+        assert session["active_notebook_id"] == notebook_id
+        follow_up_mock.assert_awaited_once()
+        kwargs = follow_up_mock.await_args.kwargs
+        assert kwargs["message"] == "Explain this chapter briefly"
+        assert kwargs["user_id"] == str(link.user_id)
+        assert kwargs["tenant_id"] == str(link.tenant_id)
+        assert kwargs["role"] == "student"
+        assert kwargs["notebook_id"] == notebook_id
+        assert isinstance(kwargs["conversation_history"], list)
+
+    async def test_process_inbound_message_ingests_link_and_runs_follow_up(self):
+        link = SimpleNamespace(user_id=uuid4(), tenant_id=uuid4())
+        notebook_id = str(uuid4())
+        session = {
+            "phone": "919876543210",
+            "user_id": str(link.user_id),
+            "tenant_id": str(link.tenant_id),
+            "role": "student",
+            "active_child_id": None,
+            "active_notebook_id": None,
+            "conversation_history": [],
+        }
+        db = MagicMock()
+        url_result = {
+            "response_text": "Added this link to your knowledge base. You can now ask questions about it in WhatsApp.",
+            "response_type": "text",
+            "intent": "url_upload",
+            "tool_name": "ingest_whatsapp_url",
+            "notebook_id": notebook_id,
+        }
+
+        with patch("src.domains.platform.services.whatsapp_gateway.resolve_phone_to_user", return_value=link), \
+             patch("src.domains.platform.services.whatsapp_gateway.get_session", return_value=session), \
+             patch("src.domains.platform.services.whatsapp_gateway._ingest_whatsapp_url", new=AsyncMock(return_value=url_result)) as ingest_mock, \
+             patch("src.domains.platform.services.whatsapp_gateway._run_post_ingest_follow_up", new=AsyncMock(return_value={
+                 "response": "This link explains the lesson in a grounded way.",
+                 "intent": "ask_ai_question",
+                 "tool_name": "ask_ai_question",
+             })) as follow_up_mock, \
+             patch("src.domains.platform.services.whatsapp_gateway.save_session"), \
+             patch("src.domains.platform.services.whatsapp_gateway.log_message"):
+            result = await process_inbound_message(
+                db,
+                "919876543210",
+                "Summarize this https://example.com/lesson",
+                wa_message_id="wamid-link-1",
+            )
+
+        assert "Added this link to your knowledge base." in result["response_text"]
+        assert "This link explains the lesson" in result["response_text"]
+        assert session["active_notebook_id"] == notebook_id
+        ingest_mock.assert_awaited_once_with(
+            db,
+            user_id=str(link.user_id),
+            tenant_id=str(link.tenant_id),
+            url="https://example.com/lesson",
+            text="Summarize this https://example.com/lesson",
+        )
+        follow_up_mock.assert_awaited_once()
+        kwargs = follow_up_mock.await_args.kwargs
+        assert kwargs["message"] == "Summarize this"
+        assert kwargs["user_id"] == str(link.user_id)
+        assert kwargs["tenant_id"] == str(link.tenant_id)
+        assert kwargs["role"] == "student"
+        assert kwargs["notebook_id"] == notebook_id
+        assert isinstance(kwargs["conversation_history"], list)
+
+    async def test_process_inbound_message_ingests_text_note_and_runs_follow_up(self):
+        link = SimpleNamespace(user_id=uuid4(), tenant_id=uuid4())
+        notebook_id = str(uuid4())
+        session = {
+            "phone": "919876543210",
+            "user_id": str(link.user_id),
+            "tenant_id": str(link.tenant_id),
+            "role": "student",
+            "active_child_id": None,
+            "active_notebook_id": None,
+            "conversation_history": [],
+        }
+        db = MagicMock()
+        note_result = {
+            "response_text": "Saved your text note to the knowledge base. You can now ask questions about it in WhatsApp.",
+            "response_type": "text",
+            "intent": "text_note_upload",
+            "tool_name": "ingest_whatsapp_text_note",
+            "notebook_id": notebook_id,
+        }
+
+        with patch("src.domains.platform.services.whatsapp_gateway.resolve_phone_to_user", return_value=link), \
+             patch("src.domains.platform.services.whatsapp_gateway.get_session", return_value=session), \
+             patch("src.domains.platform.services.whatsapp_gateway._ingest_whatsapp_text_note", new=AsyncMock(return_value=note_result)) as ingest_mock, \
+             patch("src.domains.platform.services.whatsapp_gateway._run_post_ingest_follow_up", new=AsyncMock(return_value={
+                 "response": "Here is a grounded answer from your saved note.",
+                 "intent": "ask_ai_question",
+                 "tool_name": "ask_ai_question",
+             })) as follow_up_mock, \
+             patch("src.domains.platform.services.whatsapp_gateway.save_session"), \
+             patch("src.domains.platform.services.whatsapp_gateway.log_message"):
+            result = await process_inbound_message(
+                db,
+                "919876543210",
+                "note: Photosynthesis uses sunlight to make food.\n\nquestion: summarize this note",
+                wa_message_id="wamid-note-1",
+            )
+
+        assert "Saved your text note" in result["response_text"]
+        assert "grounded answer from your saved note" in result["response_text"]
+        assert session["active_notebook_id"] == notebook_id
+        ingest_mock.assert_awaited_once()
+        assert ingest_mock.await_args.kwargs["note_text"] == "Photosynthesis uses sunlight to make food."
+        follow_up_mock.assert_awaited_once()
+        assert follow_up_mock.await_args.kwargs["message"] == "summarize this note"
+        assert follow_up_mock.await_args.kwargs["notebook_id"] == notebook_id
+
+    async def test_process_inbound_message_queues_video_upload_without_inline_follow_up(self):
+        link = SimpleNamespace(user_id=uuid4(), tenant_id=uuid4())
+        notebook_id = str(uuid4())
+        session = {
+            "phone": "919876543210",
+            "user_id": str(link.user_id),
+            "tenant_id": str(link.tenant_id),
+            "role": "student",
+            "active_child_id": None,
+            "active_notebook_id": None,
+            "conversation_history": [],
+        }
+        db = MagicMock()
+        media_result = {
+            "response_text": "Received *lesson.mp4* and queued transcript extraction. I'll message you here once the transcript is ready so you can continue from the same upload.",
+            "response_type": "text",
+            "intent": "media_upload",
+            "tool_name": "ingest_whatsapp_media",
+            "notebook_id": notebook_id,
+            "status": "queued",
+            "ingestion_mode": "async",
+            "job_id": "job-123",
+        }
+
+        with patch("src.domains.platform.services.whatsapp_gateway.resolve_phone_to_user", return_value=link), \
+             patch("src.domains.platform.services.whatsapp_gateway.get_session", return_value=session), \
+             patch("src.domains.platform.services.whatsapp_gateway._ingest_whatsapp_media_upload", new=AsyncMock(return_value=media_result)), \
+             patch("src.domains.platform.services.whatsapp_gateway._run_post_ingest_follow_up", new=AsyncMock(return_value={
+                 "response": "This should not run yet.",
+                 "intent": "ask_ai_question",
+                 "tool_name": "ask_ai_question",
+             })) as follow_up_mock, \
+             patch("src.domains.platform.services.whatsapp_gateway.save_session"), \
+             patch("src.domains.platform.services.whatsapp_gateway.log_message"):
+            result = await process_inbound_message(
+                db,
+                "919876543210",
+                "Explain the key ideas",
+                wa_message_id="wamid-video-1",
+                message_type="video",
+                media_id="media-video-123",
+                media_filename="lesson.mp4",
+                media_mime_type="video/mp4",
+            )
+
+        assert "queued transcript extraction" in result["response_text"].lower()
+        assert session["active_notebook_id"] == notebook_id
+        follow_up_mock.assert_not_awaited()
+
+    async def test_process_inbound_message_returns_actionable_bad_link_error(self):
+        link = SimpleNamespace(user_id=uuid4(), tenant_id=uuid4())
+        session = {
+            "phone": "919876543210",
+            "user_id": str(link.user_id),
+            "tenant_id": str(link.tenant_id),
+            "role": "student",
+            "active_child_id": None,
+            "active_notebook_id": None,
+            "conversation_history": [],
+        }
+        db = MagicMock()
+
+        with patch("src.domains.platform.services.whatsapp_gateway.resolve_phone_to_user", return_value=link), \
+             patch("src.domains.platform.services.whatsapp_gateway.get_session", return_value=session), \
+             patch("src.domains.platform.services.whatsapp_gateway._ingest_whatsapp_url", new=AsyncMock(side_effect=ValueError(
+                 "That link points to a private or unsupported destination."
+             ))), \
+             patch("src.domains.platform.services.whatsapp_gateway.save_session"), \
+             patch("src.domains.platform.services.whatsapp_gateway.log_message"):
+            result = await process_inbound_message(
+                db,
+                "919876543210",
+                "Summarize this https://internal.example.local",
+                wa_message_id="wamid-link-bad",
+            )
+
+        assert "public web page" in result["response_text"].lower()
+        assert "youtube link" in result["response_text"].lower()
+
+    async def test_ingest_whatsapp_url_uses_youtube_pipeline(self):
+        tenant_id = str(uuid4())
+        user_id = str(uuid4())
+        notebook = SimpleNamespace(id=uuid4())
+        db = MagicMock()
+        fake_chunks = [
+            SimpleNamespace(
+                text="Photosynthesis transcript chunk",
+                document_id="doc-1",
+                page_number=1,
+                section_title="Segment 1",
+                subject_id=None,
+                notebook_id=str(notebook.id),
+                source_file="https://youtu.be/abc123xyz09",
+            )
+        ]
+        embedding_provider = SimpleNamespace(embed_batch=AsyncMock(return_value=[[0.1, 0.2]]))
+        vector_store = SimpleNamespace(add_chunks=MagicMock())
+
+        with patch("src.domains.platform.services.whatsapp_gateway._create_whatsapp_notebook", return_value=notebook), \
+             patch("src.infrastructure.vector_store.ingestion.ingest_youtube", return_value=fake_chunks) as ingest_youtube_mock, \
+             patch("src.infrastructure.llm.providers.get_embedding_provider", return_value=embedding_provider), \
+             patch("src.infrastructure.llm.providers.get_vector_store_provider", return_value=vector_store), \
+             patch("src.domains.platform.services.whatsapp_gateway.invalidate_tenant_cache"):
+            result = await _ingest_whatsapp_url(
+                db,
+                user_id=user_id,
+                tenant_id=tenant_id,
+                url="https://youtu.be/abc123xyz09",
+                text="Summarize this YouTube lesson",
+            )
+
+        assert "youtube link" in result["response_text"].lower()
+        assert result["notebook_id"] == str(notebook.id)
+        ingest_youtube_mock.assert_called_once()
+        assert ingest_youtube_mock.call_args.kwargs["url"] == "https://youtu.be/abc123xyz09"
+        assert ingest_youtube_mock.call_args.kwargs["tenant_id"] == tenant_id
+        assert ingest_youtube_mock.call_args.kwargs["notebook_id"] == str(notebook.id)
+        vector_store.add_chunks.assert_called_once()
+
+
 # ─── Model Import Test ───────────────────────────────────────
 
 class TestModels:
@@ -768,6 +2052,7 @@ for _name, _value in list(vars().items()):
         for _attr, _fn in list(vars(_value).items()):
             if _attr.startswith("test_") and inspect.iscoroutinefunction(_fn):
                 def _wrap(fn):
+                    @functools.wraps(fn)
                     def _runner(*args, **kwargs):
                         return asyncio.run(fn(*args, **kwargs))
                     return _runner

@@ -25,12 +25,19 @@ const tabs: Array<{ id: Tab; label: string }> = [
     { id: "graded", label: "Graded" },
 ];
 
+type OCRNote = {
+    reviewRequired: boolean;
+    warning: string | null;
+    confidence?: number;
+};
+
 export default function AssignmentsPage() {
     const [assignments, setAssignments] = useState<AssignmentItem[]>([]);
     const [activeTab, setActiveTab] = useState<Tab>("all");
     const [loading, setLoading] = useState(true);
     const [uploadingId, setUploadingId] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [ocrNotes, setOcrNotes] = useState<Record<string, OCRNote | null>>({});
 
     const loadAssignments = async () => {
         const payload = await api.student.assignments();
@@ -65,7 +72,21 @@ export default function AssignmentsPage() {
             setError(null);
             const formData = new FormData();
             formData.append("file", file);
-            await api.student.submitAssignment(assignmentId, formData);
+            const payload = (await api.student.submitAssignment(assignmentId, formData)) as {
+                ocr_review_required?: boolean;
+                ocr_warning?: string | null;
+                ocr_confidence?: number;
+            };
+            setOcrNotes((prev) => ({
+                ...prev,
+                [assignmentId]: payload?.ocr_review_required || payload?.ocr_warning
+                    ? {
+                        reviewRequired: Boolean(payload?.ocr_review_required),
+                        warning: payload?.ocr_warning ?? null,
+                        confidence: typeof payload?.ocr_confidence === "number" ? payload.ocr_confidence : undefined,
+                    }
+                    : null,
+            }));
             await loadAssignments();
         } catch (err) {
             setError(err instanceof Error ? err.message : "Failed to submit assignment");
@@ -141,6 +162,14 @@ export default function AssignmentsPage() {
                                     {item.submitted_at ? (
                                         <p className="text-[11px] text-[var(--text-muted)] mt-1">Submitted: {item.submitted_at}</p>
                                     ) : null}
+                                    {ocrNotes[item.id]?.reviewRequired || ocrNotes[item.id]?.warning ? (
+                                        <p className="text-[11px] text-[var(--warning)] mt-1">
+                                            {typeof ocrNotes[item.id]?.confidence === "number"
+                                                ? `OCR confidence ${Math.round(ocrNotes[item.id]!.confidence! * 100)}% Â· `
+                                                : ""}
+                                            OCR review recommended{ocrNotes[item.id]?.warning ? ` · ${ocrNotes[item.id]?.warning}` : ""}
+                                        </p>
+                                    ) : null}
                                 </div>
                             </div>
 
@@ -172,7 +201,8 @@ export default function AssignmentsPage() {
                                     {uploadingId === item.id ? "Uploading..." : item.status === "pending" ? "Upload Submission" : "Replace Submission"}
                                     <input
                                         type="file"
-                                        accept=".pdf,.docx"
+                                        accept=".pdf,.docx,image/*"
+                                        capture="environment"
                                         className="hidden"
                                         disabled={uploadingId !== null}
                                         onChange={(event) => {

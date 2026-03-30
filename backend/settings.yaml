@@ -26,6 +26,9 @@ observability:
   metrics_token: ""
   queue_depth_warn_threshold_pct: 80
   queue_failure_warn_pct: 20
+  ocr_failure_warn_pct: 15
+  ocr_review_warn_pct: 50
+  ocr_min_events_for_alert: 20
   alert_email_recipients: []
   alert_sms_recipients: []
   otlp_endpoint: ""

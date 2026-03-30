@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import GuidedTour, { studentTourSteps } from "@/components/GuidedTour";
 import { MobileBottomNav } from "@/components/ui/SharedUI";
+import { MascotLauncher } from "@/components/mascot/MascotLauncher";
 
 const studentNav = [
     { label: "Overview", href: "/student/overview", icon: LayoutDashboard },
@@ -58,6 +59,7 @@ export default function StudentLayout({
     children: React.ReactNode;
 }) {
     const pathname = usePathname();
+    const showMascotLauncher = pathname !== "/student/assistant";
     return (
         <div className="flex min-h-screen bg-[var(--bg-page)]">
             <Sidebar items={studentNav} role="student" />
@@ -65,6 +67,7 @@ export default function StudentLayout({
                 <div className="mx-auto max-w-7xl">{children}</div>
             </main>
             <GuidedTour steps={studentTourSteps} storageKey="student-tour" />
+            {showMascotLauncher ? <MascotLauncher role="student" /> : null}
             <MobileBottomNav items={mobileNav} currentPath={pathname} />
         </div>
     );

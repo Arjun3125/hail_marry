@@ -74,6 +74,12 @@ GOLDEN_CORPUS: List[Tuple[str, Optional[str], str]] = [
     ("What should I study to improve?", "get_student_weak_topics", "student"),
     ("Which subjects are weak?", "get_student_weak_topics", "student"),
     ("study guide for weak areas", "get_student_weak_topics", "student"),
+    ("photosynthesis explain kar", "ask_ai_question", "student"),
+    ("quiz bana biology chapter 3", "generate_quiz", "student"),
+    ("mala flashcards pahije photosynthesis var", "generate_flashcards", "student"),
+    ("mind map bana biology ka", "generate_mindmap", "student"),
+    ("flowchart bana digestion process ka", "generate_flowchart", "student"),
+    ("concept map bana respiration ka", "generate_concept_map", "student"),
 
     # ── Teacher: Schedule (role override) ──
     ("What's my timetable today?", "get_teacher_schedule", "teacher"),

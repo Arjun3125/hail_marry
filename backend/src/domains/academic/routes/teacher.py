@@ -15,6 +15,7 @@ from database import get_db
 from auth.dependencies import require_role
 from auth.scoping import get_teacher_class_ids
 from src.domains.platform.services.webhooks import emit_webhook_event
+from src.infrastructure.llm.cache import invalidate_tenant_cache
 from src.domains.identity.models.user import User
 from src.domains.academic.models.core import Class, Subject, Enrollment
 from src.domains.academic.models.attendance import Attendance
@@ -23,6 +24,17 @@ from src.domains.academic.models.assignment import Assignment, AssignmentSubmiss
 from src.domains.platform.models.document import Document
 from src.domains.academic.models.lecture import Lecture
 from src.domains.academic.models.timetable import Timetable
+from src.shared.ocr_imports import (
+    StructuredImportParseResult,
+    extract_upload_content_result,
+    extract_text_from_upload_content,
+    get_extension,
+    parse_account_rows_with_diagnostics,
+    parse_attendance_rows,
+    parse_attendance_rows_with_diagnostics,
+    parse_marks_rows,
+    parse_marks_rows_with_diagnostics,
+)
 from utils.upload_security import (
     UploadValidationError,
     ensure_storage_dir,
@@ -148,6 +160,75 @@ def _validate_student_in_class(
     if not enrollment:
         raise HTTPException(status_code=400, detail=f"Student {student_id} is not enrolled in class")
     return student_uuid
+
+
+def _resolve_student_identifier_in_class(
+    db: Session,
+    current_user: User,
+    identifier: str,
+    class_id: UUID,
+) -> UUID:
+    """Allow OCR imports to refer to students by UUID, email, or full name."""
+    cleaned = identifier.strip()
+    if not cleaned:
+        raise HTTPException(status_code=400, detail="Missing student identifier")
+
+    try:
+        return _validate_student_in_class(db, current_user, cleaned, class_id)
+    except HTTPException:
+        pass
+
+    match_value = cleaned.casefold()
+    enrollments = db.query(Enrollment).filter(
+        Enrollment.tenant_id == current_user.tenant_id,
+        Enrollment.class_id == class_id,
+    ).all()
+    for enrollment in enrollments:
+        student = db.query(User).filter(
+            User.id == enrollment.student_id,
+            User.tenant_id == current_user.tenant_id,
+        ).first()
+        if not student:
+            continue
+        if student.email and student.email.casefold() == match_value:
+            return student.id
+        if student.full_name and student.full_name.casefold() == match_value:
+            return student.id
+
+    raise HTTPException(status_code=400, detail=f"Student '{identifier}' is not enrolled in class")
+
+
+def _load_structured_import_rows(
+    filename: str,
+    content: bytes,
+    *,
+    parser,
+    empty_detail: str,
+) -> tuple[list[tuple[str, int | str]], dict]:
+    ext = get_extension(filename)
+    if ext not in {"csv", "txt", "jpg", "jpeg", "png"}:
+        raise HTTPException(status_code=400, detail="Only CSV, TXT, JPG, JPEG, PNG files allowed.")
+    try:
+        extraction = extract_upload_content_result(filename, content)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    parsed: StructuredImportParseResult = parser(extraction.text)
+    if not parsed.rows:
+        raise HTTPException(status_code=400, detail=empty_detail)
+    review_required = extraction.review_required or parsed.review_required
+    warning = parsed.warning or extraction.warning
+    if extraction.used_ocr and not warning and parsed.unmatched_lines:
+        warning = f"OCR parsed {len(parsed.rows)} rows but some lines need manual review."
+    metadata = {
+        "ocr_processed": extraction.used_ocr,
+        "ocr_review_required": review_required,
+        "ocr_warning": warning,
+        "ocr_languages": extraction.languages,
+        "ocr_preprocessing": extraction.preprocessing_applied,
+        "ocr_confidence": getattr(extraction, "confidence", None),
+        "ocr_unmatched_lines": len(parsed.unmatched_lines),
+    }
+    return parsed.rows, metadata
 
 
 # ─── Dashboard ───────────────────────────────────────────────
@@ -519,7 +600,7 @@ async def upload_document(
     current_user: User = Depends(require_role("teacher", "admin")),
     db: Session = Depends(get_db),
 ):
-    """Upload a PDF/DOCX/PPTX/XLSX for AI ingestion with RAG pipeline."""
+    """Upload a document or OCR image for AI ingestion with the RAG pipeline."""
     safe_filename = Path(file.filename or "").name
     if not safe_filename:
         raise HTTPException(status_code=400, detail="Filename is required.")
@@ -529,10 +610,14 @@ async def upload_document(
     if ext not in ALLOWED_EXTENSIONS:
         raise HTTPException(status_code=400, detail=f"Only {', '.join(sorted(ALLOWED_EXTENSIONS))} files allowed.")
 
-    # Save file
-    file_path = UPLOAD_DIR / f"{current_user.tenant_id}_{current_user.id}_{uuid4().hex}_{safe_filename}"
     content = await file.read()
     macros_removed = False
+    ocr_processed = False
+    ocr_review_required = False
+    ocr_warning = None
+    ocr_languages: list[str] = []
+    ocr_preprocessing: list[str] = []
+    ocr_confidence: float | None = None
     if ext == "docx":
         try:
             content, macros_removed = sanitize_docx_bytes(content)
@@ -540,8 +625,41 @@ async def upload_document(
             raise HTTPException(status_code=400, detail=str(exc))
     if len(content) > MAX_FILE_SIZE:
         raise HTTPException(status_code=400, detail="File exceeds 50MB limit.")
-    with open(file_path, "wb") as f:
-        f.write(content)
+    if ext in ("jpg", "jpeg", "png"):
+        from src.infrastructure.vector_store.ocr_service import image_bytes_to_pdf, validate_image_size
+
+        try:
+            validate_image_size(content)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+        pdf_name = f"{current_user.tenant_id}_{current_user.id}_{uuid4().hex}_ocr.pdf"
+        file_path = UPLOAD_DIR / pdf_name
+        try:
+            ocr_result = image_bytes_to_pdf(
+                content,
+                str(file_path),
+                suffix=f".{ext}",
+                title=safe_filename,
+                source_name=safe_filename,
+            )
+        except Exception:
+            logger.exception("OCR processing failed for teacher upload")
+            raise HTTPException(
+                status_code=500,
+                detail="OCR processing failed. Please upload a clearer, higher-contrast image or a PDF.",
+            )
+        safe_filename = pdf_name
+        ext = "pdf"
+        ocr_processed = True
+        ocr_review_required = ocr_result.review_required
+        ocr_warning = ocr_result.warning
+        ocr_languages = ocr_result.languages
+        ocr_preprocessing = ocr_result.preprocessing_applied
+        ocr_confidence = getattr(ocr_result, "confidence", None)
+    else:
+        file_path = UPLOAD_DIR / f"{current_user.tenant_id}_{current_user.id}_{uuid4().hex}_{safe_filename}"
+        with open(file_path, "wb") as f:
+            f.write(content)
 
     # Track in DB
     doc = Document(
@@ -584,6 +702,8 @@ async def upload_document(
             } for c in chunks]
             store.add_chunks(chunk_dicts, embeddings)
 
+        invalidate_tenant_cache(str(current_user.tenant_id))
+
         doc.ingestion_status = "completed"
         doc.chunk_count = len(chunks) if chunks else 0
         db.commit()
@@ -610,6 +730,12 @@ async def upload_document(
             "chunks": len(chunks),
             "status": "completed",
             "macros_removed": macros_removed,
+            "ocr_processed": ocr_processed,
+            "ocr_review_required": ocr_review_required,
+            "ocr_warning": ocr_warning,
+            "ocr_languages": ocr_languages,
+            "ocr_preprocessing": ocr_preprocessing,
+            "ocr_confidence": ocr_confidence,
         }
     except Exception:
         logger.exception("Teacher document ingestion failed", extra={"document_id": str(doc.id)})
@@ -672,6 +798,8 @@ async def ingest_youtube_video(
             chunk_dicts = [{"text": c.text, "document_id": c.document_id, "page_number": c.page_number, "section_title": c.section_title or "", "subject_id": c.subject_id or "", "source_file": c.source_file or ""} for c in chunks]
             store.add_chunks(chunk_dicts, embeddings)
 
+        invalidate_tenant_cache(str(current_user.tenant_id))
+
         lecture.transcript_ingested = True
         db.commit()
         return {"success": True, "lecture_id": str(lecture.id), "chunks": len(chunks)}
@@ -683,6 +811,7 @@ async def ingest_youtube_video(
 @router.post("/onboard/students")
 async def onboard_students(
     file: UploadFile = File(...),
+    preview: bool = False,
     current_user: User = Depends(require_role("teacher", "admin")),
     db: Session = Depends(get_db),
 ):
@@ -691,62 +820,66 @@ async def onboard_students(
     Format is same as admin teacher onboarding: name (email/password generated).
     """
     safe_filename = file.filename or ""
-    ext = safe_filename.split(".")[-1].lower() if "." in safe_filename else ""
-    import tempfile
-    import shutil
-    import os
-
-    with tempfile.NamedTemporaryFile(suffix=f".{ext}", delete=False) as tmp:
-        shutil.copyfileobj(file.file, tmp)
-        tmp_path = tmp.name
-
+    ext = get_extension(safe_filename)
+    content = await file.read()
     students_to_create = []
+    ocr_processed = False
+    ocr_review_required = False
+    ocr_warning = None
+    ocr_languages: list[str] = []
+    ocr_preprocessing: list[str] = []
 
-    if ext in ("csv", "txt"):
+    parsed = None
+    if ext in ("csv", "txt", "jpg", "jpeg", "png"):
         try:
-            with open(tmp_path, "r", encoding="utf-8") as f:
-                text = f.read()
-        except UnicodeDecodeError:
-            raise HTTPException(status_code=400, detail="Invalid encoding. Use UTF-8.")
-        
-        reader = csv.reader(io.StringIO(text))
-        for row in reader:
-            if not row or not any(row):
-                continue
-            name = row[0].strip()
-            email = row[1].strip() if len(row) > 1 else f"{re.sub(r'[^a-zA-Z0-9]', '.', name.lower())}@example.com"
-            password = row[2].strip() if len(row) > 2 else "Student123!"
-            students_to_create.append({"name": name, "email": email, "password": password})
-            
-    elif ext in ("jpg", "jpeg", "png"):
-        from src.infrastructure.vector_store.ocr_service import extract_text_from_image, validate_image_size
-        try:
-            with open(tmp_path, "rb") as f:
-                validate_image_size(f.read())
+            extraction = extract_upload_content_result(safe_filename, content)
         except ValueError as exc:
-            os.unlink(tmp_path)
             raise HTTPException(status_code=400, detail=str(exc))
-        
-        try:
-            extracted_text = extract_text_from_image(tmp_path)
-            for line in extracted_text.splitlines():
-                name = line.strip()
-                if len(name) > 2:
-                    email = f"{re.sub(r'[^a-zA-Z0-9]', '.', name.lower())}@example.com"
-                    students_to_create.append({"name": name, "email": email, "password": "Student123!"})
-        except Exception:
-            os.unlink(tmp_path)
-            raise HTTPException(status_code=500, detail="OCR processing failed")
+
+        text = extraction.text
+        ocr_processed = extraction.used_ocr
+        ocr_review_required = extraction.review_required
+        ocr_warning = extraction.warning
+        ocr_languages = extraction.languages
+        ocr_preprocessing = extraction.preprocessing_applied
+        ocr_confidence = getattr(extraction, "confidence", None)
+
+        if extraction.used_ocr:
+            parsed = parse_account_rows_with_diagnostics(text, default_password="Student123!")
+            students_to_create = [row for _, row in parsed.rows]
+            if parsed.review_required:
+                ocr_review_required = True
+            if parsed.warning:
+                ocr_warning = parsed.warning
+        else:
+            reader = csv.reader(io.StringIO(text))
+            for row in reader:
+                if not row or not any(row):
+                    continue
+                name = row[0].strip()
+                email = row[1].strip() if len(row) > 1 else f"{re.sub(r'[^a-zA-Z0-9]', '.', name.lower())}@example.com"
+                password = row[2].strip() if len(row) > 2 else "Student123!"
+                students_to_create.append({"name": name, "email": email, "password": password})
     else:
-        os.unlink(tmp_path)
         raise HTTPException(status_code=400, detail="Only CSV, TXT, JPG, JPEG, PNG allowed")
-        
-    # Cleanup temp file
-    if os.path.exists(tmp_path):
-        os.unlink(tmp_path)
 
     if not students_to_create:
         raise HTTPException(status_code=400, detail="No readable names found in the file")
+
+    if preview:
+        return {
+            "success": True,
+            "preview": True,
+            "preview_rows": students_to_create,
+            "total_rows": len(students_to_create),
+            "ocr_processed": ocr_processed,
+            "ocr_review_required": ocr_review_required,
+            "ocr_warning": ocr_warning,
+            "ocr_languages": ocr_languages,
+            "ocr_preprocessing": ocr_preprocessing,
+            "ocr_confidence": ocr_confidence,
+            "ocr_unmatched_lines": len(parsed.unmatched_lines) if ocr_processed and parsed is not None else 0,
+        }
 
     try:
         from auth.auth import pwd_context
@@ -784,7 +917,14 @@ async def onboard_students(
     return {
         "success": True, 
         "message": f"Successfully onboarded {created_count} students.",
-        "created_count": created_count
+        "created_count": created_count,
+        "ocr_processed": ocr_processed,
+        "ocr_review_required": ocr_review_required,
+        "ocr_warning": ocr_warning,
+        "ocr_languages": ocr_languages,
+        "ocr_preprocessing": ocr_preprocessing,
+        "ocr_confidence": ocr_confidence,
+        "ocr_unmatched_lines": len(parsed.unmatched_lines) if ocr_processed and 'parsed' in locals() else 0,
     }
 
 
@@ -1038,7 +1178,7 @@ async def import_attendance_csv(
     teacher_class_ids: list = Depends(get_teacher_class_ids),
     db: Session = Depends(get_db),
 ):
-    """Import attendance from CSV. Columns: student_id,status"""
+    """Import attendance from CSV/TXT or OCR image. Rows may use student ID, email, or full name."""
     from datetime import datetime
 
     if not class_id or not date:
@@ -1054,27 +1194,22 @@ async def import_attendance_csv(
         raise HTTPException(status_code=400, detail="Invalid date. Expected YYYY-MM-DD.")
 
     content = await file.read()
-    try:
-        text = content.decode("utf-8")
-    except UnicodeDecodeError:
-        raise HTTPException(status_code=400, detail="Invalid encoding. Use UTF-8 CSV.")
-
-    reader = csv.DictReader(io.StringIO(text))
+    rows, ocr_meta = _load_structured_import_rows(
+        file.filename or "",
+        content,
+        parser=parse_attendance_rows_with_diagnostics,
+        empty_detail="No readable attendance rows found in the file.",
+    )
     count = 0
     errors = []
-    for row_num, row in enumerate(reader, start=2):
-        sid = (row.get("student_id") or "").strip()
-        status = (row.get("status") or "").strip().lower()
-        if not sid or not status:
-            errors.append(f"Row {row_num}: missing student_id or status")
-            continue
+    for row_num, (identifier, status) in enumerate(rows, start=2):
         if status not in ALLOWED_ATTENDANCE_STATUSES:
             errors.append(f"Row {row_num}: invalid status '{status}'")
             continue
         try:
-            student_uuid = _validate_student_in_class(db, current_user, sid, class_uuid)
+            student_uuid = _resolve_student_identifier_in_class(db, current_user, identifier, class_uuid)
         except HTTPException:
-            errors.append(f"Row {row_num}: student {sid} not in class")
+            errors.append(f"Row {row_num}: student {identifier} not in class")
             continue
 
         existing = db.query(Attendance).filter(
@@ -1096,7 +1231,9 @@ async def import_attendance_csv(
         count += 1
 
     db.commit()
-    return {"success": True, "imported": count, "errors": errors}
+    if errors and ocr_meta["ocr_processed"] and not ocr_meta["ocr_warning"]:
+        ocr_meta["ocr_warning"] = f"OCR parsed {count} attendance rows but {len(errors)} rows need manual review."
+    return {"success": True, "imported": count, "errors": errors, **ocr_meta}
 
 
 @router.get("/attendance/csv-export/{class_id}")
@@ -1144,7 +1281,7 @@ async def import_marks_csv(
     teacher_class_ids: list = Depends(get_teacher_class_ids),
     db: Session = Depends(get_db),
 ):
-    """Import marks from CSV. Columns: student_id,marks_obtained"""
+    """Import marks from CSV/TXT or OCR image. Rows may use student ID, email, or full name."""
     if not exam_id:
         raise HTTPException(status_code=400, detail="exam_id is required")
 
@@ -1152,32 +1289,22 @@ async def import_marks_csv(
     exam, subject = _get_exam_with_subject_in_scope(db, current_user, exam_id, allowed_class_ids)
 
     content = await file.read()
-    try:
-        text = content.decode("utf-8")
-    except UnicodeDecodeError:
-        raise HTTPException(status_code=400, detail="Invalid encoding. Use UTF-8 CSV.")
-
-    reader = csv.DictReader(io.StringIO(text))
+    rows, ocr_meta = _load_structured_import_rows(
+        file.filename or "",
+        content,
+        parser=parse_marks_rows_with_diagnostics,
+        empty_detail="No readable marks rows found in the file.",
+    )
     count = 0
     errors = []
-    for row_num, row in enumerate(reader, start=2):
-        sid = (row.get("student_id") or "").strip()
-        marks_str = (row.get("marks_obtained") or "").strip()
-        if not sid or not marks_str:
-            errors.append(f"Row {row_num}: missing data")
-            continue
-        try:
-            marks_val = int(marks_str)
-        except ValueError:
-            errors.append(f"Row {row_num}: invalid marks '{marks_str}'")
-            continue
+    for row_num, (identifier, marks_val) in enumerate(rows, start=2):
         if marks_val < 0 or marks_val > exam.max_marks:
             errors.append(f"Row {row_num}: marks out of range [0, {exam.max_marks}]")
             continue
         try:
-            student_uuid = _validate_student_in_class(db, current_user, sid, subject.class_id)
+            student_uuid = _resolve_student_identifier_in_class(db, current_user, identifier, subject.class_id)
         except HTTPException:
-            errors.append(f"Row {row_num}: student {sid} not in class")
+            errors.append(f"Row {row_num}: student {identifier} not in class")
             continue
 
         existing = db.query(Mark).filter(
@@ -1197,7 +1324,9 @@ async def import_marks_csv(
         count += 1
 
     db.commit()
-    return {"success": True, "imported": count, "errors": errors}
+    if errors and ocr_meta["ocr_processed"] and not ocr_meta["ocr_warning"]:
+        ocr_meta["ocr_warning"] = f"OCR parsed {count} marks rows but {len(errors)} rows need manual review."
+    return {"success": True, "imported": count, "errors": errors, **ocr_meta}
 
 
 @router.get("/marks/csv-export/{exam_id}")

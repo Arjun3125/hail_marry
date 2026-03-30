@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Users, BookOpen, CheckSquare, BarChart3, QrCode, Megaphone, X, Download } from "lucide-react";
+import { Users, BookOpen, CheckSquare, BarChart3, QrCode, Megaphone, X, Download, Upload } from "lucide-react";
 import QRCode from "react-qr-code";
 
 import { api } from "@/lib/api";
@@ -14,10 +14,17 @@ type TeacherClass = {
     subjects: Array<{ id: string; name: string }>;
 };
 
+type StudentPreviewRow = {
+    name: string;
+    email: string;
+    password: string;
+};
+
 export default function TeacherClassesPage() {
     const [classes, setClasses] = useState<TeacherClass[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [success, setSuccess] = useState<string | null>(null);
 
     const [qrModalOpen, setQrModalOpen] = useState(false);
     const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
@@ -29,6 +36,126 @@ export default function TeacherClassesPage() {
     const [broadcastMessage, setBroadcastMessage] = useState("");
     const [sendingBroadcast, setSendingBroadcast] = useState(false);
     const [broadcastSuccess, setBroadcastSuccess] = useState(false);
+    const [rosterModalOpen, setRosterModalOpen] = useState(false);
+    const [rosterBusy, setRosterBusy] = useState(false);
+    const [rosterRows, setRosterRows] = useState<StudentPreviewRow[]>([]);
+    const [rosterErrors, setRosterErrors] = useState<string[]>([]);
+    const [rosterNotice, setRosterNotice] = useState<string | null>(null);
+    const [rosterImportedCount, setRosterImportedCount] = useState<number | null>(null);
+
+    const refreshClasses = async () => {
+        const payload = await api.teacher.classes();
+        setClasses((payload || []) as TeacherClass[]);
+    };
+
+    const resetRosterModal = () => {
+        setRosterModalOpen(false);
+        setRosterBusy(false);
+        setRosterRows([]);
+        setRosterErrors([]);
+        setRosterNotice(null);
+        setRosterImportedCount(null);
+    };
+
+    const escapeCsvValue = (value: string) => {
+        if (value.includes(",") || value.includes("\"") || value.includes("\n")) {
+            return `"${value.replace(/"/g, "\"\"")}"`;
+        }
+        return value;
+    };
+
+    const buildCsvFromRows = (rows: StudentPreviewRow[]) => {
+        const header = ["name", "email", "password"];
+        const lines = rows.map((row) => [row.name, row.email, row.password].map((value) => escapeCsvValue(value || "")).join(","));
+        return `${header.join(",")}\n${lines.join("\n")}\n`;
+    };
+
+    const updateRosterRow = (index: number, field: keyof StudentPreviewRow, value: string) => {
+        setRosterRows((prev) => prev.map((row, idx) => (idx === index ? { ...row, [field]: value } : row)));
+    };
+
+    const handleRosterPreview = async (file: File) => {
+        try {
+            setRosterBusy(true);
+            setError(null);
+            setSuccess(null);
+            setRosterErrors([]);
+            setRosterRows([]);
+            setRosterImportedCount(null);
+            const formData = new FormData();
+            formData.append("file", file);
+            const payload = await api.teacher.previewStudentOnboarding(formData) as {
+                preview_rows?: StudentPreviewRow[];
+                errors?: string[];
+                ocr_review_required?: boolean;
+                ocr_warning?: string | null;
+                ocr_confidence?: number | null;
+                ocr_unmatched_lines?: string[] | number;
+            };
+            const rows = Array.isArray(payload.preview_rows) ? payload.preview_rows : [];
+            if (!rows.length) {
+                throw new Error("No rows detected in the preview.");
+            }
+            const reviewRequired = Boolean(payload.ocr_review_required);
+            const warning = typeof payload.ocr_warning === "string" ? payload.ocr_warning : null;
+            const confidence = typeof payload.ocr_confidence === "number" ? payload.ocr_confidence : null;
+            const unmatchedLines = Array.isArray(payload.ocr_unmatched_lines)
+                ? payload.ocr_unmatched_lines.length
+                : Number(payload.ocr_unmatched_lines || 0);
+            const parts = ["Preview extracted student rows from OCR."];
+            if (confidence !== null) parts.push(`OCR confidence ${(confidence * 100).toFixed(0)}%.`);
+            if (reviewRequired) parts.push("Review recommended before final import.");
+            if (unmatchedLines) parts.push(`${unmatchedLines} line${unmatchedLines === 1 ? "" : "s"} need manual cleanup.`);
+            if (warning) parts.push(warning);
+            setRosterRows(rows);
+            setRosterErrors(Array.isArray(payload.errors) ? payload.errors : []);
+            setRosterNotice(parts.join(" "));
+            setRosterModalOpen(true);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Preview failed");
+        } finally {
+            setRosterBusy(false);
+        }
+    };
+
+    const confirmRosterImport = async () => {
+        if (!rosterRows.length) return;
+        try {
+            setRosterBusy(true);
+            setError(null);
+            const csv = buildCsvFromRows(rosterRows);
+            const formData = new FormData();
+            formData.append("file", new File([csv], "teacher-student-import.csv", { type: "text/csv" }));
+            const payload = await api.teacher.onboardStudents(formData) as {
+                created_count?: number;
+                message?: string;
+                ocr_review_required?: boolean;
+                ocr_warning?: string | null;
+                ocr_confidence?: number | null;
+                ocr_unmatched_lines?: string[] | number;
+            };
+            const createdCount = Number(payload.created_count || 0);
+            const reviewRequired = Boolean(payload.ocr_review_required);
+            const warning = typeof payload.ocr_warning === "string" ? payload.ocr_warning : null;
+            const confidence = typeof payload.ocr_confidence === "number" ? payload.ocr_confidence : null;
+            const unmatchedLines = Array.isArray(payload.ocr_unmatched_lines)
+                ? payload.ocr_unmatched_lines.length
+                : Number(payload.ocr_unmatched_lines || 0);
+            const parts = [`Imported ${createdCount} students successfully.`];
+            if (confidence !== null) parts.push(`OCR confidence ${(confidence * 100).toFixed(0)}%.`);
+            if (reviewRequired) parts.push("Review follow-up recommended.");
+            if (unmatchedLines) parts.push(`${unmatchedLines} OCR line${unmatchedLines === 1 ? "" : "s"} still need manual cleanup.`);
+            if (warning) parts.push(warning);
+            setRosterImportedCount(createdCount);
+            setRosterNotice(parts.join(" "));
+            setSuccess(payload.message || `Imported ${createdCount} students successfully.`);
+            await refreshClasses();
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Import failed");
+        } finally {
+            setRosterBusy(false);
+        }
+    };
 
     const handleOpenQr = async (classId: string, className: string) => {
         setSelectedClassId(classId);
@@ -74,8 +201,7 @@ export default function TeacherClassesPage() {
             try {
                 setLoading(true);
                 setError(null);
-                const payload = await api.teacher.classes();
-                setClasses((payload || []) as TeacherClass[]);
+                await refreshClasses();
             } catch (err) {
                 setError(err instanceof Error ? err.message : "Failed to load classes");
             } finally {
@@ -85,16 +211,54 @@ export default function TeacherClassesPage() {
         void load();
     }, []);
 
+    useEffect(() => {
+        if (typeof window === "undefined") return;
+        window.localStorage.setItem(
+            "mascotPageContext",
+            JSON.stringify({
+                route: "/teacher/classes",
+                current_page_entity: "student_onboarding",
+                current_page_entity_id: null,
+                metadata: {
+                    import_kind: "teacher_roster_import",
+                },
+            }),
+        );
+    }, []);
+
     return (
         <div>
-            <div className="mb-6">
-                <h1 className="text-2xl font-bold text-[var(--text-primary)]">My Classes</h1>
-                <p className="text-sm text-[var(--text-secondary)]">Manage your classes and view student details</p>
+            <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                    <h1 className="text-2xl font-bold text-[var(--text-primary)]">My Classes</h1>
+                    <p className="text-sm text-[var(--text-secondary)]">Manage your classes and view student details</p>
+                </div>
+                <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-[var(--radius-sm)] border border-[var(--primary)]/20 bg-[var(--primary-light)] px-4 py-2 text-sm font-medium text-[var(--primary)] transition-colors hover:bg-[var(--primary)] hover:text-white">
+                    <Upload className="h-4 w-4" />
+                    Import Student Roster
+                    <input
+                        type="file"
+                        accept=".csv,.txt,.jpg,.jpeg,.png"
+                        className="hidden"
+                        onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            e.currentTarget.value = "";
+                            if (file) {
+                                void handleRosterPreview(file);
+                            }
+                        }}
+                    />
+                </label>
             </div>
 
             {error ? (
                 <div className="rounded-[var(--radius)] border border-[var(--error)]/30 bg-error-subtle px-4 py-3 text-sm text-[var(--error)] mb-4">
                     {error}
+                </div>
+            ) : null}
+            {success ? (
+                <div className="rounded-[var(--radius)] border border-[var(--success)]/30 bg-success-subtle px-4 py-3 text-sm text-[var(--success)] mb-4">
+                    {success}
                 </div>
             ) : null}
 
@@ -153,6 +317,102 @@ export default function TeacherClassesPage() {
                     </div>
                 ))}
             </div>
+
+            {rosterModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                    <div className="flex max-h-[90vh] w-full max-w-4xl flex-col rounded-[var(--radius)] bg-[var(--bg-card)] shadow-xl">
+                        <div className="flex items-center justify-between border-b border-[var(--border)] p-4">
+                            <div>
+                                <h2 className="text-lg font-bold text-[var(--text-primary)]">Review Extracted Students</h2>
+                                <p className="text-sm text-[var(--text-secondary)]">
+                                    OCR imports are editable before any student accounts are created.
+                                </p>
+                            </div>
+                            <button
+                                onClick={resetRosterModal}
+                                className="text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                            >
+                                <X className="h-5 w-5" />
+                            </button>
+                        </div>
+                        <div className="flex-1 overflow-auto p-4">
+                            {rosterNotice ? (
+                                <div className="mb-4 rounded-[var(--radius-sm)] border border-[var(--warning)]/30 bg-warning-subtle px-4 py-3 text-sm text-[var(--warning)]">
+                                    {rosterNotice}
+                                </div>
+                            ) : null}
+                            {rosterErrors.length > 0 ? (
+                                <div className="mb-4 rounded-[var(--radius-sm)] border border-[var(--error)]/30 bg-error-subtle px-4 py-3 text-sm text-[var(--error)]">
+                                    {rosterErrors.join(" ")}
+                                </div>
+                            ) : null}
+                            <div className="overflow-x-auto">
+                                <table className="w-full min-w-[720px]">
+                                    <thead>
+                                        <tr className="border-b border-[var(--border)] bg-[var(--bg-page)]">
+                                            <th className="px-4 py-3 text-left text-xs font-medium uppercase text-[var(--text-muted)]">Name</th>
+                                            <th className="px-4 py-3 text-left text-xs font-medium uppercase text-[var(--text-muted)]">Email</th>
+                                            <th className="px-4 py-3 text-left text-xs font-medium uppercase text-[var(--text-muted)]">Password</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {rosterRows.map((row, index) => (
+                                            <tr key={`${row.email}-${index}`} className="border-b border-[var(--border-light)]">
+                                                <td className="px-4 py-3">
+                                                    <input
+                                                        value={row.name}
+                                                        onChange={(e) => updateRosterRow(index, "name", e.target.value)}
+                                                        className="w-full rounded-[var(--radius-sm)] border border-[var(--border)] px-3 py-2 text-sm"
+                                                    />
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <input
+                                                        value={row.email}
+                                                        onChange={(e) => updateRosterRow(index, "email", e.target.value)}
+                                                        className="w-full rounded-[var(--radius-sm)] border border-[var(--border)] px-3 py-2 text-sm"
+                                                    />
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <input
+                                                        value={row.password}
+                                                        onChange={(e) => updateRosterRow(index, "password", e.target.value)}
+                                                        className="w-full rounded-[var(--radius-sm)] border border-[var(--border)] px-3 py-2 text-sm"
+                                                    />
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {rosterImportedCount !== null ? (
+                                <p className="mt-4 text-sm font-medium text-[var(--success)]">
+                                    Imported {rosterImportedCount} student{rosterImportedCount === 1 ? "" : "s"}.
+                                </p>
+                            ) : null}
+                        </div>
+                        <div className="flex items-center justify-between gap-3 border-t border-[var(--border)] p-4">
+                            <p className="text-xs text-[var(--text-muted)]">
+                                Explicit confirmation is required before OCR-derived student rows are saved.
+                            </p>
+                            <div className="flex items-center gap-3">
+                                <button
+                                    onClick={resetRosterModal}
+                                    className="rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--bg-page)] px-4 py-2 text-sm font-medium hover:bg-[var(--bg-hover)]"
+                                >
+                                    Close
+                                </button>
+                                <button
+                                    onClick={() => void confirmRosterImport()}
+                                    disabled={rosterBusy || rosterRows.length === 0}
+                                    className="rounded-[var(--radius-sm)] bg-[var(--primary)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--primary-hover)] disabled:opacity-60"
+                                >
+                                    {rosterBusy ? "Importing..." : "Confirm Import"}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* QR Modal */}
             {qrModalOpen && (

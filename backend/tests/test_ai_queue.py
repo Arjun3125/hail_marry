@@ -76,6 +76,7 @@ def _install_ai_queue_import_stubs():
     runtime_mod.InternalTeacherAssessmentRequest = _DummyRequest
     runtime_mod.InternalTeacherYoutubeIngestRequest = _DummyRequest
     runtime_mod.InternalVideoOverviewRequest = _DummyRequest
+    runtime_mod.InternalWhatsAppMediaIngestRequest = _DummyRequest
     stubbed["src.domains.platform.schemas.ai_runtime"] = runtime_mod
 
     ai_gateway_mod = ModuleType("src.domains.platform.services.ai_gateway")
@@ -87,6 +88,7 @@ def _install_ai_queue_import_stubs():
     ai_gateway_mod.run_text_query = _dummy_async
     ai_gateway_mod.run_url_ingestion = _dummy_async
     ai_gateway_mod.run_video_overview = _dummy_async
+    ai_gateway_mod.run_whatsapp_media_ingestion = _dummy_async
     stubbed["src.domains.platform.services.ai_gateway"] = ai_gateway_mod
 
     ai_grading_mod = ModuleType("src.domains.platform.services.ai_grading")
@@ -393,6 +395,37 @@ class AIQueueTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(updated["result"]["assessment"], "[]")
         self.assertTrue(any(event["stage"] == "ai_service.completed" for event in updated["events"]))
         assessment_mock.assert_awaited_once()
+
+    async def test_process_job_uses_ai_service_path_for_whatsapp_media_ingest_jobs(self):
+        job = self.queue.enqueue_job(
+            self.queue.JOB_TYPE_WHATSAPP_MEDIA_INGEST,
+            {
+                "tenant_id": "tenant-1",
+                "document_id": "doc-1",
+                "file_path": "C:/tmp/lesson.mp4",
+                "display_name": "lesson.mp4",
+                "media_kind": "video",
+            },
+            tenant_id="tenant-1",
+            user_id="11111111-1111-1111-1111-111111111111",
+        )
+        job_id = self.queue.claim_next_job(timeout_seconds=0)
+
+        with patch.object(
+            self.queue,
+            "run_whatsapp_media_ingestion",
+            AsyncMock(return_value={"success": True, "response_text": "Media ready"}),
+        ) as media_mock, patch.object(
+            sys.modules["src.domains.platform.services.whatsapp_gateway"],
+            "send_ai_job_status_notification",
+            AsyncMock(return_value=True),
+        ) as notify_mock:
+            updated = await self.queue.process_job(job_id, worker_id="worker-1")
+
+        media_mock.assert_awaited_once()
+        notify_mock.assert_awaited_once()
+        self.assertEqual(updated["status"], self.queue.STATUS_COMPLETED)
+        self.assertEqual(updated["result"]["response_text"], "Media ready")
 
     async def test_cancel_retry_and_dead_letter_controls(self):
         queued = self.queue.enqueue_job(

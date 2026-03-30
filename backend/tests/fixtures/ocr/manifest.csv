@@ -1,0 +1,11 @@
+category,filename,image_status,text_status,notes
+printed_english,printed_english_001.jpg,present,present,Add clean printed paragraph
+printed_hindi,printed_hindi_001.jpg,present,present,Add clean Hindi paragraph
+printed_marathi,printed_marathi_001.jpg,present,present,Add clean Marathi paragraph
+mixed_en_hi,mixed_en_hi_001.jpg,present,present,Add mixed English+Hindi sentence
+mixed_hi_mr,mixed_hi_mr_001.jpg,present,present,Add mixed Hindi+Marathi sentence
+mixed_en_mr,mixed_en_mr_001.jpg,present,present,Add mixed English+Marathi sentence
+handwriting_neat,handwriting_neat_001.jpg,present,present,Add neat handwritten note
+handwriting_messy,handwriting_messy_001.jpg,present,present,Add messy handwritten note
+classroom_board,classroom_board_001.jpg,present,present,Add classroom board photo
+low_light_skew,low_light_skew_001.jpg,present,present,Add low-light or skewed photo

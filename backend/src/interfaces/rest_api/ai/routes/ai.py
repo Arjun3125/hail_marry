@@ -311,17 +311,19 @@ async def ai_query(
     if settings.app.demo_mode:
         ai_result = _build_demo_ai_result(request)
     else:
-        cached = get_cached_response(
-            tenant_id=current_user.tenant_id,
-            query=request.query,
-            mode=request.mode,
-            subject_id=request.subject_id or "",
-        )
-        if cached:
-            cached["cached"] = True
-            if cached.get("citations"):
-                cached = make_citations_clickable(cached, current_user.tenant_id, db)
-            return cached
+        if not request.audit_retrieval:
+            cached = get_cached_response(
+                tenant_id=str(current_user.tenant_id),
+                query=request.query,
+                mode=request.mode,
+                subject_id=request.subject_id or "",
+                notebook_id=str(request.notebook_id) if request.notebook_id else "",
+            )
+            if cached:
+                cached["cached"] = True
+                if cached.get("citations"):
+                    cached = make_citations_clickable(cached, current_user.tenant_id, db)
+                return cached
 
         prepared_query, knowledge_context, hyde_query, conversation_context = await _prepare_ai_query(
             db=db,
@@ -360,6 +362,11 @@ async def ai_query(
         "demo_notice": ai_result.get("demo_notice"),
         "demo_sources": ai_result.get("demo_sources", []),
     }
+    if request.audit_retrieval:
+        result["retrieval_audit"] = ai_result.get("retrieval_audit") or {
+            "enabled": False,
+            "reason": "demo_mode" if settings.app.demo_mode else "unavailable",
+        }
     result = make_citations_clickable(result, current_user.tenant_id, db)
 
     ai_log = AIQuery(
@@ -421,13 +428,14 @@ async def ai_query(
         except Exception:
             pass  # Don't fail the request if saving content fails
 
-    if not settings.app.demo_mode:
+    if not settings.app.demo_mode and not request.audit_retrieval:
         cache_response(
             tenant_id=str(current_user.tenant_id),
             query=request.query,
             mode=ai_result["mode"],
             response=result,
             subject_id=request.subject_id or "",
+            notebook_id=str(request.notebook_id) if request.notebook_id else "",
         )
 
     return result

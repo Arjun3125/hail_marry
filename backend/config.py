@@ -523,6 +523,33 @@ class VectorBackendSettings(BaseSettings):
     )
 
 
+class RetrievalSettings(BaseSettings):
+    min_vector_score: float = Field(
+        default=float(
+            os.getenv(
+                "RAG_MIN_VECTOR_SCORE",
+                _yaml_config.get("retrieval", {}).get("min_vector_score", 0.2),
+            )
+        )
+    )
+    min_rerank_score: float = Field(
+        default=float(
+            os.getenv(
+                "RAG_MIN_RERANK_SCORE",
+                _yaml_config.get("retrieval", {}).get("min_rerank_score", 0.0),
+            )
+        )
+    )
+    audit_max_chunks: int = Field(
+        default=int(
+            os.getenv(
+                "RAG_AUDIT_MAX_CHUNKS",
+                _yaml_config.get("retrieval", {}).get("audit_max_chunks", 5),
+            )
+        )
+    )
+
+
 class ComplianceSettings(BaseSettings):
     export_retention_days: int = Field(
         default=int(
@@ -743,6 +770,86 @@ class ObservabilitySettings(BaseSettings):
             )
         )
     )
+    ocr_failure_warn_pct: int = Field(
+        default=int(
+            os.getenv(
+                "OBSERVABILITY_OCR_FAILURE_WARN_PCT",
+                _yaml_config.get("observability", {}).get("ocr_failure_warn_pct", 15),
+            )
+        )
+    )
+    ocr_review_warn_pct: int = Field(
+        default=int(
+            os.getenv(
+                "OBSERVABILITY_OCR_REVIEW_WARN_PCT",
+                _yaml_config.get("observability", {}).get("ocr_review_warn_pct", 50),
+            )
+        )
+    )
+    ocr_min_events_for_alert: int = Field(
+        default=int(
+            os.getenv(
+                "OBSERVABILITY_OCR_MIN_EVENTS_FOR_ALERT",
+                _yaml_config.get("observability", {}).get("ocr_min_events_for_alert", 20),
+            )
+        )
+    )
+    stage_latency_min_events_for_alert: int = Field(
+        default=int(
+            os.getenv(
+                "OBSERVABILITY_STAGE_LATENCY_MIN_EVENTS_FOR_ALERT",
+                _yaml_config.get("observability", {}).get("stage_latency_min_events_for_alert", 3),
+            )
+        )
+    )
+    retrieval_latency_warn_ms: int = Field(
+        default=int(
+            os.getenv(
+                "OBSERVABILITY_RETRIEVAL_LATENCY_WARN_MS",
+                _yaml_config.get("observability", {}).get("retrieval_latency_warn_ms", 1500),
+            )
+        )
+    )
+    generation_latency_warn_ms: int = Field(
+        default=int(
+            os.getenv(
+                "OBSERVABILITY_GENERATION_LATENCY_WARN_MS",
+                _yaml_config.get("observability", {}).get("generation_latency_warn_ms", 12000),
+            )
+        )
+    )
+    transcription_latency_warn_ms: int = Field(
+        default=int(
+            os.getenv(
+                "OBSERVABILITY_TRANSCRIPTION_LATENCY_WARN_MS",
+                _yaml_config.get("observability", {}).get("transcription_latency_warn_ms", 60000),
+            )
+        )
+    )
+    embedding_latency_warn_ms: int = Field(
+        default=int(
+            os.getenv(
+                "OBSERVABILITY_EMBEDDING_LATENCY_WARN_MS",
+                _yaml_config.get("observability", {}).get("embedding_latency_warn_ms", 10000),
+            )
+        )
+    )
+    mascot_failure_warn_pct: int = Field(
+        default=int(
+            os.getenv(
+                "OBSERVABILITY_MASCOT_FAILURE_WARN_PCT",
+                _yaml_config.get("observability", {}).get("mascot_failure_warn_pct", 15),
+            )
+        )
+    )
+    mascot_min_events_for_alert: int = Field(
+        default=int(
+            os.getenv(
+                "OBSERVABILITY_MASCOT_MIN_EVENTS_FOR_ALERT",
+                _yaml_config.get("observability", {}).get("mascot_min_events_for_alert", 10),
+            )
+        )
+    )
     alert_email_recipients: list[str] = Field(
         default_factory=lambda: _parse_csv_list(
             os.getenv("OBSERVABILITY_ALERT_EMAILS")
@@ -820,10 +927,37 @@ class SentrySettings(BaseSettings):
     )
 
 
-class TwilioSettings(BaseSettings):
-    ACCOUNT_SID: str = Field(default=os.getenv("TWILIO_ACCOUNT_SID", ""))
-    AUTH_TOKEN: str = Field(default=os.getenv("TWILIO_AUTH_TOKEN", ""))
-    WHATSAPP_NUMBER: str = Field(default=os.getenv("TWILIO_WHATSAPP_NUMBER", ""))
+class WhatsAppSettings(BaseSettings):
+    api_url: str = Field(
+        default=os.getenv(
+            "WHATSAPP_API_URL",
+            _yaml_config.get("whatsapp", {}).get("api_url", "https://graph.facebook.com/v18.0"),
+        )
+    )
+    token: str = Field(
+        default=os.getenv(
+            "WHATSAPP_TOKEN",
+            _yaml_config.get("whatsapp", {}).get("token", ""),
+        )
+    )
+    phone_number_id: str = Field(
+        default=os.getenv(
+            "WHATSAPP_PHONE_NUMBER_ID",
+            _yaml_config.get("whatsapp", {}).get("phone_number_id", ""),
+        )
+    )
+    app_secret: str = Field(
+        default=os.getenv(
+            "WHATSAPP_APP_SECRET",
+            _yaml_config.get("whatsapp", {}).get("app_secret", ""),
+        )
+    )
+    verify_token: str = Field(
+        default=os.getenv(
+            "WHATSAPP_VERIFY_TOKEN",
+            _yaml_config.get("whatsapp", {}).get("verify_token", "vidyaos-wa-verify"),
+        )
+    )
 
 
 class AppSettings(BaseSettings):
@@ -870,6 +1004,7 @@ class Settings:
         self.embedding = EmbeddingSettings()
         self.storage = StorageSettings()
         self.vector_backend = VectorBackendSettings()
+        self.retrieval = RetrievalSettings()
         self.compliance = ComplianceSettings()
         self.email = EmailSettings()
         self.digest_email = DigestEmailSettings()
@@ -878,7 +1013,7 @@ class Settings:
         self.incidents = IncidentSettings()
         self.observability = ObservabilitySettings()
         self.sentry = SentrySettings()
-        self.twilio = TwilioSettings()
+        self.whatsapp = WhatsAppSettings()
         self._validate_security_defaults()
 
     def _validate_security_defaults(self):

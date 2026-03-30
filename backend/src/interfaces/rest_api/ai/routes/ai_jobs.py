@@ -1,6 +1,8 @@
 """Queued AI job routes for heavy workloads."""
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -26,6 +28,9 @@ from src.domains.platform.services.ai_queue import (
 )
 
 router = APIRouter(prefix="/api/ai", tags=["AI Jobs"])
+
+DEMO_NOTICE = "Demo mode preview. This job result is mocked and not grounded in live retrieval."
+DEMO_SOURCES = ["demo-mode"]
 
 
 def _authorize_job_access(job: dict, current_user: User) -> None:
@@ -60,15 +65,18 @@ async def enqueue_text_query_job(
         
         db = SessionLocal()
         try:
-            demo_log = db.query(AIQuery).filter(
-                AIQuery.tenant_id == current_user.tenant_id,
-                AIQuery.mode == request.mode
-            ).first()
+            try:
+                demo_log = db.query(AIQuery).filter(
+                    AIQuery.tenant_id == current_user.tenant_id,
+                    AIQuery.mode == request.mode
+                ).first()
+            except Exception:
+                demo_log = None
             response_text = demo_log.response_text if demo_log else f"This is a mocked response for {request.mode} mode generated in Demo Mode."
         finally:
             db.close()
             
-        now_str = time.strftime("%Y-%m-%dT%H:%M:%S.%fZ", time.gmtime())
+        now_str = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
         mock_job = {
             "job_id": str(uuid.uuid4()),
             "job_type": JOB_TYPE_QUERY,
@@ -78,6 +86,10 @@ async def enqueue_text_query_job(
             "tenant_id": str(current_user.tenant_id),
             "user_id": str(current_user.id),
             "worker_id": "demo-worker",
+            "runtime_mode": "demo",
+            "is_demo_response": True,
+            "demo_notice": DEMO_NOTICE,
+            "demo_sources": DEMO_SOURCES,
             "request": payload.model_dump(),
             "result": {
                 "answer": response_text,
@@ -85,8 +97,12 @@ async def enqueue_text_query_job(
                 "citations": [],
                 "token_usage": random.randint(150, 500),
                 "citation_count": 0,
-                "has_context": True,
-                "citation_valid": True,
+                "has_context": False,
+                "citation_valid": False,
+                "runtime_mode": "demo",
+                "is_demo_response": True,
+                "demo_notice": DEMO_NOTICE,
+                "demo_sources": DEMO_SOURCES,
             },
             "error": None,
             "attempts": 1,
@@ -95,9 +111,12 @@ async def enqueue_text_query_job(
             "updated_at": now_str,
             "started_at": now_str,
             "completed_at": now_str,
-            "events": []
+            "events": [],
         }
-        _persist_job_state(mock_job)
+        try:
+            _persist_job_state(mock_job)
+        except Exception:
+            pass
         return build_public_job_response(mock_job)
 
     return enqueue_job(

@@ -3,8 +3,13 @@ from unittest.mock import patch, MagicMock
 from sqlalchemy.orm import Session
 from src.domains.identity.models.user import User
 from src.domains.identity.models.tenant import Tenant
-from src.interfaces.rest_api.whatsapp.router import get_or_create_whatsapp_user
+from src.interfaces.rest_api.whatsapp.router import (
+    _extract_inbound_messages,
+    get_or_create_whatsapp_user,
+    whatsapp_webhook_verify,
+)
 from src.interfaces.rest_api.whatsapp.agent import handle_whatsapp_intent, WhatsAppIntent
+from config import settings
 
 @pytest.fixture
 def mock_db_session():
@@ -25,6 +30,45 @@ def test_get_or_create_whatsapp_user(mock_db_session):
     assert user.email.startswith("wa_123456789")
     mock_db_session.add.assert_called_once_with(user)
     mock_db_session.commit.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_whatsapp_webhook_verify_accepts_meta_handshake():
+    response = await whatsapp_webhook_verify(
+        hub_mode="subscribe",
+        hub_verify_token=settings.whatsapp.verify_token,
+        hub_challenge="12345",
+    )
+
+    assert response.body == b"12345"
+
+
+def test_extract_inbound_messages_handles_text_and_media():
+    payload = {
+        "entry": [{
+            "changes": [{
+                "value": {
+                    "contacts": [{"wa_id": "15551234567"}],
+                    "messages": [
+                        {
+                            "from": "15551234567",
+                            "type": "text",
+                            "text": {"body": "hello"},
+                        },
+                        {
+                            "type": "document",
+                            "document": {"id": "media-123", "caption": "notes"},
+                        },
+                    ],
+                }
+            }]
+        }]
+    }
+
+    assert _extract_inbound_messages(payload) == [
+        {"phone": "15551234567", "body": "hello", "media_id": None},
+        {"phone": "15551234567", "body": "notes", "media_id": "media-123"},
+    ]
 
 
 @pytest.mark.asyncio
@@ -56,3 +100,15 @@ async def test_handle_whatsapp_quiz_intent(mock_run_study_tool, mock_get_llm, mo
         assert "What is DNA?" in response
         assert "A." in response
         mock_run_study_tool.assert_called_once()
+
+
+@pytest.mark.asyncio
+@patch("src.interfaces.rest_api.whatsapp.agent._ingest_media_upload")
+async def test_handle_whatsapp_media_ingest(mock_ingest_media_upload, mock_db_session):
+    user = User(tenant_id="t1", id="u1", phone_number="+1")
+    mock_ingest_media_upload.return_value = "Received your document. It has been added to your knowledge base."
+
+    response = await handle_whatsapp_intent(user, "", "media-123", mock_db_session)
+
+    assert response == "Received your document. It has been added to your knowledge base."
+    mock_ingest_media_upload.assert_called_once_with(user, "media-123")

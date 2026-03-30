@@ -305,6 +305,10 @@ export const api = {
                 body: JSON.stringify(data),
             }),
         classAttendance: (classId: string) => apiFetch(`/api/teacher/attendance/${classId}`),
+        importAttendanceCsv: (classId: string, date: string, formData: FormData) => {
+            const query = new URLSearchParams({ class_id: classId, date });
+            return apiFormFetch(`/api/teacher/attendance/csv-import?${query.toString()}`, formData);
+        },
         createExam: (data: { name: string; subject_id: string; max_marks: number; exam_date?: string }) =>
             apiFetch("/api/teacher/exams", {
                 method: "POST",
@@ -315,6 +319,10 @@ export const api = {
                 method: "POST",
                 body: JSON.stringify(data),
             }),
+        importMarksCsv: (examId: string, formData: FormData) => {
+            const query = new URLSearchParams({ exam_id: examId });
+            return apiFormFetch(`/api/teacher/marks/csv-import?${query.toString()}`, formData);
+        },
         createAssignment: (data: { title: string; description: string; subject_id: string; due_date?: string }) =>
             apiFetch("/api/teacher/assignments", {
                 method: "POST",
@@ -326,6 +334,8 @@ export const api = {
                 body: JSON.stringify(data),
             }),
         uploadDocument: (formData: FormData) => apiFormFetch("/api/teacher/upload", formData),
+        previewStudentOnboarding: (formData: FormData) => apiFormFetch("/api/teacher/onboard/students?preview=1", formData),
+        onboardStudents: (formData: FormData) => apiFormFetch("/api/teacher/onboard/students", formData),
         generateAssessment: (data: { subject_id: string; topic: string; num_questions?: number }) =>
             apiFetch("/api/teacher/generate-assessment", {
                 method: "POST",
@@ -383,6 +393,7 @@ export const api = {
         retryAIJob: (id: string) => apiFetch(`/api/admin/ai-jobs/${id}/retry`, { method: "POST" }),
         deadLetterAIJob: (id: string) => apiFetch(`/api/admin/ai-jobs/${id}/dead-letter`, { method: "POST" }),
         observabilityAlerts: () => apiFetch("/api/admin/observability/alerts"),
+        ocrMetrics: () => apiFetch("/api/admin/observability/ocr-metrics"),
         dispatchObservabilityAlerts: () => apiFetch("/api/admin/observability/alerts/dispatch", { method: "POST" }),
         traceDetail: (traceId: string) => apiFetch(`/api/admin/observability/traces/${traceId}`),
         complaints: () => apiFetch("/api/admin/complaints"),
@@ -440,6 +451,10 @@ export const api = {
                 method: "PATCH",
                 body: JSON.stringify(data),
             }),
+        whatsappReleaseGateSnapshot: (days = 7) => apiFetch(`/api/whatsapp/release-gate-snapshot?days=${days}`),
+        mascotReleaseGateSnapshot: (days = 7) => apiFetch(`/api/mascot/release-gate-snapshot?days=${days}`),
+        mascotReleaseGateEvidence: (days = 7) => apiFetch(`/api/mascot/release-gate-evidence?days=${days}`),
+        mascotStagingPacket: (days = 7) => apiFetch(`/api/mascot/staging-packet?days=${days}`),
         updateSettings: (data: { ai_daily_limit?: number; name?: string }) =>
             apiFetch("/api/admin/settings", {
                 method: "PATCH",
@@ -654,5 +669,54 @@ export const api = {
                 method: "POST",
                 body: JSON.stringify(data),
             }),
+    },
+    mascot: {
+        message: (data: {
+            message: string;
+            channel?: "web";
+            notebook_id?: string | null;
+            session_id?: string | null;
+            conversation_history?: Array<{ role: string; content: string }>;
+            attachments?: Array<{ kind: string; url?: string | null; label?: string | null; content_type?: string | null }>;
+            ui_context?: {
+                current_route?: string;
+                selected_notebook_id?: string | null;
+                current_page_entity?: string | null;
+                current_page_entity_id?: string | null;
+                metadata?: Record<string, unknown>;
+            };
+        }) =>
+            apiFetch("/api/mascot/message", {
+                method: "POST",
+                body: JSON.stringify(data),
+            }),
+        upload: (formData: FormData) => apiFormFetch("/api/mascot/upload", formData),
+        confirm: (data: { confirmation_id: string; approved: boolean; channel?: "web"; session_id?: string | null }) =>
+            apiFetch("/api/mascot/confirm", {
+                method: "POST",
+                body: JSON.stringify(data),
+            }),
+        suggestions: (params?: { current_route?: string; notebook_id?: string | null; current_page_entity?: string | null }) => {
+            const query = new URLSearchParams();
+            if (params?.current_route) query.set("current_route", params.current_route);
+            if (params?.notebook_id) query.set("notebook_id", params.notebook_id);
+            if (params?.current_page_entity) query.set("current_page_entity", params.current_page_entity);
+            const suffix = query.toString();
+            return apiFetch(`/api/mascot/suggestions${suffix ? `?${suffix}` : ""}`);
+        },
+        session: (params?: { channel?: string; session_id?: string | null }) => {
+            const query = new URLSearchParams();
+            if (params?.channel) query.set("channel", params.channel);
+            if (params?.session_id) query.set("session_id", params.session_id);
+            const suffix = query.toString();
+            return apiFetch(`/api/mascot/session${suffix ? `?${suffix}` : ""}`);
+        },
+        clearSession: (params?: { channel?: string; session_id?: string | null }) => {
+            const query = new URLSearchParams();
+            if (params?.channel) query.set("channel", params.channel);
+            if (params?.session_id) query.set("session_id", params.session_id);
+            const suffix = query.toString();
+            return apiFetch(`/api/mascot/session${suffix ? `?${suffix}` : ""}`, { method: "DELETE" });
+        },
     },
 };

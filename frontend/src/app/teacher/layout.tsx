@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import {
     LayoutDashboard,
@@ -29,8 +30,10 @@ const teacherNav = [
     { label: "Profile", href: "/teacher/profile", icon: User },
 ];
 import GuidedTour, { teacherTourSteps } from "@/components/GuidedTour";
+import { MascotLauncher } from "@/components/mascot/MascotLauncher";
 
 export default function TeacherLayout({ children }: { children: React.ReactNode }) {
+    const pathname = usePathname();
     return (
         <div className="flex min-h-screen bg-[var(--bg-page)]">
             <Sidebar items={teacherNav} role="teacher" />
@@ -38,6 +41,7 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
                 <div className="mx-auto max-w-7xl">{children}</div>
             </main>
             <GuidedTour steps={teacherTourSteps} storageKey="teacher-tour" />
+            {pathname !== "/teacher/assistant" ? <MascotLauncher role="teacher" /> : null}
         </div>
     );
 }

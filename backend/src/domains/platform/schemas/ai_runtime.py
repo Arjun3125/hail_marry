@@ -2,7 +2,7 @@
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 try:
     from pydantic import field_validator
@@ -37,6 +37,7 @@ class AIQueryRequest(StrictBaseModel):
     mode: AI_QUERY_MODE = "qa"
     subject_id: str | None = None
     notebook_id: UUID | None = None
+    audit_retrieval: bool = False
     language: str = "english"
     response_length: AI_RESPONSE_LENGTH = "default"
     expertise_level: AI_EXPERTISE_LEVEL = "standard"
@@ -58,6 +59,7 @@ class AudioOverviewRequest(StrictBaseModel):
     topic: str
     format: str = "deep_dive"
     language: str = "english"
+    notebook_id: UUID | None = None
 
 
 class InternalAudioOverviewRequest(AudioOverviewRequest):
@@ -78,6 +80,7 @@ class StudyToolGenerateRequest(StrictBaseModel):
     tool: Literal["quiz", "flashcards", "mindmap", "flowchart", "concept_map"]
     topic: str
     subject_id: str | None = None
+    notebook_id: UUID | None = None
 
 
 class InternalStudyToolGenerateRequest(StudyToolGenerateRequest):
@@ -98,6 +101,7 @@ class IngestURLRequest(StrictBaseModel):
     url: str
     subject_id: str | None = None
     title: str | None = None
+    notebook_id: UUID | None = None
 
 
 class InternalIngestURLRequest(IngestURLRequest):
@@ -121,4 +125,19 @@ class TeacherYoutubeIngestRequest(StrictBaseModel):
 
 
 class InternalTeacherYoutubeIngestRequest(TeacherYoutubeIngestRequest):
+    tenant_id: str
+
+
+class WhatsAppMediaIngestRequest(StrictBaseModel):
+    document_id: str
+    file_path: str
+    display_name: str
+    media_kind: Literal["audio", "video"]
+    follow_up_message: str | None = None
+    follow_up_user_id: str | None = None
+    role: str | None = None
+    conversation_history: list[dict] = Field(default_factory=list)
+
+
+class InternalWhatsAppMediaIngestRequest(WhatsAppMediaIngestRequest):
     tenant_id: str

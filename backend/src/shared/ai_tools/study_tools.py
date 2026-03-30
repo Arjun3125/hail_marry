@@ -44,10 +44,32 @@ def extract_json_payload(text: str) -> Any:
 
 def normalize_tool_output(tool: str, answer: str) -> Any:
     if tool == "flowchart":
-        cleaned = answer.split("\n\nSources:")[0].strip()
-        if not cleaned:
-            raise HTTPException(status_code=422, detail="Tool output is empty")
-        return cleaned
+        parsed = extract_json_payload(answer)
+        if not isinstance(parsed, dict):
+            raise HTTPException(status_code=422, detail="Flowchart output must be a JSON object")
+        mermaid = str(parsed.get("mermaid", "")).strip()
+        steps = parsed.get("steps", [])
+        if not mermaid.startswith("flowchart TD") or "-->" not in mermaid:
+            raise HTTPException(status_code=422, detail="Flowchart Mermaid syntax is invalid")
+        if re.search(r"\[\s*\]|\{\{\s*\}\}", mermaid):
+            raise HTTPException(status_code=422, detail="Flowchart contains empty nodes")
+        if not isinstance(steps, list):
+            raise HTTPException(status_code=422, detail="Flowchart steps are invalid")
+        normalized_steps = []
+        for step in steps:
+            if not isinstance(step, dict):
+                continue
+            step_id = str(step.get("id", "")).strip()
+            label = str(step.get("label", "")).strip()
+            detail = str(step.get("detail", "")).strip()
+            citation = str(step.get("citation", "")).strip()
+            if step_id and label and detail and citation:
+                normalized_steps.append(
+                    {"id": step_id, "label": label, "detail": detail, "citation": citation}
+                )
+        if len(normalized_steps) < 2:
+            raise HTTPException(status_code=422, detail="Flowchart output did not contain enough cited steps")
+        return {"mermaid": mermaid, "steps": normalized_steps}
 
     parsed = extract_json_payload(answer)
     if parsed is None:
@@ -67,21 +89,22 @@ def normalize_tool_output(tool: str, answer: str) -> Any:
             else:
                 options = []
             correct_raw = str(item.get("correct", "")).strip().upper()
+            citation = str(item.get("citation", "")).strip()
             match = re.search(r"[A-D]", correct_raw)
             correct = match.group(0) if match else "A"
-            if not question or len(options) < 2:
+            if not question or len(options) < 2 or not citation:
                 continue
             normalized.append(
                 {
                     "question": question,
                     "options": options,
                     "correct": correct,
-                    "citation": str(item.get("citation", "")).strip() or None,
+                    "citation": citation,
                     "index": idx + 1,
                 }
             )
         if not normalized:
-            raise HTTPException(status_code=422, detail="Quiz output did not contain valid questions")
+            raise HTTPException(status_code=422, detail="Quiz output did not contain valid cited questions")
         return normalized
 
     if tool == "flashcards":
@@ -93,16 +116,51 @@ def normalize_tool_output(tool: str, answer: str) -> Any:
                 continue
             front = str(item.get("front", "")).strip()
             back = str(item.get("back", "")).strip()
-            if front and back:
-                cards.append({"front": front, "back": back})
+            citation = str(item.get("citation", "")).strip()
+            if front and back and citation:
+                cards.append({"front": front, "back": back, "citation": citation})
         if not cards:
-            raise HTTPException(status_code=422, detail="Flashcards output was empty")
+            raise HTTPException(status_code=422, detail="Flashcards output did not contain valid cited cards")
         return cards
 
     if tool == "mindmap":
-        if not isinstance(parsed, dict) or not str(parsed.get("label", "")).strip():
+        if not isinstance(parsed, dict):
+            raise HTTPException(status_code=422, detail="Mind map output must be a JSON object")
+
+        cited_nodes = 0
+
+        def normalize_node(node: Any, *, is_root: bool = False) -> dict[str, Any] | None:
+            nonlocal cited_nodes
+            if not isinstance(node, dict):
+                return None
+
+            label = str(node.get("label", "")).strip()
+            if not label:
+                return None
+
+            normalized_node: dict[str, Any] = {"label": label}
+            citation = str(node.get("citation", "")).strip()
+            if citation:
+                normalized_node["citation"] = citation
+                if not is_root:
+                    cited_nodes += 1
+
+            children = []
+            for child in node.get("children", []) or []:
+                normalized_child = normalize_node(child)
+                if normalized_child:
+                    children.append(normalized_child)
+            if children:
+                normalized_node["children"] = children
+
+            return normalized_node
+
+        normalized_root = normalize_node(parsed, is_root=True)
+        if not normalized_root:
             raise HTTPException(status_code=422, detail="Mind map output must include a root label")
-        return parsed
+        if cited_nodes < 2:
+            raise HTTPException(status_code=422, detail="Mind map output did not contain enough cited nodes")
+        return normalized_root
 
     if tool == "concept_map":
         if not isinstance(parsed, dict):
@@ -126,10 +184,15 @@ def normalize_tool_output(tool: str, answer: str) -> Any:
             edge_from = str(edge.get("from", "")).strip()
             edge_to = str(edge.get("to", "")).strip()
             edge_label = str(edge.get("label", "")).strip()
-            if edge_from and edge_to:
-                normalized_edges.append({"from": edge_from, "to": edge_to, "label": edge_label})
+            edge_citation = str(edge.get("citation", "")).strip()
+            if edge_from and edge_to and edge_citation:
+                normalized_edges.append(
+                    {"from": edge_from, "to": edge_to, "label": edge_label, "citation": edge_citation}
+                )
         if not normalized_nodes:
             raise HTTPException(status_code=422, detail="Concept map output had no valid nodes")
+        if not normalized_edges:
+            raise HTTPException(status_code=422, detail="Concept map output had no valid cited edges")
         return {"nodes": normalized_nodes, "edges": normalized_edges}
 
     raise HTTPException(status_code=400, detail="Unsupported tool")
@@ -141,6 +204,7 @@ async def execute_study_tool(request: InternalStudyToolGenerateRequest) -> dict[
             query=request.topic,
             mode=request.tool,
             subject_id=request.subject_id,
+            notebook_id=request.notebook_id,
             language="english",
             response_length="default",
             expertise_level="standard",
@@ -152,7 +216,7 @@ async def execute_study_tool(request: InternalStudyToolGenerateRequest) -> dict[
     try:
         structured_data = normalize_tool_output(request.tool, answer)
     except HTTPException as exc:
-        if exc.status_code != 422 or request.tool == "flowchart":
+        if exc.status_code != 422:
             raise
 
         strict_query = (
@@ -164,6 +228,7 @@ async def execute_study_tool(request: InternalStudyToolGenerateRequest) -> dict[
                 query=strict_query,
                 mode=request.tool,
                 subject_id=request.subject_id,
+                notebook_id=request.notebook_id,
                 language="english",
                 response_length="default",
                 expertise_level="standard",

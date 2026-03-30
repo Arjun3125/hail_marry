@@ -24,9 +24,14 @@ type ActivityItem = {
     status: "uploading" | "completed" | "failed";
     chunks?: number;
     error?: string;
+    ocrWarning?: string;
+    ocrReviewRequired?: boolean;
+    ocrPending?: boolean;
+    ocrProcessed?: boolean;
+    ocrConfidence?: number;
 };
 
-const ALLOWED_EXTENSIONS = ["pdf", "docx"];
+const ALLOWED_EXTENSIONS = ["pdf", "docx", "pptx", "xlsx", "jpg", "jpeg", "png"];
 const MAX_FILE_SIZE = 25 * 1024 * 1024;
 
 export default function StudentUploadPage() {
@@ -81,6 +86,7 @@ export default function StudentUploadPage() {
         for (const file of files) {
             const ext = file.name.split(".").pop()?.toLowerCase() || "";
             const key = `${Date.now()}-${file.name}-${Math.random().toString(36).slice(2, 8)}`;
+            const isImage = ["jpg", "jpeg", "png"].includes(ext);
 
             setActivity((prev) => [
                 {
@@ -88,6 +94,7 @@ export default function StudentUploadPage() {
                     name: file.name,
                     type: ext,
                     status: "uploading",
+                    ocrPending: isImage,
                 },
                 ...prev,
             ]);
@@ -110,13 +117,23 @@ export default function StudentUploadPage() {
                     success?: boolean;
                     chunks?: number;
                     error?: string;
+                    ocr_processed?: boolean;
+                    ocr_review_required?: boolean;
+                    ocr_warning?: string;
+                    ocr_confidence?: number;
                 };
 
                 if (payload?.success === false) {
                     throw new Error(payload.error || "Upload failed");
                 }
 
-                setActivityStatus(key, "completed", { chunks: payload?.chunks || 0 });
+                setActivityStatus(key, "completed", {
+                    chunks: payload?.chunks || 0,
+                    ocrProcessed: payload?.ocr_processed,
+                    ocrReviewRequired: payload?.ocr_review_required,
+                    ocrWarning: payload?.ocr_warning,
+                    ocrConfidence: typeof payload?.ocr_confidence === "number" ? payload.ocr_confidence : undefined,
+                });
             } catch (err) {
                 setActivityStatus(key, "failed", {
                     error: err instanceof Error ? err.message : "Upload failed",
@@ -135,7 +152,7 @@ export default function StudentUploadPage() {
         <div>
             <div className="mb-6">
                 <h1 className="text-2xl font-bold text-[var(--text-primary)]">Upload Study Materials</h1>
-                <p className="text-sm text-[var(--text-secondary)]">Upload PDF and DOCX files for AI-grounded answers.</p>
+                <p className="text-sm text-[var(--text-secondary)]">Upload PDFs, documents, or photos. Images are converted with OCR for AI-grounded answers.</p>
             </div>
 
             {error ? (
@@ -161,13 +178,14 @@ export default function StudentUploadPage() {
                 }}
                 onClick={() => inputRef.current?.click()}
             >
-                <input
-                    ref={inputRef}
-                    type="file"
-                    multiple
-                    accept=".pdf,.docx"
-                    className="hidden"
-                    onChange={(e) => {
+                    <input
+                        ref={inputRef}
+                        type="file"
+                        multiple
+                        accept=".pdf,.docx,.pptx,.xlsx,image/*"
+                        capture="environment"
+                        className="hidden"
+                        onChange={(e) => {
                         if (e.target.files) {
                             void processFiles(e.target.files);
                         }
@@ -175,7 +193,7 @@ export default function StudentUploadPage() {
                 />
                 <Upload className="w-10 h-10 mx-auto text-[var(--primary)] mb-3" />
                 <p className="text-sm font-medium text-[var(--text-primary)] mb-1">Drop files here or click to browse</p>
-                <p className="text-xs text-[var(--text-muted)]">PDF, DOCX up to 25MB each</p>
+                <p className="text-xs text-[var(--text-muted)]">PDF, DOCX, PPTX, XLSX, JPG, PNG up to 25MB each</p>
             </div>
 
             <div className="mt-4 p-3 bg-[var(--primary-light)] rounded-[var(--radius-sm)] flex items-start gap-2">
@@ -199,6 +217,11 @@ export default function StudentUploadPage() {
                                     <p className="text-[10px] text-[var(--text-muted)]">
                                         {item.type.toUpperCase()}
                                         {item.chunks !== undefined ? ` | ${item.chunks} chunks indexed` : ""}
+                                        {item.status === "uploading" && item.ocrPending ? " | OCR in progress" : ""}
+                                        {item.status === "completed" && item.ocrProcessed ? " | OCR completed" : ""}
+                                        {item.ocrReviewRequired ? " | OCR review recommended" : ""}
+                                        {typeof item.ocrConfidence === "number" ? ` | OCR confidence ${Math.round(item.ocrConfidence * 100)}%` : ""}
+                                        {item.ocrWarning ? ` | ${item.ocrWarning}` : ""}
                                         {item.error ? ` | ${item.error}` : ""}
                                     </p>
                                 </div>
@@ -277,12 +300,12 @@ export default function StudentUploadPage() {
                 </div>
 
                 <div className="mt-8 grid grid-cols-2 md:grid-cols-4 gap-3">
-                    {[
-                        { label: "PDF", desc: "Textbooks, notes" },
-                        { label: "DOCX", desc: "Reports, essays" },
-                        { label: "Limit", desc: "Up to 25MB" },
-                        { label: "AI", desc: "Indexed for search" },
-                    ].map((item) => (
+                        {[
+                            { label: "PDF", desc: "Textbooks, notes" },
+                            { label: "DOCX", desc: "Reports, essays" },
+                            { label: "Images", desc: "OCR from photos" },
+                            { label: "Limit", desc: "Up to 25MB" },
+                        ].map((item) => (
                         <div key={item.label} className="bg-[var(--bg-card)] rounded-[var(--radius-sm)] p-3 shadow-[var(--shadow-card)] text-center">
                             <div className="w-8 h-8 mx-auto rounded-full bg-[var(--bg-page)] flex items-center justify-center mb-2">
                                 <FileText className="w-4 h-4 text-[var(--text-secondary)]" />

@@ -37,6 +37,12 @@ type QueueMetrics = {
     by_type: Record<string, number>;
 };
 
+type OCRMetricRow = {
+    outcome: string;
+    engine: string;
+    count: number;
+};
+
 type QueueStatus = "queued" | "running" | "completed" | "failed" | "cancelled" | "dead_letter";
 
 type QueueJob = {
@@ -128,6 +134,7 @@ function formatWindow(seconds: number) {
 export default function AdminQueuePage() {
     const [metrics, setMetrics] = useState<QueueMetrics | null>(null);
     const [jobs, setJobs] = useState<QueueJob[]>([]);
+    const [ocrMetrics, setOcrMetrics] = useState<OCRMetricRow[]>([]);
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [detail, setDetail] = useState<QueueJobDetail | null>(null);
     const [history, setHistory] = useState<AuditHistoryEntry[]>([]);
@@ -171,6 +178,12 @@ export default function AdminQueuePage() {
             setMetrics(nextMetrics);
             setJobs(nextJobs);
             setHistory((historyPayload || []) as AuditHistoryEntry[]);
+            try {
+                const ocrPayload = (await api.admin.ocrMetrics()) as { metrics?: OCRMetricRow[] };
+                setOcrMetrics((ocrPayload?.metrics || []) as OCRMetricRow[]);
+            } catch {
+                setOcrMetrics([]);
+            }
 
             const nextSelected = preserveSelected && selectedId
                 ? nextJobs.find((job) => job.job_id === selectedId)?.job_id || nextJobs[0]?.job_id || null
@@ -452,6 +465,31 @@ export default function AdminQueuePage() {
                             </div>
                         ))}
                     </div>
+                </div>
+
+                <div className="rounded-[var(--radius)] bg-[var(--bg-card)] p-5 shadow-[var(--shadow-card)]">
+                    <div className="flex items-center gap-2 mb-4">
+                        <Workflow className="h-4 w-4 text-[var(--primary)]" />
+                        <h2 className="text-lg font-semibold text-[var(--text-primary)]">OCR Observability</h2>
+                    </div>
+                    {ocrMetrics.length === 0 ? (
+                        <p className="text-sm text-[var(--text-muted)]">No OCR metrics captured yet.</p>
+                    ) : (
+                        <div className="space-y-2">
+                            {ocrMetrics.map((row) => (
+                                <div
+                                    key={`${row.outcome}-${row.engine}`}
+                                    className="flex items-center justify-between rounded-xl border border-[var(--border)] px-3 py-2"
+                                >
+                                    <div>
+                                        <p className="text-xs font-medium text-[var(--text-primary)] capitalize">{row.outcome.replace("_", " ")}</p>
+                                        <p className="text-[11px] text-[var(--text-muted)]">{row.engine}</p>
+                                    </div>
+                                    <p className="text-sm font-semibold text-[var(--text-primary)]">{row.count}</p>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
             </div>
 

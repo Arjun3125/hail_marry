@@ -102,6 +102,7 @@ from src.domains.platform.services.whatsapp_gateway import (
     WHATSAPP_VERIFY_TOKEN,
     delete_session,
     generate_otp,
+    get_whatsapp_metrics,
     get_session,
     log_message,
     consume_report_card_token,
@@ -117,6 +118,58 @@ from src.shared.ai_tools.whatsapp_tools import serialize_tool_catalog
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/whatsapp", tags=["WhatsApp"])
+WHATSAPP_TEXT_CHUNK_LIMIT = 1500
+
+
+def _require_admin(current_user) -> None:
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+
+def _build_whatsapp_usage_snapshot(current_user, db: Session, days: int) -> dict:
+    since = datetime.now(timezone.utc) - timedelta(days=days)
+    from src.domains.platform.models.whatsapp_models import WhatsAppMessage
+
+    base_query = db.query(WhatsAppMessage).filter(
+        WhatsAppMessage.tenant_id == current_user.tenant_id,
+        WhatsAppMessage.created_at >= since,
+    )
+
+    total_messages = base_query.count()
+    inbound = base_query.filter(WhatsAppMessage.direction == "inbound").count()
+    outbound = base_query.filter(WhatsAppMessage.direction == "outbound").count()
+
+    unique_users = db.query(sqlfunc.count(sqlfunc.distinct(WhatsAppMessage.phone))).filter(
+        WhatsAppMessage.tenant_id == current_user.tenant_id,
+        WhatsAppMessage.created_at >= since,
+    ).scalar()
+
+    top_intents = db.query(
+        WhatsAppMessage.intent,
+        sqlfunc.count(WhatsAppMessage.id).label("count"),
+    ).filter(
+        WhatsAppMessage.tenant_id == current_user.tenant_id,
+        WhatsAppMessage.created_at >= since,
+        WhatsAppMessage.intent.isnot(None),
+    ).group_by(WhatsAppMessage.intent).order_by(
+        sqlfunc.count(WhatsAppMessage.id).desc()
+    ).limit(10).all()
+
+    avg_latency = db.query(sqlfunc.avg(WhatsAppMessage.latency_ms)).filter(
+        WhatsAppMessage.tenant_id == current_user.tenant_id,
+        WhatsAppMessage.created_at >= since,
+        WhatsAppMessage.latency_ms.isnot(None),
+    ).scalar()
+
+    return {
+        "period_days": days,
+        "total_messages": total_messages,
+        "inbound": inbound,
+        "outbound": outbound,
+        "unique_users": unique_users or 0,
+        "avg_latency_ms": round(avg_latency) if avg_latency else None,
+        "top_intents": [{"intent": i[0], "count": i[1]} for i in top_intents],
+    }
 
 
 # ─── Schemas ──────────────────────────────────────────────────
@@ -222,8 +275,12 @@ async def whatsapp_webhook_inbound(
         phone = msg.get("phone", "")
         text = msg.get("text", "")
         wa_message_id = msg.get("wa_message_id")
+        message_type = msg.get("message_type", "text")
+        media_id = msg.get("media_id")
+        media_filename = msg.get("media_filename")
+        media_mime_type = msg.get("media_mime_type")
 
-        if not phone or not text:
+        if not phone or (not text and not media_id):
             continue
 
         # Open a fresh DB session inside the background worker instead of
@@ -233,16 +290,37 @@ async def whatsapp_webhook_inbound(
             phone=phone,
             text=text,
             wa_message_id=wa_message_id,
+            message_type=message_type,
+            media_id=media_id,
+            media_filename=media_filename,
+            media_mime_type=media_mime_type,
         )
 
     return {"status": "ok"}
 
 
-async def _process_and_respond(phone: str, text: str, wa_message_id: str | None):
+async def _process_and_respond(
+    phone: str,
+    text: str,
+    wa_message_id: str | None,
+    message_type: str = "text",
+    media_id: str | None = None,
+    media_filename: str | None = None,
+    media_mime_type: str | None = None,
+):
     """Background task: process message through the gateway and send response."""
     db = SessionLocal() if SessionLocal else None
     try:
-        result = await process_inbound_message(db, phone, text, wa_message_id)
+        result = await process_inbound_message(
+            db,
+            phone,
+            text,
+            wa_message_id,
+            message_type=message_type,
+            media_id=media_id,
+            media_filename=media_filename,
+            media_mime_type=media_mime_type,
+        )
         await _dispatch_outbound_response(phone, result)
     except Exception:
         logger.exception("Error processing WhatsApp message from %s", phone)
@@ -289,7 +367,36 @@ async def _dispatch_outbound_response(phone: str, result: dict) -> None:
             logger.warning("Falling back to text for document response to %s", phone)
 
     if response_text:
-        await send_text_message(phone, response_text)
+        for chunk in _chunk_whatsapp_text(response_text):
+            await send_text_message(phone, chunk)
+
+
+def _chunk_whatsapp_text(text: str, chunk_size: int = WHATSAPP_TEXT_CHUNK_LIMIT) -> list[str]:
+    """Split long WhatsApp text into readable chunks without mid-word truncation."""
+    normalized = str(text or "").strip()
+    if not normalized:
+        return []
+    if len(normalized) <= chunk_size:
+        return [normalized]
+
+    chunks: list[str] = []
+    remaining = normalized
+    while len(remaining) > chunk_size:
+        split_at = remaining.rfind("\n\n", 0, chunk_size + 1)
+        if split_at < max(200, chunk_size // 3):
+            split_at = remaining.rfind("\n", 0, chunk_size + 1)
+        if split_at < max(200, chunk_size // 3):
+            split_at = remaining.rfind(" ", 0, chunk_size + 1)
+        if split_at <= 0:
+            split_at = chunk_size
+        chunk = remaining[:split_at].strip()
+        if chunk:
+            chunks.append(chunk)
+        remaining = remaining[split_at:].strip()
+
+    if remaining:
+        chunks.append(remaining)
+    return chunks
 
 
 
@@ -311,6 +418,7 @@ def _extract_messages(payload: dict) -> list[dict]:
                         "phone": msg.get("from", ""),
                         "text": msg.get("text", {}).get("body", ""),
                         "wa_message_id": msg.get("id"),
+                        "message_type": "text",
                     })
                 elif msg.get("type") == "interactive":
                     # Handle button/list replies
@@ -320,6 +428,19 @@ def _extract_messages(payload: dict) -> list[dict]:
                         "phone": msg.get("from", ""),
                         "text": reply.get("id") or reply.get("title", ""),
                         "wa_message_id": msg.get("id"),
+                        "message_type": "interactive",
+                    })
+                elif msg.get("type") in {"document", "image", "video", "audio"}:
+                    media_type = msg.get("type")
+                    media = msg.get(media_type, {})
+                    messages.append({
+                        "phone": msg.get("from", ""),
+                        "text": media.get("caption", ""),
+                        "wa_message_id": msg.get("id"),
+                        "message_type": media_type,
+                        "media_id": media.get("id"),
+                        "media_filename": media.get("filename"),
+                        "media_mime_type": media.get("mime_type"),
                     })
     return messages
 
@@ -553,53 +674,43 @@ async def whatsapp_analytics(
     days: int = Query(7, ge=1, le=90),
 ):
     """Get WhatsApp usage analytics (admin only)."""
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Admin access required")
+    _require_admin(current_user)
+    return _build_whatsapp_usage_snapshot(current_user, db, days)
 
-    since = datetime.now(timezone.utc) - timedelta(days=days)
-    from src.domains.platform.models.whatsapp_models import WhatsAppMessage
 
-    base_query = db.query(WhatsAppMessage).filter(
-        WhatsAppMessage.tenant_id == current_user.tenant_id,
-        WhatsAppMessage.created_at >= since,
-    )
+@router.get("/release-gate-snapshot")
+async def whatsapp_release_gate_snapshot(
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+    days: int = Query(7, ge=1, le=90),
+):
+    """Return a release-gate-friendly WhatsApp staging evidence snapshot."""
+    _require_admin(current_user)
 
-    total_messages = base_query.count()
-    inbound = base_query.filter(WhatsAppMessage.direction == "inbound").count()
-    outbound = base_query.filter(WhatsAppMessage.direction == "outbound").count()
+    analytics = _build_whatsapp_usage_snapshot(current_user, db, days)
+    tenant_id = getattr(current_user, "tenant_id", None)
+    metrics = get_whatsapp_metrics(str(tenant_id) if tenant_id else None)
 
-    unique_users = db.query(sqlfunc.count(sqlfunc.distinct(WhatsAppMessage.phone))).filter(
-        WhatsAppMessage.tenant_id == current_user.tenant_id,
-        WhatsAppMessage.created_at >= since,
-    ).scalar()
+    routing_total = metrics.get("routing_success_total", 0) + metrics.get("routing_failure_total", 0)
+    outbound_total = metrics.get("outbound_success_total", 0) + metrics.get("outbound_failure_total", 0)
+    inbound_total = metrics.get("inbound_total", 0)
 
-    # Top intents
-    top_intents = db.query(
-        WhatsAppMessage.intent,
-        sqlfunc.count(WhatsAppMessage.id).label("count"),
-    ).filter(
-        WhatsAppMessage.tenant_id == current_user.tenant_id,
-        WhatsAppMessage.created_at >= since,
-        WhatsAppMessage.intent.isnot(None),
-    ).group_by(WhatsAppMessage.intent).order_by(
-        sqlfunc.count(WhatsAppMessage.id).desc()
-    ).limit(10).all()
-
-    # Average latency
-    avg_latency = db.query(sqlfunc.avg(WhatsAppMessage.latency_ms)).filter(
-        WhatsAppMessage.tenant_id == current_user.tenant_id,
-        WhatsAppMessage.created_at >= since,
-        WhatsAppMessage.latency_ms.isnot(None),
-    ).scalar()
+    def _pct(numerator: int, denominator: int) -> float:
+        if denominator <= 0:
+            return 0.0
+        return round((numerator / denominator) * 100, 2)
 
     return {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
         "period_days": days,
-        "total_messages": total_messages,
-        "inbound": inbound,
-        "outbound": outbound,
-        "unique_users": unique_users or 0,
-        "avg_latency_ms": round(avg_latency) if avg_latency else None,
-        "top_intents": [{"intent": i[0], "count": i[1]} for i in top_intents],
+        "analytics": analytics,
+        "release_gate_metrics": metrics,
+        "derived_rates": {
+            "routing_failure_pct": _pct(metrics.get("routing_failure_total", 0), routing_total),
+            "duplicate_inbound_pct": _pct(metrics.get("duplicate_inbound_total", 0), inbound_total),
+            "visible_failure_pct": _pct(metrics.get("visible_failure_total", 0), inbound_total),
+            "outbound_retryable_failure_pct": _pct(metrics.get("outbound_retryable_failure_total", 0), outbound_total),
+        },
     }
 
 

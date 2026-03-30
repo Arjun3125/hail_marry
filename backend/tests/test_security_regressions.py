@@ -313,6 +313,7 @@ class AdminRouteRegressionTests(unittest.IsolatedAsyncioTestCase):
         admin_routes = importlib.import_module("src.domains.administrative.routes.admin")
         current_user = SimpleNamespace(tenant_id=uuid4(), id=uuid4())
         db = _DBStub({})
+        notebook_id = uuid4()
 
         with self.assertRaises(HTTPException) as ctx:
             await admin_routes.create_webhook(
@@ -376,6 +377,33 @@ class StudentRouteRegressionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(ctx.exception.status_code, 500)
         self.assertEqual(ctx.exception.detail, "Document ingestion failed.")
 
+    async def test_student_upload_invalidates_tenant_cache_on_success(self):
+        student_routes = importlib.import_module("src.domains.academic.routes.students")
+        current_user = SimpleNamespace(tenant_id=uuid4(), id=uuid4())
+        db = _DBStub({})
+        file = UploadFile(filename="notes.pdf", file=io.BytesIO(b"small pdf payload"))
+
+        fake_chunk = SimpleNamespace(
+            text="Cells are the basic unit of life.",
+            document_id="doc-1",
+            page_number=1,
+            section_title="Biology",
+            subject_id="science",
+            notebook_id="",
+            source_file="notes.pdf",
+        )
+        embedding_provider = SimpleNamespace(embed_batch=AsyncMock(return_value=[[0.1, 0.2]]))
+        vector_store = SimpleNamespace(add_chunks=MagicMock())
+
+        with patch("src.infrastructure.vector_store.ingestion.ingest_document", return_value=[fake_chunk]), \
+             patch("src.infrastructure.llm.providers.get_embedding_provider", return_value=embedding_provider), \
+             patch("src.infrastructure.llm.providers.get_vector_store_provider", return_value=vector_store), \
+             patch("src.domains.academic.routes.students.invalidate_tenant_cache") as invalidate_mock:
+            payload = await student_routes.student_upload(file, current_user, db)
+
+        self.assertTrue(payload["success"])
+        invalidate_mock.assert_called_once_with(str(current_user.tenant_id))
+
     def test_tool_normalizer_rejects_invalid_quiz_payload(self):
         student_routes = importlib.import_module("src.domains.academic.routes.students")
         with self.assertRaises(HTTPException) as ctx:
@@ -434,16 +462,18 @@ class StudentRouteRegressionTests(unittest.IsolatedAsyncioTestCase):
         student_routes = importlib.import_module("src.domains.academic.routes.students")
         current_user = SimpleNamespace(tenant_id=uuid4(), id=uuid4())
         db = _DBStub({})
+        notebook_id = uuid4()
 
         answers = {
-            "quiz": '[{"question":"Q1","options":["A. One","B. Two"],"correct":"B"}]',
-            "flashcards": '[{"front":"F1","back":"B1"}]',
-            "mindmap": '{"label":"Root","children":[{"label":"Child"}]}',
-            "flowchart": "flowchart TD\nA[Start] --> B[End]",
-            "concept_map": '{"nodes":[{"id":"1","label":"Cell"}],"edges":[{"from":"1","to":"1","label":"self"}]}',
+            "quiz": '[{"question":"Q1","options":["A. One","B. Two"],"correct":"B","citation":"[notes_p1]"}]',
+            "flashcards": '[{"front":"F1","back":"B1","citation":"[notes_p2]"}]',
+            "mindmap": '{"label":"Root","children":[{"label":"Child","citation":"[notes_p6]","children":[{"label":"Leaf","citation":"[notes_p7]"}]}]}',
+            "flowchart": '{"mermaid":"flowchart TD\\nA[Start] --> B[End]","steps":[{"id":"A","label":"Start","detail":"Begin the process.","citation":"[notes_p4]"},{"id":"B","label":"End","detail":"Finish the process.","citation":"[notes_p5]"}]}',
+            "concept_map": '{"nodes":[{"id":"1","label":"Cell"}],"edges":[{"from":"1","to":"1","label":"self","citation":"[notes_p3]"}]}',
         }
 
         async def fake_run_study_tool(request):
+            self.assertEqual(str(request.notebook_id), str(notebook_id))
             return {
                 "tool": request.tool,
                 "topic": request.topic,
@@ -456,7 +486,7 @@ class StudentRouteRegressionTests(unittest.IsolatedAsyncioTestCase):
         with patch("src.domains.academic.routes.students.run_study_tool", AsyncMock(side_effect=fake_run_study_tool)):
             for mode in ["quiz", "flashcards", "mindmap", "flowchart", "concept_map"]:
                 payload = await student_routes.generate_study_tool(
-                    student_routes.StudyToolGenerateRequest(tool=mode, topic="Biology"),
+                    student_routes.StudyToolGenerateRequest(tool=mode, topic="Biology", notebook_id=notebook_id),
                     current_user,
                     db,
                 )
@@ -479,7 +509,7 @@ class StudentRouteRegressionTests(unittest.IsolatedAsyncioTestCase):
                 {
                     "tool": "quiz",
                     "topic": "Retry topic",
-                    "answer": '[{"question":"Q1","options":["A. One","B. Two"],"correct":"A"}]',
+                    "answer": '[{"question":"Q1","options":["A. One","B. Two"],"correct":"A","citation":"[notes_p1]"}]',
                     "citations": [],
                     "token_usage": 1,
                     "citation_valid": True,

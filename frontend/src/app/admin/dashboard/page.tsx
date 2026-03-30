@@ -12,6 +12,8 @@ import {
     AlertTriangle,
     Workflow,
     Shield,
+    MessageSquareDashed,
+    RefreshCw,
 } from "lucide-react";
 import {
     ResponsiveContainer,
@@ -58,6 +60,78 @@ type SecurityItem = {
     date: string;
 };
 
+type WhatsAppReleaseGateSnapshot = {
+    generated_at: string;
+    period_days: number;
+    analytics: {
+        total_messages: number;
+        inbound: number;
+        outbound: number;
+        unique_users: number;
+        avg_latency_ms: number | null;
+    };
+    release_gate_metrics: {
+        duplicate_inbound_total: number;
+        routing_failure_total: number;
+        visible_failure_total: number;
+        outbound_retryable_failure_total: number;
+        upload_ingest_failure_total: number;
+        link_ingest_failure_total: number;
+    };
+    derived_rates: {
+        duplicate_inbound_pct: number;
+        routing_failure_pct: number;
+        visible_failure_pct: number;
+        outbound_retryable_failure_pct: number;
+    };
+};
+
+type MascotReleaseGateSnapshot = {
+    generated_at: string;
+    period_days: number;
+    analytics: {
+        total_actions: number;
+        unique_users: number;
+    };
+    release_gate_metrics: {
+        interpretation_success_total: number;
+        interpretation_failure_total: number;
+        execution_success_total: number;
+        execution_failure_total: number;
+        confirmation_success_total: number;
+        confirmation_failure_total: number;
+        confirmation_cancelled_total?: number;
+        upload_success_total: number;
+        upload_failure_total: number;
+    };
+    derived_rates: {
+        interpretation_failure_pct: number;
+        execution_failure_pct: number;
+        upload_failure_pct: number;
+        confirmation_failure_pct: number;
+        overall_failure_pct: number;
+    };
+    active_alerts: Array<{
+        code: string;
+        severity: string;
+        message: string;
+    }>;
+};
+
+type MascotReleaseGateEvidence = {
+    generated_at: string;
+    filename: string;
+    markdown: string;
+    snapshot: MascotReleaseGateSnapshot;
+};
+type MascotStagingPacket = {
+    generated_at: string;
+    filename: string;
+    markdown: string;
+    whatsapp_snapshot: WhatsAppReleaseGateSnapshot;
+    mascot_snapshot: MascotReleaseGateSnapshot;
+};
+
 const glassColors = ["glass-stat-blue", "glass-stat-green", "glass-stat-purple", "glass-stat-amber", "glass-stat-pink", "glass-stat-blue"];
 
 // Mock data for charts
@@ -73,8 +147,14 @@ const weeklyActivity = [
 export default function AdminDashboard() {
     const [dashboard, setDashboard] = useState<DashboardData | null>(null);
     const [activity, setActivity] = useState<SecurityItem[]>([]);
+    const [whatsappSnapshot, setWhatsappSnapshot] = useState<WhatsAppReleaseGateSnapshot | null>(null);
+    const [mascotSnapshot, setMascotSnapshot] = useState<MascotReleaseGateSnapshot | null>(null);
     const [loading, setLoading] = useState(true);
     const [dispatchingAlerts, setDispatchingAlerts] = useState(false);
+    const [refreshingWhatsApp, setRefreshingWhatsApp] = useState(false);
+    const [copyingMascotEvidence, setCopyingMascotEvidence] = useState(false);
+    const [copyingStagingPacket, setCopyingStagingPacket] = useState(false);
+    const [mascotEvidenceStatus, setMascotEvidenceStatus] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [chartsReady, setChartsReady] = useState(false);
 
@@ -82,18 +162,81 @@ export default function AdminDashboard() {
         try {
             setLoading(true);
             setError(null);
-            const [dashboardData, securityData] = await Promise.all([
+            const [dashboardData, securityData, whatsappData, mascotData] = await Promise.all([
                 api.admin.dashboard(),
                 api.admin.security(),
+                api.admin.whatsappReleaseGateSnapshot(7),
+                api.admin.mascotReleaseGateSnapshot(7),
             ]);
             setDashboard(dashboardData as DashboardData);
             setActivity((securityData || []) as SecurityItem[]);
+            setWhatsappSnapshot(whatsappData as WhatsAppReleaseGateSnapshot);
+            setMascotSnapshot(mascotData as MascotReleaseGateSnapshot);
         } catch (err) {
             setError(err instanceof Error ? err.message : "Failed to load admin dashboard");
         } finally {
             setLoading(false);
         }
     }, []);
+
+    const refreshWhatsAppSnapshot = useCallback(async () => {
+        try {
+            setRefreshingWhatsApp(true);
+            setError(null);
+            const payload = await api.admin.whatsappReleaseGateSnapshot(7);
+            setWhatsappSnapshot(payload as WhatsAppReleaseGateSnapshot);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Failed to refresh WhatsApp release gate snapshot");
+        } finally {
+            setRefreshingWhatsApp(false);
+        }
+    }, []);
+
+    const copyText = useCallback(async (text: string) => {
+        if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(text);
+            return;
+        }
+        if (typeof document !== "undefined") {
+            const textarea = document.createElement("textarea");
+            textarea.value = text;
+            textarea.setAttribute("readonly", "true");
+            textarea.style.position = "absolute";
+            textarea.style.left = "-9999px";
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand("copy");
+            document.body.removeChild(textarea);
+        }
+    }, []);
+
+    const copyMascotEvidenceDraft = useCallback(async () => {
+        try {
+            setCopyingMascotEvidence(true);
+            setMascotEvidenceStatus(null);
+            const payload = await api.admin.mascotReleaseGateEvidence(7) as MascotReleaseGateEvidence;
+            await copyText(payload.markdown);
+            setMascotEvidenceStatus(`Evidence draft copied from ${new Date(payload.generated_at).toLocaleString()}.`);
+        } catch (err) {
+            setMascotEvidenceStatus(err instanceof Error ? err.message : "Failed to copy mascot evidence draft");
+        } finally {
+            setCopyingMascotEvidence(false);
+        }
+    }, [copyText]);
+
+    const copyCombinedStagingPacket = useCallback(async () => {
+        try {
+            setCopyingStagingPacket(true);
+            setMascotEvidenceStatus(null);
+            const payload = await api.admin.mascotStagingPacket(7) as MascotStagingPacket;
+            await copyText(payload.markdown);
+            setMascotEvidenceStatus(`Combined mascot + WhatsApp staging packet copied from ${new Date(payload.generated_at).toLocaleString()}.`);
+        } catch (err) {
+            setMascotEvidenceStatus(err instanceof Error ? err.message : "Failed to copy combined staging packet");
+        } finally {
+            setCopyingStagingPacket(false);
+        }
+    }, [copyText]);
 
     useEffect(() => {
         void load();
@@ -240,7 +383,187 @@ export default function AdminDashboard() {
                         </div>
                     </div>
 
+                    <div className="bg-[var(--bg-card)] rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)] mb-6">
+                        <div className="flex items-start justify-between gap-4 mb-4">
+                            <div className="flex items-center gap-2">
+                                <MessageSquareDashed className="w-4 h-4 text-[var(--success)]" />
+                                <div>
+                                    <h2 className="text-sm font-semibold text-[var(--text-primary)]">WhatsApp Release Gate</h2>
+                                    <p className="text-xs text-[var(--text-muted)]">
+                                        Staging evidence snapshot for the last 7 days. Live device validation is still required before final sign-off.
+                                    </p>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => void refreshWhatsAppSnapshot()}
+                                className="inline-flex items-center gap-2 rounded-full bg-success-badge px-3 py-1 text-xs font-medium text-status-green hover:opacity-90 disabled:opacity-60"
+                                disabled={refreshingWhatsApp}
+                            >
+                                <RefreshCw className={`w-3.5 h-3.5 ${refreshingWhatsApp ? "animate-spin" : ""}`} />
+                                {refreshingWhatsApp ? "Refreshing..." : "Refresh Snapshot"}
+                            </button>
+                        </div>
+                        {whatsappSnapshot ? (
+                            <div className="grid gap-4 lg:grid-cols-2">
+                                <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-page)] p-4">
+                                    <p className="text-[10px] uppercase tracking-widest text-[var(--text-muted)] mb-3">Derived Failure Rates</p>
+                                    <div className="space-y-2 text-sm">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-[var(--text-secondary)]">Routing failure</span>
+                                            <span className="font-semibold text-[var(--text-primary)]">{whatsappSnapshot.derived_rates.routing_failure_pct}%</span>
+                                        </div>
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-[var(--text-secondary)]">Duplicate inbound</span>
+                                            <span className="font-semibold text-[var(--text-primary)]">{whatsappSnapshot.derived_rates.duplicate_inbound_pct}%</span>
+                                        </div>
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-[var(--text-secondary)]">Visible failure</span>
+                                            <span className="font-semibold text-[var(--text-primary)]">{whatsappSnapshot.derived_rates.visible_failure_pct}%</span>
+                                        </div>
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-[var(--text-secondary)]">Retryable outbound failure</span>
+                                            <span className="font-semibold text-[var(--text-primary)]">{whatsappSnapshot.derived_rates.outbound_retryable_failure_pct}%</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-page)] p-4">
+                                    <p className="text-[10px] uppercase tracking-widest text-[var(--text-muted)] mb-3">Current Snapshot</p>
+                                    <div className="grid grid-cols-2 gap-3 text-sm">
+                                        <div>
+                                            <p className="text-[var(--text-muted)]">Messages</p>
+                                            <p className="font-semibold text-[var(--text-primary)]">{whatsappSnapshot.analytics.total_messages}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-[var(--text-muted)]">Unique users</p>
+                                            <p className="font-semibold text-[var(--text-primary)]">{whatsappSnapshot.analytics.unique_users}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-[var(--text-muted)]">Upload ingest failures</p>
+                                            <p className="font-semibold text-[var(--text-primary)]">{whatsappSnapshot.release_gate_metrics.upload_ingest_failure_total}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-[var(--text-muted)]">Link ingest failures</p>
+                                            <p className="font-semibold text-[var(--text-primary)]">{whatsappSnapshot.release_gate_metrics.link_ingest_failure_total}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-[var(--text-muted)]">Visible failures</p>
+                                            <p className="font-semibold text-[var(--text-primary)]">{whatsappSnapshot.release_gate_metrics.visible_failure_total}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-[var(--text-muted)]">Avg latency</p>
+                                            <p className="font-semibold text-[var(--text-primary)]">
+                                                {whatsappSnapshot.analytics.avg_latency_ms !== null ? `${whatsappSnapshot.analytics.avg_latency_ms} ms` : "N/A"}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <p className="mt-4 text-xs text-[var(--text-muted)]">
+                                        Snapshot generated {new Date(whatsappSnapshot.generated_at).toLocaleString()}.
+                                    </p>
+                                </div>
+                            </div>
+                        ) : (
+                            <p className="text-sm text-[var(--text-muted)]">WhatsApp release-gate snapshot unavailable.</p>
+                        )}
+                    </div>
+
                     {/* ─── Alerts + Security ─── */}
+                    <div className="bg-[var(--bg-card)] rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)] mb-6">
+                        <div className="flex items-start justify-between gap-4 mb-4">
+                            <div className="flex items-center gap-2">
+                                <Bot className="w-4 h-4 text-[var(--primary)]" />
+                                <div>
+                                    <h2 className="text-sm font-semibold text-[var(--text-primary)]">Mascot Release Gate</h2>
+                                    <p className="text-xs text-[var(--text-muted)]">
+                                        Snapshot for mascot interpretation, execution, upload reliability, and confirmation stability.
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex flex-wrap items-center justify-end gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => void copyMascotEvidenceDraft()}
+                                    className="inline-flex items-center gap-2 rounded-full bg-primary-ghost px-3 py-1 text-xs font-medium text-[var(--primary)] hover:opacity-90 disabled:opacity-60"
+                                    disabled={copyingMascotEvidence}
+                                >
+                                    <Bot className="w-3.5 h-3.5" />
+                                    {copyingMascotEvidence ? "Copying..." : "Copy Evidence Draft"}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => void copyCombinedStagingPacket()}
+                                    className="inline-flex items-center gap-2 rounded-full bg-success-badge px-3 py-1 text-xs font-medium text-status-green hover:opacity-90 disabled:opacity-60"
+                                    disabled={copyingStagingPacket}
+                                >
+                                    <MessageSquareDashed className="w-3.5 h-3.5" />
+                                    {copyingStagingPacket ? "Copying..." : "Copy Staging Packet"}
+                                </button>
+                            </div>
+                        </div>
+                        {mascotSnapshot ? (
+                            <div className="grid gap-4 lg:grid-cols-2">
+                                <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-page)] p-4">
+                                    <p className="text-[10px] uppercase tracking-widest text-[var(--text-muted)] mb-3">Derived Failure Rates</p>
+                                    <div className="space-y-2 text-sm">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-[var(--text-secondary)]">Interpretation</span>
+                                            <span className="font-semibold text-[var(--text-primary)]">{mascotSnapshot.derived_rates.interpretation_failure_pct}%</span>
+                                        </div>
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-[var(--text-secondary)]">Execution</span>
+                                            <span className="font-semibold text-[var(--text-primary)]">{mascotSnapshot.derived_rates.execution_failure_pct}%</span>
+                                        </div>
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-[var(--text-secondary)]">Upload</span>
+                                            <span className="font-semibold text-[var(--text-primary)]">{mascotSnapshot.derived_rates.upload_failure_pct}%</span>
+                                        </div>
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-[var(--text-secondary)]">Overall failure</span>
+                                            <span className="font-semibold text-[var(--text-primary)]">{mascotSnapshot.derived_rates.overall_failure_pct}%</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-page)] p-4">
+                                    <p className="text-[10px] uppercase tracking-widest text-[var(--text-muted)] mb-3">Current Snapshot</p>
+                                    <div className="grid grid-cols-2 gap-3 text-sm">
+                                        <div>
+                                            <p className="text-[var(--text-muted)]">Actions</p>
+                                            <p className="font-semibold text-[var(--text-primary)]">{mascotSnapshot.analytics.total_actions}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-[var(--text-muted)]">Unique users</p>
+                                            <p className="font-semibold text-[var(--text-primary)]">{mascotSnapshot.analytics.unique_users}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-[var(--text-muted)]">Execution failures</p>
+                                            <p className="font-semibold text-[var(--text-primary)]">{mascotSnapshot.release_gate_metrics.execution_failure_total}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-[var(--text-muted)]">Upload failures</p>
+                                            <p className="font-semibold text-[var(--text-primary)]">{mascotSnapshot.release_gate_metrics.upload_failure_total}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-[var(--text-muted)]">Confirmation cancelled</p>
+                                            <p className="font-semibold text-[var(--text-primary)]">{mascotSnapshot.release_gate_metrics.confirmation_cancelled_total ?? 0}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-[var(--text-muted)]">Active alerts</p>
+                                            <p className="font-semibold text-[var(--text-primary)]">{mascotSnapshot.active_alerts.length}</p>
+                                        </div>
+                                    </div>
+                                    <p className="mt-4 text-xs text-[var(--text-muted)]">
+                                        Snapshot generated {new Date(mascotSnapshot.generated_at).toLocaleString()}.
+                                    </p>
+                                </div>
+                            </div>
+                        ) : (
+                            <p className="text-sm text-[var(--text-muted)]">Mascot release-gate snapshot unavailable.</p>
+                        )}
+                        {mascotEvidenceStatus ? (
+                            <p className="mt-3 text-xs text-[var(--text-muted)]">{mascotEvidenceStatus}</p>
+                        ) : null}
+                    </div>
+
                     <div className="grid lg:grid-cols-2 gap-6">
                         {/* Active Alerts */}
                         <div className="bg-[var(--bg-card)] rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)]">

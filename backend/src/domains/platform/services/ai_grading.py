@@ -5,8 +5,11 @@ from pathlib import Path
 
 from fastapi import HTTPException
 
-from src.infrastructure.vector_store.ocr_service import extract_text_from_image, is_image_file
 from src.domains.platform.services.trace_backend import record_trace_event
+from src.infrastructure.vector_store.ocr_service import (
+    extract_ocr_result_from_image_path,
+    is_image_file,
+)
 
 MAX_EXTRACTED_CHARS = 5000
 
@@ -27,17 +30,30 @@ async def run_ai_grade(
 
     extracted_text = None
     error = None
+    ocr_processed = False
+    ocr_review_required = False
+    ocr_warning = None
+    ocr_languages: list[str] = []
+    ocr_preprocessing: list[str] = []
+    ocr_confidence: float | None = None
     if is_image_file(file_name):
         try:
-            extracted_text = extract_text_from_image(str(path))
+            ocr_result = extract_ocr_result_from_image_path(str(path))
+            extracted_text = ocr_result.text
+            ocr_processed = ocr_result.used_ocr
+            ocr_review_required = ocr_result.review_required
+            ocr_warning = ocr_result.warning
+            ocr_languages = ocr_result.languages
+            ocr_preprocessing = ocr_result.preprocessing_applied
+            ocr_confidence = ocr_result.confidence
             if extracted_text and len(extracted_text) > MAX_EXTRACTED_CHARS:
-                extracted_text = extracted_text[:MAX_EXTRACTED_CHARS] + "…"
+                extracted_text = extracted_text[:MAX_EXTRACTED_CHARS] + "..."
+                ocr_warning = ocr_warning or "OCR output was truncated before AI grading."
         except Exception as exc:
             error = str(exc)
     else:
         error = "Automatic grading currently supports image uploads only."
 
-    # ── LLM-Assisted Scoring ──────────────────────────────────────────────────
     ai_feedback = None
     ai_score = None
     ai_max_score = None
@@ -47,8 +63,9 @@ async def run_ai_grade(
         rubric = payload.get("rubric")
         if answer_key:
             try:
-                from src.infrastructure.llm.providers import get_llm_provider
                 import json
+
+                from src.infrastructure.llm.providers import get_llm_provider
 
                 llm = get_llm_provider()
                 grading_prompt = (
@@ -59,19 +76,16 @@ async def run_ai_grade(
                     "Evaluate the answer and return a JSON object with these EXACT keys:\n"
                     "{\"score\": <float>, \"max_score\": <float>, \"feedback\": \"<string>\"}"
                 )
-                
-                # Generate grading response
+
                 llm_response = await llm.generate(grading_prompt, temperature=0.1)
                 text_response = llm_response.get("response", "").strip()
-                
-                # Attempt to parse JSON from LLM response
+
                 try:
-                    # Strip markdown code blocks if present
                     if "```" in text_response:
                         text_response = text_response.split("```")[1].strip()
                         if text_response.startswith("json"):
                             text_response = text_response[4:].strip()
-                    
+
                     data = json.loads(text_response)
                     ai_score = data.get("score")
                     ai_max_score = data.get("max_score")
@@ -90,6 +104,12 @@ async def run_ai_grade(
         "ai_max_score": ai_max_score,
         "ai_feedback": ai_feedback,
         "error": error,
+        "ocr_processed": ocr_processed,
+        "ocr_review_required": ocr_review_required,
+        "ocr_warning": ocr_warning,
+        "ocr_languages": ocr_languages,
+        "ocr_preprocessing": ocr_preprocessing,
+        "ocr_confidence": ocr_confidence,
     }
 
     record_trace_event(

@@ -63,15 +63,23 @@ class NormalizeToolOutputTests(unittest.TestCase):
 
     # ─── Flowchart ───────────────────────────────────────────
 
-    def test_flowchart_returns_cleaned_text(self):
-        answer = "flowchart TD\nA[Start] --> B[End]\n\nSources: notes.pdf"
+    def test_flowchart_valid_object(self):
+        answer = '{"mermaid":"flowchart TD\\nA[Start] --> B[End]","steps":[{"id":"A","label":"Start","detail":"Begin the process.","citation":"[p1]"},{"id":"B","label":"End","detail":"Finish the process.","citation":"[p2]"}]}'
         result = _normalize_tool_output("flowchart", answer)
-        self.assertEqual(result, "flowchart TD\nA[Start] --> B[End]")
+        self.assertEqual(result["mermaid"], "flowchart TD\nA[Start] --> B[End]")
+        self.assertEqual(len(result["steps"]), 2)
 
-    def test_flowchart_without_sources_unchanged(self):
-        answer = "flowchart TD\nA --> B"
-        result = _normalize_tool_output("flowchart", answer)
-        self.assertEqual(result, "flowchart TD\nA --> B")
+    def test_flowchart_invalid_mermaid_raises_422(self):
+        answer = '{"mermaid":"graph LR\\nA --> B","steps":[{"id":"A","label":"Start","detail":"Begin the process.","citation":"[p1]"},{"id":"B","label":"End","detail":"Finish the process.","citation":"[p2]"}]}'
+        with self.assertRaises(HTTPException) as ctx:
+            _normalize_tool_output("flowchart", answer)
+        self.assertEqual(ctx.exception.status_code, 422)
+
+    def test_flowchart_missing_cited_steps_raises_422(self):
+        answer = '{"mermaid":"flowchart TD\\nA[Start] --> B[End]","steps":[{"id":"A","label":"Start","detail":"Begin the process.","citation":"[p1]"}]}'
+        with self.assertRaises(HTTPException) as ctx:
+            _normalize_tool_output("flowchart", answer)
+        self.assertEqual(ctx.exception.status_code, 422)
 
     def test_flowchart_empty_raises_422(self):
         with self.assertRaises(HTTPException) as ctx:
@@ -81,12 +89,13 @@ class NormalizeToolOutputTests(unittest.TestCase):
     # ─── Quiz ────────────────────────────────────────────────
 
     def test_quiz_valid_array(self):
-        answer = '[{"question":"Q1","options":["A. One","B. Two"],"correct":"B"}]'
+        answer = '[{"question":"Q1","options":["A. One","B. Two"],"correct":"B","citation":"[notes_p1]"}]'
         result = _normalize_tool_output("quiz", answer)
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0]["question"], "Q1")
         self.assertEqual(result[0]["correct"], "B")
         self.assertEqual(result[0]["index"], 1)
+        self.assertEqual(result[0]["citation"], "[notes_p1]")
 
     def test_quiz_rejects_non_array(self):
         with self.assertRaises(HTTPException) as ctx:
@@ -94,18 +103,18 @@ class NormalizeToolOutputTests(unittest.TestCase):
         self.assertEqual(ctx.exception.status_code, 422)
 
     def test_quiz_filters_items_with_fewer_than_2_options(self):
-        answer = '[{"question":"Q1","options":["A. One"],"correct":"A"},{"question":"Q2","options":["A. X","B. Y"],"correct":"A"}]'
+        answer = '[{"question":"Q1","options":["A. One"],"correct":"A","citation":"[p1]"},{"question":"Q2","options":["A. X","B. Y"],"correct":"A","citation":"[p2]"}]'
         result = _normalize_tool_output("quiz", answer)
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0]["question"], "Q2")
 
     def test_quiz_normalizes_correct_letter(self):
-        answer = '[{"question":"Q1","options":["A. X","B. Y","C. Z"],"correct":"the correct one is C"}]'
+        answer = '[{"question":"Q1","options":["A. X","B. Y","C. Z"],"correct":"the correct one is C","citation":"[p3]"}]'
         result = _normalize_tool_output("quiz", answer)
         self.assertEqual(result[0]["correct"], "C")
 
-    def test_quiz_all_bad_items_raises_422(self):
-        answer = '[{"question":"","options":[],"correct":""}]'
+    def test_quiz_missing_citation_raises_422(self):
+        answer = '[{"question":"Q1","options":["A. X","B. Y"],"correct":"A"}]'
         with self.assertRaises(HTTPException) as ctx:
             _normalize_tool_output("quiz", answer)
         self.assertEqual(ctx.exception.status_code, 422)
@@ -113,12 +122,13 @@ class NormalizeToolOutputTests(unittest.TestCase):
     # ─── Flashcards ──────────────────────────────────────────
 
     def test_flashcards_valid(self):
-        answer = '[{"front":"F1","back":"B1"},{"front":"F2","back":"B2"}]'
+        answer = '[{"front":"F1","back":"B1","citation":"[p1]"},{"front":"F2","back":"B2","citation":"[p2]"}]'
         result = _normalize_tool_output("flashcards", answer)
         self.assertEqual(len(result), 2)
+        self.assertEqual(result[0]["citation"], "[p1]")
 
     def test_flashcards_filters_empty_front_back(self):
-        answer = '[{"front":"","back":"B1"},{"front":"F2","back":"B2"}]'
+        answer = '[{"front":"","back":"B1","citation":"[p1]"},{"front":"F2","back":"B2","citation":"[p2]"}]'
         result = _normalize_tool_output("flashcards", answer)
         self.assertEqual(len(result), 1)
 
@@ -127,8 +137,8 @@ class NormalizeToolOutputTests(unittest.TestCase):
             _normalize_tool_output("flashcards", '{"front":"F"}')
         self.assertEqual(ctx.exception.status_code, 422)
 
-    def test_flashcards_all_empty_raises_422(self):
-        answer = '[{"front":"","back":""}]'
+    def test_flashcards_missing_citation_raises_422(self):
+        answer = '[{"front":"F1","back":"B1"}]'
         with self.assertRaises(HTTPException) as ctx:
             _normalize_tool_output("flashcards", answer)
         self.assertEqual(ctx.exception.status_code, 422)
@@ -136,13 +146,19 @@ class NormalizeToolOutputTests(unittest.TestCase):
     # ─── Mind Map ────────────────────────────────────────────
 
     def test_mindmap_valid(self):
-        answer = '{"label":"Root","children":[{"label":"Child"}]}'
+        answer = '{"label":"Root","children":[{"label":"Child","citation":"[p1]","children":[{"label":"Leaf","citation":"[p2]"}]}]}'
         result = _normalize_tool_output("mindmap", answer)
         self.assertEqual(result["label"], "Root")
+        self.assertEqual(result["children"][0]["citation"], "[p1]")
 
     def test_mindmap_missing_label_raises_422(self):
         with self.assertRaises(HTTPException) as ctx:
             _normalize_tool_output("mindmap", '{"children":[]}')
+        self.assertEqual(ctx.exception.status_code, 422)
+
+    def test_mindmap_missing_cited_nodes_raises_422(self):
+        with self.assertRaises(HTTPException) as ctx:
+            _normalize_tool_output("mindmap", '{"label":"Root","children":[{"label":"Child"}]}')
         self.assertEqual(ctx.exception.status_code, 422)
 
     def test_mindmap_rejects_non_object(self):
@@ -153,19 +169,27 @@ class NormalizeToolOutputTests(unittest.TestCase):
     # ─── Concept Map ─────────────────────────────────────────
 
     def test_concept_map_valid(self):
-        answer = '{"nodes":[{"id":"1","label":"Cell"}],"edges":[{"from":"1","to":"1","label":"self"}]}'
+        answer = '{"nodes":[{"id":"1","label":"Cell"}],"edges":[{"from":"1","to":"1","label":"self","citation":"[p4]"}]}'
         result = _normalize_tool_output("concept_map", answer)
         self.assertEqual(len(result["nodes"]), 1)
         self.assertEqual(len(result["edges"]), 1)
+        self.assertEqual(result["edges"][0]["citation"], "[p4]")
 
-    def test_concept_map_filters_bad_nodes(self):
-        answer = '{"nodes":[{"id":"","label":""},{"id":"2","label":"Valid"}],"edges":[]}'
+    def test_concept_map_filters_bad_nodes_and_keeps_cited_edge(self):
+        answer = '{"nodes":[{"id":"","label":""},{"id":"2","label":"Valid"},{"id":"3","label":"Support"}],"edges":[{"from":"2","to":"3","label":"links","citation":"[p5]"}]}'
         result = _normalize_tool_output("concept_map", answer)
-        self.assertEqual(len(result["nodes"]), 1)
+        self.assertEqual(len(result["nodes"]), 2)
         self.assertEqual(result["nodes"][0]["label"], "Valid")
+        self.assertEqual(len(result["edges"]), 1)
 
     def test_concept_map_no_valid_nodes_raises_422(self):
         answer = '{"nodes":[{"id":"","label":""}],"edges":[]}'
+        with self.assertRaises(HTTPException) as ctx:
+            _normalize_tool_output("concept_map", answer)
+        self.assertEqual(ctx.exception.status_code, 422)
+
+    def test_concept_map_missing_edge_citation_raises_422(self):
+        answer = '{"nodes":[{"id":"1","label":"Cell"},{"id":"2","label":"Division"}],"edges":[{"from":"1","to":"2","label":"requires"}]}'
         with self.assertRaises(HTTPException) as ctx:
             _normalize_tool_output("concept_map", answer)
         self.assertEqual(ctx.exception.status_code, 422)

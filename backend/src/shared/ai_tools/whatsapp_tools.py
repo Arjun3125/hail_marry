@@ -1,11 +1,6 @@
-"""WhatsApp-specific ERP tools for the LangGraph agent.
-
-Provides role-scoped tools for:
-- Students: timetable, tests, assignments, attendance, results, weak topics
-- Teachers: schedule, absent students
-- Parents: child performance, child attendance, child homework
-- Admin: school attendance summary, fee pending report, AI usage stats
-"""
+"""WhatsApp-specific ERP and AI tools for the LangGraph agent."""
+import asyncio
+import concurrent.futures
 import json
 import logging
 from dataclasses import dataclass
@@ -31,6 +26,7 @@ except ModuleNotFoundError:  # Lightweight test environments
     SessionLocalRO = None
 
 logger = logging.getLogger(__name__)
+AI_ASSISTANT_ROLES = frozenset({"student", "teacher", "parent", "admin"})
 
 
 @dataclass(frozen=True)
@@ -52,20 +48,39 @@ class WhatsAppToolSpec:
     output_type: str
     channel_suitability: str
 
+
+@dataclass(frozen=True)
+class WhatsAppFeatureTarget:
+    """Tier 4.5 feature surface that must remain reachable through WhatsApp."""
+
+    feature_key: str
+    description: str
+    tool_names: tuple[str, ...]
+    required_roles: frozenset[str]
+
 # ─── RBAC Map ─────────────────────────────────────────────────
 
 TOOL_ROLE_MAP = {
+    "ask_ai_question": {"student", "teacher", "parent", "admin"},
     "get_student_timetable": {"student"},
     "get_student_tests": {"student"},
     "get_student_assignments": {"student"},
     "get_student_attendance": {"student"},
     "get_student_results": {"student"},
     "get_student_weak_topics": {"student"},
-    "generate_study_guide": {"student"},
-    "generate_audio_overview": {"student"},
+    "generate_study_guide": {"student", "teacher", "parent", "admin"},
+    "generate_audio_overview": {"student", "teacher", "parent", "admin"},
+    "generate_quiz_now": {"student", "teacher", "parent", "admin"},
+    "generate_quiz": {"student", "teacher", "parent", "admin"},
+    "generate_flashcards": {"student", "teacher", "parent", "admin"},
+    "generate_mindmap": {"student", "teacher", "parent", "admin"},
+    "generate_flowchart": {"student", "teacher", "parent", "admin"},
+    "generate_concept_map": {"student", "teacher", "parent", "admin"},
+    "socratic_tutor": {"student", "teacher", "parent", "admin"},
+    "debate_assistant": {"student", "teacher", "parent", "admin"},
+    "essay_review": {"student", "teacher", "parent", "admin"},
     "get_teacher_schedule": {"teacher"},
     "get_teacher_absent_students": {"teacher"},
-    "generate_quiz": {"teacher"},
     "get_child_performance": {"parent"},
     "get_child_attendance": {"parent"},
     "get_child_homework": {"parent"},
@@ -76,6 +91,107 @@ TOOL_ROLE_MAP = {
 }
 
 
+TIER_4_5_FEATURE_TARGETS = (
+    WhatsAppFeatureTarget(
+        feature_key="grounded_qa",
+        description="RAG-backed Q&A through WhatsApp.",
+        tool_names=("ask_ai_question",),
+        required_roles=AI_ASSISTANT_ROLES,
+    ),
+    WhatsAppFeatureTarget(
+        feature_key="study_guide",
+        description="Study-guide generation through WhatsApp.",
+        tool_names=("generate_study_guide",),
+        required_roles=AI_ASSISTANT_ROLES,
+    ),
+    WhatsAppFeatureTarget(
+        feature_key="audio_overview",
+        description="Audio overview generation through WhatsApp.",
+        tool_names=("generate_audio_overview",),
+        required_roles=AI_ASSISTANT_ROLES,
+    ),
+    WhatsAppFeatureTarget(
+        feature_key="quiz",
+        description="Quiz generation through WhatsApp.",
+        tool_names=("generate_quiz_now",),
+        required_roles=AI_ASSISTANT_ROLES,
+    ),
+    WhatsAppFeatureTarget(
+        feature_key="flashcards",
+        description="Flashcard generation through WhatsApp.",
+        tool_names=("generate_flashcards",),
+        required_roles=AI_ASSISTANT_ROLES,
+    ),
+    WhatsAppFeatureTarget(
+        feature_key="mindmap",
+        description="Mind-map generation through WhatsApp.",
+        tool_names=("generate_mindmap",),
+        required_roles=AI_ASSISTANT_ROLES,
+    ),
+    WhatsAppFeatureTarget(
+        feature_key="flowchart",
+        description="Flowchart generation through WhatsApp.",
+        tool_names=("generate_flowchart",),
+        required_roles=AI_ASSISTANT_ROLES,
+    ),
+    WhatsAppFeatureTarget(
+        feature_key="concept_map",
+        description="Concept-map generation through WhatsApp.",
+        tool_names=("generate_concept_map",),
+        required_roles=AI_ASSISTANT_ROLES,
+    ),
+    WhatsAppFeatureTarget(
+        feature_key="socratic_tutor",
+        description="Socratic tutoring through WhatsApp.",
+        tool_names=("socratic_tutor",),
+        required_roles=AI_ASSISTANT_ROLES,
+    ),
+    WhatsAppFeatureTarget(
+        feature_key="debate_assistant",
+        description="Debate assistance through WhatsApp.",
+        tool_names=("debate_assistant",),
+        required_roles=AI_ASSISTANT_ROLES,
+    ),
+    WhatsAppFeatureTarget(
+        feature_key="essay_review",
+        description="Essay review through WhatsApp.",
+        tool_names=("essay_review",),
+        required_roles=AI_ASSISTANT_ROLES,
+    ),
+    WhatsAppFeatureTarget(
+        feature_key="student_erp",
+        description="Student ERP lookups through WhatsApp.",
+        tool_names=(
+            "get_student_timetable",
+            "get_student_tests",
+            "get_student_assignments",
+            "get_student_attendance",
+            "get_student_results",
+            "get_student_weak_topics",
+        ),
+        required_roles=frozenset({"student"}),
+    ),
+    WhatsAppFeatureTarget(
+        feature_key="teacher_erp",
+        description="Teacher ERP lookups through WhatsApp.",
+        tool_names=("get_teacher_schedule", "get_teacher_absent_students"),
+        required_roles=frozenset({"teacher"}),
+    ),
+    WhatsAppFeatureTarget(
+        feature_key="parent_erp",
+        description="Parent ERP lookups through WhatsApp.",
+        tool_names=("get_child_performance", "get_child_attendance", "get_child_homework"),
+        required_roles=frozenset({"parent"}),
+    ),
+    WhatsAppFeatureTarget(
+        feature_key="admin_erp",
+        description="Admin ERP lookups through WhatsApp.",
+        tool_names=("get_school_attendance_summary", "get_fee_pending_report", "get_ai_usage_stats"),
+        required_roles=frozenset({"admin"}),
+    ),
+)
+
+
 def authorize_tool(tool_name: str, user_role: str) -> bool:
     """Check if a user role is authorized to call a specific tool."""
     spec = WHATSAPP_TOOL_REGISTRY.get(tool_name)
@@ -83,7 +199,298 @@ def authorize_tool(tool_name: str, user_role: str) -> bool:
     return user_role in allowed
 
 
+def _run_async(coro):
+    """Run async AI helpers safely from synchronous LangChain tool wrappers."""
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(coro)
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+        return pool.submit(asyncio.run, coro).result()
+
+
+def _append_citations(text: str, citations: list[dict] | None) -> str:
+    if not citations:
+        return text.strip()
+    lines = [text.strip(), "", "Sources:"]
+    for citation in citations[:5]:
+        source = str(citation.get("source") or citation.get("title") or "Document").strip()
+        if source:
+            lines.append(f"- {source}")
+    return "\n".join(lines).strip()
+
+
+def _invoke_text_mode(tenant_id: str, prompt: str, mode: str, notebook_id: str | None = None) -> dict:
+    from src.domains.platform.schemas.ai_runtime import InternalAIQueryRequest
+    from src.domains.platform.services.ai_gateway import run_text_query
+
+    request = InternalAIQueryRequest(
+        tenant_id=str(tenant_id),
+        query=prompt,
+        mode=mode,
+        notebook_id=notebook_id,
+        language="english",
+        response_length="default",
+        expertise_level="standard",
+    )
+    return _run_async(run_text_query(request))
+
+
+def _invoke_study_mode(
+    tenant_id: str,
+    tool_name: str,
+    topic: str,
+    notebook_id: str | None = None,
+) -> dict:
+    from src.domains.platform.schemas.ai_runtime import InternalStudyToolGenerateRequest
+    from src.domains.platform.services.ai_gateway import run_study_tool
+
+    request = InternalStudyToolGenerateRequest(
+        tenant_id=str(tenant_id),
+        tool=tool_name,
+        topic=topic,
+        subject_id=None,
+        notebook_id=notebook_id,
+    )
+    return _run_async(run_study_tool(request))
+
+
+def _format_study_tool_payload(tool_name: str, topic: str, result: dict) -> str:
+    data = result.get("data")
+    title = topic.strip() or "your topic"
+
+    if tool_name == "quiz":
+        lines = [f"📝 *Quiz: {title}*"]
+        for item in data[:5]:
+            lines.append("")
+            lines.append(f"{item.get('index', 0)}. {item.get('question', '')}")
+            for idx, option in enumerate(item.get("options", [])):
+                lines.append(f"   {chr(65 + idx)}. {option}")
+            correct = item.get("correct")
+            if correct:
+                lines.append(f"   Answer: {correct}")
+            citation = str(item.get("citation") or "").strip()
+            if citation:
+                lines.append(f"   Source: {citation}")
+        return _append_citations("\n".join(lines), result.get("citations"))
+
+    if tool_name == "flashcards":
+        lines = [f"🗂️ *Flashcards: {title}*"]
+        for idx, card in enumerate(data[:8], start=1):
+            lines.append("")
+            lines.append(f"{idx}. Q: {card.get('front', '')}")
+            lines.append(f"   A: {card.get('back', '')}")
+            citation = str(card.get("citation") or "").strip()
+            if citation:
+                lines.append(f"   Source: {citation}")
+        return _append_citations("\n".join(lines), result.get("citations"))
+
+    if tool_name == "mindmap":
+        root = str((data or {}).get("label") or title).strip() or title
+        def walk_mindmap(node: dict, depth: int = 0) -> list[str]:
+            lines: list[str] = []
+            label = str(node.get("label") or "").strip()
+            citation = str(node.get("citation") or "").strip()
+            if label and depth > 0:
+                prefix = "  " * max(depth - 1, 0)
+                suffix = f" [{citation}]" if citation else ""
+                lines.append(f"{prefix}- {label}{suffix}")
+            for child in node.get("children", []) or []:
+                if isinstance(child, dict):
+                    lines.extend(walk_mindmap(child, depth + 1))
+            return lines
+        lines = [f"🧠 *Mind Map: {root}*"]
+        lines.extend(walk_mindmap(data or {}, 0)[:10])
+        lines.append("")
+        lines.append("Open the web app for the full visual diagram.")
+        return _append_citations("\n".join(lines), result.get("citations"))
+
+    if tool_name == "concept_map":
+        nodes = (data or {}).get("nodes") or []
+        edges = (data or {}).get("edges") or []
+        lines = [f"🔗 *Concept Map: {title}*"]
+        for edge in edges[:8]:
+            edge_from = edge.get("from")
+            edge_to = edge.get("to")
+            edge_label = edge.get("label")
+            edge_citation = str(edge.get("citation") or "").strip()
+            if edge_from and edge_to:
+                relation = f" ({edge_label})" if edge_label else ""
+                citation = f" [{edge_citation}]" if edge_citation else ""
+                lines.append(f"- {edge_from} -> {edge_to}{relation}{citation}")
+        if not edges:
+            for node in nodes[:8]:
+                label = str(node.get("label") or "").strip()
+                if label:
+                    lines.append(f"- {label}")
+        lines.append("")
+        lines.append("Open the web app for the full visual diagram.")
+        return _append_citations("\n".join(lines), result.get("citations"))
+
+    if tool_name == "flowchart":
+        steps = (data or {}).get("steps") or []
+        lines = [f"🪜 *Flowchart: {title}*"]
+        for idx, step in enumerate(steps[:6], start=1):
+            label = str(step.get("label") or "").strip()
+            detail = str(step.get("detail") or "").strip()
+            citation = str(step.get("citation") or "").strip()
+            if label:
+                lines.append(f"{idx}. {label}")
+                if detail:
+                    lines.append(f"   {detail}")
+                if citation:
+                    lines.append(f"   Source: {citation}")
+        lines.extend(["", "Open the web app for the full visual diagram."])
+        return _append_citations("\n".join(lines), result.get("citations"))
+
+    return _append_citations(str(data or "").strip(), result.get("citations"))
+
+
 # ─── Student Tools ────────────────────────────────────────────
+
+@tool
+def ask_ai_question(user_id: str, tenant_id: str, question: str, notebook_id: str | None = None) -> str:
+    """Answer a user's question with the same AI stack used by the main app."""
+    del user_id
+    cleaned_question = (question or "").strip()
+    if not cleaned_question:
+        return "Please send a question, for example: *Explain photosynthesis*."
+
+    try:
+        result = _invoke_text_mode(str(tenant_id), cleaned_question, "qa", notebook_id=notebook_id)
+        return _append_citations(str(result.get("answer", "")).strip(), result.get("citations"))
+    except Exception as e:
+        logger.error("ask_ai_question error: %s", e)
+        return "Sorry, I couldn't answer that right now."
+
+
+@tool
+def generate_quiz_now(user_id: str, tenant_id: str, topic: str, notebook_id: str | None = None) -> str:
+    """Generate a quiz directly for WhatsApp delivery."""
+    del user_id
+    cleaned_topic = (topic or "").strip()
+    if not cleaned_topic:
+        return "Please include a topic, for example: *Generate quiz for Class 8 science*."
+
+    try:
+        result = _invoke_study_mode(str(tenant_id), "quiz", cleaned_topic, notebook_id=notebook_id)
+        return _format_study_tool_payload("quiz", cleaned_topic, result)
+    except Exception as e:
+        logger.error("generate_quiz_now error: %s", e)
+        return "Sorry, I couldn't generate the quiz right now."
+
+
+@tool
+def generate_flashcards(user_id: str, tenant_id: str, topic: str, notebook_id: str | None = None) -> str:
+    """Generate flashcards directly for WhatsApp delivery."""
+    del user_id
+    cleaned_topic = (topic or "").strip()
+    if not cleaned_topic:
+        return "Please include a topic, for example: *Create flashcards for photosynthesis*."
+
+    try:
+        result = _invoke_study_mode(str(tenant_id), "flashcards", cleaned_topic, notebook_id=notebook_id)
+        return _format_study_tool_payload("flashcards", cleaned_topic, result)
+    except Exception as e:
+        logger.error("generate_flashcards error: %s", e)
+        return "Sorry, I couldn't generate flashcards right now."
+
+
+@tool
+def generate_mindmap(user_id: str, tenant_id: str, topic: str, notebook_id: str | None = None) -> str:
+    """Generate a mind map summary for WhatsApp delivery."""
+    del user_id
+    cleaned_topic = (topic or "").strip()
+    if not cleaned_topic:
+        return "Please include a topic, for example: *Create a mind map on biology chapter 3*."
+
+    try:
+        result = _invoke_study_mode(str(tenant_id), "mindmap", cleaned_topic, notebook_id=notebook_id)
+        return _format_study_tool_payload("mindmap", cleaned_topic, result)
+    except Exception as e:
+        logger.error("generate_mindmap error: %s", e)
+        return "Sorry, I couldn't generate the mind map right now."
+
+
+@tool
+def generate_flowchart(user_id: str, tenant_id: str, topic: str, notebook_id: str | None = None) -> str:
+    """Generate a flowchart summary for WhatsApp delivery."""
+    del user_id
+    cleaned_topic = (topic or "").strip()
+    if not cleaned_topic:
+        return "Please include a topic, for example: *Create a flowchart for cell division*."
+
+    try:
+        result = _invoke_study_mode(str(tenant_id), "flowchart", cleaned_topic, notebook_id=notebook_id)
+        return _format_study_tool_payload("flowchart", cleaned_topic, result)
+    except Exception as e:
+        logger.error("generate_flowchart error: %s", e)
+        return "Sorry, I couldn't generate the flowchart right now."
+
+
+@tool
+def generate_concept_map(user_id: str, tenant_id: str, topic: str, notebook_id: str | None = None) -> str:
+    """Generate a concept map summary for WhatsApp delivery."""
+    del user_id
+    cleaned_topic = (topic or "").strip()
+    if not cleaned_topic:
+        return "Please include a topic, for example: *Create a concept map for ecosystems*."
+
+    try:
+        result = _invoke_study_mode(str(tenant_id), "concept_map", cleaned_topic, notebook_id=notebook_id)
+        return _format_study_tool_payload("concept_map", cleaned_topic, result)
+    except Exception as e:
+        logger.error("generate_concept_map error: %s", e)
+        return "Sorry, I couldn't generate the concept map right now."
+
+
+@tool
+def socratic_tutor(user_id: str, tenant_id: str, topic: str, notebook_id: str | None = None) -> str:
+    """Guide the user with Socratic questioning."""
+    del user_id
+    cleaned_topic = (topic or "").strip()
+    if not cleaned_topic:
+        return "Please include a topic, for example: *Teach me photosynthesis using Socratic questions*."
+
+    try:
+        result = _invoke_text_mode(str(tenant_id), cleaned_topic, "socratic", notebook_id=notebook_id)
+        return _append_citations(str(result.get("answer", "")).strip(), result.get("citations"))
+    except Exception as e:
+        logger.error("socratic_tutor error: %s", e)
+        return "Sorry, I couldn't start the Socratic tutor right now."
+
+
+@tool
+def debate_assistant(user_id: str, tenant_id: str, topic: str, notebook_id: str | None = None) -> str:
+    """Generate a debate response or structure for the given topic."""
+    del user_id
+    cleaned_topic = (topic or "").strip()
+    if not cleaned_topic:
+        return "Please include a topic, for example: *Help me debate renewable energy*."
+
+    try:
+        result = _invoke_text_mode(str(tenant_id), cleaned_topic, "debate", notebook_id=notebook_id)
+        return _append_citations(str(result.get("answer", "")).strip(), result.get("citations"))
+    except Exception as e:
+        logger.error("debate_assistant error: %s", e)
+        return "Sorry, I couldn't prepare the debate help right now."
+
+
+@tool
+def essay_review(user_id: str, tenant_id: str, topic: str, notebook_id: str | None = None) -> str:
+    """Review an essay or long-form answer through the AI review mode."""
+    del user_id
+    cleaned_topic = (topic or "").strip()
+    if not cleaned_topic:
+        return "Please include the essay or prompt you want reviewed."
+
+    try:
+        result = _invoke_text_mode(str(tenant_id), cleaned_topic, "essay_review", notebook_id=notebook_id)
+        return _append_citations(str(result.get("answer", "")).strip(), result.get("citations"))
+    except Exception as e:
+        logger.error("essay_review error: %s", e)
+        return "Sorry, I couldn't review the essay right now."
 
 @tool
 def get_student_timetable(user_id: str, tenant_id: str) -> str:
@@ -347,7 +754,7 @@ def get_student_weak_topics(user_id: str, tenant_id: str) -> str:
 
 
 @tool
-def generate_study_guide(user_id: str, tenant_id: str, topic: str) -> str:
+def generate_study_guide(user_id: str, tenant_id: str, topic: str, notebook_id: str | None = None) -> str:
     """Queue a study-guide job for a student topic."""
     cleaned_topic = (topic or "").strip()
     if not cleaned_topic:
@@ -360,6 +767,7 @@ def generate_study_guide(user_id: str, tenant_id: str, topic: str) -> str:
         payload = InternalAIQueryRequest(
             query=cleaned_topic,
             mode="study_guide",
+            notebook_id=notebook_id,
             language="english",
             response_length="default",
             expertise_level="standard",
@@ -367,7 +775,7 @@ def generate_study_guide(user_id: str, tenant_id: str, topic: str) -> str:
         )
         job = enqueue_job(
             JOB_TYPE_QUERY,
-            payload.model_dump(),
+            payload.model_dump(mode="json"),
             tenant_id=str(tenant_id),
             user_id=str(user_id),
         )
@@ -383,7 +791,7 @@ def generate_study_guide(user_id: str, tenant_id: str, topic: str) -> str:
 
 
 @tool
-def generate_audio_overview(user_id: str, tenant_id: str, topic: str) -> str:
+def generate_audio_overview(user_id: str, tenant_id: str, topic: str, notebook_id: str | None = None) -> str:
     """Queue an audio-overview job for a student topic."""
     cleaned_topic = (topic or "").strip()
     if not cleaned_topic:
@@ -397,6 +805,7 @@ def generate_audio_overview(user_id: str, tenant_id: str, topic: str) -> str:
             topic=cleaned_topic,
             format="deep_dive",
             language="english",
+            notebook_id=notebook_id,
             tenant_id=str(tenant_id),
         )
         job = enqueue_job(
@@ -774,9 +1183,120 @@ def get_ai_usage_stats(tenant_id: str) -> str:
         db.close()
 
 
+@tool
+def check_library_catalog(query: str, tenant_id: str) -> str:
+    """Search the school library catalog."""
+    try:
+        from src.shared.ai_tools.erp_tools import check_library_catalog as erp_check_library_catalog
+
+        return erp_check_library_catalog.invoke({"query": query, "tenant_id": tenant_id})
+    except Exception as e:
+        logger.error("check_library_catalog error: %s", e)
+        return "Sorry, I couldn't search the library right now."
+
+
 # ─── Tool Registry ────────────────────────────────────────────
 
 TOOL_SPECS = (
+    WhatsAppToolSpec(
+        name="ask_ai_question",
+        handler=ask_ai_question,
+        description="RAG-backed question answering using the same AI stack as the main app.",
+        roles=AI_ASSISTANT_ROLES,
+        required_params=("user_id", "tenant_id", "question"),
+        feature_category="ai_sync",
+        execution_mode="sync",
+        output_type="text",
+        channel_suitability="direct",
+    ),
+    WhatsAppToolSpec(
+        name="generate_quiz_now",
+        handler=generate_quiz_now,
+        description="Generate a quiz directly in WhatsApp.",
+        roles=AI_ASSISTANT_ROLES,
+        required_params=("user_id", "tenant_id", "topic"),
+        feature_category="ai_sync",
+        execution_mode="sync",
+        output_type="text",
+        channel_suitability="direct",
+    ),
+    WhatsAppToolSpec(
+        name="generate_flashcards",
+        handler=generate_flashcards,
+        description="Generate flashcards directly in WhatsApp.",
+        roles=AI_ASSISTANT_ROLES,
+        required_params=("user_id", "tenant_id", "topic"),
+        feature_category="ai_sync",
+        execution_mode="sync",
+        output_type="text",
+        channel_suitability="direct",
+    ),
+    WhatsAppToolSpec(
+        name="generate_mindmap",
+        handler=generate_mindmap,
+        description="Generate a mind map summary for WhatsApp.",
+        roles=AI_ASSISTANT_ROLES,
+        required_params=("user_id", "tenant_id", "topic"),
+        feature_category="ai_sync",
+        execution_mode="sync",
+        output_type="text",
+        channel_suitability="summary_plus_link",
+    ),
+    WhatsAppToolSpec(
+        name="generate_flowchart",
+        handler=generate_flowchart,
+        description="Generate a flowchart summary for WhatsApp.",
+        roles=AI_ASSISTANT_ROLES,
+        required_params=("user_id", "tenant_id", "topic"),
+        feature_category="ai_sync",
+        execution_mode="sync",
+        output_type="text",
+        channel_suitability="summary_plus_link",
+    ),
+    WhatsAppToolSpec(
+        name="generate_concept_map",
+        handler=generate_concept_map,
+        description="Generate a concept map summary for WhatsApp.",
+        roles=AI_ASSISTANT_ROLES,
+        required_params=("user_id", "tenant_id", "topic"),
+        feature_category="ai_sync",
+        execution_mode="sync",
+        output_type="text",
+        channel_suitability="summary_plus_link",
+    ),
+    WhatsAppToolSpec(
+        name="socratic_tutor",
+        handler=socratic_tutor,
+        description="Use Socratic tutoring mode on a topic.",
+        roles=AI_ASSISTANT_ROLES,
+        required_params=("user_id", "tenant_id", "topic"),
+        feature_category="ai_sync",
+        execution_mode="sync",
+        output_type="text",
+        channel_suitability="direct",
+    ),
+    WhatsAppToolSpec(
+        name="debate_assistant",
+        handler=debate_assistant,
+        description="Get debate help for a topic or claim.",
+        roles=AI_ASSISTANT_ROLES,
+        required_params=("user_id", "tenant_id", "topic"),
+        feature_category="ai_sync",
+        execution_mode="sync",
+        output_type="text",
+        channel_suitability="direct",
+    ),
+    WhatsAppToolSpec(
+        name="essay_review",
+        handler=essay_review,
+        description="Review an essay or answer draft.",
+        roles=AI_ASSISTANT_ROLES,
+        required_params=("user_id", "tenant_id", "topic"),
+        feature_category="ai_sync",
+        execution_mode="sync",
+        output_type="text",
+        channel_suitability="direct",
+    ),
     WhatsAppToolSpec(
         name="get_student_timetable",
         handler=get_student_timetable,
@@ -847,7 +1367,7 @@ TOOL_SPECS = (
         name="generate_study_guide",
         handler=generate_study_guide,
         description="Queue a study-guide job for a student topic.",
-        roles=frozenset({"student"}),
+        roles=AI_ASSISTANT_ROLES,
         required_params=("user_id", "tenant_id", "topic"),
         feature_category="ai_async",
         execution_mode="async",
@@ -858,7 +1378,7 @@ TOOL_SPECS = (
         name="generate_audio_overview",
         handler=generate_audio_overview,
         description="Queue an audio-overview job for a student topic.",
-        roles=frozenset({"student"}),
+        roles=AI_ASSISTANT_ROLES,
         required_params=("user_id", "tenant_id", "topic"),
         feature_category="ai_async",
         execution_mode="async",
@@ -964,6 +1484,17 @@ TOOL_SPECS = (
         output_type="text",
         channel_suitability="direct",
     ),
+    WhatsAppToolSpec(
+        name="check_library_catalog",
+        handler=check_library_catalog,
+        description="Search the school library catalog.",
+        roles=frozenset({"student", "teacher", "admin"}),
+        required_params=("query", "tenant_id"),
+        feature_category="erp_read",
+        execution_mode="sync",
+        output_type="text",
+        channel_suitability="direct",
+    ),
 )
 
 WHATSAPP_TOOL_REGISTRY = {spec.name: spec for spec in TOOL_SPECS}
@@ -996,6 +1527,58 @@ def serialize_tool_catalog(role: str | None = None) -> list[dict]:
         }
         for spec in specs
     ]
+
+
+def serialize_tier_4_5_feature_matrix() -> list[dict]:
+    """Return a machine-checkable status view of the Tier 4.5 WhatsApp feature surface."""
+    matrix: list[dict] = []
+    for target in TIER_4_5_FEATURE_TARGETS:
+        tool_statuses = []
+        missing_tools: list[str] = []
+        for tool_name in target.tool_names:
+            spec = get_tool_spec(tool_name)
+            if spec is None:
+                missing_tools.append(tool_name)
+                tool_statuses.append(
+                    {
+                        "tool_name": tool_name,
+                        "exists": False,
+                        "roles": [],
+                        "missing_roles": sorted(target.required_roles),
+                    }
+                )
+                continue
+
+            missing_roles = sorted(target.required_roles.difference(spec.roles))
+            tool_statuses.append(
+                {
+                    "tool_name": tool_name,
+                    "exists": True,
+                    "roles": sorted(spec.roles),
+                    "missing_roles": missing_roles,
+                    "execution_mode": spec.execution_mode,
+                    "channel_suitability": spec.channel_suitability,
+                }
+            )
+
+        missing_role_bindings = [
+            item["tool_name"]
+            for item in tool_statuses
+            if item.get("exists") and item.get("missing_roles")
+        ]
+        status = "complete" if not missing_tools and not missing_role_bindings else "partial"
+        matrix.append(
+            {
+                "feature_key": target.feature_key,
+                "description": target.description,
+                "required_roles": sorted(target.required_roles),
+                "tools": tool_statuses,
+                "missing_tools": missing_tools,
+                "missing_role_bindings": missing_role_bindings,
+                "status": status,
+            }
+        )
+    return matrix
 
 
 def get_tools_for_role(role: str) -> list:

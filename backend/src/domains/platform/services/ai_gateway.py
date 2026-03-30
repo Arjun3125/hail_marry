@@ -12,6 +12,7 @@ from src.domains.platform.schemas.ai_runtime import (
     InternalTeacherDocumentIngestRequest,
     InternalTeacherYoutubeIngestRequest,
     InternalVideoOverviewRequest,
+    InternalWhatsAppMediaIngestRequest,
 )
 
 from src.domains.platform.services.trace_backend import record_trace_event
@@ -22,7 +23,11 @@ from src.interfaces.rest_api.ai.workflows import (
     execute_video_overview,
 )
 from src.interfaces.rest_api.ai.discovery_workflows import execute_url_ingestion
-from src.interfaces.rest_api.ai.ingestion_workflows import execute_teacher_document_ingestion, execute_teacher_youtube_ingestion
+from src.interfaces.rest_api.ai.ingestion_workflows import (
+    execute_teacher_document_ingestion,
+    execute_teacher_youtube_ingestion,
+    execute_whatsapp_media_ingestion,
+)
 from src.shared.ai_tools.study_tools import execute_study_tool
 from src.interfaces.rest_api.ai.teacher_workflows import execute_teacher_assessment
 
@@ -62,3 +67,7 @@ async def run_teacher_document_ingestion(request: InternalTeacherDocumentIngestR
 
 async def run_teacher_youtube_ingestion(request: InternalTeacherYoutubeIngestRequest, trace_id: str | None = None) -> dict[str, Any]:
     return await execute_teacher_youtube_ingestion(request)
+
+
+async def run_whatsapp_media_ingestion(request: InternalWhatsAppMediaIngestRequest, trace_id: str | None = None) -> dict[str, Any]:
+    return await execute_whatsapp_media_ingestion(request)

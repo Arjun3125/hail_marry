@@ -102,7 +102,10 @@ def plan_node(state: AgentState) -> dict:
             else:
                 return {"pending_mode": "qa", "pending_prompt": "Respond with: " + res.content}
         except Exception as e:
-            return {"pending_mode": "qa", "pending_prompt": f"Sorry, the admin tools encountered an error: {e}"}
+            return {
+                "pending_mode": "qa",
+                "pending_prompt": "Respond with: Sorry, the admin tools are temporarily unavailable. Please retry the request in a moment.",
+            }
 
     # Standard JSON-based Learning Orchestrator Path
     from pydantic import BaseModel, Field

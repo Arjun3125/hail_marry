@@ -29,6 +29,7 @@ from src.domains.platform.schemas.ai_runtime import InternalStudyToolGenerateReq
 from src.domains.platform.services.ai_gateway import run_study_tool
 from src.domains.platform.services.ai_queue import JOB_TYPE_STUDY_TOOL, enqueue_job
 from src.infrastructure.vector_store.citation_linker import make_citations_clickable
+from src.infrastructure.llm.cache import invalidate_tenant_cache
 from utils.upload_security import (
     UploadValidationError,
     ensure_storage_dir,
@@ -42,6 +43,8 @@ from constants import (
 router = APIRouter(prefix="/api/student", tags=["Student"])
 
 logger = logging.getLogger(__name__)
+DEMO_NOTICE = "Demo mode preview. This response is mock content and not grounded in uploaded materials."
+DEMO_SOURCES = ["demo-mode"]
 
 UPLOAD_DIR = ensure_storage_dir("uploads")
 STUDENT_ALLOWED_EXTENSIONS = STUDENT_ALLOWED_EXTENSIONS_CONST
@@ -95,10 +98,32 @@ def _extract_json_payload(text: str) -> Any:
 
 def _normalize_tool_output(tool: str, answer: str) -> Any:
     if tool == "flowchart":
-        cleaned = answer.split("\n\nSources:")[0].strip()
-        if not cleaned:
-            raise HTTPException(status_code=422, detail="Tool output is empty")
-        return cleaned
+        parsed = _extract_json_payload(answer)
+        if not isinstance(parsed, dict):
+            raise HTTPException(status_code=422, detail="Flowchart output must be a JSON object")
+        mermaid = str(parsed.get("mermaid", "")).strip()
+        steps = parsed.get("steps", [])
+        if not mermaid.startswith("flowchart TD") or "-->" not in mermaid:
+            raise HTTPException(status_code=422, detail="Flowchart Mermaid syntax is invalid")
+        if re.search(r"\[\s*\]|\{\{\s*\}\}", mermaid):
+            raise HTTPException(status_code=422, detail="Flowchart contains empty nodes")
+        if not isinstance(steps, list):
+            raise HTTPException(status_code=422, detail="Flowchart steps are invalid")
+        normalized_steps = []
+        for step in steps:
+            if not isinstance(step, dict):
+                continue
+            step_id = str(step.get("id", "")).strip()
+            label = str(step.get("label", "")).strip()
+            detail = str(step.get("detail", "")).strip()
+            citation = str(step.get("citation", "")).strip()
+            if step_id and label and detail and citation:
+                normalized_steps.append(
+                    {"id": step_id, "label": label, "detail": detail, "citation": citation}
+                )
+        if len(normalized_steps) < 2:
+            raise HTTPException(status_code=422, detail="Flowchart output did not contain enough cited steps")
+        return {"mermaid": mermaid, "steps": normalized_steps}
 
     parsed = _extract_json_payload(answer)
     if parsed is None:
@@ -118,21 +143,22 @@ def _normalize_tool_output(tool: str, answer: str) -> Any:
             else:
                 options = []
             correct_raw = str(item.get("correct", "")).strip().upper()
+            citation = str(item.get("citation", "")).strip()
             match = re.search(r"[A-D]", correct_raw)
             correct = match.group(0) if match else "A"
-            if not question or len(options) < 2:
+            if not question or len(options) < 2 or not citation:
                 continue
             normalized.append(
                 {
                     "question": question,
                     "options": options,
                     "correct": correct,
-                    "citation": str(item.get("citation", "")).strip() or None,
+                    "citation": citation,
                     "index": idx + 1,
                 }
             )
         if not normalized:
-            raise HTTPException(status_code=422, detail="Quiz output did not contain valid questions")
+            raise HTTPException(status_code=422, detail="Quiz output did not contain valid cited questions")
         return normalized
 
     if tool == "flashcards":
@@ -144,16 +170,51 @@ def _normalize_tool_output(tool: str, answer: str) -> Any:
                 continue
             front = str(item.get("front", "")).strip()
             back = str(item.get("back", "")).strip()
-            if front and back:
-                cards.append({"front": front, "back": back})
+            citation = str(item.get("citation", "")).strip()
+            if front and back and citation:
+                cards.append({"front": front, "back": back, "citation": citation})
         if not cards:
-            raise HTTPException(status_code=422, detail="Flashcards output was empty")
+            raise HTTPException(status_code=422, detail="Flashcards output did not contain valid cited cards")
         return cards
 
     if tool == "mindmap":
-        if not isinstance(parsed, dict) or not str(parsed.get("label", "")).strip():
+        if not isinstance(parsed, dict):
+            raise HTTPException(status_code=422, detail="Mind map output must be a JSON object")
+
+        cited_nodes = 0
+
+        def normalize_node(node: Any, *, is_root: bool = False) -> dict[str, Any] | None:
+            nonlocal cited_nodes
+            if not isinstance(node, dict):
+                return None
+
+            label = str(node.get("label", "")).strip()
+            if not label:
+                return None
+
+            normalized_node: dict[str, Any] = {"label": label}
+            citation = str(node.get("citation", "")).strip()
+            if citation:
+                normalized_node["citation"] = citation
+                if not is_root:
+                    cited_nodes += 1
+
+            children = []
+            for child in node.get("children", []) or []:
+                normalized_child = normalize_node(child)
+                if normalized_child:
+                    children.append(normalized_child)
+            if children:
+                normalized_node["children"] = children
+
+            return normalized_node
+
+        normalized_root = normalize_node(parsed, is_root=True)
+        if not normalized_root:
             raise HTTPException(status_code=422, detail="Mind map output must include a root label")
-        return parsed
+        if cited_nodes < 2:
+            raise HTTPException(status_code=422, detail="Mind map output did not contain enough cited nodes")
+        return normalized_root
 
     if tool == "concept_map":
         if not isinstance(parsed, dict):
@@ -177,13 +238,28 @@ def _normalize_tool_output(tool: str, answer: str) -> Any:
             edge_from = str(edge.get("from", "")).strip()
             edge_to = str(edge.get("to", "")).strip()
             edge_label = str(edge.get("label", "")).strip()
-            if edge_from and edge_to:
-                normalized_edges.append({"from": edge_from, "to": edge_to, "label": edge_label})
+            edge_citation = str(edge.get("citation", "")).strip()
+            if edge_from and edge_to and edge_citation:
+                normalized_edges.append(
+                    {"from": edge_from, "to": edge_to, "label": edge_label, "citation": edge_citation}
+                )
         if not normalized_nodes:
             raise HTTPException(status_code=422, detail="Concept map output had no valid nodes")
+        if not normalized_edges:
+            raise HTTPException(status_code=422, detail="Concept map output had no valid cited edges")
         return {"nodes": normalized_nodes, "edges": normalized_edges}
 
     raise HTTPException(status_code=400, detail="Unsupported tool")
+
+
+def _mark_demo_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    """Attach explicit demo markers so clients and tests can distinguish mock output."""
+    result = dict(payload)
+    result["runtime_mode"] = "demo"
+    result["is_demo_response"] = True
+    result["demo_notice"] = DEMO_NOTICE
+    result["demo_sources"] = DEMO_SOURCES
+    return result
 
 
 @router.get("/dashboard")
@@ -537,28 +613,51 @@ async def submit_assignment(
     if len(content) > MAX_FILE_SIZE:
         raise HTTPException(status_code=400, detail="File exceeds 25MB limit.")
 
+    ocr_processed = False
+    ocr_review_required = False
+    ocr_warning = None
+    ocr_languages: list[str] = []
+    ocr_preprocessing: list[str] = []
+    ocr_confidence: float | None = None
+    ocr_confidence: float | None = None
+    ocr_confidence: float | None = None
+    ocr_confidence: float | None = None
+    ocr_confidence: float | None = None
+
     # OCR: convert image to PDF
     if ext in ("jpg", "jpeg", "png"):
-        from src.infrastructure.vector_store.ocr_service import image_to_pdf, validate_image_size
+        from src.infrastructure.vector_store.ocr_service import image_bytes_to_pdf, validate_image_size
         try:
             validate_image_size(content)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc))
-        # Save temp image, run OCR, produce PDF
-        temp_img = ASSIGNMENT_SUBMISSION_DIR / f"_tmp_{uuid4().hex}.{ext}"
-        with open(temp_img, "wb") as f:
-            f.write(content)
         pdf_name = f"{current_user.tenant_id}_{current_user.id}_{assignment_uuid}_{uuid4().hex}_ocr.pdf"
         pdf_path = ASSIGNMENT_SUBMISSION_DIR / pdf_name
         try:
-            image_to_pdf(str(temp_img), str(pdf_path), title=safe_filename)
+            ocr_result = image_bytes_to_pdf(
+                content,
+                str(pdf_path),
+                suffix=f".{ext}",
+                title=safe_filename,
+                source_name=safe_filename,
+            )
         except Exception as exc:
             logger.exception("OCR processing failed")
-            raise HTTPException(status_code=500, detail="OCR processing failed.")
-        finally:
-            temp_img.unlink(missing_ok=True)
+            raise HTTPException(
+                status_code=500,
+                detail="OCR processing failed. Please upload a clearer, higher-contrast image or a PDF.",
+            )
         file_path = pdf_path
         safe_filename = pdf_name
+        ocr_processed = True
+        ocr_review_required = ocr_result.review_required
+        ocr_warning = ocr_result.warning
+        ocr_languages = ocr_result.languages
+        ocr_preprocessing = ocr_result.preprocessing_applied
+        ocr_confidence = getattr(ocr_result, "confidence", None)
+        ocr_confidence = getattr(ocr_result, "confidence", None)
+        ocr_confidence = getattr(ocr_result, "confidence", None)
+        ocr_confidence = ocr_result.confidence
     else:
         stored_name = f"{current_user.tenant_id}_{current_user.id}_{assignment_uuid}_{uuid4().hex}_{safe_filename}"
         file_path = ASSIGNMENT_SUBMISSION_DIR / stored_name
@@ -589,6 +688,12 @@ async def submit_assignment(
         "file_name": safe_filename,
         "submitted_at": str(existing_submission.submitted_at),
         "status": "submitted",
+        "ocr_processed": ocr_processed,
+        "ocr_review_required": ocr_review_required,
+        "ocr_warning": ocr_warning,
+        "ocr_languages": ocr_languages,
+        "ocr_preprocessing": ocr_preprocessing,
+        "ocr_confidence": ocr_confidence,
     }
 
 
@@ -699,9 +804,21 @@ async def generate_study_tool(
             },
             "flashcards": {
                 "data": [
-                    {"front": f"Define {topic}", "back": f"{topic} is a fundamental area of study that explores key principles and theories."},
-                    {"front": f"Key principle of {topic}", "back": "The principle of conservation states that certain properties remain constant."},
-                    {"front": f"Application of {topic}", "back": f"{topic} is applied in engineering, medicine, and technology."},
+                    {
+                        "front": f"Define {topic}",
+                        "back": f"{topic} is a fundamental area of study that explores key principles and theories.",
+                        "citation": "Demo Materials p.1",
+                    },
+                    {
+                        "front": f"Key principle of {topic}",
+                        "back": "The principle of conservation states that certain properties remain constant.",
+                        "citation": "Demo Materials p.2",
+                    },
+                    {
+                        "front": f"Application of {topic}",
+                        "back": f"{topic} is applied in engineering, medicine, and technology.",
+                        "citation": "Demo Materials p.3",
+                    },
                 ],
                 "citations": [{"source": "Demo Study Materials", "page": "1-3"}],
             },
@@ -709,23 +826,74 @@ async def generate_study_tool(
                 "data": {
                     "label": topic,
                     "children": [
-                        {"label": "Fundamentals", "children": [{"label": "Core Concepts"}, {"label": "Key Theories"}]},
-                        {"label": "Applications", "children": [{"label": "Engineering"}, {"label": "Medicine"}]},
-                        {"label": "History", "children": [{"label": "Key Discoveries"}, {"label": "Notable Scientists"}]},
+                        {
+                            "label": "Fundamentals",
+                            "citation": "Demo Materials p.1",
+                            "children": [
+                                {"label": "Core Concepts", "citation": "Demo Materials p.2"},
+                                {"label": "Key Theories", "citation": "Demo Materials p.3"},
+                            ],
+                        },
+                        {
+                            "label": "Applications",
+                            "citation": "Demo Materials p.4",
+                            "children": [
+                                {"label": "Engineering", "citation": "Demo Materials p.5"},
+                                {"label": "Medicine", "citation": "Demo Materials p.6"},
+                            ],
+                        },
+                        {
+                            "label": "History",
+                            "citation": "Demo Materials p.7",
+                            "children": [
+                                {"label": "Key Discoveries", "citation": "Demo Materials p.8"},
+                                {"label": "Notable Scientists", "citation": "Demo Materials p.9"},
+                            ],
+                        },
                     ]
                 },
                 "content": {
                     "label": topic,
                     "children": [
-                        {"label": "Fundamentals", "children": [{"label": "Core Concepts"}, {"label": "Key Theories"}]},
-                        {"label": "Applications", "children": [{"label": "Engineering"}, {"label": "Medicine"}]},
-                        {"label": "History", "children": [{"label": "Key Discoveries"}, {"label": "Notable Scientists"}]},
+                        {
+                            "label": "Fundamentals",
+                            "citation": "Demo Materials p.1",
+                            "children": [
+                                {"label": "Core Concepts", "citation": "Demo Materials p.2"},
+                                {"label": "Key Theories", "citation": "Demo Materials p.3"},
+                            ],
+                        },
+                        {
+                            "label": "Applications",
+                            "citation": "Demo Materials p.4",
+                            "children": [
+                                {"label": "Engineering", "citation": "Demo Materials p.5"},
+                                {"label": "Medicine", "citation": "Demo Materials p.6"},
+                            ],
+                        },
+                        {
+                            "label": "History",
+                            "citation": "Demo Materials p.7",
+                            "children": [
+                                {"label": "Key Discoveries", "citation": "Demo Materials p.8"},
+                                {"label": "Notable Scientists", "citation": "Demo Materials p.9"},
+                            ],
+                        },
                     ]
                 },
                 "citations": [{"source": "Demo Study Materials", "page": "1-10"}],
             },
             "flowchart": {
-                "data": f"graph TD\n    A[Start: {topic}] --> B[Learn Fundamentals]\n    B --> C[Study Core Concepts]\n    C --> D[Practice Problems]\n    D --> E{{Understand?}}\n    E -->|Yes| F[Advanced Topics]\n    E -->|No| C\n    F --> G[Apply Knowledge]\n    G --> H[End: Mastery]",
+                "data": {
+                    "mermaid": f"flowchart TD\nA[Start {topic}] --> B[Learn basics]\nB --> C[Study concepts]\nC --> D[Practice tasks]\nD --> E[Apply learning]",
+                    "steps": [
+                        {"id": "A", "label": "Start", "detail": f"Begin by introducing {topic}.", "citation": "Demo Materials p.1"},
+                        {"id": "B", "label": "Learn basics", "detail": "Review the fundamental ideas first.", "citation": "Demo Materials p.2"},
+                        {"id": "C", "label": "Study concepts", "detail": "Focus on the main concepts and their meaning.", "citation": "Demo Materials p.3"},
+                        {"id": "D", "label": "Practice tasks", "detail": "Work through guided examples or exercises.", "citation": "Demo Materials p.4"},
+                        {"id": "E", "label": "Apply learning", "detail": "Use the concepts in a final application step.", "citation": "Demo Materials p.5"},
+                    ],
+                },
                 "citations": [{"source": "Demo Study Materials", "page": "1-8"}],
             },
             "concept_map": {
@@ -738,23 +906,26 @@ async def generate_study_tool(
                         {"id": "5", "label": "Research"},
                     ],
                     "edges": [
-                        {"from": "1", "to": "2", "label": "requires"},
-                        {"from": "1", "to": "3", "label": "involves"},
-                        {"from": "2", "to": "4", "label": "leads to"},
-                        {"from": "3", "to": "4", "label": "supports"},
-                        {"from": "4", "to": "5", "label": "drives"},
+                        {"from": "1", "to": "2", "label": "requires", "citation": "Demo Materials p.2"},
+                        {"from": "1", "to": "3", "label": "involves", "citation": "Demo Materials p.3"},
+                        {"from": "2", "to": "4", "label": "leads to", "citation": "Demo Materials p.4"},
+                        {"from": "3", "to": "4", "label": "supports", "citation": "Demo Materials p.5"},
+                        {"from": "4", "to": "5", "label": "drives", "citation": "Demo Materials p.6"},
                     ]
                 },
                 "citations": [{"source": "Demo Study Materials", "page": "1-6"}],
             },
         }
-        return demo_tools.get(data.tool, {"data": f"Demo content for {data.tool}: {topic}", "citations": []})
+        return _mark_demo_payload(
+            demo_tools.get(data.tool, {"data": f"Demo content for {data.tool}: {topic}", "citations": []})
+        )
 
     result = await run_study_tool(
         InternalStudyToolGenerateRequest(
             tool=data.tool,
             topic=topic,
             subject_id=data.subject_id,
+            notebook_id=data.notebook_id,
             tenant_id=str(current_user.tenant_id),
         )
     )
@@ -775,6 +946,7 @@ async def generate_study_tool_job(
         tool=data.tool,
         topic=topic,
         subject_id=data.subject_id,
+        notebook_id=data.notebook_id,
         tenant_id=str(current_user.tenant_id),
     )
     
@@ -788,10 +960,13 @@ async def generate_study_tool_job(
         
         db = SessionLocal()
         try:
-            demo_log = db.query(AIQuery).filter(
-                AIQuery.tenant_id == current_user.tenant_id,
-                AIQuery.mode == data.tool
-            ).first()
+            try:
+                demo_log = db.query(AIQuery).filter(
+                    AIQuery.tenant_id == current_user.tenant_id,
+                    AIQuery.mode == data.tool
+                ).first()
+            except Exception:
+                demo_log = None
             
             response_data = None
             if demo_log and demo_log.response_text:
@@ -803,10 +978,13 @@ async def generate_study_tool_job(
             
             if not response_data:
                 response_data = {"message": f"This is a mocked response for the '{data.tool}' tool generated in Demo Mode."}
+            if not isinstance(response_data, dict):
+                response_data = {"data": response_data}
+            response_data = _mark_demo_payload(response_data)
         finally:
             db.close()
             
-        now_str = time.strftime("%Y-%m-%dT%H:%M:%S.%fZ", time.gmtime())
+        now_str = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
         mock_job = {
             "job_id": str(uuid.uuid4()),
             "job_type": JOB_TYPE_STUDY_TOOL,
@@ -816,7 +994,11 @@ async def generate_study_tool_job(
             "tenant_id": str(current_user.tenant_id),
             "user_id": str(current_user.id),
             "worker_id": "demo-worker",
-            "request": payload.model_dump(),
+            "runtime_mode": "demo",
+            "is_demo_response": True,
+            "demo_notice": DEMO_NOTICE,
+            "demo_sources": DEMO_SOURCES,
+            "request": payload.model_dump(mode="json"),
             "result": response_data,
             "error": None,
             "attempts": 1,
@@ -827,12 +1009,15 @@ async def generate_study_tool_job(
             "completed_at": now_str,
             "events": []
         }
-        _persist_job_state(mock_job)
+        try:
+            _persist_job_state(mock_job)
+        except Exception:
+            pass
         return build_public_job_response(mock_job)
 
     return enqueue_job(
         JOB_TYPE_STUDY_TOOL,
-        payload.model_dump(),
+        payload.model_dump(mode="json"),
         tenant_id=str(current_user.tenant_id),
         user_id=str(current_user.id),
     )
@@ -859,6 +1044,11 @@ async def student_upload(
     content = await file.read()
     macros_removed = False
     ocr_processed = False
+    ocr_review_required = False
+    ocr_warning = None
+    ocr_languages: list[str] = []
+    ocr_preprocessing: list[str] = []
+    ocr_confidence: float | None = None
     if ext == "docx":
         try:
             content, macros_removed = sanitize_docx_bytes(content)
@@ -869,26 +1059,35 @@ async def student_upload(
 
     # OCR: convert image to PDF for RAG ingestion
     if ext in ("jpg", "jpeg", "png"):
-        from src.infrastructure.vector_store.ocr_service import image_to_pdf, validate_image_size
+        from src.infrastructure.vector_store.ocr_service import image_bytes_to_pdf, validate_image_size
         try:
             validate_image_size(content)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc))
-        temp_img = OCR_OUTPUT_DIR / f"_tmp_{uuid4().hex}.{ext}"
-        with open(temp_img, "wb") as f:
-            f.write(content)
         pdf_name = f"{current_user.tenant_id}_{current_user.id}_{uuid4().hex}_ocr.pdf"
         file_path = OCR_OUTPUT_DIR / pdf_name
         try:
-            image_to_pdf(str(temp_img), str(file_path), title=safe_filename)
+            ocr_result = image_bytes_to_pdf(
+                content,
+                str(file_path),
+                suffix=f".{ext}",
+                title=safe_filename,
+                source_name=safe_filename,
+            )
         except Exception:
             logger.exception("OCR processing failed for student upload")
-            raise HTTPException(status_code=500, detail="OCR processing failed.")
-        finally:
-            temp_img.unlink(missing_ok=True)
+            raise HTTPException(
+                status_code=500,
+                detail="OCR processing failed. Please upload a clearer, higher-contrast image or a PDF.",
+            )
         safe_filename = pdf_name
         ext = "pdf"
         ocr_processed = True
+        ocr_review_required = ocr_result.review_required
+        ocr_warning = ocr_result.warning
+        ocr_languages = ocr_result.languages
+        ocr_preprocessing = ocr_result.preprocessing_applied
+        ocr_confidence = getattr(ocr_result, "confidence", None)
     else:
         # Save file normally
         safe_name = f"{current_user.tenant_id}_{current_user.id}_{uuid4().hex}_{safe_filename}"
@@ -938,6 +1137,8 @@ async def student_upload(
             store.add_chunks(chunk_dicts, embeddings)
             chunks_count = len(chunks)
 
+        invalidate_tenant_cache(str(current_user.tenant_id))
+
         doc.ingestion_status = "completed"
         db.commit()
     except Exception:
@@ -954,6 +1155,11 @@ async def student_upload(
         "chunks": chunks_count,
         "macros_removed": macros_removed,
         "ocr_processed": ocr_processed,
+        "ocr_review_required": ocr_review_required,
+        "ocr_warning": ocr_warning,
+        "ocr_languages": ocr_languages,
+        "ocr_preprocessing": ocr_preprocessing,
+        "ocr_confidence": ocr_confidence,
         "status": doc.ingestion_status,
     }
 

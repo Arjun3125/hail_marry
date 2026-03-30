@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import time
 from pydantic import BaseModel, Field
 from typing import List, Optional
 
@@ -9,7 +10,7 @@ class QuizQuestion(BaseModel):
     question: str
     options: List[str]
     correct: str
-    citation: Optional[str] = None
+    citation: str
 
 class QuizOutput(BaseModel):
     questions: List[QuizQuestion]
@@ -22,6 +23,7 @@ class ConceptMapEdge(BaseModel):
     from_node: str = Field(alias="from")
     to_node: str = Field(alias="to")
     label: str
+    citation: str
 
 class ConceptMapOutput(BaseModel):
     nodes: List[ConceptMapNode]
@@ -29,14 +31,26 @@ class ConceptMapOutput(BaseModel):
 
 class MindmapNode(BaseModel):
     label: str
+    citation: Optional[str] = None
     children: Optional[List['MindmapNode']] = None
 
 class Flashcard(BaseModel):
     front: str
     back: str
+    citation: str
 
 class FlashcardOutput(BaseModel):
     cards: List[Flashcard]
+
+class FlowchartStep(BaseModel):
+    id: str
+    label: str
+    detail: str
+    citation: str
+
+class FlowchartOutput(BaseModel):
+    mermaid: str
+    steps: List[FlowchartStep]
 
 class AudioLine(BaseModel):
     speaker: str
@@ -63,6 +77,7 @@ SCHEMA_MAP = {
     "concept_map": ConceptMapOutput,
     "mindmap": MindmapNode,
     "flashcards": FlashcardOutput,
+    "flowchart": FlowchartOutput,
 }
 
 
@@ -74,6 +89,7 @@ from src.infrastructure.llm.providers import get_llm_provider
 from src.infrastructure.vector_store.retrieval import (
     retrieve_context,
     build_context_string,
+    build_retrieval_audit,
     extract_citations,
     sanitize_ai_output,
     enforce_citations,
@@ -83,6 +99,7 @@ from src.domains.platform.schemas.ai_runtime import (
     InternalAudioOverviewRequest,
     InternalVideoOverviewRequest,
 )
+from src.domains.platform.services.metrics_registry import observe_stage_latency
 
 LENGTH_TOKENS = {"brief": 250, "default": 800, "detailed": 1500}
 LENGTH_INSTRUCTIONS = {
@@ -123,7 +140,7 @@ Study Guide:""",
     "quiz": """You are an academic quiz generator.
 Generate exactly 5 multiple-choice questions using ONLY the provided context.
 Each question must have 4 options (A, B, C, D) with one correct answer.
-Cite the source for each question.
+Cite the source for each question using a required "citation" field.
 Format as JSON array.
 
 Topic: {query}
@@ -136,7 +153,8 @@ Generate quiz as JSON:
     "concept_map": """You are an academic concept mapper.
 Create a concept map from the provided context about the given topic.
 Output as JSON with nodes and edges.
-Each node has an id and label. Each edge has from, to, and label.
+Each node has an id and label. Each edge has from, to, label, and citation.
+Every edge citation must use the exact [Document_Page] marker from context.
 
 Topic: {query}
 
@@ -144,7 +162,7 @@ Context from study materials:
 {context}
 
 Output JSON:
-{{"nodes": [{{"id": "1", "label": "..."}}, ...], "edges": [{{"from": "1", "to": "2", "label": "..."}}, ...]}}""",
+{{"nodes": [{{"id": "1", "label": "..."}}, ...], "edges": [{{"from": "1", "to": "2", "label": "...", "citation": "[source_page]"}} , ...]}}""",
     "weak_topic": """You are an academic performance analyst.
 The student is weak in the following area based on their exam performance.
 Using the provided study materials, create a TARGETED remediation plan:
@@ -159,21 +177,23 @@ Context from study materials:
 
 Remediation Plan:""",
     "flowchart": """You are an academic flowchart generator.
-Create a flowchart in Mermaid.js syntax for the given topic using the provided context.
-Use the flowchart TD (top-down) format. Keep node labels short (max 6 words).
-Use proper Mermaid syntax with --> for connections and [] for rectangles, {{}} for decisions.
-Do NOT wrap in ```mermaid code fences. Output ONLY the raw Mermaid code.
-
-Topic: {query}
-
-Context from study materials:
-{context}
-
-Mermaid flowchart:""",
-    "mindmap": """You are an academic mind map generator.
-Create a hierarchical mind map as JSON for the given topic using the provided context.
-The root node is the main topic. Each node has a "label" and optional "children" array.
-Keep labels concise (max 5 words). Aim for 3-4 levels of depth and 3-5 children per node.
+Create a grounded process flow from the provided context about the given topic.
+Return JSON with:
+- "mermaid": Mermaid.js syntax using flowchart TD format
+- "steps": an ordered array of grounded steps
+Every step must include:
+- id
+- label
+- detail
+- citation
+Rules:
+- Use ONLY the provided context
+- Do not invent steps not present in the context
+- Preserve source order when the context describes a process
+- Keep node labels short (max 6 words)
+- Use proper Mermaid syntax with --> for connections and [] for rectangles, {{}} for decisions
+- Every step citation must use the exact [Document_Page] marker from context
+- If the process is unclear, return a simple grounded linear summary with 3-5 cited steps rather than forcing a complex chart
 
 Topic: {query}
 
@@ -181,10 +201,27 @@ Context from study materials:
 {context}
 
 Output JSON:
-{{"label": "Topic", "children": [{{"label": "Subtopic 1", "children": [{{"label": "Detail"}}]}}, {{"label": "Subtopic 2"}}]}}""",
+{{"mermaid": "flowchart TD\\nA[Step 1] --> B[Step 2]", "steps": [{{"id": "A", "label": "Step 1", "detail": "What happens in this step.", "citation": "[source_page]"}}]}}""",
+    "mindmap": """You are an academic mind map generator.
+Create a hierarchical mind map as JSON for the given topic using the provided context.
+The root node is the main topic. Each node has a "label", optional "citation", and optional "children" array.
+Rules:
+- Use ONLY the provided context
+- The root node may omit "citation"
+- Every major non-root node should include a "citation" field using the exact [Document_Page] marker from context
+- Keep labels concise (max 5 words). Aim for 3-4 levels of depth and 3-5 children per node.
+
+Topic: {query}
+
+Context from study materials:
+{context}
+
+Output JSON:
+{{"label": "Topic", "children": [{{"label": "Subtopic 1", "citation": "[source_page]", "children": [{{"label": "Detail", "citation": "[source_page]"}}]}}, {{"label": "Subtopic 2", "citation": "[source_page]"}}]}}""",
     "flashcards": """You are an academic flashcard generator.
 Create exactly 8 flashcards as a JSON array for the given topic using the provided context.
 Each flashcard has a "front" (question or term) and "back" (answer or definition).
+Each flashcard must also include a "citation" field using the exact [Document_Page] marker from context.
 Keep fronts short and backs concise but informative.
 
 Topic: {query}
@@ -193,7 +230,7 @@ Context from study materials:
 {context}
 
 Generate flashcards as JSON:
-[{{"front": "What is...?", "back": "It is..."}}]""",
+[{{"front": "What is...?", "back": "It is...", "citation": "[source_page]"}}]""",
     "socratic": """You are a Socratic tutor for students. Your ONLY role is to guide the student toward the answer - you must NEVER give the answer directly.
 Use the provided context to understand the topic, then respond with:
 1. A clarifying counter-question that targets the student's specific misconception
@@ -342,21 +379,28 @@ def _apply_language_and_style(prompt: str, language: str, response_length: str, 
 
 
 async def execute_text_query(request: InternalAIQueryRequest) -> dict:
-    context_chunks = await retrieve_context(
-        query=request.query,
-        tenant_id=request.tenant_id,
-        top_k=8,
-        subject_id=request.subject_id,
-        notebook_id=request.notebook_id,
-    )
+    retrieval_started = time.perf_counter()
+    try:
+        context_chunks = await retrieve_context(
+            query=request.query,
+            tenant_id=request.tenant_id,
+            top_k=8,
+            subject_id=request.subject_id,
+            notebook_id=request.notebook_id,
+        )
+    except Exception:
+        observe_stage_latency("ai_query", "retrieval", (time.perf_counter() - retrieval_started) * 1000, "error")
+        raise
+    observe_stage_latency("ai_query", "retrieval", (time.perf_counter() - retrieval_started) * 1000, "success")
     if not context_chunks:
         raise HTTPException(
             status_code=422,
-            detail="No grounded context found. Upload study materials before querying AI.",
+            detail="No sufficiently relevant grounded context found. Upload matching study materials before querying AI.",
         )
 
     context_string = build_context_string(context_chunks)
     citations = extract_citations(context_chunks)
+    retrieval_audit = build_retrieval_audit(context_chunks) if request.audit_retrieval else None
     mode = request.mode if request.mode in PROMPTS else "qa"
     prompt = PROMPTS[mode].format(query=request.query, context=context_string)
     prompt = _apply_language_and_style(
@@ -367,6 +411,7 @@ async def execute_text_query(request: InternalAIQueryRequest) -> dict:
     )
 
     llm = get_llm_provider()
+    generation_started = time.perf_counter()
     try:
         if mode in SCHEMA_MAP:
             data = await llm.generate_structured(
@@ -384,11 +429,15 @@ async def execute_text_query(request: InternalAIQueryRequest) -> dict:
                 num_predict=LENGTH_TOKENS.get(request.response_length, settings.llm.max_new_tokens),
             )
     except httpx.ConnectError as exc:
+        observe_stage_latency("ai_query", "generation", (time.perf_counter() - generation_started) * 1000, "connect_error")
         raise HTTPException(status_code=503, detail="Cannot connect to AI runtime (Ollama).") from exc
     except httpx.TimeoutException as exc:
+        observe_stage_latency("ai_query", "generation", (time.perf_counter() - generation_started) * 1000, "timeout")
         raise HTTPException(status_code=504, detail="AI request timed out. Try a simpler question.") from exc
     except httpx.HTTPStatusError as exc:
+        observe_stage_latency("ai_query", "generation", (time.perf_counter() - generation_started) * 1000, "http_error")
         raise HTTPException(status_code=502, detail="AI runtime temporarily unavailable.") from exc
+    observe_stage_latency("ai_query", "generation", (time.perf_counter() - generation_started) * 1000, "success")
 
     answer = sanitize_ai_output(data.get("response", "No response generated."))
     citation_result = enforce_citations(
@@ -404,6 +453,7 @@ async def execute_text_query(request: InternalAIQueryRequest) -> dict:
         "has_context": True,
         "citation_valid": citation_result["citation_valid"],
         "citation_count": citation_result["citation_count"],
+        "retrieval_audit": retrieval_audit,
     }
 
 
@@ -412,6 +462,7 @@ async def execute_audio_overview(request: InternalAudioOverviewRequest) -> dict:
         query=request.topic,
         tenant_id=request.tenant_id,
         top_k=10,
+        notebook_id=str(request.notebook_id) if request.notebook_id else None,
     )
     if not context_chunks:
         raise HTTPException(status_code=422, detail="No study materials found. Upload content first.")

@@ -12,6 +12,7 @@ from .routes import ai_history
 from .routes import notebooks
 from .routes import generated_content
 from .routes import ai_studio
+from .routes import mascot
 
 router = APIRouter()
 router.include_router(support.router)
@@ -26,3 +27,4 @@ router.include_router(ai_history.router)
 router.include_router(notebooks.router)
 router.include_router(generated_content.router)
 router.include_router(ai_studio.router)
+router.include_router(mascot.router)

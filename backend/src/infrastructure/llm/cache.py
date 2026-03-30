@@ -47,15 +47,29 @@ MODE_TTL = {
 }
 
 
-def _cache_key(tenant_id: str, query: str, mode: str, subject_id: str = "") -> str:
+def _scope_token(notebook_id: str = "") -> str:
+    return notebook_id or "_global"
+
+
+def _cache_key(
+    tenant_id: str,
+    query: str,
+    mode: str,
+    subject_id: str = "",
+    notebook_id: str = "",
+) -> str:
     """Generate cache key from query parameters."""
-    raw = f"{tenant_id}:{mode}:{subject_id}:{query.strip().lower()}"
+    raw = f"{tenant_id}:{mode}:{subject_id}:{notebook_id}:{query.strip().lower()}"
     query_hash = hashlib.sha256(raw.encode()).hexdigest()[:16]
-    return f"ai_cache:{query_hash}"
+    return f"ai_cache:{tenant_id}:{_scope_token(notebook_id)}:{query_hash}"
 
 
 def get_cached_response(
-    tenant_id: str, query: str, mode: str, subject_id: str = ""
+    tenant_id: str,
+    query: str,
+    mode: str,
+    subject_id: str = "",
+    notebook_id: str = "",
 ) -> Optional[dict]:
     """
     Check if a cached response exists for this query.
@@ -66,7 +80,7 @@ def get_cached_response(
         return None
 
     try:
-        key = _cache_key(tenant_id, query, mode, subject_id)
+        key = _cache_key(tenant_id, query, mode, subject_id, notebook_id)
         cached = redis_client.get(key)
         if cached:
             return json.loads(cached)
@@ -82,6 +96,7 @@ def cache_response(
     mode: str,
     response: dict,
     subject_id: str = "",
+    notebook_id: str = "",
 ) -> bool:
     """
     Cache an AI response. Returns True if cached successfully.
@@ -91,7 +106,7 @@ def cache_response(
         return False
 
     try:
-        key = _cache_key(tenant_id, query, mode, subject_id)
+        key = _cache_key(tenant_id, query, mode, subject_id, notebook_id)
         ttl = MODE_TTL.get(mode, 86400)
         data = json.dumps(response)
         redis_client.setex(key, ttl, data)
@@ -107,9 +122,24 @@ def invalidate_tenant_cache(tenant_id: str) -> int:
         return 0
 
     try:
-        # Scan for matching keys (not ideal at scale, but fine for pilot)
         count = 0
-        for key in redis_client.scan_iter(f"ai_cache:*"):
+        for key in redis_client.scan_iter(f"ai_cache:{tenant_id}:*"):
+            redis_client.delete(key)
+            count += 1
+        return count
+    except Exception:
+        return 0
+
+
+def invalidate_notebook_cache(tenant_id: str, notebook_id: str) -> int:
+    """Invalidate notebook-scoped AI responses for a tenant."""
+    redis_client = _get_redis()
+    if not redis_client:
+        return 0
+
+    try:
+        count = 0
+        for key in redis_client.scan_iter(f"ai_cache:{tenant_id}:{_scope_token(notebook_id)}:*"):
             redis_client.delete(key)
             count += 1
         return count

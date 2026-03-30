@@ -1,5 +1,7 @@
 """Self-service onboarding API routes — school registration, setup wizard, student import."""
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+import csv
+import io
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 from typing import Optional
@@ -12,6 +14,11 @@ from src.domains.identity.services.onboarding import (
     import_students_from_csv,
     setup_classes,
     setup_subjects,
+)
+from src.shared.ocr_imports import (
+    extract_upload_content_result,
+    get_extension,
+    parse_student_import_rows_with_diagnostics,
 )
 
 router = APIRouter(prefix="/api/onboarding", tags=["Onboarding"])
@@ -94,23 +101,52 @@ async def import_students(
     user=Depends(require_role("admin")),
     db: Session = Depends(get_db),
 ):
-    """Import students from a CSV file. Admin only.
+    """Import students from CSV/TXT or OCR image. Admin only.
 
     CSV columns: full_name, email, class_name (optional)
     """
-    if not file.filename or not file.filename.endswith(".csv"):
-        raise HTTPException(status_code=400, detail="Only CSV files are accepted")
+    filename = file.filename or ""
+    ext = get_extension(filename)
+    if ext not in {"csv", "txt", "jpg", "jpeg", "png"}:
+        raise HTTPException(status_code=400, detail="Only CSV, TXT, JPG, JPEG, PNG files are accepted")
 
     content = await file.read()
-    csv_text = content.decode("utf-8")
+    try:
+        extraction = extract_upload_content_result(filename, content)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    parsed = None
+    if extraction.used_ocr:
+        parsed = parse_student_import_rows_with_diagnostics(extraction.text)
+        if not parsed.rows:
+            raise HTTPException(status_code=400, detail="No readable student rows found in the image.")
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["full_name", "email", "class_name"])
+        for _, row in parsed.rows:
+            writer.writerow([row["full_name"], row["email"], row["class_name"]])
+        csv_text = output.getvalue()
+    else:
+        csv_text = extraction.text
 
     result = import_students_from_csv(db, user.tenant_id, csv_text)
-    return {
+    response = {
         "status": "import_complete",
         "imported": result["imported"],
         "skipped": result["skipped"],
         "errors": result["errors"],
+        "ocr_processed": extraction.used_ocr,
+        "ocr_review_required": extraction.review_required,
+        "ocr_warning": extraction.warning,
+        "ocr_languages": extraction.languages,
+        "ocr_preprocessing": extraction.preprocessing_applied,
+        "ocr_confidence": getattr(extraction, "confidence", None),
     }
+    if parsed is not None:
+        response["ocr_review_required"] = extraction.review_required or parsed.review_required
+        response["ocr_warning"] = parsed.warning or extraction.warning
+        response["ocr_unmatched_lines"] = len(parsed.unmatched_lines)
+    return response
 
 
 @router.get("/status")

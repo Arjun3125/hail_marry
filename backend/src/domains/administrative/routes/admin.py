@@ -39,9 +39,18 @@ from src.domains.platform.services.ai_queue import (
 )
 from src.domains.platform.services.alerting import get_active_alerts
 from src.domains.platform.services.observability_notifier import dispatch_alerts
+from src.domains.platform.services.metrics_registry import snapshot_ocr_metrics
 from src.domains.platform.services.trace_backend import get_trace_events
 from src.domains.academic.services.timetable_generator import generate_timetable
 from constants import performance_color
+from src.shared.ocr_imports import (
+    extract_upload_content_result,
+    get_extension,
+    make_generated_email,
+    normalize_name_lines,
+    parse_account_rows_with_diagnostics,
+    parse_student_import_rows_with_diagnostics,
+)
 
 router = APIRouter(prefix="/api/admin", tags=["Admin"])
 
@@ -311,6 +320,7 @@ async def onboard_teachers(
     file: UploadFile = File(...),
     current_user: User = Depends(require_role("admin")),
     db: Session = Depends(get_db),
+    preview: bool = False,
 ):
     """
     Onboard a list of teachers using either a CSV file or an Image (JPG/PNG).
@@ -318,62 +328,70 @@ async def onboard_teachers(
     Image Format: handwritten or printed list of names (one per line). Emails/passwords auto-generated.
     """
     safe_filename = file.filename or ""
-    ext = safe_filename.split(".")[-1].lower() if "." in safe_filename else ""
-    import tempfile
-    import shutil
-    import os
-
-    with tempfile.NamedTemporaryFile(suffix=f".{ext}", delete=False) as tmp:
-        shutil.copyfileobj(file.file, tmp)
-        tmp_path = tmp.name
-
+    ext = get_extension(safe_filename)
+    content = await file.read()
     teachers_to_create = []
+    ocr_processed = False
+    ocr_review_required = False
+    ocr_warning = None
+    ocr_languages: list[str] = []
+    ocr_preprocessing: list[str] = []
+    ocr_confidence: float | None = None
 
-    if ext in ("csv", "txt"):
+    parsed = None
+    if ext in ("csv", "txt", "jpg", "jpeg", "png"):
         try:
-            with open(tmp_path, "r", encoding="utf-8") as f:
-                text = f.read()
-        except UnicodeDecodeError:
-            raise HTTPException(status_code=400, detail="Invalid text encoding. Please use UTF-8.")
-        
-        reader = csv.reader(io.StringIO(text))
-        for row in reader:
-            if not row or not any(row):
-                continue
-            name = row[0].strip()
-            email = row[1].strip() if len(row) > 1 else f"{re.sub(r'[^a-zA-Z0-9]', '.', name.lower())}@example.com"
-            password = row[2].strip() if len(row) > 2 else "Teacher123!"
-            teachers_to_create.append({"name": name, "email": email, "password": password})
-            
-    elif ext in ("jpg", "jpeg", "png"):
-        from src.infrastructure.vector_store.ocr_service import extract_text_from_image, validate_image_size
-        try:
-            with open(tmp_path, "rb") as f:
-                validate_image_size(f.read())
+            extraction = extract_upload_content_result(safe_filename, content)
         except ValueError as exc:
-            os.unlink(tmp_path)
-            raise HTTPException(status_code=400, detail=str(exc))
-        
-        try:
-            extracted_text = extract_text_from_image(tmp_path)
-            for line in extracted_text.splitlines():
-                name = line.strip()
-                if len(name) > 2:
-                    email = f"{re.sub(r'[^a-zA-Z0-9]', '.', name.lower())}@example.com"
-                    teachers_to_create.append({"name": name, "email": email, "password": "Teacher123!"})
-        except Exception:
-            os.unlink(tmp_path)
-            raise HTTPException(status_code=500, detail="OCR processing failed")
+            detail = str(exc)
+            if ext in ("csv", "txt") and "Invalid encoding" in detail:
+                detail = "Invalid text encoding. Please use UTF-8."
+            raise HTTPException(status_code=400, detail=detail)
+
+        text = extraction.text
+        ocr_processed = extraction.used_ocr
+        ocr_review_required = extraction.review_required
+        ocr_warning = extraction.warning
+        ocr_languages = extraction.languages
+        ocr_preprocessing = extraction.preprocessing_applied
+        ocr_confidence = getattr(extraction, "confidence", None)
+
+        if extraction.used_ocr:
+            parsed = parse_account_rows_with_diagnostics(text, default_password="Teacher123!")
+            teachers_to_create = [row for _, row in parsed.rows]
+            if parsed.review_required:
+                ocr_review_required = True
+            if parsed.warning:
+                ocr_warning = parsed.warning
+        else:
+            reader = csv.reader(io.StringIO(text))
+            for row in reader:
+                if not row or not any(row):
+                    continue
+                name = row[0].strip()
+                email = row[1].strip() if len(row) > 1 else f"{re.sub(r'[^a-zA-Z0-9]', '.', name.lower())}@example.com"
+                password = row[2].strip() if len(row) > 2 else "Teacher123!"
+                teachers_to_create.append({"name": name, "email": email, "password": password})
     else:
-        os.unlink(tmp_path)
         raise HTTPException(status_code=400, detail="Only CSV, TXT, JPG, JPEG, PNG allowed")
-        
-    # Cleanup temp file if it wasn't already handled inside the specific blocks
-    if os.path.exists(tmp_path):
-        os.unlink(tmp_path)
 
     if not teachers_to_create:
         raise HTTPException(status_code=400, detail="No readable names found in the file")
+
+    if preview:
+        return {
+            "success": True,
+            "preview": True,
+            "preview_rows": teachers_to_create,
+            "total_rows": len(teachers_to_create),
+            "ocr_processed": ocr_processed,
+            "ocr_review_required": ocr_review_required,
+            "ocr_warning": ocr_warning,
+            "ocr_languages": ocr_languages,
+            "ocr_preprocessing": ocr_preprocessing,
+            "ocr_confidence": ocr_confidence,
+            "ocr_unmatched_lines": parsed.total_nonempty_lines - len(parsed.rows) if ocr_processed and parsed is not None else 0,
+        }
 
     try:
         from auth.auth import pwd_context
@@ -410,7 +428,14 @@ async def onboard_teachers(
     return {
         "success": True, 
         "message": f"Successfully onboarded {created_count} teachers.",
-        "created_count": created_count
+        "created_count": created_count,
+        "ocr_processed": ocr_processed,
+        "ocr_review_required": ocr_review_required,
+        "ocr_warning": ocr_warning,
+        "ocr_languages": ocr_languages,
+        "ocr_preprocessing": ocr_preprocessing,
+        "ocr_confidence": ocr_confidence,
+        "ocr_unmatched_lines": parsed.total_nonempty_lines - len(parsed.rows) if ocr_processed and 'parsed' in locals() else 0,
     }
 
 
@@ -666,6 +691,11 @@ async def trace_detail(
     if not events:
         raise HTTPException(status_code=404, detail="Trace not found")
     return {"trace_id": trace_id, "events": events}
+
+
+@router.get("/observability/ocr-metrics")
+async def ocr_metrics(current_user: User = Depends(require_role("admin"))):
+    return {"metrics": snapshot_ocr_metrics()}
 
 
 # ─── Complaints Oversight ───────────────────────────────────
@@ -1673,18 +1703,20 @@ async def onboard_students(
     file: UploadFile = File(...),
     current_user: User = Depends(require_role("admin")),
     db: Session = Depends(get_db),
+    preview: bool = False,
 ):
-    """Onboard students from CSV. Columns: full_name, email, password, class_name"""
+    """Onboard students from CSV/TXT or OCR image. Columns: full_name, email, password, class_name"""
     safe_filename = file.filename or ""
-    ext = safe_filename.split(".")[-1].lower() if "." in safe_filename else ""
-    if ext not in ("csv", "txt"):
-        raise HTTPException(status_code=400, detail="Only CSV/TXT files allowed.")
+    ext = get_extension(safe_filename)
+    if ext not in ("csv", "txt", "jpg", "jpeg", "png"):
+        raise HTTPException(status_code=400, detail="Only CSV, TXT, JPG, JPEG, PNG files allowed.")
 
     content = await file.read()
     try:
-        text = content.decode("utf-8")
-    except UnicodeDecodeError:
-        raise HTTPException(status_code=400, detail="Invalid encoding. Use UTF-8.")
+        extraction = extract_upload_content_result(safe_filename, content)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    text = extraction.text
 
     try:
         from auth.auth import pwd_context as pwctx
@@ -1692,14 +1724,72 @@ async def onboard_students(
         from passlib.context import CryptContext
         pwctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-    reader = csv.DictReader(io.StringIO(text))
     created = 0
     errors = []
-    for row_num, row in enumerate(reader, start=2):
-        name = (row.get("full_name") or "").strip()
-        email = (row.get("email") or "").strip().lower()
-        password = (row.get("password") or "Student123!").strip()
-        class_name = (row.get("class_name") or "").strip()
+    parsed = None
+    if extraction.used_ocr:
+        parsed = parse_student_import_rows_with_diagnostics(text)
+        source_rows = []
+        for row_num, (_, row) in enumerate(parsed.rows, start=2):
+            source_rows.append({
+                "row_num": row_num,
+                "full_name": row["full_name"],
+                "email": row["email"],
+                "password": "Student123!",
+                "class_name": row["class_name"],
+            })
+    else:
+        source_rows = []
+        reader = csv.DictReader(io.StringIO(text))
+        for row_num, row in enumerate(reader, start=2):
+            name = (row.get("full_name") or "").strip()
+            email = (row.get("email") or "").strip().lower()
+            if name and not email:
+                email = make_generated_email(name)
+            source_rows.append({
+                "row_num": row_num,
+                "full_name": name,
+                "email": email,
+                "password": (row.get("password") or "Student123!").strip(),
+                "class_name": (row.get("class_name") or "").strip(),
+            })
+
+    if preview:
+        preview_errors = []
+        for row in source_rows:
+            row_num = row["row_num"]
+            name = row["full_name"]
+            email = row["email"] or make_generated_email(name)
+            if not name or not email:
+                preview_errors.append(f"Row {row_num}: missing name or email")
+                continue
+            existing = db.query(User).filter(User.email == email).first()
+            if existing:
+                preview_errors.append(f"Row {row_num}: email {email} already exists")
+        response = {
+            "success": True,
+            "preview": True,
+            "preview_rows": source_rows,
+            "errors": preview_errors,
+            "ocr_processed": extraction.used_ocr,
+            "ocr_review_required": extraction.review_required,
+            "ocr_warning": extraction.warning,
+            "ocr_languages": extraction.languages,
+            "ocr_preprocessing": extraction.preprocessing_applied,
+            "ocr_confidence": getattr(extraction, "confidence", None),
+        }
+        if parsed is not None:
+            response["ocr_review_required"] = extraction.review_required or parsed.review_required
+            response["ocr_warning"] = parsed.warning or extraction.warning
+            response["ocr_unmatched_lines"] = len(parsed.unmatched_lines)
+        return response
+
+    for row in source_rows:
+        row_num = row["row_num"]
+        name = row["full_name"]
+        email = row["email"] or make_generated_email(name)
+        password = row["password"]
+        class_name = row["class_name"]
 
         if not name or not email:
             errors.append(f"Row {row_num}: missing name or email")
@@ -1742,7 +1832,22 @@ async def onboard_students(
         created += 1
 
     db.commit()
-    return {"success": True, "created": created, "errors": errors}
+    response = {
+        "success": True,
+        "created": created,
+        "errors": errors,
+        "ocr_processed": extraction.used_ocr,
+        "ocr_review_required": extraction.review_required,
+        "ocr_warning": extraction.warning,
+        "ocr_languages": extraction.languages,
+        "ocr_preprocessing": extraction.preprocessing_applied,
+        "ocr_confidence": getattr(extraction, "confidence", None),
+    }
+    if parsed is not None:
+        response["ocr_review_required"] = extraction.review_required or parsed.review_required
+        response["ocr_warning"] = parsed.warning or extraction.warning
+        response["ocr_unmatched_lines"] = len(parsed.unmatched_lines)
+    return response
 
 
 # ─── QR Code Login Tokens ───────────────────────────────────

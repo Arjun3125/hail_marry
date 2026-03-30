@@ -14,6 +14,7 @@ from fastapi import HTTPException
 from src.infrastructure.vector_store.ingestion import hierarchical_chunk
 from src.infrastructure.vector_store.connectors import extract_google_doc, extract_notion_page
 from src.infrastructure.llm.providers import get_embedding_provider, get_vector_store_provider
+from src.infrastructure.llm.cache import invalidate_tenant_cache
 from src.domains.platform.schemas.ai_runtime import InternalIngestURLRequest
 
 
@@ -131,6 +132,7 @@ async def execute_url_ingestion(request: InternalIngestURLRequest) -> dict:
         tenant_id=request.tenant_id,
         source_file=title,
         subject_id=request.subject_id,
+        notebook_id=str(request.notebook_id) if request.notebook_id else None,
     )
     if not chunks:
         raise HTTPException(status_code=422, detail="No chunks could be created from the URL content")
@@ -145,9 +147,11 @@ async def execute_url_ingestion(request: InternalIngestURLRequest) -> dict:
             "page_number": chunk.page_number,
             "section_title": chunk.section_title or "",
             "subject_id": chunk.subject_id or "",
+            "notebook_id": chunk.notebook_id or "",
             "source_file": chunk.source_file or "",
         } for chunk in chunks]
         store.add_chunks(chunk_dicts, embeddings)
+        invalidate_tenant_cache(request.tenant_id)
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"Failed to embed and store discovered content: {exc}") from exc
 

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import time
 import uuid
@@ -34,6 +35,7 @@ from src.domains.platform.schemas.ai_runtime import (
     InternalTeacherAssessmentRequest,
     InternalTeacherYoutubeIngestRequest,
     InternalVideoOverviewRequest,
+    InternalWhatsAppMediaIngestRequest,
 )
 from src.domains.platform.services.ai_gateway import (
     run_audio_overview,
@@ -44,12 +46,15 @@ from src.domains.platform.services.ai_gateway import (
     run_text_query,
     run_url_ingestion,
     run_video_overview,
+    run_whatsapp_media_ingestion,
 )
 from src.domains.platform.services.ai_grading import run_ai_grade
+from src.domains.platform.services.metrics_registry import observe_stage_latency
 from src.domains.platform.services.telemetry import extract_context_from_traceparent, get_current_traceparent, get_tracer
 
 _redis = None
 _redis_available = None
+logger = logging.getLogger(__name__)
 
 JOB_KEY_PREFIX = "ai_job:"
 USER_INDEX_PREFIX = "ai_jobs:user:"
@@ -71,6 +76,7 @@ JOB_TYPE_URL_INGEST = "url_ingest"
 JOB_TYPE_TEACHER_DOCUMENT_INGEST = "teacher_document_ingest"
 JOB_TYPE_TEACHER_YOUTUBE_INGEST = "teacher_youtube_ingest"
 JOB_TYPE_AI_GRADE = "ai_grade"
+JOB_TYPE_WHATSAPP_MEDIA_INGEST = "whatsapp_media_ingest"
 STATUS_QUEUED = "queued"
 STATUS_RUNNING = "running"
 STATUS_COMPLETED = "completed"
@@ -88,6 +94,7 @@ AI_SERVICE_JOB_TYPES = {
     JOB_TYPE_TEACHER_DOCUMENT_INGEST,
     JOB_TYPE_TEACHER_YOUTUBE_INGEST,
     JOB_TYPE_AI_GRADE,
+    JOB_TYPE_WHATSAPP_MEDIA_INGEST,
 }
 JOB_PRIORITIES = {
     JOB_TYPE_QUERY: 30,
@@ -99,6 +106,7 @@ JOB_PRIORITIES = {
     JOB_TYPE_TEACHER_DOCUMENT_INGEST: 60,
     JOB_TYPE_TEACHER_YOUTUBE_INGEST: 60,
     JOB_TYPE_AI_GRADE: 40,
+    JOB_TYPE_WHATSAPP_MEDIA_INGEST: 55,
 }
 TERMINAL_STATUSES = {STATUS_COMPLETED, STATUS_FAILED, STATUS_CANCELLED, STATUS_DEAD_LETTER}
 
@@ -511,6 +519,10 @@ def build_public_job_response(job: dict[str, Any]) -> dict[str, Any]:
         "max_retries": job.get("max_retries", settings.ai_queue.max_retries),
         "error": job.get("error"),
         "priority": job.get("priority"),
+        "runtime_mode": job.get("runtime_mode", "live"),
+        "is_demo_response": job.get("is_demo_response", False),
+        "demo_notice": job.get("demo_notice"),
+        "demo_sources": job.get("demo_sources", []),
     }
     _attach_queue_metadata(job, response)
     if status == STATUS_COMPLETED:
@@ -865,6 +877,8 @@ async def _execute_job(job: dict[str, Any]) -> dict[str, Any]:
         return await run_teacher_youtube_ingestion(InternalTeacherYoutubeIngestRequest(**payload), trace_id=trace_id)
     if job_type == JOB_TYPE_AI_GRADE:
         return await run_ai_grade(payload, trace_id=trace_id, tenant_id=job.get("tenant_id"))
+    if job_type == JOB_TYPE_WHATSAPP_MEDIA_INGEST:
+        return await run_whatsapp_media_ingestion(InternalWhatsAppMediaIngestRequest(**payload), trace_id=trace_id)
 
     raise HTTPException(status_code=400, detail=f"Unsupported AI job type: {job_type}")
 
@@ -907,6 +921,7 @@ async def process_job(job_id: str, worker_id: str | None = None) -> dict[str, An
 
     async def _run() -> dict[str, Any]:
         nonlocal job
+        execution_started = time.perf_counter()
         now = _utcnow_iso()
         job["status"] = STATUS_RUNNING
         job["worker_id"] = worker_id or job.get("worker_id") or "ai-worker"
@@ -921,6 +936,12 @@ async def process_job(job_id: str, worker_id: str | None = None) -> dict[str, An
         try:
             result = await _execute_job(job)
         except Exception as exc:
+            observe_stage_latency(
+                "ai_queue",
+                f"job_execution_{job.get('job_type', 'unknown')}",
+                (time.perf_counter() - execution_started) * 1000,
+                "error",
+            )
             retryable = _should_retry(exc)
             job["error"] = _error_detail(exc)
             acknowledge_job(job_id)
@@ -951,6 +972,12 @@ async def process_job(job_id: str, worker_id: str | None = None) -> dict[str, An
             return job
 
         _append_event(job, "ai_service.completed", "worker", "AI runtime returned successfully")
+        observe_stage_latency(
+            "ai_queue",
+            f"job_execution_{job.get('job_type', 'unknown')}",
+            (time.perf_counter() - execution_started) * 1000,
+            "success",
+        )
 
         acknowledge_job(job_id)
         client = _require_queue_client()

@@ -5,10 +5,12 @@ import threading
 from collections import defaultdict
 from typing import Any
 
-from src.domains.platform.services.ai_queue import GLOBAL_METRICS_KEY, READY_TENANTS_ACTIVE_KEY, get_queue_metrics, _get_redis_client
-
 _lock = threading.Lock()
 _http_metrics: dict[tuple[str, str, str, str], dict[str, float]] = defaultdict(lambda: {"count": 0.0, "duration_ms_sum": 0.0})
+_ocr_metrics: dict[tuple[str, str], float] = defaultdict(float)
+_stage_latency_metrics: dict[tuple[str, str, str], dict[str, float]] = defaultdict(
+    lambda: {"count": 0.0, "duration_ms_sum": 0.0, "duration_ms_max": 0.0}
+)
 
 
 def _sanitize_label(value: str) -> str:
@@ -38,7 +40,61 @@ def snapshot_http_metrics() -> list[dict[str, Any]]:
         ]
 
 
+def increment_ocr_metric(outcome: str, engine: str = "easyocr", count: float = 1.0) -> None:
+    with _lock:
+        _ocr_metrics[(outcome, engine)] += count
+
+
+def snapshot_ocr_metrics() -> list[dict[str, Any]]:
+    with _lock:
+        return [
+            {
+                "outcome": outcome,
+                "engine": engine,
+                "count": value,
+            }
+            for (outcome, engine), value in _ocr_metrics.items()
+        ]
+
+
+def observe_stage_latency(stage: str, operation: str, duration_ms: float, outcome: str = "success") -> None:
+    key = (stage, operation, outcome)
+    with _lock:
+        bucket = _stage_latency_metrics[key]
+        bucket["count"] += 1
+        bucket["duration_ms_sum"] += duration_ms
+        bucket["duration_ms_max"] = max(bucket["duration_ms_max"], duration_ms)
+
+
+def snapshot_stage_latency_metrics() -> list[dict[str, Any]]:
+    with _lock:
+        return [
+            {
+                "stage": stage,
+                "operation": operation,
+                "outcome": outcome,
+                "count": values["count"],
+                "duration_ms_sum": values["duration_ms_sum"],
+                "duration_ms_max": values["duration_ms_max"],
+            }
+            for (stage, operation, outcome), values in _stage_latency_metrics.items()
+        ]
+
+
+def reset_metrics_registry() -> None:
+    with _lock:
+        _http_metrics.clear()
+        _ocr_metrics.clear()
+        _stage_latency_metrics.clear()
+
+
 def _get_global_queue_metrics() -> dict[str, int]:
+    from src.domains.platform.services.ai_queue import (
+        GLOBAL_METRICS_KEY,
+        READY_TENANTS_ACTIVE_KEY,
+        _get_redis_client,
+    )
+
     client = _get_redis_client()
     if not client:
         return {
@@ -77,6 +133,42 @@ def export_prometheus_text(alerts: list[dict[str, Any]] | None = None) -> str:
     for row in snapshot_http_metrics():
         lines.append(
             f'vidyaos_http_request_duration_ms_sum{{service="{_sanitize_label(row["service"])}",method="{_sanitize_label(row["method"])}",path="{_sanitize_label(row["path"])}",status_code="{row["status_code"]}"}} {row["duration_ms_sum"]}'
+        )
+
+    lines.extend([
+        "# HELP vidyaos_ocr_events_total OCR events by outcome and engine",
+        "# TYPE vidyaos_ocr_events_total counter",
+    ])
+    for row in snapshot_ocr_metrics():
+        lines.append(
+            f'vidyaos_ocr_events_total{{outcome="{_sanitize_label(row["outcome"])}",engine="{_sanitize_label(row["engine"])}"}} {row["count"]}'
+        )
+
+    lines.extend([
+        "# HELP vidyaos_stage_latency_total Total observed stage latency events by stage, operation, and outcome",
+        "# TYPE vidyaos_stage_latency_total counter",
+    ])
+    for row in snapshot_stage_latency_metrics():
+        lines.append(
+            f'vidyaos_stage_latency_total{{stage="{_sanitize_label(row["stage"])}",operation="{_sanitize_label(row["operation"])}",outcome="{_sanitize_label(row["outcome"])}"}} {row["count"]}'
+        )
+
+    lines.extend([
+        "# HELP vidyaos_stage_latency_duration_ms_sum Sum of observed stage latencies in milliseconds",
+        "# TYPE vidyaos_stage_latency_duration_ms_sum counter",
+    ])
+    for row in snapshot_stage_latency_metrics():
+        lines.append(
+            f'vidyaos_stage_latency_duration_ms_sum{{stage="{_sanitize_label(row["stage"])}",operation="{_sanitize_label(row["operation"])}",outcome="{_sanitize_label(row["outcome"])}"}} {row["duration_ms_sum"]}'
+        )
+
+    lines.extend([
+        "# HELP vidyaos_stage_latency_duration_ms_max Maximum observed stage latency in milliseconds",
+        "# TYPE vidyaos_stage_latency_duration_ms_max gauge",
+    ])
+    for row in snapshot_stage_latency_metrics():
+        lines.append(
+            f'vidyaos_stage_latency_duration_ms_max{{stage="{_sanitize_label(row["stage"])}",operation="{_sanitize_label(row["operation"])}",outcome="{_sanitize_label(row["outcome"])}"}} {row["duration_ms_max"]}'
         )
 
     queue = _get_global_queue_metrics()

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import {
     Brain,
     ChevronLeft,
@@ -22,10 +22,12 @@ type Tool = "quiz" | "flashcards" | "mindmap" | "flowchart" | "concept_map";
 type AIJobStatus = "queued" | "running" | "completed" | "failed";
 
 type QuizQ = { question: string; options: string[]; correct: string; citation?: string | null };
-type Flashcard = { front: string; back: string };
-type MindNode = { label: string; children?: MindNode[] };
+type Flashcard = { front: string; back: string; citation?: string | null };
+type MindNode = { label: string; citation?: string | null; children?: MindNode[] };
 type ConceptMap = { nodes: { id: string; label: string }[]; edges: { from: string; to: string; label: string }[] };
-type ToolData = QuizQ[] | Flashcard[] | MindNode | ConceptMap | string | null;
+type FlowchartStep = { id: string; label: string; detail: string; citation: string };
+type FlowchartData = { mermaid: string; steps: FlowchartStep[] };
+type ToolData = QuizQ[] | Flashcard[] | MindNode | ConceptMap | FlowchartData | string | null;
 type Citation = { source?: string; page?: string | null; url?: string | null; text?: string; clickable?: boolean };
 type AIHistoryItem = {
     id: string;
@@ -327,7 +329,7 @@ export default function StudyToolsPage() {
                             {!loading && result && activeTool === "quiz" ? <QuizView questions={result as QuizQ[]} /> : null}
                             {!loading && result && activeTool === "flashcards" ? <FlashcardsView cards={result as Flashcard[]} /> : null}
                             {!loading && result && activeTool === "mindmap" ? <MindMapView data={result as MindNode} /> : null}
-                            {!loading && result && activeTool === "flowchart" ? <FlowchartView code={result as string} /> : null}
+                            {!loading && result && activeTool === "flowchart" ? <FlowchartView data={result as FlowchartData | string} /> : null}
                             {!loading && result && activeTool === "concept_map" ? <ConceptMapView data={result as ConceptMap} /> : null}
 
                             {!loading && citations.length > 0 ? (
@@ -506,8 +508,13 @@ function MindNodeView({ node, depth }: { node: MindNode; depth: number }) {
     ];
     return (
         <div className={depth > 0 ? "ml-6 mt-2" : ""}>
-            <div className={`inline-block px-3 py-1.5 rounded-full text-xs font-medium ${colors[depth % colors.length]}`}>
-                {node.label}
+            <div className="inline-flex flex-col gap-1">
+                <div className={`inline-block px-3 py-1.5 rounded-full text-xs font-medium ${colors[depth % colors.length]}`}>
+                    {node.label}
+                </div>
+                {node.citation ? (
+                    <p className="ml-1 text-[10px] text-[var(--text-muted)]">Citation: {node.citation}</p>
+                ) : null}
             </div>
             {(node.children || []).map((child, idx) => (
                 <MindNodeView key={`${depth}-${idx}-${child.label}`} node={child} depth={depth + 1} />
@@ -516,8 +523,9 @@ function MindNodeView({ node, depth }: { node: MindNode; depth: number }) {
     );
 }
 
-function FlowchartView({ code }: { code: string }) {
-    const containerRef = useRef<HTMLDivElement>(null);
+function FlowchartView({ data }: { data: FlowchartData | string }) {
+    const code = typeof data === "string" ? data : data?.mermaid || "";
+    const steps = typeof data === "string" ? [] : data?.steps || [];
     const [svg, setSvg] = useState<string>("");
     const [renderError, setRenderError] = useState(false);
 
@@ -562,6 +570,19 @@ function FlowchartView({ code }: { code: string }) {
                 )}
             </div>
 
+            {steps.length > 0 ? (
+                <div className="mt-4 space-y-2">
+                    <p className="text-xs font-semibold text-[var(--text-secondary)]">Grounded Steps</p>
+                    {steps.map((step, idx) => (
+                        <div key={`${step.id}-${idx}`} className="rounded-[var(--radius-sm)] bg-[var(--bg-page)] p-3">
+                            <p className="text-sm font-medium text-[var(--text-primary)]">{idx + 1}. {step.label}</p>
+                            <p className="mt-1 text-xs text-[var(--text-secondary)]">{step.detail}</p>
+                            <p className="mt-2 text-[10px] text-[var(--text-muted)]">Citation: {step.citation}</p>
+                        </div>
+                    ))}
+                </div>
+            ) : null}
+
             <details className="mt-4 group">
                 <summary className="text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--primary)] cursor-pointer select-none">
                     View Raw Syntax
@@ -604,7 +625,7 @@ function ConceptMapView({ data }: { data: ConceptMap }) {
     }, [data]);
 
     if (mermaidCode) {
-        return <FlowchartView code={mermaidCode} />;
+        return <FlowchartView data={mermaidCode} />;
     }
 
     // Fallback to text lists if data structure is corrupted
