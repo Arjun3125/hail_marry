@@ -1,20 +1,70 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { ToolRail } from "./components/ToolRail";
 import { ContextPanel } from "./components/ContextPanel";
 import { LearningWorkspace } from "./components/LearningWorkspace";
 import { FocusMode } from "./components/FocusMode";
 import { NotebookSelector } from "./components/NotebookSelector";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
+import { api } from "@/lib/api";
 import "./ai-studio.css";
 
 export default function AIStudioPage() {
+    return (
+        <Suspense fallback={<div className="flex min-h-[60vh] items-center justify-center text-sm text-[var(--text-muted)]">Loading AI Studio…</div>}>
+            <AIStudioContent />
+        </Suspense>
+    );
+}
+
+const validTools = new Set([
+    "qa",
+    "study_guide",
+    "socratic",
+    "quiz",
+    "flashcards",
+    "perturbation",
+    "debate",
+    "essay_review",
+    "mindmap",
+    "flowchart",
+    "concept_map",
+]);
+
+function normalizeTool(rawTool: string | null) {
+    if (!rawTool) return null;
+    return validTools.has(rawTool) ? rawTool : null;
+}
+
+function AIStudioContent() {
+    const searchParams = useSearchParams();
     const [activeTool, setActiveTool] = useState("qa");
     const [railCollapsed, setRailCollapsed] = useState(false);
     const [contextCollapsed, setContextCollapsed] = useState(false);
     const [focusMode, setFocusMode] = useState(false);
     const [activeNotebookId, setActiveNotebookId] = useState<string | null>(null);
+    const [requestOptions, setRequestOptions] = useState<{
+        language?: string;
+        responseLength?: string;
+        expertiseLevel?: string;
+    }>({});
+    const [initialExchange, setInitialExchange] = useState<{
+        query: string;
+        response: {
+            answer: string;
+            citations: Array<{ source?: string; page?: string | null; url?: string | null; text?: string }>;
+            mode: string;
+        };
+    } | null>(null);
+
+    const searchKey = searchParams.toString();
+    const requestedTool = useMemo(
+        () => normalizeTool(searchParams.get("tool") || searchParams.get("mode")),
+        [searchKey, searchParams],
+    );
+    const seedPrompt = useMemo(() => searchParams.get("prompt"), [searchKey, searchParams]);
 
     // Load active notebook from localStorage on mount
     useEffect(() => {
@@ -32,6 +82,57 @@ export default function AIStudioPage() {
             localStorage.removeItem("activeNotebookId");
         }
     }, [activeNotebookId]);
+
+    useEffect(() => {
+        if (requestedTool) {
+            setActiveTool(requestedTool);
+        }
+
+        const notebookId = searchParams.get("notebook_id");
+        if (notebookId) {
+            setActiveNotebookId(notebookId);
+        }
+
+        setRequestOptions((prev) => ({
+            language: searchParams.get("language") || prev.language,
+            responseLength: searchParams.get("response_length") || prev.responseLength,
+            expertiseLevel: searchParams.get("expertise_level") || prev.expertiseLevel,
+        }));
+    }, [requestedTool, searchKey, searchParams]);
+
+    useEffect(() => {
+        const historyId = searchParams.get("history");
+        if (!historyId) {
+            setInitialExchange(null);
+            return;
+        }
+
+        let cancelled = false;
+        api.aiHistory.get(historyId).then((item) => {
+            if (cancelled) return;
+            const historyItem = item as { mode?: string; query_text?: string; response_text?: string };
+            const historyMode = normalizeTool(historyItem.mode || null);
+            if (!requestedTool && historyMode) {
+                setActiveTool(historyMode);
+            }
+            setInitialExchange({
+                query: historyItem.query_text || "",
+                response: {
+                    answer: historyItem.response_text || "No response received.",
+                    citations: [],
+                    mode: historyMode || requestedTool || "qa",
+                },
+            });
+        }).catch(() => {
+            if (!cancelled) {
+                setInitialExchange(null);
+            }
+        });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [requestedTool, searchKey, searchParams]);
 
     // Initialize keyboard shortcuts
     useKeyboardShortcuts({
@@ -62,6 +163,9 @@ export default function AIStudioPage() {
                 <LearningWorkspace 
                     activeTool={activeTool} 
                     notebookId={activeNotebookId}
+                    requestOptions={requestOptions}
+                    initialExchange={initialExchange}
+                    seedPrompt={seedPrompt}
                 />
             </main>
 
@@ -71,6 +175,7 @@ export default function AIStudioPage() {
                     collapsed={contextCollapsed}
                     onToggleCollapse={() => setContextCollapsed(!contextCollapsed)}
                     notebookId={activeNotebookId}
+                    activeTool={activeTool}
                 />
             </aside>
 

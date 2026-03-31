@@ -41,6 +41,8 @@ from src.domains.platform.services.alerting import get_active_alerts
 from src.domains.platform.services.observability_notifier import dispatch_alerts
 from src.domains.platform.services.metrics_registry import snapshot_ocr_metrics
 from src.domains.platform.services.trace_backend import get_trace_events
+from src.domains.platform.services.traceability import build_traceability_summary
+from src.domains.platform.services.usage_governance import build_usage_snapshot
 from src.domains.academic.services.timetable_generator import generate_timetable
 from constants import performance_color
 from src.shared.ocr_imports import (
@@ -551,19 +553,7 @@ async def ai_job_dead_letter(
 # ─── AI Usage Analytics ─────────────────────────────────────
 @router.get("/ai-usage")
 async def ai_usage_analytics(current_user: User = Depends(require_role("admin")), db: Session = Depends(get_db)):
-    tid = current_user.tenant_id
-    week_ago = date.today() - timedelta(days=7)
-    total_week = db.query(AIQuery).filter(AIQuery.tenant_id == tid, func.date(AIQuery.created_at) >= week_ago).count()
-    student_q = db.query(AIQuery).join(User, AIQuery.user_id == User.id).filter(AIQuery.tenant_id == tid, User.role == "student").count()
-    teacher_q = db.query(AIQuery).join(User, AIQuery.user_id == User.id).filter(AIQuery.tenant_id == tid, User.role == "teacher").count()
-    admin_q = db.query(AIQuery).join(User, AIQuery.user_id == User.id).filter(AIQuery.tenant_id == tid, User.role == "admin").count()
-    total_all = max(student_q + teacher_q + admin_q, 1)
-    heavy = db.query(User.full_name, func.count(AIQuery.id).label("cnt")).join(AIQuery, AIQuery.user_id == User.id).filter(AIQuery.tenant_id == tid).group_by(User.full_name).order_by(desc("cnt")).limit(5).all()
-    return {
-        "total_week": total_week,
-        "by_role": {"students": round(student_q / total_all * 100), "teachers": round(teacher_q / total_all * 100), "admin": round(admin_q / total_all * 100)},
-        "heavy_users": [{"name": n, "queries": c} for n, c in heavy],
-    }
+    return build_usage_snapshot(db, tenant_id=current_user.tenant_id, days=7)
 
 
 # ─── AI Quality Review ──────────────────────────────────────
@@ -696,6 +686,14 @@ async def trace_detail(
 @router.get("/observability/ocr-metrics")
 async def ocr_metrics(current_user: User = Depends(require_role("admin"))):
     return {"metrics": snapshot_ocr_metrics()}
+
+
+@router.get("/observability/traceability")
+async def traceability_summary(
+    days: int = 7,
+    current_user: User = Depends(require_role("admin")),
+):
+    return build_traceability_summary(tenant_id=current_user.tenant_id, days=days)
 
 
 # ─── Complaints Oversight ───────────────────────────────────

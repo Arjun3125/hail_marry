@@ -41,6 +41,11 @@ from utils.upload_security import (
     sanitize_docx_bytes,
 )
 from constants import TEACHER_ALLOWED_EXTENSIONS, TEACHER_MAX_FILE_SIZE
+from src.domains.platform.services.usage_governance import (
+    evaluate_governance,
+    record_usage_event,
+    resolve_upload_metrics,
+)
 
 router = APIRouter(prefix="/api/teacher", tags=["Teacher"])
 
@@ -625,6 +630,17 @@ async def upload_document(
             raise HTTPException(status_code=400, detail=str(exc))
     if len(content) > MAX_FILE_SIZE:
         raise HTTPException(status_code=400, detail="File exceeds 50MB limit.")
+    upload_metrics = resolve_upload_metrics(ext)
+    for metric in upload_metrics:
+        governance = evaluate_governance(
+            db,
+            tenant_id=current_user.tenant_id,
+            user_id=current_user.id,
+            metric=metric,
+            mode=metric,
+        )
+        if not governance.allowed:
+            raise HTTPException(status_code=429, detail=governance.detail)
     if ext in ("jpg", "jpeg", "png"):
         from src.infrastructure.vector_store.ocr_service import image_bytes_to_pdf, validate_image_size
 
@@ -706,6 +722,19 @@ async def upload_document(
 
         doc.ingestion_status = "completed"
         doc.chunk_count = len(chunks) if chunks else 0
+        for metric in upload_metrics:
+            record_usage_event(
+                db,
+                tenant_id=current_user.tenant_id,
+                user_id=current_user.id,
+                metric=metric,
+                metadata={
+                    "route": "teacher.upload",
+                    "file_type": ext,
+                    "document_id": str(doc.id),
+                    "ocr_processed": ocr_processed,
+                },
+            )
         db.commit()
 
         try:
@@ -759,6 +788,15 @@ async def ingest_youtube_video(
     """Ingest a YouTube transcript for AI."""
     if not data.subject_id:
         raise HTTPException(status_code=400, detail="subject_id is required")
+    governance = evaluate_governance(
+        db,
+        tenant_id=current_user.tenant_id,
+        user_id=current_user.id,
+        metric="youtube_ingestions",
+        mode="youtube_ingestions",
+    )
+    if not governance.allowed:
+        raise HTTPException(status_code=429, detail=governance.detail)
 
     allowed_class_ids = set(teacher_class_ids)
     subject = _get_subject_in_scope(
@@ -801,6 +839,13 @@ async def ingest_youtube_video(
         invalidate_tenant_cache(str(current_user.tenant_id))
 
         lecture.transcript_ingested = True
+        record_usage_event(
+            db,
+            tenant_id=current_user.tenant_id,
+            user_id=current_user.id,
+            metric="youtube_ingestions",
+            metadata={"route": "teacher.youtube", "lecture_id": str(lecture.id)},
+        )
         db.commit()
         return {"success": True, "lecture_id": str(lecture.id), "chunks": len(chunks)}
     except Exception as e:

@@ -122,6 +122,93 @@ def test_mascot_navigation_request_returns_teacher_route(client, db_session, act
     assert payload["navigation"]["href"] == "/teacher/attendance"
 
 
+def test_mascot_study_path_report_returns_plan_summary(client, db_session, active_tenant, monkeypatch):
+    _, token = _create_user_and_login(
+        client,
+        db_session,
+        active_tenant.id,
+        email="mascot-study-path@testschool.edu",
+    )
+
+    monkeypatch.setattr(
+        "src.domains.platform.services.mascot_orchestrator.get_or_create_study_path",
+        lambda *args, **kwargs: {
+            "id": "plan-1",
+            "focus_topic": "Photosynthesis",
+            "status": "active",
+            "items": [
+                {"id": "guide", "title": "Relearn Photosynthesis", "target_tool": "study_guide", "status": "pending"},
+                {"id": "flashcards", "title": "Memorize weak concepts", "target_tool": "flashcards", "status": "pending"},
+            ],
+            "next_action": {"id": "guide", "title": "Relearn Photosynthesis", "target_tool": "study_guide", "status": "pending"},
+            "source_context": {},
+        },
+    )
+
+    response = client.post(
+        "/api/mascot/message",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"message": "Show my study path", "channel": "web"},
+    )
+
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["intent"] == "study_path_report"
+    assert payload["artifacts"][0]["tool"] == "study_path"
+    assert "Photosynthesis" in payload["reply_text"]
+    assert payload["follow_up_suggestions"][0] == "Continue learning"
+
+
+def test_mascot_continue_learning_executes_next_study_path_step(client, db_session, active_tenant, monkeypatch):
+    _, token = _create_user_and_login(
+        client,
+        db_session,
+        active_tenant.id,
+        email="mascot-continue-learning@testschool.edu",
+    )
+
+    monkeypatch.setattr(
+        "src.domains.platform.services.mascot_orchestrator.get_or_create_study_path",
+        lambda *args, **kwargs: {
+            "id": "plan-2",
+            "focus_topic": "Cell division",
+            "status": "active",
+            "items": [
+                {"id": "flashcards", "title": "Memorize weak concepts in Cell division", "target_tool": "flashcards", "status": "pending"},
+            ],
+            "next_action": {
+                "id": "flashcards",
+                "title": "Memorize weak concepts in Cell division",
+                "target_tool": "flashcards",
+                "prompt": "Generate flashcards for Cell division prioritizing chromosomes.",
+                "status": "pending",
+            },
+            "source_context": {},
+        },
+    )
+    run_study_tool = AsyncMock(
+        return_value={
+            "data": [{"front": "Chromosomes", "back": "Carry genetic material", "citation": "[bio_p1]"}],
+            "citations": [{"source": "Biology", "page": "1"}],
+        }
+    )
+    monkeypatch.setattr("src.domains.platform.services.mascot_orchestrator.run_study_tool", run_study_tool)
+
+    response = client.post(
+        "/api/mascot/message",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"message": "Continue learning", "channel": "web"},
+    )
+
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["intent"] == "study_path_execute"
+    assert payload["artifacts"][0]["tool"] == "study_path"
+    assert payload["artifacts"][1]["tool"] == "flashcards"
+    assert "Started your study path" in payload["reply_text"]
+    run_study_tool.assert_awaited_once()
+
+
 def test_mascot_archive_requires_confirmation_and_confirm_executes(client, db_session, active_tenant):
     from src.domains.platform.models.notebook import Notebook
 
@@ -1238,26 +1325,41 @@ def test_mascot_teacher_roster_upload_requires_confirmation_and_imports_students
     assert len(students) == 2
 
 
-def test_mascot_suggestions_use_notebook_scope(client, db_session, active_tenant):
-    _, token = _create_user_and_login(
+def test_mascot_suggestions_use_student_personalization(client, db_session, active_tenant):
+    from src.domains.academic.models.core import Class, Subject
+    from src.domains.academic.models.performance import SubjectPerformance
+
+    user, token = _create_user_and_login(
         client,
         db_session,
         active_tenant.id,
         email="mascot-suggestions-notebook@testschool.edu",
     )
+    school_class = Class(id=uuid.uuid4(), tenant_id=active_tenant.id, name="Class 10", grade_level="10")
+    subject = Subject(id=uuid.uuid4(), tenant_id=active_tenant.id, class_id=school_class.id, name="Biology")
+    db_session.add_all([school_class, subject])
+    db_session.commit()
+    db_session.add(
+        SubjectPerformance(
+            tenant_id=active_tenant.id,
+            student_id=user.id,
+            subject_id=subject.id,
+            average_score=42.0,
+            attendance_rate=88.0,
+        )
+    )
+    db_session.commit()
 
     response = client.get(
         "/api/mascot/suggestions",
         headers={"Authorization": f"Bearer {token}"},
-        params={"current_route": "/student/assistant", "notebook_id": "nb-123"},
+        params={"current_route": "/student/assistant"},
     )
 
     assert response.status_code == 200, response.text
-    assert response.json()["suggestions"] == [
-        "Generate flashcards from this notebook",
-        "Create a flowchart from this notebook",
-        "Open this notebook in AI Studio",
-    ]
+    suggestions = response.json()["suggestions"]
+    assert suggestions
+    assert any("Biology" in item or "guided explanation" in item.lower() or "quick revision" in item.lower() for item in suggestions)
 
 
 def test_mascot_suggestions_use_teacher_page_entity(client, db_session, active_tenant):

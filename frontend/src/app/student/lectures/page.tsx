@@ -121,7 +121,7 @@ export default function LecturesPage() {
                                         >
                                             <ExternalLink className="w-3 h-3" /> Open
                                         </a>
-                                        <a href="/student/ai" className="flex items-center gap-1 text-xs font-medium text-[var(--primary)] hover:underline">
+                                        <a href="/student/assistant" className="flex items-center gap-1 text-xs font-medium text-[var(--primary)] hover:underline">
                                             <Bot className="w-3 h-3" /> Ask AI
                                         </a>
                                     </div>

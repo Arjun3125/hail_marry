@@ -53,6 +53,12 @@ class AIQueryRequest(StrictBaseModel):
 
 class InternalAIQueryRequest(AIQueryRequest):
     tenant_id: str
+    user_id: str | None = None
+    learner_profile: dict | None = None
+    learner_topic_context: dict | None = None
+    model_override: str | None = None
+    max_prompt_tokens: int | None = None
+    max_completion_tokens: int | None = None
 
 
 class AudioOverviewRequest(StrictBaseModel):
@@ -64,6 +70,9 @@ class AudioOverviewRequest(StrictBaseModel):
 
 class InternalAudioOverviewRequest(AudioOverviewRequest):
     tenant_id: str
+    model_override: str | None = None
+    max_prompt_tokens: int | None = None
+    max_completion_tokens: int | None = None
 
 
 class VideoOverviewRequest(StrictBaseModel):
@@ -74,6 +83,9 @@ class VideoOverviewRequest(StrictBaseModel):
 
 class InternalVideoOverviewRequest(VideoOverviewRequest):
     tenant_id: str
+    model_override: str | None = None
+    max_prompt_tokens: int | None = None
+    max_completion_tokens: int | None = None
 
 
 class StudyToolGenerateRequest(StrictBaseModel):
@@ -85,6 +97,13 @@ class StudyToolGenerateRequest(StrictBaseModel):
 
 class InternalStudyToolGenerateRequest(StudyToolGenerateRequest):
     tenant_id: str
+    user_id: str | None = None
+    adaptive_quiz_profile: dict | None = None
+    learner_profile: dict | None = None
+    learner_topic_context: dict | None = None
+    model_override: str | None = None
+    max_prompt_tokens: int | None = None
+    max_completion_tokens: int | None = None
 
 
 class TeacherAssessmentRequest(StrictBaseModel):

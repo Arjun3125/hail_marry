@@ -90,8 +90,11 @@ def normalize_tool_output(tool: str, answer: str) -> Any:
                 options = []
             correct_raw = str(item.get("correct", "")).strip().upper()
             citation = str(item.get("citation", "")).strip()
+            difficulty = str(item.get("difficulty", "medium")).strip().lower()
             match = re.search(r"[A-D]", correct_raw)
             correct = match.group(0) if match else "A"
+            if difficulty not in {"easy", "medium", "hard"}:
+                difficulty = "medium"
             if not question or len(options) < 2 or not citation:
                 continue
             normalized.append(
@@ -100,6 +103,7 @@ def normalize_tool_output(tool: str, answer: str) -> Any:
                     "options": options,
                     "correct": correct,
                     "citation": citation,
+                    "difficulty": difficulty,
                     "index": idx + 1,
                 }
             )
@@ -198,10 +202,67 @@ def normalize_tool_output(tool: str, answer: str) -> Any:
     raise HTTPException(status_code=400, detail="Unsupported tool")
 
 
+def _build_adaptive_tool_topic(request: InternalStudyToolGenerateRequest) -> str:
+    topic = request.topic.strip()
+    instruction_lines: list[str] = []
+
+    learner_profile = request.learner_profile or {}
+    learner_topic_context = request.learner_topic_context or {}
+
+    if request.tool == "quiz" and request.adaptive_quiz_profile:
+        quiz_suffix = str(request.adaptive_quiz_profile.get("prompt_suffix", "")).strip()
+        if quiz_suffix:
+            instruction_lines.append(quiz_suffix)
+
+    expertise = str(learner_profile.get("inferred_expertise_level") or "").strip().lower()
+    preferred_length = str(learner_profile.get("preferred_response_length") or "").strip().lower()
+    mastery_score = learner_topic_context.get("mastery_score")
+    focus_concepts = [
+        str(item).strip()
+        for item in learner_topic_context.get("focus_concepts", []) or []
+        if str(item).strip()
+    ]
+    repeated_confusion = int(learner_topic_context.get("repeated_confusion_count") or 0)
+    struggling = (isinstance(mastery_score, (int, float)) and mastery_score < 60) or repeated_confusion >= 2
+    advanced = isinstance(mastery_score, (int, float)) and mastery_score >= 80 and expertise == "advanced"
+
+    if request.tool == "flashcards":
+        instruction_lines.append(
+            "Prioritize the weakest or most confusing concepts first in the flashcard order."
+        )
+        if focus_concepts:
+            instruction_lines.append(
+                f"Make sure these concepts appear early if grounded in context: {', '.join(focus_concepts[:4])}."
+            )
+        if struggling:
+            instruction_lines.append(
+                "Include at least one misconception-correction or step-by-step recall card for the hardest concept."
+            )
+        if expertise == "simple" or preferred_length == "brief":
+            instruction_lines.append("Keep each flashcard back especially concise and easy to recall.")
+
+    if request.tool in {"mindmap", "flowchart", "concept_map"}:
+        if struggling or expertise == "simple":
+            instruction_lines.append(
+                "Prefer a simpler structure with foundational ideas first, clear labels, and no unnecessary branching."
+            )
+        elif advanced:
+            instruction_lines.append(
+                "Include deeper relationships, applications, or causal links where clearly supported by context."
+            )
+
+    if not instruction_lines:
+        return topic
+
+    return topic + "\n\nAdaptive generation guidance:\n- " + "\n- ".join(instruction_lines)
+
+
 async def execute_study_tool(request: InternalStudyToolGenerateRequest) -> dict[str, Any]:
+    effective_topic = _build_adaptive_tool_topic(request)
+
     ai_result = await execute_text_query(
         InternalAIQueryRequest(
-            query=request.topic,
+            query=effective_topic,
             mode=request.tool,
             subject_id=request.subject_id,
             notebook_id=request.notebook_id,
@@ -209,6 +270,12 @@ async def execute_study_tool(request: InternalStudyToolGenerateRequest) -> dict[
             response_length="default",
             expertise_level="standard",
             tenant_id=request.tenant_id,
+            user_id=request.user_id,
+            learner_profile=request.learner_profile,
+            learner_topic_context=request.learner_topic_context,
+            model_override=request.model_override,
+            max_prompt_tokens=request.max_prompt_tokens,
+            max_completion_tokens=request.max_completion_tokens,
         )
     )
 
@@ -220,7 +287,7 @@ async def execute_study_tool(request: InternalStudyToolGenerateRequest) -> dict[
             raise
 
         strict_query = (
-            f"{request.topic}\n\nReturn STRICT valid JSON only for tool mode '{request.tool}'. "
+            f"{effective_topic}\n\nReturn STRICT valid JSON only for tool mode '{request.tool}'. "
             "Do not include markdown fences or extra prose."
         )
         ai_result = await execute_text_query(
@@ -233,6 +300,12 @@ async def execute_study_tool(request: InternalStudyToolGenerateRequest) -> dict[
                 response_length="default",
                 expertise_level="standard",
                 tenant_id=request.tenant_id,
+                user_id=request.user_id,
+                learner_profile=request.learner_profile,
+                learner_topic_context=request.learner_topic_context,
+                model_override=request.model_override,
+                max_prompt_tokens=request.max_prompt_tokens,
+                max_completion_tokens=request.max_completion_tokens,
             )
         )
         structured_data = normalize_tool_output(request.tool, str(ai_result.get("answer", "")))
@@ -244,4 +317,6 @@ async def execute_study_tool(request: InternalStudyToolGenerateRequest) -> dict[
         "citations": ai_result.get("citations", []),
         "token_usage": ai_result.get("token_usage", 0),
         "citation_valid": ai_result.get("citation_valid", False),
+        "adaptive_quiz_profile": request.adaptive_quiz_profile,
+        "model_used": ai_result.get("model_used"),
     }

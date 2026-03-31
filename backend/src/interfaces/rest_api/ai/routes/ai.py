@@ -36,6 +36,22 @@ from src.domains.platform.services.context_memory import get_context_memory_serv
 from src.domains.platform.services.knowledge_graph import get_concept_context
 from src.domains.platform.services.webhooks import emit_webhook_event
 from src.domains.platform.services.feature_flags import require_feature
+from src.domains.platform.services.learner_profile_service import get_learner_profile_dict
+from src.domains.platform.services.mastery_tracking_service import (
+    count_recent_confusion_queries,
+    get_topic_mastery_snapshot,
+    infer_topic_from_query,
+    record_ai_confusion_pattern,
+)
+from src.domains.platform.services.usage_governance import (
+    GovernanceDecision,
+    apply_model_override,
+    approximate_token_count,
+    evaluate_governance,
+    record_usage_event,
+    resolve_metric_for_mode,
+)
+from config import settings
 
 router = APIRouter(prefix="/api/ai", tags=["AI"])
 
@@ -236,6 +252,107 @@ def _validate_notebook_access(db: Session, current_user: User, notebook_id: UUID
         raise HTTPException(status_code=404, detail="Notebook not found")
 
 
+def _request_field_was_provided(request: AIQueryRequest, field_name: str) -> bool:
+    field_set = getattr(request, "model_fields_set", None)
+    if field_set is None:
+        field_set = getattr(request, "__fields_set__", set())
+    return field_name in set(field_set or set())
+
+
+def _build_personalized_ai_request(
+    *,
+    db: Session,
+    current_user: User,
+    request: AIQueryRequest,
+    prepared_query: str,
+    governance: GovernanceDecision | None = None,
+) -> InternalAIQueryRequest:
+    learner_profile = get_learner_profile_dict(
+        db,
+        tenant_id=current_user.tenant_id,
+        user_id=current_user.id,
+    )
+
+    effective_language = request.language
+    preferred_language = str(learner_profile.get("preferred_language") or "").lower()
+    if (
+        not _request_field_was_provided(request, "language")
+        and request.language == "english"
+        and preferred_language in {"hindi", "marathi"}
+    ):
+        effective_language = preferred_language
+
+    effective_response_length = request.response_length
+    preferred_length = str(learner_profile.get("preferred_response_length") or "").lower()
+    if (
+        not _request_field_was_provided(request, "response_length")
+        and request.response_length == "default"
+        and preferred_length in {"brief", "detailed"}
+    ):
+        effective_response_length = preferred_length
+
+    effective_expertise = request.expertise_level
+    inferred_expertise = str(learner_profile.get("inferred_expertise_level") or "").lower()
+    if (
+        not _request_field_was_provided(request, "expertise_level")
+        and request.expertise_level == "standard"
+        and inferred_expertise in {"simple", "advanced"}
+    ):
+        effective_expertise = inferred_expertise
+
+    subject_uuid = None
+    if request.subject_id:
+        try:
+            subject_uuid = UUID(str(request.subject_id))
+        except (TypeError, ValueError):
+            subject_uuid = None
+
+    learner_topic_context = None
+    inferred_topic = infer_topic_from_query(request.query)
+    if inferred_topic:
+        repeated_confusion_count = count_recent_confusion_queries(
+            db,
+            tenant_id=current_user.tenant_id,
+            user_id=current_user.id,
+            topic=request.query,
+        )
+        mastery_snapshot = get_topic_mastery_snapshot(
+            db,
+            tenant_id=current_user.tenant_id,
+            user_id=current_user.id,
+            topic=inferred_topic,
+            subject_id=subject_uuid,
+        )
+        learner_topic_context = {
+            "topic": inferred_topic,
+            "mastery_score": mastery_snapshot.get("mastery_score"),
+            "confidence_score": mastery_snapshot.get("confidence_score"),
+            "focus_concepts": [item.get("concept") for item in mastery_snapshot.get("concepts", []) if isinstance(item, dict)],
+            "repeated_confusion_count": repeated_confusion_count,
+        }
+
+    return InternalAIQueryRequest(
+        **{
+            **request.model_dump(),
+            "query": prepared_query,
+            "language": effective_language,
+            "response_length": effective_response_length,
+            "expertise_level": effective_expertise,
+        },
+        tenant_id=str(current_user.tenant_id),
+        user_id=str(current_user.id),
+        learner_profile=learner_profile,
+        learner_topic_context=learner_topic_context,
+        model_override=(
+            apply_model_override(settings.llm.model, settings.llm.fallback_model, governance.model_override)
+            if governance
+            else None
+        ),
+        max_prompt_tokens=governance.max_prompt_tokens if governance else None,
+        max_completion_tokens=governance.max_completion_tokens if governance else None,
+    )
+
+
 async def _prepare_ai_query(
     *,
     db: Session,
@@ -291,6 +408,17 @@ async def ai_query(
 
     tenant = db.query(Tenant).filter(Tenant.id == current_user.tenant_id).first()
     daily_limit = tenant.ai_daily_limit if tenant else 50
+    metric = resolve_metric_for_mode(request.mode)
+    governance = evaluate_governance(
+        db,
+        tenant_id=current_user.tenant_id,
+        user_id=current_user.id,
+        metric=metric,
+        mode=request.mode,
+        estimated_prompt_tokens=approximate_token_count(request.query),
+    )
+    if not governance.allowed:
+        raise HTTPException(status_code=429, detail=governance.detail)
 
     today_count = db.query(AIQuery).filter(
         AIQuery.tenant_id == current_user.tenant_id,
@@ -320,6 +448,17 @@ async def ai_query(
                 notebook_id=str(request.notebook_id) if request.notebook_id else "",
             )
             if cached:
+                record_usage_event(
+                    db,
+                    tenant_id=current_user.tenant_id,
+                    user_id=current_user.id,
+                    metric=metric,
+                    token_usage=0,
+                    cache_hit=True,
+                    model_used="cache",
+                    metadata={"route": "ai.query", "mode": request.mode, "cached": True},
+                )
+                db.commit()
                 cached["cached"] = True
                 if cached.get("citations"):
                     cached = make_citations_clickable(cached, current_user.tenant_id, db)
@@ -335,9 +474,12 @@ async def ai_query(
         )
 
         ai_result = await run_text_query(
-            InternalAIQueryRequest(
-                **{**request.model_dump(), "query": prepared_query},
-                tenant_id=str(current_user.tenant_id),
+            _build_personalized_ai_request(
+                db=db,
+                current_user=current_user,
+                request=request,
+                prepared_query=prepared_query,
+                governance=governance,
             ),
             trace_id=trace_id,
         )
@@ -382,8 +524,50 @@ async def ai_query(
         citation_count=ai_result.get("citation_count", 0),
     )
     db.add(ai_log)
+    record_usage_event(
+        db,
+        tenant_id=current_user.tenant_id,
+        user_id=current_user.id,
+        metric=metric,
+        token_usage=int(ai_result.get("token_usage", 0) or 0),
+        cache_hit=False,
+        model_used=apply_model_override(settings.llm.model, settings.llm.fallback_model, governance.model_override)
+        if not settings.app.demo_mode
+        else "demo",
+        used_fallback_model=governance.model_override == "fallback",
+        metadata={
+            "route": "ai.query",
+            "mode": request.mode,
+            "guardrail_active": governance.guardrail_active,
+            "queue_recommended": governance.queue_recommended,
+        },
+    )
     db.commit()
     db.refresh(ai_log)
+
+    if request.mode in {"qa", "study_guide", "socratic"}:
+        subject_uuid = None
+        if request.subject_id:
+            try:
+                subject_uuid = UUID(str(request.subject_id))
+            except (TypeError, ValueError):
+                subject_uuid = None
+        repeated_count = count_recent_confusion_queries(
+            db,
+            tenant_id=current_user.tenant_id,
+            user_id=current_user.id,
+            topic=request.query,
+        )
+        if repeated_count >= 2:
+            record_ai_confusion_pattern(
+                db,
+                tenant_id=current_user.tenant_id,
+                user_id=current_user.id,
+                query=request.query,
+                repeated_count=repeated_count,
+                subject_id=subject_uuid,
+            )
+            db.commit()
 
     if not settings.app.demo_mode:
         try:

@@ -316,7 +316,7 @@ export default function AILibraryPage() {
                                 <div
                                     key={item.id}
                                     className="group bg-[var(--surface)] border border-[var(--border)] rounded-lg p-4 hover:border-[var(--primary)] hover:shadow-md transition-all cursor-pointer"
-                                    onClick={() => router.push(`/student/ai?history=${item.id}`)}
+                                    onClick={() => router.push(`/student/ai-studio?history=${item.id}`)}
                                 >
                                     <div className="flex items-start justify-between mb-3">
                                         <div className="flex items-center gap-2">
@@ -359,7 +359,7 @@ export default function AILibraryPage() {
                                 <div
                                     key={item.id}
                                     className="group flex items-center gap-4 p-3 bg-[var(--surface)] border border-[var(--border)] rounded-lg hover:border-[var(--primary)] cursor-pointer"
-                                    onClick={() => router.push(`/student/ai?history=${item.id}`)}
+                                    onClick={() => router.push(`/student/ai-studio?history=${item.id}`)}
                                 >
                                     <span className="text-xl">{modeIcons[item.mode]}</span>
                                     <div className="flex-1 min-w-0">

@@ -850,6 +850,22 @@ class ObservabilitySettings(BaseSettings):
             )
         )
     )
+    traceability_min_events_for_alert: int = Field(
+        default=int(
+            os.getenv(
+                "OBSERVABILITY_TRACEABILITY_MIN_EVENTS_FOR_ALERT",
+                _yaml_config.get("observability", {}).get("traceability_min_events_for_alert", 3),
+            )
+        )
+    )
+    traceability_warning_events_for_alert: int = Field(
+        default=int(
+            os.getenv(
+                "OBSERVABILITY_TRACEABILITY_WARNING_EVENTS_FOR_ALERT",
+                _yaml_config.get("observability", {}).get("traceability_warning_events_for_alert", 5),
+            )
+        )
+    )
     alert_email_recipients: list[str] = Field(
         default_factory=lambda: _parse_csv_list(
             os.getenv("OBSERVABILITY_ALERT_EMAILS")

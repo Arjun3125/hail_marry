@@ -100,6 +100,7 @@ from src.domains.platform.schemas.ai_runtime import (
     InternalVideoOverviewRequest,
 )
 from src.domains.platform.services.metrics_registry import observe_stage_latency
+from src.domains.platform.services.traceability import TraceabilityError
 
 LENGTH_TOKENS = {"brief": 250, "default": 800, "detailed": 1500}
 LENGTH_INSTRUCTIONS = {
@@ -140,6 +141,7 @@ Study Guide:""",
     "quiz": """You are an academic quiz generator.
 Generate exactly 5 multiple-choice questions using ONLY the provided context.
 Each question must have 4 options (A, B, C, D) with one correct answer.
+Each question must also include a "difficulty" field using only: "easy", "medium", or "hard".
 Cite the source for each question using a required "citation" field.
 Format as JSON array.
 
@@ -149,7 +151,7 @@ Context from study materials:
 {context}
 
 Generate quiz as JSON:
-[{{"question": "...", "options": ["A. ...", "B. ...", "C. ...", "D. ..."], "correct": "B", "citation": "[source_page]"}}]""",
+[{{"question": "...", "options": ["A. ...", "B. ...", "C. ...", "D. ..."], "correct": "B", "difficulty": "medium", "citation": "[source_page]"}}]""",
     "concept_map": """You are an academic concept mapper.
 Create a concept map from the provided context about the given topic.
 Output as JSON with nodes and edges.
@@ -362,6 +364,24 @@ Output ONLY valid JSON in this format:
 {{"slides": [{{"title": "...", "bullets": ["...", "..."], "narration": "..."}}], "presentation_title": "...", "total_slides": {num_slides}}}"""
 
 
+def _estimate_tokens(text: str) -> int:
+    normalized = text.strip()
+    if not normalized:
+        return 0
+    return max(1, len(normalized) // 4)
+
+
+def _truncate_to_token_budget(text: str, max_tokens: int | None) -> str:
+    if not max_tokens or max_tokens <= 0:
+        return text
+    if _estimate_tokens(text) <= max_tokens:
+        return text
+    max_chars = max_tokens * 4
+    if max_chars <= 16:
+        return text[: max_chars].strip()
+    return text[: max_chars - 16].rstrip() + "\n...[truncated]"
+
+
 def _apply_language_and_style(prompt: str, language: str, response_length: str, expertise_level: str) -> str:
     style_parts = []
     lang = language.strip().lower()
@@ -378,6 +398,86 @@ def _apply_language_and_style(prompt: str, language: str, response_length: str, 
     return prompt
 
 
+def _apply_personalization_context(
+    prompt: str,
+    learner_profile: dict | None,
+    learner_topic_context: dict | None,
+    *,
+    mode: str = "qa",
+) -> str:
+    profile = learner_profile or {}
+    topic_context = learner_topic_context or {}
+    context_lines: list[str] = []
+
+    expertise = str(profile.get("inferred_expertise_level") or "").strip()
+    preferred_length = str(profile.get("preferred_response_length") or "").strip()
+    preferred_language = str(profile.get("preferred_language") or "").strip()
+    primary_subjects = list(profile.get("primary_subjects") or [])
+    if expertise:
+        context_lines.append(f"- learner expertise: {expertise}")
+    if preferred_length:
+        context_lines.append(f"- preferred response length: {preferred_length}")
+    if preferred_language:
+        context_lines.append(f"- preferred language: {preferred_language}")
+    if primary_subjects:
+        context_lines.append(f"- primary subjects: {', '.join(primary_subjects[:3])}")
+
+    topic = str(topic_context.get("topic") or "").strip()
+    mastery_score = topic_context.get("mastery_score")
+    confidence_score = topic_context.get("confidence_score")
+    focus_concepts = list(topic_context.get("focus_concepts") or [])
+    repeated_confusion = topic_context.get("repeated_confusion_count")
+    if topic:
+        context_lines.append(f"- current topic: {topic}")
+    if mastery_score is not None:
+        context_lines.append(f"- current mastery score: {mastery_score}")
+    if confidence_score is not None:
+        context_lines.append(f"- current mastery confidence: {confidence_score}")
+    if focus_concepts:
+        context_lines.append(f"- focus concepts: {', '.join(focus_concepts[:4])}")
+    if repeated_confusion:
+        context_lines.append(f"- repeated confusion count on topic: {repeated_confusion}")
+
+    adaptive_guidance_lines: list[str] = []
+    simple_learner = expertise == "simple"
+    advanced_learner = expertise == "advanced"
+    lower_mastery = isinstance(mastery_score, (int, float)) and mastery_score < 60
+    higher_mastery = isinstance(mastery_score, (int, float)) and mastery_score >= 80
+    repeated_confusion_flag = bool(repeated_confusion and repeated_confusion >= 2)
+
+    if mode == "study_guide":
+        if simple_learner or lower_mastery or repeated_confusion_flag:
+            adaptive_guidance_lines.extend(
+                [
+                    "- organize the study guide as basics first, then worked understanding, then quick review",
+                    "- define key terms before deeper explanation",
+                    "- keep bullet points short and scaffold the explanation step by step",
+                ]
+            )
+        elif advanced_learner or higher_mastery:
+            adaptive_guidance_lines.extend(
+                [
+                    "- start with a concise summary, then move into deeper reasoning and applications",
+                    "- emphasize comparisons, implications, and higher-order connections when supported by context",
+                ]
+            )
+
+    if not context_lines:
+        return prompt
+
+    personalization_block = (
+        "Personalization context:\n"
+        + "\n".join(context_lines)
+        + (
+            ("\nAdaptive guidance:\n" + "\n".join(adaptive_guidance_lines))
+            if adaptive_guidance_lines
+            else ""
+        )
+        + "\nUse this to adapt explanation depth, pacing, and scaffolding, but do not override explicit user instructions or invent facts outside the provided context."
+    )
+    return personalization_block + "\n\n" + prompt
+
+
 async def execute_text_query(request: InternalAIQueryRequest) -> dict:
     retrieval_started = time.perf_counter()
     try:
@@ -388,14 +488,15 @@ async def execute_text_query(request: InternalAIQueryRequest) -> dict:
             subject_id=request.subject_id,
             notebook_id=request.notebook_id,
         )
-    except Exception:
+    except Exception as exc:
         observe_stage_latency("ai_query", "retrieval", (time.perf_counter() - retrieval_started) * 1000, "error")
-        raise
+        raise TraceabilityError("rag.retrieval", detail="RAG retrieval failed while loading grounded context.", cause=exc) from exc
     observe_stage_latency("ai_query", "retrieval", (time.perf_counter() - retrieval_started) * 1000, "success")
     if not context_chunks:
-        raise HTTPException(
-            status_code=422,
+        raise TraceabilityError(
+            "rag.retrieval",
             detail="No sufficiently relevant grounded context found. Upload matching study materials before querying AI.",
+            status_code=422,
         )
 
     context_string = build_context_string(context_chunks)
@@ -403,40 +504,54 @@ async def execute_text_query(request: InternalAIQueryRequest) -> dict:
     retrieval_audit = build_retrieval_audit(context_chunks) if request.audit_retrieval else None
     mode = request.mode if request.mode in PROMPTS else "qa"
     prompt = PROMPTS[mode].format(query=request.query, context=context_string)
+    prompt = _apply_personalization_context(
+        prompt,
+        request.learner_profile,
+        request.learner_topic_context,
+        mode=mode,
+    )
     prompt = _apply_language_and_style(
         prompt,
         request.language,
         request.response_length,
         request.expertise_level,
     )
+    prompt = _truncate_to_token_budget(prompt, request.max_prompt_tokens)
 
     llm = get_llm_provider()
+    model_name = request.model_override or settings.llm.model
+    max_completion_tokens = request.max_completion_tokens or LENGTH_TOKENS.get(
+        request.response_length,
+        settings.llm.max_new_tokens,
+    )
     generation_started = time.perf_counter()
     try:
         if mode in SCHEMA_MAP:
             data = await llm.generate_structured(
                 prompt,
                 schema=SCHEMA_MAP[mode],
-                model=settings.llm.model,
+                model=model_name,
                 temperature=settings.llm.temperature,
+                max_tokens=max_completion_tokens,
             )
             data["response"] = json.dumps(data["response"]) # Keep downstream pipeline intact
         else:
             data = await llm.generate(
                 prompt,
-                model=settings.llm.model,
+                model=model_name,
                 temperature=settings.llm.temperature,
-                num_predict=LENGTH_TOKENS.get(request.response_length, settings.llm.max_new_tokens),
+                num_predict=max_completion_tokens,
+                max_tokens=max_completion_tokens,
             )
     except httpx.ConnectError as exc:
         observe_stage_latency("ai_query", "generation", (time.perf_counter() - generation_started) * 1000, "connect_error")
-        raise HTTPException(status_code=503, detail="Cannot connect to AI runtime (Ollama).") from exc
+        raise TraceabilityError("llm.generation", detail="Cannot connect to AI runtime (Ollama).", status_code=503, cause=exc) from exc
     except httpx.TimeoutException as exc:
         observe_stage_latency("ai_query", "generation", (time.perf_counter() - generation_started) * 1000, "timeout")
-        raise HTTPException(status_code=504, detail="AI request timed out. Try a simpler question.") from exc
+        raise TraceabilityError("llm.generation", detail="AI request timed out. Try a simpler question.", status_code=504, cause=exc) from exc
     except httpx.HTTPStatusError as exc:
         observe_stage_latency("ai_query", "generation", (time.perf_counter() - generation_started) * 1000, "http_error")
-        raise HTTPException(status_code=502, detail="AI runtime temporarily unavailable.") from exc
+        raise TraceabilityError("llm.generation", detail="AI runtime temporarily unavailable.", status_code=502, cause=exc) from exc
     observe_stage_latency("ai_query", "generation", (time.perf_counter() - generation_started) * 1000, "success")
 
     answer = sanitize_ai_output(data.get("response", "No response generated."))
@@ -454,6 +569,7 @@ async def execute_text_query(request: InternalAIQueryRequest) -> dict:
         "citation_valid": citation_result["citation_valid"],
         "citation_count": citation_result["citation_count"],
         "retrieval_audit": retrieval_audit,
+        "model_used": model_name,
     }
 
 
@@ -465,23 +581,31 @@ async def execute_audio_overview(request: InternalAudioOverviewRequest) -> dict:
         notebook_id=str(request.notebook_id) if request.notebook_id else None,
     )
     if not context_chunks:
-        raise HTTPException(status_code=422, detail="No study materials found. Upload content first.")
+        raise TraceabilityError("rag.retrieval", detail="No study materials found. Upload content first.", status_code=422)
 
     context_string = build_context_string(context_chunks)
     fmt = request.format if request.format in AUDIO_PROMPTS else "deep_dive"
     prompt = AUDIO_PROMPTS[fmt].format(topic=request.topic, context=context_string)
     if request.language.lower() != "english":
         prompt = f"Respond entirely in {request.language}.\n\n{prompt}"
+    prompt = _truncate_to_token_budget(prompt, request.max_prompt_tokens)
 
     llm = get_llm_provider()
+    model_name = request.model_override or settings.llm.model
     try:
-        data = await llm.generate_structured(prompt, schema=AudioOutput, model=settings.llm.model, temperature=0.7)
+        data = await llm.generate_structured(
+            prompt,
+            schema=AudioOutput,
+            model=model_name,
+            temperature=0.7,
+            max_tokens=request.max_completion_tokens or settings.llm.max_new_tokens,
+        )
     except httpx.ConnectError as exc:
-        raise HTTPException(status_code=503, detail="Cannot connect to Ollama") from exc
+        raise TraceabilityError("llm.generation", detail="Cannot connect to Ollama", status_code=503, cause=exc) from exc
     except httpx.TimeoutException as exc:
-        raise HTTPException(status_code=504, detail="AI request timed out") from exc
+        raise TraceabilityError("llm.generation", detail="AI request timed out", status_code=504, cause=exc) from exc
     except httpx.HTTPStatusError as exc:
-        raise HTTPException(status_code=502, detail="AI runtime error") from exc
+        raise TraceabilityError("llm.generation", detail="AI runtime error", status_code=502, cause=exc) from exc
 
     return data.get("response", {})
 
@@ -493,22 +617,30 @@ async def execute_video_overview(request: InternalVideoOverviewRequest) -> dict:
         top_k=10,
     )
     if not context_chunks:
-        raise HTTPException(status_code=422, detail="No study materials found. Upload content first.")
+        raise TraceabilityError("rag.retrieval", detail="No study materials found. Upload content first.", status_code=422)
 
     context_string = build_context_string(context_chunks)
     num = max(3, min(request.num_slides, 12))
     prompt = VIDEO_PROMPT.format(topic=request.topic, context=context_string, num_slides=num)
     if request.language.lower() != "english":
         prompt = f"Respond entirely in {request.language}.\n\n{prompt}"
+    prompt = _truncate_to_token_budget(prompt, request.max_prompt_tokens)
 
     llm = get_llm_provider()
+    model_name = request.model_override or settings.llm.model
     try:
-        data = await llm.generate_structured(prompt, schema=VideoOutput, model=settings.llm.model, temperature=0.4)
+        data = await llm.generate_structured(
+            prompt,
+            schema=VideoOutput,
+            model=model_name,
+            temperature=0.4,
+            max_tokens=request.max_completion_tokens or settings.llm.max_new_tokens,
+        )
     except httpx.ConnectError as exc:
-        raise HTTPException(status_code=503, detail="Cannot connect to Ollama") from exc
+        raise TraceabilityError("llm.generation", detail="Cannot connect to Ollama", status_code=503, cause=exc) from exc
     except httpx.TimeoutException as exc:
-        raise HTTPException(status_code=504, detail="AI request timed out") from exc
+        raise TraceabilityError("llm.generation", detail="AI request timed out", status_code=504, cause=exc) from exc
     except httpx.HTTPStatusError as exc:
-        raise HTTPException(status_code=502, detail="AI runtime error") from exc
+        raise TraceabilityError("llm.generation", detail="AI runtime error", status_code=502, cause=exc) from exc
 
     return data.get("response", {})

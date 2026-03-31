@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { Bot, Compass, GraduationCap, ShieldCheck, Sparkles, Users } from "lucide-react";
 
 import { MascotLauncher } from "./MascotLauncher";
@@ -93,7 +94,9 @@ export function MascotAssistantPage({ role }: { role: string }) {
                 </section>
 
                 <section className="min-h-[720px]">
-                    <MascotLauncher role={role} fullPage />
+                    <Suspense fallback={<div className="rounded-3xl border border-[var(--border)] bg-[var(--bg-card)] p-8 text-sm text-[var(--text-secondary)]">Loading assistant…</div>}>
+                        <MascotLauncher role={role} fullPage />
+                    </Suspense>
                 </section>
             </div>
         </div>

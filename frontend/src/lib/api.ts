@@ -54,30 +54,52 @@ export class APIError extends Error {
     status: number;
     type: APIErrorType;
     action: string;
+    errorCode?: string;
+    traceId?: string;
+    subsystem?: string;
 
-    constructor(message: string, status: number, type: APIErrorType, action: string) {
+    constructor(message: string, status: number, type: APIErrorType, action: string, errorCode?: string, traceId?: string, subsystem?: string) {
         super(message);
         this.name = "APIError";
         this.status = status;
         this.type = type;
         this.action = action;
+        this.errorCode = errorCode;
+        this.traceId = traceId;
+        this.subsystem = subsystem;
     }
 }
 
-function classifyAPIError(status: number, detail: string): APIError {
+type APIErrorPayload = {
+    detail?: string;
+    error_code?: string;
+    trace_id?: string;
+    subsystem?: string;
+};
+
+function formatAPIErrorMessage(detail: string, errorCode?: string): string {
+    return errorCode ? `${detail} Error Code: ${errorCode}` : detail;
+}
+
+function classifyAPIError(status: number, payload: string | APIErrorPayload): APIError {
+    const detail = typeof payload === "string" ? payload : payload.detail || `HTTP ${status}`;
+    const errorCode = typeof payload === "string" ? undefined : payload.error_code;
+    const traceId = typeof payload === "string" ? undefined : payload.trace_id;
+    const subsystem = typeof payload === "string" ? undefined : payload.subsystem;
+    const message = formatAPIErrorMessage(detail || `HTTP ${status}`, errorCode);
     if (status === 401 || status === 403) {
-        return new APIError(detail || "Authentication required.", status, "auth", "Contact admin");
+        return new APIError(message || "Authentication required.", status, "auth", "Contact admin", errorCode, traceId, subsystem);
     }
     if (status === 429) {
-        return new APIError(detail || "Too many requests.", status, "rate_limit", "Retry now");
+        return new APIError(message || "Too many requests.", status, "rate_limit", "Retry now", errorCode, traceId, subsystem);
     }
     if (status === 400 || status === 422) {
-        return new APIError(detail || "Please check your input and try again.", status, "validation", "Try simplified mode");
+        return new APIError(message || "Please check your input and try again.", status, "validation", "Try simplified mode", errorCode, traceId, subsystem);
     }
     if (status >= 500) {
-        return new APIError(detail || "Service is temporarily unavailable.", status, "service_unavailable", "Retry now");
+        return new APIError(message || "Service is temporarily unavailable.", status, "service_unavailable", "Retry now", errorCode, traceId, subsystem);
     }
-    return new APIError(detail || "Unexpected error.", status, "unknown", "Contact admin");
+    return new APIError(message || "Unexpected error.", status, "unknown", "Contact admin", errorCode, traceId, subsystem);
 }
 
 export function getStoredAccessToken(): string | null {
@@ -167,8 +189,8 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
     });
 
     if (!res.ok) {
-        const error = await res.json().catch(() => ({ detail: "Request failed" }));
-        throw classifyAPIError(res.status, error.detail || `HTTP ${res.status}`);
+        const error = await res.json().catch(() => ({ detail: "Request failed" })) as APIErrorPayload;
+        throw classifyAPIError(res.status, error);
     }
 
     if (res.status === 204) {
@@ -199,10 +221,7 @@ async function apiFormFetch(path: string, formData: FormData) {
 
     const payload = await res.json().catch(() => ({}));
     if (!res.ok) {
-        const detail =
-            (payload && typeof payload === "object" && "detail" in payload ? (payload as { detail?: string }).detail : undefined) ||
-            `HTTP ${res.status}`;
-        throw classifyAPIError(res.status, detail);
+        throw classifyAPIError(res.status, (payload || {}) as APIErrorPayload);
     }
 
     return payload;
@@ -396,6 +415,7 @@ export const api = {
         ocrMetrics: () => apiFetch("/api/admin/observability/ocr-metrics"),
         dispatchObservabilityAlerts: () => apiFetch("/api/admin/observability/alerts/dispatch", { method: "POST" }),
         traceDetail: (traceId: string) => apiFetch(`/api/admin/observability/traces/${traceId}`),
+        traceabilitySummary: (days = 7) => apiFetch(`/api/admin/observability/traceability?days=${days}`),
         complaints: () => apiFetch("/api/admin/complaints"),
         updateComplaint: (id: string, status: string, resolution_note = "") =>
             apiFetch(`/api/admin/complaints/${id}`, {
@@ -718,5 +738,59 @@ export const api = {
             const suffix = query.toString();
             return apiFetch(`/api/mascot/session${suffix ? `?${suffix}` : ""}`, { method: "DELETE" });
         },
+    },
+    personalization: {
+        recommendations: (params?: {
+            active_tool?: string;
+            notebook_id?: string | null;
+            current_surface?: string;
+            current_topic?: string | null;
+            current_query?: string | null;
+        }) => {
+            const query = new URLSearchParams();
+            if (params?.active_tool) query.set("active_tool", params.active_tool);
+            if (params?.notebook_id) query.set("notebook_id", params.notebook_id);
+            if (params?.current_surface) query.set("current_surface", params.current_surface);
+            if (params?.current_topic) query.set("current_topic", params.current_topic);
+            if (params?.current_query) query.set("current_query", params.current_query);
+            const suffix = query.toString();
+            return apiFetch(`/api/personalization/recommendations${suffix ? `?${suffix}` : ""}`);
+        },
+        remediation: (params?: { limit?: number }) => {
+            const query = new URLSearchParams();
+            if (typeof params?.limit === "number") query.set("limit", String(params.limit));
+            const suffix = query.toString();
+            return apiFetch(`/api/personalization/remediation${suffix ? `?${suffix}` : ""}`);
+        },
+        studyPath: (params?: {
+            topic?: string | null;
+            notebook_id?: string | null;
+            subject_id?: string | null;
+            current_surface?: string | null;
+            force_refresh?: boolean;
+        }) => {
+            const query = new URLSearchParams();
+            if (params?.topic) query.set("topic", params.topic);
+            if (params?.notebook_id) query.set("notebook_id", params.notebook_id);
+            if (params?.subject_id) query.set("subject_id", params.subject_id);
+            if (params?.current_surface) query.set("current_surface", params.current_surface);
+            if (params?.force_refresh) query.set("force_refresh", "true");
+            const suffix = query.toString();
+            return apiFetch(`/api/personalization/study-path${suffix ? `?${suffix}` : ""}`);
+        },
+        recordEvent: (data: {
+            event_type: "recommendation_click" | "study_path_open" | "study_path_step_complete";
+            surface?: string;
+            target?: string;
+            item_id?: string;
+        }) =>
+            apiFetch("/api/personalization/events", {
+                method: "POST",
+                body: JSON.stringify(data),
+                keepalive: true,
+            }),
+        metrics: () => apiFetch("/api/personalization/metrics"),
+        completeStudyPathStep: (planId: string, stepId: string) =>
+            apiFetch(`/api/personalization/study-path/${planId}/steps/${stepId}/complete`, { method: "POST" }),
     },
 };

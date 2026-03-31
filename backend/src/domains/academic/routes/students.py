@@ -24,10 +24,31 @@ from src.domains.administrative.models.complaint import Complaint
 from src.domains.academic.models.core import Enrollment, Subject
 from src.domains.platform.models.ai import AIQuery
 from src.domains.platform.models.document import Document
+from src.domains.platform.models.topic_mastery import TopicMastery
 from src.domains.identity.models.tenant import Tenant
 from src.domains.platform.schemas.ai_runtime import InternalStudyToolGenerateRequest, StudyToolGenerateRequest
 from src.domains.platform.services.ai_gateway import run_study_tool
 from src.domains.platform.services.ai_queue import JOB_TYPE_STUDY_TOOL, enqueue_job
+from src.domains.platform.services.learner_profile_service import get_learner_profile_dict
+from src.domains.platform.services.mastery_tracking_service import (
+    build_adaptive_quiz_profile,
+    count_recent_confusion_queries,
+    get_topic_mastery_snapshot,
+    ensure_topic_mastery_seed,
+    record_quiz_completion,
+    record_review_completion,
+    record_study_tool_activity,
+)
+from src.domains.platform.services.metrics_registry import observe_personalization_event
+from src.domains.platform.services.study_path_service import get_active_study_path_for_topic
+from src.domains.platform.services.usage_governance import (
+    apply_model_override,
+    approximate_token_count,
+    evaluate_governance,
+    record_usage_event,
+    resolve_metric_for_mode,
+    resolve_upload_metrics,
+)
 from src.infrastructure.vector_store.citation_linker import make_citations_clickable
 from src.infrastructure.llm.cache import invalidate_tenant_cache
 from utils.upload_security import (
@@ -58,11 +79,90 @@ class ComplaintCreate(BaseModel):
     description: str
 
 
+class QuizResultSubmitRequest(BaseModel):
+    topic: str
+    total_questions: int
+    correct_answers: int
+    subject_id: Optional[str] = None
+    difficulty_breakdown: Optional[dict[str, int]] = None
+
+
 def _parse_uuid(value: str, field_name: str) -> UUID:
     try:
         return UUID(str(value))
     except (TypeError, ValueError):
         raise HTTPException(status_code=400, detail=f"Invalid {field_name}")
+
+
+def _build_study_tool_personalization(
+    db: Session,
+    *,
+    current_user: User,
+    topic: str,
+    subject_uuid: UUID | None,
+) -> tuple[dict | None, dict | None]:
+    learner_profile = get_learner_profile_dict(
+        db,
+        tenant_id=current_user.tenant_id,
+        user_id=current_user.id,
+    )
+    mastery_snapshot = get_topic_mastery_snapshot(
+        db,
+        tenant_id=current_user.tenant_id,
+        user_id=current_user.id,
+        topic=topic,
+        subject_id=subject_uuid,
+    )
+    learner_topic_context = {
+        "topic": topic,
+        "mastery_score": mastery_snapshot.get("mastery_score"),
+        "confidence_score": mastery_snapshot.get("confidence_score"),
+        "focus_concepts": [
+            item.get("concept")
+            for item in mastery_snapshot.get("concepts", [])
+            if isinstance(item, dict) and item.get("concept")
+        ],
+        "repeated_confusion_count": count_recent_confusion_queries(
+            db,
+            tenant_id=current_user.tenant_id,
+            user_id=current_user.id,
+            topic=topic,
+        ),
+    }
+    return learner_profile, learner_topic_context
+
+
+def _record_mastery_outcome_metrics(
+    db: Session,
+    *,
+    current_user: User,
+    topic: str,
+    surface: str,
+    target: str,
+    before_snapshot: dict[str, Any],
+    after_snapshot: dict[str, Any],
+) -> None:
+    before_mastery = float(before_snapshot.get("mastery_score") or 0.0)
+    after_mastery = float(after_snapshot.get("mastery_score") or 0.0)
+    if after_mastery <= before_mastery:
+        return
+
+    observe_personalization_event("mastery_improved", surface=surface, target=target)
+    if before_mastery < 60 <= after_mastery:
+        observe_personalization_event("mastery_recovered", surface=surface, target=target)
+
+    active_plan = get_active_study_path_for_topic(
+        db,
+        tenant_id=current_user.tenant_id,
+        user_id=current_user.id,
+        topic=topic,
+    )
+    if active_plan is None:
+        return
+
+    observe_personalization_event("guided_mastery_improved", surface=surface, target=target)
+    if before_mastery < 60 <= after_mastery:
+        observe_personalization_event("guided_mastery_recovered", surface=surface, target=target)
 
 
 def _extract_json_payload(text: str) -> Any:
@@ -144,8 +244,11 @@ def _normalize_tool_output(tool: str, answer: str) -> Any:
                 options = []
             correct_raw = str(item.get("correct", "")).strip().upper()
             citation = str(item.get("citation", "")).strip()
+            difficulty = str(item.get("difficulty", "medium")).strip().lower()
             match = re.search(r"[A-D]", correct_raw)
             correct = match.group(0) if match else "A"
+            if difficulty not in {"easy", "medium", "hard"}:
+                difficulty = "medium"
             if not question or len(options) < 2 or not citation:
                 continue
             normalized.append(
@@ -154,6 +257,7 @@ def _normalize_tool_output(tool: str, answer: str) -> Any:
                     "options": options,
                     "correct": correct,
                     "citation": citation,
+                    "difficulty": difficulty,
                     "index": idx + 1,
                 }
             )
@@ -785,10 +889,20 @@ async def generate_study_tool(
     db: Session = Depends(get_db),
 ):
     """Generate structured study tools from student's grounded materials."""
-    _ = db
     topic = data.topic.strip()
     if not topic:
         raise HTTPException(status_code=400, detail="topic is required")
+    metric = resolve_metric_for_mode(data.tool)
+    governance = evaluate_governance(
+        db,
+        tenant_id=current_user.tenant_id,
+        user_id=current_user.id,
+        metric=metric,
+        mode=data.tool,
+        estimated_prompt_tokens=approximate_token_count(topic),
+    )
+    if not governance.allowed:
+        raise HTTPException(status_code=429, detail=governance.detail)
 
     from config import settings
     if settings.app.demo_mode:
@@ -916,9 +1030,44 @@ async def generate_study_tool(
                 "citations": [{"source": "Demo Study Materials", "page": "1-6"}],
             },
         }
-        return _mark_demo_payload(
+        payload = _mark_demo_payload(
             demo_tools.get(data.tool, {"data": f"Demo content for {data.tool}: {topic}", "citations": []})
         )
+        record_usage_event(
+            db,
+            tenant_id=current_user.tenant_id,
+            user_id=current_user.id,
+            metric=metric,
+            model_used="demo",
+            metadata={"route": "student.tools.generate", "tool": data.tool},
+        )
+        db.commit()
+        return payload
+
+    subject_uuid = _parse_uuid(data.subject_id, "subject_id") if data.subject_id else None
+    ensure_topic_mastery_seed(
+        db,
+        tenant_id=current_user.tenant_id,
+        user_id=current_user.id,
+        topic=topic,
+        subject_id=subject_uuid,
+        evidence_type="study_tool_requested",
+    )
+    adaptive_quiz_profile = None
+    if data.tool == "quiz":
+        adaptive_quiz_profile = build_adaptive_quiz_profile(
+            db,
+            tenant_id=current_user.tenant_id,
+            user_id=current_user.id,
+            topic=topic,
+            subject_id=subject_uuid,
+        )
+    learner_profile, learner_topic_context = _build_study_tool_personalization(
+        db,
+        current_user=current_user,
+        topic=topic,
+        subject_uuid=subject_uuid,
+    )
 
     result = await run_study_tool(
         InternalStudyToolGenerateRequest(
@@ -927,8 +1076,38 @@ async def generate_study_tool(
             subject_id=data.subject_id,
             notebook_id=data.notebook_id,
             tenant_id=str(current_user.tenant_id),
+            user_id=str(current_user.id),
+            adaptive_quiz_profile=adaptive_quiz_profile,
+            learner_profile=learner_profile,
+            learner_topic_context=learner_topic_context,
+            model_override=apply_model_override(settings.llm.model, settings.llm.fallback_model, governance.model_override),
+            max_prompt_tokens=governance.max_prompt_tokens,
+            max_completion_tokens=governance.max_completion_tokens,
         )
     )
+    record_usage_event(
+        db,
+        tenant_id=current_user.tenant_id,
+        user_id=current_user.id,
+        metric=metric,
+        token_usage=int(result.get("token_usage", 0) or 0),
+        model_used=result.get("model_used") or apply_model_override(settings.llm.model, settings.llm.fallback_model, governance.model_override),
+        used_fallback_model=governance.model_override == "fallback",
+        metadata={
+            "route": "student.tools.generate",
+            "tool": data.tool,
+            "queue_recommended": governance.queue_recommended,
+        },
+    )
+    record_study_tool_activity(
+        db,
+        tenant_id=current_user.tenant_id,
+        user_id=current_user.id,
+        topic=topic,
+        subject_id=subject_uuid,
+        tool=data.tool,
+    )
+    db.commit()
     return make_citations_clickable(result, current_user.tenant_id, db)
 
 
@@ -936,11 +1115,57 @@ async def generate_study_tool(
 async def generate_study_tool_job(
     data: StudyToolGenerateRequest,
     current_user: User = Depends(require_role("student")),
+    db: Session = Depends(get_db),
 ):
     """Queue structured study tool generation for worker execution."""
     topic = data.topic.strip()
     if not topic:
         raise HTTPException(status_code=400, detail="topic is required")
+    metric = resolve_metric_for_mode(data.tool)
+    governance = evaluate_governance(
+        db,
+        tenant_id=current_user.tenant_id,
+        user_id=current_user.id,
+        metric=metric,
+        mode=data.tool,
+        estimated_prompt_tokens=approximate_token_count(topic),
+    )
+    if not governance.allowed:
+        raise HTTPException(status_code=429, detail=governance.detail)
+
+    subject_uuid = _parse_uuid(data.subject_id, "subject_id") if data.subject_id else None
+    adaptive_quiz_profile = None
+    if data.tool == "quiz":
+        adaptive_quiz_profile = build_adaptive_quiz_profile(
+            db,
+            tenant_id=current_user.tenant_id,
+            user_id=current_user.id,
+            topic=topic,
+            subject_id=subject_uuid,
+        )
+    learner_profile, learner_topic_context = _build_study_tool_personalization(
+        db,
+        current_user=current_user,
+        topic=topic,
+        subject_uuid=subject_uuid,
+    )
+    ensure_topic_mastery_seed(
+        db,
+        tenant_id=current_user.tenant_id,
+        user_id=current_user.id,
+        topic=topic,
+        subject_id=subject_uuid,
+        evidence_type="study_tool_queued",
+    )
+    record_study_tool_activity(
+        db,
+        tenant_id=current_user.tenant_id,
+        user_id=current_user.id,
+        topic=topic,
+        subject_id=subject_uuid,
+        tool=data.tool,
+    )
+    db.commit()
 
     payload = InternalStudyToolGenerateRequest(
         tool=data.tool,
@@ -948,6 +1173,13 @@ async def generate_study_tool_job(
         subject_id=data.subject_id,
         notebook_id=data.notebook_id,
         tenant_id=str(current_user.tenant_id),
+        user_id=str(current_user.id),
+        adaptive_quiz_profile=adaptive_quiz_profile,
+        learner_profile=learner_profile,
+        learner_topic_context=learner_topic_context,
+        model_override=governance.model_override,
+        max_prompt_tokens=governance.max_prompt_tokens,
+        max_completion_tokens=governance.max_completion_tokens,
     )
     
     from config import settings
@@ -1013,14 +1245,110 @@ async def generate_study_tool_job(
             _persist_job_state(mock_job)
         except Exception:
             pass
+        record_usage_event(
+            db,
+            tenant_id=current_user.tenant_id,
+            user_id=current_user.id,
+            metric=metric,
+            model_used="demo",
+            metadata={"route": "student.tools.generate.jobs", "tool": data.tool, "queued": True},
+        )
+        record_usage_event(
+            db,
+            tenant_id=current_user.tenant_id,
+            user_id=current_user.id,
+            metric="batch_jobs_queued",
+            metadata={"route": "student.tools.generate.jobs", "tool": data.tool},
+        )
+        db.commit()
         return build_public_job_response(mock_job)
 
-    return enqueue_job(
+    response = enqueue_job(
         JOB_TYPE_STUDY_TOOL,
         payload.model_dump(mode="json"),
         tenant_id=str(current_user.tenant_id),
         user_id=str(current_user.id),
     )
+    record_usage_event(
+        db,
+        tenant_id=current_user.tenant_id,
+        user_id=current_user.id,
+        metric=metric,
+        used_fallback_model=governance.model_override == "fallback",
+        metadata={"route": "student.tools.generate.jobs", "tool": data.tool, "queued": True},
+    )
+    record_usage_event(
+        db,
+        tenant_id=current_user.tenant_id,
+        user_id=current_user.id,
+        metric="batch_jobs_queued",
+        metadata={"route": "student.tools.generate.jobs", "tool": data.tool},
+    )
+    db.commit()
+    return response
+
+
+@router.post("/tools/quiz-results")
+async def submit_quiz_result(
+    data: QuizResultSubmitRequest,
+    current_user: User = Depends(require_role("student")),
+    db: Session = Depends(get_db),
+):
+    """Persist quiz performance as mastery evidence for adaptive learning."""
+    topic = data.topic.strip()
+    if not topic:
+        raise HTTPException(status_code=400, detail="topic is required")
+    if data.total_questions <= 0:
+        raise HTTPException(status_code=400, detail="total_questions must be greater than zero")
+    if data.correct_answers < 0 or data.correct_answers > data.total_questions:
+        raise HTTPException(status_code=400, detail="correct_answers must be between 0 and total_questions")
+
+    difficulty_breakdown = data.difficulty_breakdown or {}
+    for key, value in difficulty_breakdown.items():
+        if key not in {"easy", "medium", "hard"} or value < 0:
+            raise HTTPException(status_code=400, detail="difficulty_breakdown must only contain easy, medium, hard with non-negative counts")
+
+    subject_uuid = _parse_uuid(data.subject_id, "subject_id") if data.subject_id else None
+    before_snapshot = get_topic_mastery_snapshot(
+        db,
+        tenant_id=current_user.tenant_id,
+        user_id=current_user.id,
+        topic=topic,
+        subject_id=subject_uuid,
+    )
+    record_quiz_completion(
+        db,
+        tenant_id=current_user.tenant_id,
+        user_id=current_user.id,
+        topic=topic,
+        total_questions=data.total_questions,
+        correct_answers=data.correct_answers,
+        subject_id=subject_uuid,
+        difficulty_breakdown=difficulty_breakdown,
+    )
+    db.commit()
+    snapshot = get_topic_mastery_snapshot(
+        db,
+        tenant_id=current_user.tenant_id,
+        user_id=current_user.id,
+        topic=topic,
+        subject_id=subject_uuid,
+    )
+    _record_mastery_outcome_metrics(
+        db,
+        current_user=current_user,
+        topic=topic,
+        surface="quiz_results",
+        target="quiz",
+        before_snapshot=before_snapshot,
+        after_snapshot=snapshot,
+    )
+    return {
+        "success": True,
+        "topic": topic,
+        "accuracy": round((data.correct_answers / data.total_questions) * 100.0, 1),
+        "mastery": snapshot,
+    }
 
 
 @router.post("/upload")
@@ -1056,6 +1384,17 @@ async def student_upload(
             raise HTTPException(status_code=400, detail=str(exc))
     if len(content) > MAX_FILE_SIZE:
         raise HTTPException(status_code=400, detail="File exceeds 25MB limit.")
+    upload_metrics = resolve_upload_metrics(ext)
+    for metric in upload_metrics:
+        governance = evaluate_governance(
+            db,
+            tenant_id=current_user.tenant_id,
+            user_id=current_user.id,
+            metric=metric,
+            mode=metric,
+        )
+        if not governance.allowed:
+            raise HTTPException(status_code=429, detail=governance.detail)
 
     # OCR: convert image to PDF for RAG ingestion
     if ext in ("jpg", "jpeg", "png"):
@@ -1140,6 +1479,19 @@ async def student_upload(
         invalidate_tenant_cache(str(current_user.tenant_id))
 
         doc.ingestion_status = "completed"
+        for metric in upload_metrics:
+            record_usage_event(
+                db,
+                tenant_id=current_user.tenant_id,
+                user_id=current_user.id,
+                metric=metric,
+                metadata={
+                    "route": "student.upload",
+                    "file_type": ext,
+                    "document_id": str(doc.id),
+                    "ocr_processed": ocr_processed,
+                },
+            )
         db.commit()
     except Exception:
         logger.exception("Student document ingestion failed", extra={"document_id": str(doc.id)})
@@ -1229,9 +1581,43 @@ async def student_weak_topics(
         else:
             strong.append(entry)
 
+    mastery_rows = (
+        db.query(TopicMastery)
+        .filter(
+            TopicMastery.tenant_id == current_user.tenant_id,
+            TopicMastery.user_id == current_user.id,
+            TopicMastery.concept == "core",
+            TopicMastery.mastery_score < 60,
+        )
+        .order_by(TopicMastery.mastery_score.asc(), TopicMastery.updated_at.desc())
+        .limit(5)
+        .all()
+    )
+    mastery_topics = []
+    for row in mastery_rows:
+        subject_name = None
+        if row.subject_id:
+            subject = db.query(Subject).filter(
+                Subject.id == row.subject_id,
+                Subject.tenant_id == current_user.tenant_id,
+            ).first()
+            subject_name = subject.name if subject else None
+        mastery_topics.append(
+            {
+                "topic": row.topic,
+                "subject": subject_name,
+                "mastery_score": round(float(row.mastery_score), 1),
+                "confidence_score": round(float(row.confidence_score), 2),
+                "review_due_at": str(row.review_due_at) if row.review_due_at else None,
+                "last_evidence_type": row.last_evidence_type,
+            }
+        )
+
     return {
         "weak_topics": sorted(weak, key=lambda x: x["average_score"]),
         "strong_topics": sorted(strong, key=lambda x: -x["average_score"]),
+        "mastery_topics": mastery_topics,
+        "recommended_focus_topics": [item["topic"] for item in mastery_topics[:3]],
         "total_subjects": len(performances),
         "weak_count": len(weak),
     }
@@ -1337,6 +1723,14 @@ async def create_review(
         review_count=0,
     )
     db.add(review)
+    ensure_topic_mastery_seed(
+        db,
+        tenant_id=current_user.tenant_id,
+        user_id=current_user.id,
+        topic=topic,
+        subject_id=subject_uuid,
+        evidence_type="review_created",
+    )
     db.commit()
     db.refresh(review)
 
@@ -1379,7 +1773,39 @@ async def complete_review(
     review.review_count += 1
     review.next_review_at = datetime.now(timezone.utc) + timedelta(days=new_interval)
     review.updated_at = datetime.now(timezone.utc)
+    before_snapshot = get_topic_mastery_snapshot(
+        db,
+        tenant_id=current_user.tenant_id,
+        user_id=current_user.id,
+        topic=review.topic,
+        subject_id=review.subject_id,
+    )
+    record_review_completion(
+        db,
+        tenant_id=current_user.tenant_id,
+        user_id=current_user.id,
+        topic=review.topic,
+        rating=data.rating,
+        next_review_at=review.next_review_at,
+        subject_id=review.subject_id,
+    )
     db.commit()
+    after_snapshot = get_topic_mastery_snapshot(
+        db,
+        tenant_id=current_user.tenant_id,
+        user_id=current_user.id,
+        topic=review.topic,
+        subject_id=review.subject_id,
+    )
+    _record_mastery_outcome_metrics(
+        db,
+        current_user=current_user,
+        topic=review.topic,
+        surface="review_completion",
+        target="review",
+        before_snapshot=before_snapshot,
+        after_snapshot=after_snapshot,
+    )
 
     return {
         "success": True,

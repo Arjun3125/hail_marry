@@ -107,12 +107,17 @@ class OllamaLLM(BaseLLM):
         from langchain_ollama import ChatOllama
         model = kwargs.get("model", settings.llm.model)
         temperature = kwargs.get("temperature", settings.llm.temperature)
+        max_tokens = kwargs.get("max_tokens")
 
-        llm = ChatOllama(
-            model=model,
-            temperature=temperature,
-            base_url=settings.llm.url
-        )
+        init_kwargs = {
+            "model": model,
+            "temperature": temperature,
+            "base_url": settings.llm.url,
+        }
+        if max_tokens:
+            init_kwargs["num_predict"] = max_tokens
+
+        llm = ChatOllama(**init_kwargs)
         
         structured_llm = llm.with_structured_output(schema)
         # We invoke it with the prompt
@@ -132,7 +137,11 @@ class OpenAILLM(BaseLLM):
         from langchain_openai import ChatOpenAI
         model = kwargs.get("model", settings.llm.model)
         temperature = kwargs.get("temperature", settings.llm.temperature)
-        llm = ChatOpenAI(model=model, temperature=temperature, api_key=settings.llm.openai_api_key)
+        max_tokens = kwargs.get("max_tokens")
+        llm_kwargs = {"model": model, "temperature": temperature, "api_key": settings.llm.openai_api_key}
+        if max_tokens:
+            llm_kwargs["max_tokens"] = max_tokens
+        llm = ChatOpenAI(**llm_kwargs)
         result = await llm.ainvoke(prompt)
         return {
             "response": result.content,
@@ -143,7 +152,11 @@ class OpenAILLM(BaseLLM):
         from langchain_openai import ChatOpenAI
         model = kwargs.get("model", settings.llm.model)
         temperature = kwargs.get("temperature", settings.llm.temperature)
-        llm = ChatOpenAI(model=model, temperature=temperature, api_key=settings.llm.openai_api_key)
+        max_tokens = kwargs.get("max_tokens")
+        llm_kwargs = {"model": model, "temperature": temperature, "api_key": settings.llm.openai_api_key}
+        if max_tokens:
+            llm_kwargs["max_tokens"] = max_tokens
+        llm = ChatOpenAI(**llm_kwargs)
         structured_llm = llm.with_structured_output(schema)
         result = await structured_llm.ainvoke(prompt)
         return {
@@ -160,7 +173,11 @@ class GroqLLM(BaseLLM):
         from langchain_groq import ChatGroq
         model = kwargs.get("model", settings.llm.model)
         temperature = kwargs.get("temperature", settings.llm.temperature)
-        llm = ChatGroq(model=model, temperature=temperature, api_key=settings.llm.groq_api_key)
+        max_tokens = kwargs.get("max_tokens")
+        llm_kwargs = {"model": model, "temperature": temperature, "api_key": settings.llm.groq_api_key}
+        if max_tokens:
+            llm_kwargs["max_tokens"] = max_tokens
+        llm = ChatGroq(**llm_kwargs)
         result = await llm.ainvoke(prompt)
         return {
             "response": result.content,
@@ -171,7 +188,11 @@ class GroqLLM(BaseLLM):
         from langchain_groq import ChatGroq
         model = kwargs.get("model", settings.llm.model)
         temperature = kwargs.get("temperature", settings.llm.temperature)
-        llm = ChatGroq(model=model, temperature=temperature, api_key=settings.llm.groq_api_key)
+        max_tokens = kwargs.get("max_tokens")
+        llm_kwargs = {"model": model, "temperature": temperature, "api_key": settings.llm.groq_api_key}
+        if max_tokens:
+            llm_kwargs["max_tokens"] = max_tokens
+        llm = ChatGroq(**llm_kwargs)
         structured_llm = llm.with_structured_output(schema)
         result = await structured_llm.ainvoke(prompt)
         return {

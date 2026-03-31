@@ -3,17 +3,20 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timedelta, timezone
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 
 from auth.dependencies import get_current_user
-from database import SessionLocal, get_async_session
+from database import SessionLocal, get_async_session, get_db
 from src.domains.identity.models.user import User
 from src.domains.platform.models.audit import AuditLog
 from src.domains.platform.routes.whatsapp import _build_whatsapp_usage_snapshot
 from src.domains.platform.services.alerting import get_active_alerts
+from src.domains.platform.services.learner_profile_service import get_learner_profile_dict
 from src.domains.platform.services.metrics_registry import snapshot_stage_latency_metrics
 from src.domains.platform.services.whatsapp_gateway import get_whatsapp_metrics
 from src.domains.platform.services.mascot_orchestrator import (
@@ -25,6 +28,7 @@ from src.domains.platform.services.mascot_orchestrator import (
     handle_mascot_message,
 )
 from src.domains.platform.services.mascot_schemas import MascotConfirmRequest, MascotMessageRequest, MascotUIContext
+from src.domains.platform.services.mastery_tracking_service import build_profile_aware_recommendations
 
 router = APIRouter(prefix="/api/mascot", tags=["mascot"])
 
@@ -378,7 +382,45 @@ async def mascot_suggestions(
     notebook_id: str | None = Query(default=None),
     current_page_entity: str | None = Query(default=None),
     current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
+    if current_user.role == "student":
+        notebook_uuid = None
+        if notebook_id:
+            try:
+                notebook_uuid = UUID(str(notebook_id))
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail="Invalid notebook_id") from exc
+
+        route = (current_route or "").lower()
+        if "ai-studio" in route:
+            current_surface = "ai_studio"
+        elif "overview" in route:
+            current_surface = "overview"
+        elif "assistant" in route:
+            current_surface = "assistant"
+        elif "upload" in route:
+            current_surface = "upload"
+        else:
+            current_surface = None
+
+        learner_profile = get_learner_profile_dict(
+            db,
+            tenant_id=current_user.tenant_id,
+            user_id=current_user.id,
+        )
+        items = build_profile_aware_recommendations(
+            db,
+            tenant_id=current_user.tenant_id,
+            user_id=current_user.id,
+            notebook_id=notebook_uuid,
+            current_surface=current_surface,
+            learner_profile=learner_profile,
+        )
+        db.commit()
+        if items:
+            return {"suggestions": [str(item.get("label") or item.get("prompt") or "") for item in items[:4] if item.get("label") or item.get("prompt")]}
+
     return {
         "suggestions": get_mascot_suggestions(
             role=current_user.role,

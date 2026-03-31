@@ -11,6 +11,7 @@ from database import get_db
 from src.domains.identity.models.user import User
 from src.domains.platform.schemas.ai_runtime import IngestURLRequest, InternalIngestURLRequest
 from src.domains.platform.services.ai_queue import JOB_TYPE_URL_INGEST, enqueue_job
+from src.domains.platform.services.usage_governance import evaluate_governance, record_usage_event
 
 router = APIRouter(prefix="/api/ai", tags=["AI Discovery"])
 
@@ -74,14 +75,32 @@ async def ingest_url(
     _ = db
     if current_user.role not in ("teacher", "admin"):
         raise HTTPException(status_code=403, detail="Only teachers and admins can ingest sources")
+    governance = evaluate_governance(
+        db,
+        tenant_id=current_user.tenant_id,
+        user_id=current_user.id,
+        metric="youtube_ingestions" if "youtube.com" in request.url or "youtu.be" in request.url else "documents_uploaded",
+        mode="qa",
+    )
+    if not governance.allowed:
+        raise HTTPException(status_code=429, detail=governance.detail)
 
     payload = InternalIngestURLRequest(
         **request.model_dump(),
         tenant_id=str(current_user.tenant_id),
     )
-    return enqueue_job(
+    response = enqueue_job(
         JOB_TYPE_URL_INGEST,
         payload.model_dump(),
         tenant_id=str(current_user.tenant_id),
         user_id=str(current_user.id),
     )
+    record_usage_event(
+        db,
+        tenant_id=current_user.tenant_id,
+        user_id=current_user.id,
+        metric="youtube_ingestions" if "youtube.com" in request.url or "youtu.be" in request.url else "documents_uploaded",
+        metadata={"route": "ai.ingest-url", "queued": True},
+    )
+    db.commit()
+    return response

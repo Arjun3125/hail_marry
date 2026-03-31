@@ -37,6 +37,7 @@ from src.domains.platform.services.mascot_registry import capability_requires_co
 from src.domains.platform.services.mascot_schemas import MascotAction, MascotMessageRequest, MascotMessageResponse, PendingMascotAction
 from src.domains.platform.services.mascot_session_store import build_session_id, clear_session, delete_pending_action, load_pending_action, load_session, mutation_seen_recently, remember_mutation, save_session, store_pending_action
 from src.domains.platform.services.metrics_registry import observe_stage_latency
+from src.domains.platform.services.study_path_service import get_or_create_study_path
 from src.domains.platform.services.trace_backend import record_trace_event
 from src.shared.ocr_imports import extract_upload_content_result, get_extension, parse_account_rows_with_diagnostics, parse_attendance_rows_with_diagnostics, parse_marks_rows_with_diagnostics, parse_student_import_rows_with_diagnostics
 from src.infrastructure.llm.providers import get_llm_provider
@@ -73,6 +74,21 @@ _ROLE_REPORTS = {
     "admin_onboarding_report": ("setup progress", "setup status", "onboarding progress", "wizard progress", "school setup progress"),
     "admin_ai_review_report": ("ai review summary", "review queue", "pending ai review", "ai review status"),
 }
+_STUDY_PATH_REPORT_MARKERS = (
+    "study path",
+    "learning path",
+    "remediation plan",
+    "what should i study next",
+    "what do i study next",
+    "next 3 actions",
+)
+_STUDY_PATH_EXECUTE_MARKERS = (
+    "continue learning",
+    "continue study path",
+    "start my study path",
+    "do the next step",
+    "next step for me",
+)
 _TEACHER_ASSESSMENT_MARKERS = ("generate assessment", "create assessment", "create test", "generate test", "question paper", "worksheet")
 _STRUCTURED_IMPORT_MARKERS = {
     "teacher_roster_import": ("student roster", "student list", "onboard students", "import students", "roster"),
@@ -250,6 +266,27 @@ def _detect_role_report(message: str, role: str | None) -> str | None:
     return None
 
 
+def _detect_study_path_intent(message: str, role: str | None) -> str | None:
+    if (role or "").strip().lower() != "student":
+        return None
+    lowered = _clean(message).lower()
+    if any(marker in lowered for marker in _STUDY_PATH_EXECUTE_MARKERS):
+        return "study_path_execute"
+    if any(marker in lowered for marker in _STUDY_PATH_REPORT_MARKERS):
+        return "study_path_report"
+    return None
+
+
+def _study_path_topic_from_message(message: str) -> str | None:
+    text = _strip_urls(_clean(message))
+    lowered = text.lower()
+    for marker in (*_STUDY_PATH_EXECUTE_MARKERS, *_STUDY_PATH_REPORT_MARKERS):
+        if lowered.startswith(marker):
+            remainder = text[len(marker):].strip(" :-?")
+            return remainder or None
+    return None
+
+
 def _detect_teacher_assessment(message: str, role: str | None) -> bool:
     normalized_role = (role or "").strip().lower()
     lowered = _clean(message).lower()
@@ -321,6 +358,10 @@ def _parse_int_hint(value: Any) -> int | None:
 
 
 def _follow_ups(intent: str, notebook_name: str | None = None) -> list[str]:
+    if intent == "study_path_report":
+        return ["Continue learning", "Generate flashcards for my weak topic", "Open AI Studio"]
+    if intent == "study_path_execute":
+        return ["Show my study path", "Generate a quiz for this topic", "Open AI Studio"]
     if intent == "notebook_create":
         label = notebook_name or "this notebook"
         return [f"Generate flashcards from {label}", f"Create a flowchart for {label}", f"Open {label} in AI Studio"]
@@ -506,6 +547,30 @@ def _format_whatsapp_reply(reply: str, *, intent: str, artifacts: list[dict[str,
                 if preview:
                     formatted = preview
                     break
+    if intent in {"study_path_report", "study_path_execute"}:
+        for artifact in artifacts:
+            if isinstance(artifact, dict) and artifact.get("tool") == "study_path":
+                plan = artifact.get("plan") or {}
+                items = plan.get("items") if isinstance(plan, dict) else []
+                lines = ["Study path:"]
+                for index, item in enumerate(items[:3], start=1):
+                    if not isinstance(item, dict):
+                        continue
+                    title = _clean(str(item.get("title") or f"Step {index}"))
+                    status = _clean(str(item.get("status") or "pending"))
+                    lines.append(f"{index}. {title} ({status})")
+                if isinstance(plan, dict) and isinstance(plan.get("next_action"), dict):
+                    lines.append(f"Next: {_clean(str(plan['next_action'].get('title') or 'Continue the next step'))}")
+                if intent == "study_path_execute":
+                    for extra in artifacts:
+                        if isinstance(extra, dict) and extra.get("tool") in {"quiz", "flashcards", "mindmap", "flowchart", "concept_map"}:
+                            preview = _format_whatsapp_study_artifact(extra)
+                            if preview:
+                                lines.append("")
+                                lines.append(preview)
+                                break
+                formatted = "\n".join(lines)
+                break
     return _whatsapp_nav(formatted, navigation)
 
 
@@ -749,6 +814,10 @@ async def _interpret(request: MascotMessageRequest) -> _ResolvedIntent:
     if role_report:
         actions.append({"intent": role_report, "kind": "query"})
 
+    study_path_intent = _detect_study_path_intent(translated, request.role)
+    if study_path_intent:
+        actions.append({"intent": study_path_intent, "kind": "query", "topic": _study_path_topic_from_message(translated)})
+
     if _detect_teacher_assessment(translated, request.role):
         actions.append(
             {
@@ -981,6 +1050,77 @@ async def _execute_actions(
             artifacts.append({"tool": "parent_progress_report", **progress})
             results.append(MascotAction(kind="query", status="completed", payload={"report": "parent_progress_report"}, result_summary=progress["summary"]))
             reply_parts.append(progress["summary"])
+            continue
+
+        if action["intent"] == "study_path_report":
+            topic = action.get("topic") or translated_message
+            plan = await _build_study_path_plan(
+                session,
+                request,
+                topic=topic,
+                current_surface=_ui_metadata(request).get("current_surface") or (request.ui_context.current_route if request.ui_context else None),
+            )
+            next_action = plan.get("next_action") if isinstance(plan, dict) else None
+            summary = f"Your current study path for {plan.get('focus_topic') or 'this topic'} has {len(plan.get('items') or [])} steps."
+            if isinstance(next_action, dict):
+                summary += f" Next: {next_action.get('title') or 'continue the next step'}."
+            artifacts.append({"tool": "study_path", "plan": plan})
+            results.append(MascotAction(kind="query", status="completed", payload={"report": "study_path_report", "plan_id": plan.get("id")}, result_summary=summary))
+            reply_parts.append(summary)
+            continue
+
+        if action["intent"] == "study_path_execute":
+            topic = action.get("topic") or translated_message
+            plan = await _build_study_path_plan(
+                session,
+                request,
+                topic=topic,
+                current_surface=_ui_metadata(request).get("current_surface") or (request.ui_context.current_route if request.ui_context else None),
+            )
+            artifacts.append({"tool": "study_path", "plan": plan})
+            next_action = plan.get("next_action") if isinstance(plan, dict) else None
+            if not isinstance(next_action, dict):
+                summary = "I could not find a pending study-path step for you right now."
+                results.append(MascotAction(kind="query", status="completed", payload={"report": "study_path_execute", "plan_id": plan.get("id")}, result_summary=summary))
+                reply_parts.append(summary)
+                continue
+
+            next_tool = str(next_action.get("target_tool") or "study_guide").strip()
+            next_prompt = str(next_action.get("prompt") or plan.get("focus_topic") or translated_message).strip()
+            if next_tool in _TOOLS:
+                tool_result = await run_study_tool(
+                    InternalStudyToolGenerateRequest(
+                        tenant_id=request.tenant_id or "",
+                        user_id=request.user_id,
+                        tool=next_tool,
+                        topic=next_prompt,
+                        notebook_id=active_notebook.id if active_notebook else _safe_uuid(request.notebook_id),
+                    ),
+                    trace_id=trace_id,
+                )
+                artifacts.append({"tool": next_tool, "data": tool_result.get("data"), "citations": tool_result.get("citations", [])})
+                summary = f"Started your study path with: {next_action.get('title') or next_tool.replace('_', ' ')}."
+                results.append(MascotAction(kind="query", status="completed", payload={"report": "study_path_execute", "plan_id": plan.get("id"), "target_tool": next_tool}, result_summary=summary))
+                reply_parts.append(summary)
+                continue
+
+            mode = next_tool if next_tool in _QUERY_MODES or next_tool == "qa" else "study_guide"
+            query_result = await run_text_query(
+                InternalAIQueryRequest(
+                    tenant_id=request.tenant_id or "",
+                    user_id=request.user_id,
+                    query=next_prompt,
+                    mode=mode,
+                    notebook_id=active_notebook.id if active_notebook else _safe_uuid(request.notebook_id),
+                ),
+                trace_id=trace_id,
+            )
+            artifacts.append({"tool": mode, "answer": query_result.get("answer"), "citations": query_result.get("citations", []), "mode": query_result.get("mode")})
+            summary = f"Started your study path with: {next_action.get('title') or mode.replace('_', ' ')}."
+            results.append(MascotAction(kind="query", status="completed", payload={"report": "study_path_execute", "plan_id": plan.get("id"), "target_tool": mode}, result_summary=summary))
+            reply_parts.append(summary)
+            if query_result.get("answer"):
+                reply_parts.append(str(query_result["answer"]).strip())
             continue
 
         if action["intent"] == "admin_release_gate_report":
@@ -2146,6 +2286,46 @@ async def _build_parent_progress_report(session: AsyncSession, request: MascotMe
         "results": results,
         "weak_subjects": weak_subjects,
     }
+
+
+async def _build_study_path_plan(
+    session: AsyncSession,
+    request: MascotMessageRequest,
+    *,
+    topic: str | None,
+    current_surface: str | None = None,
+    force_refresh: bool = False,
+) -> dict[str, Any]:
+    tenant_uuid = _safe_uuid(request.tenant_id)
+    user_uuid = _safe_uuid(request.user_id)
+    notebook_uuid = _safe_uuid(request.notebook_id)
+    if tenant_uuid is None or user_uuid is None:
+        return {
+            "id": None,
+            "focus_topic": _clean(topic or "") or "your next topic",
+            "items": [],
+            "next_action": None,
+            "status": "unavailable",
+            "source_context": {},
+        }
+
+    def _run(sync_session):
+        return get_or_create_study_path(
+            sync_session,
+            tenant_id=tenant_uuid,
+            user_id=user_uuid,
+            topic=_clean(topic or "") or None,
+            notebook_id=notebook_uuid,
+            current_surface=current_surface,
+            force_refresh=force_refresh,
+        )
+
+    if hasattr(session, "run_sync"):
+        return await session.run_sync(_run)
+    sync_session = getattr(session, "_session", None)
+    if sync_session is None:
+        raise AttributeError("Mascot session wrapper does not expose a synchronous session for study-path access.")
+    return _run(sync_session)
 
 
 async def _build_admin_onboarding_report(session: AsyncSession, request: MascotMessageRequest) -> dict[str, Any]:

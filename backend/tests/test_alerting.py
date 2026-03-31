@@ -161,6 +161,22 @@ class AlertingTests(unittest.TestCase):
         codes = [a["code"] for a in alerts]
         self.assertNotIn("mascot_failure_rate_high", codes)
 
+    def test_traceability_error_alert_when_critical_code_repeats(self):
+        from src.domains.platform.services import alerting
+
+        trace_rows = [
+            {"error_code": "WA-CONN-001", "subsystem": "whatsapp", "severity": "critical", "count": 4.0},
+        ]
+        with patch.object(alerting, "get_queue_metrics", return_value=_make_metrics()), \
+             patch.object(alerting, "snapshot_stage_latency_metrics", return_value=[]), \
+             patch.object(alerting, "snapshot_traceability_error_metrics", return_value=trace_rows):
+            alerts = alerting.get_active_alerts("t1")
+
+        traceability_alert = next((alert for alert in alerts if alert["code"] == "traceability_error_spike"), None)
+        self.assertIsNotNone(traceability_alert)
+        self.assertEqual(traceability_alert["error_code"], "WA-CONN-001")
+        self.assertEqual(traceability_alert["subsystem"], "whatsapp")
+
 
 if __name__ == "__main__":
     unittest.main()

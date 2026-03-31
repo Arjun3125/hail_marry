@@ -55,16 +55,16 @@ const roleConfig: Record<RoleKey, { title: string; checklist: ChecklistItem[]; t
         title: "Student first-run checklist",
         checklist: [
             { label: "Check timetable and assignments", href: "/student/timetable" },
-            { label: "Ask your first AI question", href: "/student/ai" },
+            { label: "Open the mascot study assistant", href: "/student/assistant" },
             { label: "Upload study material", href: "/student/upload" },
         ],
         todayTasks: [
             { label: "Today’s tasks: complete pending assignment", href: "/student/assignments" },
             { label: "Revise weak topics", href: "/student/reviews" },
-            { label: "Use AI study tools", href: "/student/tools" },
+            { label: "Continue in AI Studio", href: "/student/ai-studio" },
         ],
         help: [
-            { title: "Study workflow", detail: "Ask short focused questions first, then request detailed explanations." },
+            { title: "Study workflow", detail: "Start in the mascot assistant, then continue deeper practice in AI Studio." },
             { title: "If AI is delayed", detail: "Switch to brief responses or retry after queue estimate updates." },
         ],
     },

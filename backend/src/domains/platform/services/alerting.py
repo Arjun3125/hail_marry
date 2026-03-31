@@ -5,7 +5,11 @@ from typing import Any
 
 from config import settings
 from src.domains.platform.services.ai_queue import get_queue_metrics
-from src.domains.platform.services.metrics_registry import snapshot_ocr_metrics, snapshot_stage_latency_metrics
+from src.domains.platform.services.metrics_registry import (
+    snapshot_ocr_metrics,
+    snapshot_stage_latency_metrics,
+    snapshot_traceability_error_metrics,
+)
 
 
 def _build_stage_latency_alerts() -> list[dict[str, Any]]:
@@ -82,6 +86,32 @@ def _build_mascot_failure_alerts() -> list[dict[str, Any]]:
     return alerts
 
 
+def _build_traceability_error_alerts() -> list[dict[str, Any]]:
+    alerts: list[dict[str, Any]] = []
+    for row in snapshot_traceability_error_metrics():
+        count = int(row.get("count", 0) or 0)
+        severity = str(row.get("severity") or "error")
+        threshold = (
+            settings.observability.traceability_min_events_for_alert
+            if severity == "critical"
+            else settings.observability.traceability_warning_events_for_alert
+        )
+        if count < threshold:
+            continue
+        alerts.append({
+            "code": "traceability_error_spike",
+            "severity": "critical" if severity == "critical" else "warning",
+            "message": (
+                f"Traceability error {row.get('error_code')} in subsystem "
+                f"{row.get('subsystem')} occurred {count} time(s)."
+            ),
+            "error_code": row.get("error_code"),
+            "subsystem": row.get("subsystem"),
+            "event_count": count,
+        })
+    return alerts
+
+
 def get_active_alerts(tenant_id: str) -> list[dict[str, Any]]:
     if not settings.observability.alerting_enabled:
         return []
@@ -151,4 +181,5 @@ def get_active_alerts(tenant_id: str) -> list[dict[str, Any]]:
 
     alerts.extend(_build_stage_latency_alerts())
     alerts.extend(_build_mascot_failure_alerts())
+    alerts.extend(_build_traceability_error_alerts())
     return alerts

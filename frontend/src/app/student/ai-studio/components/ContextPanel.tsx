@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
     FileText,
     StickyNote,
@@ -10,19 +11,50 @@ import {
     ChevronRight,
     ChevronLeft,
     Globe,
+    Loader2,
+    Sparkles,
 } from "lucide-react";
+import { api } from "@/lib/api";
 
 interface ContextPanelProps {
     collapsed: boolean;
     onToggleCollapse: () => void;
     notebookId: string | null;
+    activeTool: string;
 }
 
-export function ContextPanel({ collapsed, onToggleCollapse, notebookId }: ContextPanelProps) {
+type PersonalizedSuggestion = {
+    id: string;
+    label: string;
+    description: string;
+    prompt: string;
+    target_tool?: string;
+    priority?: string;
+    reason?: string;
+};
+
+const validTools = new Set([
+    "qa",
+    "study_guide",
+    "socratic",
+    "quiz",
+    "flashcards",
+    "perturbation",
+    "debate",
+    "essay_review",
+    "mindmap",
+    "flowchart",
+    "concept_map",
+]);
+
+export function ContextPanel({ collapsed, onToggleCollapse, notebookId, activeTool }: ContextPanelProps) {
+    const router = useRouter();
     const [activeTab, setActiveTab] = useState<"citations" | "notes" | "suggestions" | "history">("citations");
     const [language, setLanguage] = useState("english");
     const [responseLength, setResponseLength] = useState("default");
     const [expertiseLevel, setExpertiseLevel] = useState("standard");
+    const [suggestions, setSuggestions] = useState<PersonalizedSuggestion[]>([]);
+    const [loadingSuggestions, setLoadingSuggestions] = useState(false);
 
     const tabs = [
         { id: "citations", label: "Sources", icon: FileText },
@@ -30,6 +62,47 @@ export function ContextPanel({ collapsed, onToggleCollapse, notebookId }: Contex
         { id: "suggestions", label: "Hints", icon: Lightbulb },
         { id: "history", label: "Recent", icon: History },
     ];
+
+    useEffect(() => {
+        let cancelled = false;
+        setLoadingSuggestions(true);
+        api.personalization.recommendations({
+            active_tool: activeTool,
+            notebook_id: notebookId,
+            current_surface: "ai_studio_context_panel",
+        }).then((payload) => {
+            if (cancelled) return;
+            const items = Array.isArray((payload as { items?: PersonalizedSuggestion[] }).items)
+                ? ((payload as { items: PersonalizedSuggestion[] }).items || [])
+                : [];
+            setSuggestions(items.slice(0, 3));
+        }).catch(() => {
+            if (!cancelled) {
+                setSuggestions([]);
+            }
+        }).finally(() => {
+            if (!cancelled) {
+                setLoadingSuggestions(false);
+            }
+        });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [activeTool, notebookId]);
+
+    const recommendationHref = useMemo(() => {
+        return (item: PersonalizedSuggestion) => {
+            const params = new URLSearchParams();
+            const targetTool = item.target_tool && validTools.has(item.target_tool) ? item.target_tool : activeTool;
+            params.set("tool", targetTool);
+            params.set("prompt", item.prompt);
+            if (notebookId) {
+                params.set("notebook_id", notebookId);
+            }
+            return `/student/ai-studio?${params.toString()}`;
+        };
+    }, [activeTool, notebookId]);
 
     if (collapsed) {
         return (
@@ -118,7 +191,40 @@ export function ContextPanel({ collapsed, onToggleCollapse, notebookId }: Contex
 
                 {activeTab === "suggestions" && (
                     <div className="space-y-3">
-                        <p className="text-xs text-[var(--text-muted)]">AI suggestions will appear after responses</p>
+                        <div className="flex items-center justify-between gap-2">
+                            <p className="text-xs text-[var(--text-muted)]">Personalized next steps for this tool.</p>
+                            {loadingSuggestions ? <Loader2 className="h-3.5 w-3.5 animate-spin text-[var(--text-muted)]" /> : null}
+                        </div>
+                        {suggestions.length > 0 ? (
+                            <div className="space-y-2">
+                                {suggestions.map((item) => (
+                                    <button
+                                        key={item.id}
+                                        type="button"
+                                        onClick={() => router.push(recommendationHref(item))}
+                                        className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-page)] p-3 text-left transition-colors hover:border-[var(--primary)]/40 hover:bg-[var(--surface-hover)]"
+                                    >
+                                        <div className="mb-2 flex items-center justify-between gap-2">
+                                            <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-widest text-[var(--text-muted)]">
+                                                <Sparkles className="h-3 w-3 text-[var(--primary)]" />
+                                                {item.priority || "recommended"}
+                                            </span>
+                                            <span className="rounded-full border border-[var(--border)] bg-[var(--bg-card)] px-2 py-0.5 text-[10px] text-[var(--text-secondary)]">
+                                                {(item.target_tool || activeTool).replace("_", " ")}
+                                            </span>
+                                        </div>
+                                        <p className="text-sm font-medium text-[var(--text-primary)]">{item.label}</p>
+                                        <p className="mt-1 text-[11px] leading-relaxed text-[var(--text-muted)]">{item.description}</p>
+                                    </button>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="rounded-lg border border-dashed border-[var(--border)] bg-[var(--bg-page)] p-3">
+                                <p className="text-xs text-[var(--text-muted)]">
+                                    Personalized suggestions will appear after more study activity on this topic or notebook.
+                                </p>
+                            </div>
+                        )}
                     </div>
                 )}
 

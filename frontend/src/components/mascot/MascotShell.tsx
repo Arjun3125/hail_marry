@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { APIError, api } from "@/lib/api";
 
@@ -153,6 +153,7 @@ export function MascotShell({
 }) {
     const pathname = usePathname();
     const router = useRouter();
+    const searchParams = useSearchParams();
     const [draft, setDraft] = useState("");
     const [messages, setMessages] = useState<MascotChatMessage[]>([
         {
@@ -167,6 +168,7 @@ export function MascotShell({
     const [sessionId, setSessionId] = useState<string | null>(null);
     const [attachment, setAttachment] = useState<File | null>(null);
     const [activeNotebookLabel, setActiveNotebookLabel] = useState<string | null>(null);
+    const seededPromptRef = useRef<string | null>(null);
 
     useEffect(() => {
         if (typeof window === "undefined") return;
@@ -175,6 +177,13 @@ export function MascotShell({
         window.sessionStorage.setItem(key, existing);
         setSessionId(existing);
     }, [role]);
+
+    useEffect(() => {
+        const prompt = searchParams.get("prompt")?.trim();
+        if (!prompt || seededPromptRef.current === prompt) return;
+        seededPromptRef.current = prompt;
+        setDraft(prompt);
+    }, [searchParams]);
 
     const notebookId = useMemo(() => readActiveNotebookId(), [pathname, messages.length]);
     const pageContext = useMemo(() => readMascotPageContext(pathname), [pathname, messages.length, attachment?.name]);

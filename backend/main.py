@@ -3,9 +3,10 @@ import os
 import subprocess
 import sys
 import asyncio
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import PlainTextResponse
+from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 from sqlalchemy import text
 
@@ -28,6 +29,12 @@ from src.domains.platform.services.startup_checks import collect_dependency_stat
 from src.domains.platform.services.structured_logging import configure_structured_logging
 from src.domains.platform.services.sentry_config import configure_sentry
 from src.domains.platform.services.telemetry import configure_telemetry, instrument_sqlalchemy_engine
+from src.domains.platform.services.traceability import (
+    TraceabilityError,
+    build_http_error_response,
+    build_unhandled_error_response,
+    get_error_descriptor,
+)
 from src.domains.platform.services.runtime_scheduler import run_doc_watch_loop, run_digest_loop
 
 configure_structured_logging(service_name="vidyaos-api")
@@ -106,6 +113,26 @@ app.add_middleware(
 )
 app.add_middleware(ObservabilityMiddleware, service_name="vidyaos-api")
 configure_sentry(service_name="vidyaos-api", app=app)
+
+
+@app.exception_handler(TraceabilityError)
+async def traceability_exception_handler(request: Request, exc: TraceabilityError):
+    descriptor = get_error_descriptor(exc.key)
+    http_exc = HTTPException(status_code=exc.status_code or descriptor.default_status_code, detail=exc.detail or descriptor.default_message)
+    payload, status_code, headers = build_http_error_response(request, http_exc, override_key=exc.key)
+    return JSONResponse(status_code=status_code, content=payload, headers=headers)
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    payload, status_code, headers = build_http_error_response(request, exc)
+    return JSONResponse(status_code=status_code, content=payload, headers=headers)
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    payload, status_code, headers = build_unhandled_error_response(request, exc)
+    return JSONResponse(status_code=status_code, content=payload, headers=headers)
 
 
 @app.get("/health")

@@ -26,6 +26,14 @@ from src.domains.platform.services.ai_queue import (
     enqueue_job,
     get_job,
 )
+from src.domains.platform.services.usage_governance import (
+    apply_model_override,
+    approximate_token_count,
+    evaluate_governance,
+    record_usage_event,
+    resolve_metric_for_mode,
+)
+from config import settings
 
 router = APIRouter(prefix="/api/ai", tags=["AI Jobs"])
 
@@ -48,13 +56,27 @@ def _authorize_job_access(job: dict, current_user: User) -> None:
 async def enqueue_text_query_job(
     request: AIQueryRequest,
     current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
+    metric = resolve_metric_for_mode(request.mode)
+    governance = evaluate_governance(
+        db,
+        tenant_id=current_user.tenant_id,
+        user_id=current_user.id,
+        metric=metric,
+        mode=request.mode,
+        estimated_prompt_tokens=approximate_token_count(request.query),
+    )
+    if not governance.allowed:
+        raise HTTPException(status_code=429, detail=governance.detail)
     payload = InternalAIQueryRequest(
         **request.model_dump(),
         tenant_id=str(current_user.tenant_id),
+        user_id=str(current_user.id),
+        model_override=apply_model_override(settings.llm.model, settings.llm.fallback_model, governance.model_override),
+        max_prompt_tokens=governance.max_prompt_tokens,
+        max_completion_tokens=governance.max_completion_tokens,
     )
-    
-    from config import settings
     if settings.app.demo_mode:
         import uuid
         import time
@@ -117,48 +139,142 @@ async def enqueue_text_query_job(
             _persist_job_state(mock_job)
         except Exception:
             pass
+        record_usage_event(
+            db,
+            tenant_id=current_user.tenant_id,
+            user_id=current_user.id,
+            metric=metric,
+            token_usage=0,
+            cache_hit=False,
+            model_used="demo",
+            metadata={"route": "ai.query.jobs", "mode": request.mode, "queued": True},
+        )
+        db.commit()
         return build_public_job_response(mock_job)
 
-    return enqueue_job(
+    response = enqueue_job(
         JOB_TYPE_QUERY,
         payload.model_dump(),
         tenant_id=str(current_user.tenant_id),
         user_id=str(current_user.id),
     )
+    record_usage_event(
+        db,
+        tenant_id=current_user.tenant_id,
+        user_id=current_user.id,
+        metric=metric,
+        token_usage=0,
+        cache_hit=False,
+        model_used=None,
+        used_fallback_model=governance.model_override == "fallback",
+        metadata={"route": "ai.query.jobs", "mode": request.mode, "queued": True},
+    )
+    record_usage_event(
+        db,
+        tenant_id=current_user.tenant_id,
+        user_id=current_user.id,
+        metric="batch_jobs_queued",
+        token_usage=0,
+        cache_hit=False,
+        model_used=None,
+        metadata={"route": "ai.query.jobs", "mode": request.mode},
+    )
+    db.commit()
+    return response
 
 
 @router.post("/audio-overview/jobs")
 async def enqueue_audio_overview_job(
     request: AudioOverviewRequest,
     current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
+    governance = evaluate_governance(
+        db,
+        tenant_id=current_user.tenant_id,
+        user_id=current_user.id,
+        metric="audio_overviews",
+        mode="audio_overview",
+        estimated_prompt_tokens=approximate_token_count(request.topic),
+    )
+    if not governance.allowed:
+        raise HTTPException(status_code=429, detail=governance.detail)
     payload = InternalAudioOverviewRequest(
         **request.model_dump(),
         tenant_id=str(current_user.tenant_id),
+        model_override=apply_model_override(settings.llm.model, settings.llm.fallback_model, governance.model_override),
+        max_prompt_tokens=governance.max_prompt_tokens,
+        max_completion_tokens=governance.max_completion_tokens,
     )
-    return enqueue_job(
+    response = enqueue_job(
         JOB_TYPE_AUDIO,
         payload.model_dump(),
         tenant_id=str(current_user.tenant_id),
         user_id=str(current_user.id),
     )
+    record_usage_event(
+        db,
+        tenant_id=current_user.tenant_id,
+        user_id=current_user.id,
+        metric="audio_overviews",
+        metadata={"route": "ai.audio.jobs", "queued": True},
+    )
+    record_usage_event(
+        db,
+        tenant_id=current_user.tenant_id,
+        user_id=current_user.id,
+        metric="batch_jobs_queued",
+        metadata={"route": "ai.audio.jobs"},
+    )
+    db.commit()
+    return response
 
 
 @router.post("/video-overview/jobs")
 async def enqueue_video_overview_job(
     request: VideoOverviewRequest,
     current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
+    governance = evaluate_governance(
+        db,
+        tenant_id=current_user.tenant_id,
+        user_id=current_user.id,
+        metric="video_overviews",
+        mode="video_overview",
+        estimated_prompt_tokens=approximate_token_count(request.topic),
+    )
+    if not governance.allowed:
+        raise HTTPException(status_code=429, detail=governance.detail)
     payload = InternalVideoOverviewRequest(
         **request.model_dump(),
         tenant_id=str(current_user.tenant_id),
+        model_override=apply_model_override(settings.llm.model, settings.llm.fallback_model, governance.model_override),
+        max_prompt_tokens=governance.max_prompt_tokens,
+        max_completion_tokens=governance.max_completion_tokens,
     )
-    return enqueue_job(
+    response = enqueue_job(
         JOB_TYPE_VIDEO,
         payload.model_dump(),
         tenant_id=str(current_user.tenant_id),
         user_id=str(current_user.id),
     )
+    record_usage_event(
+        db,
+        tenant_id=current_user.tenant_id,
+        user_id=current_user.id,
+        metric="video_overviews",
+        metadata={"route": "ai.video.jobs", "queued": True},
+    )
+    record_usage_event(
+        db,
+        tenant_id=current_user.tenant_id,
+        user_id=current_user.id,
+        metric="batch_jobs_queued",
+        metadata={"route": "ai.video.jobs"},
+    )
+    db.commit()
+    return response
 
 
 @router.get("/jobs/{job_id}")

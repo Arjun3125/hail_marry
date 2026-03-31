@@ -57,6 +57,7 @@ interface LearningWorkspaceProps {
         query: string;
         response: AIResponse;
     } | null;
+    seedPrompt?: string | null;
 }
 
 type Citation = {
@@ -91,8 +92,53 @@ function extractTextContent(
         .trim();
 }
 
-function StarterSuggestions({ activeTool }: { activeTool: string }) {
+type PersonalizedSuggestion = {
+    id?: string;
+    label?: string;
+    description?: string;
+    prompt?: string;
+};
+
+function buildFallbackPrompts(activeTool: string) {
+    const config = toolConfig[activeTool] || toolConfig.qa;
+    return [
+        `Use ${config.title} to help me understand my current material step by step.`,
+        `What is the best next study action for me with ${config.title}?`,
+    ];
+}
+
+function StarterSuggestions({ activeTool, notebookId }: { activeTool: string; notebookId: string | null }) {
     const aui = useAui();
+    const [suggestions, setSuggestions] = useState<string[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        let cancelled = false;
+        setLoading(true);
+        api.personalization.recommendations({
+            active_tool: activeTool,
+            notebook_id: notebookId,
+            current_surface: "ai_studio",
+        }).then((payload) => {
+            if (cancelled) return;
+            const items = ((payload as { items?: PersonalizedSuggestion[] }).items || [])
+                .map((item) => item.prompt?.trim())
+                .filter((value): value is string => Boolean(value));
+            setSuggestions(items.length > 0 ? items.slice(0, 3) : buildFallbackPrompts(activeTool));
+        }).catch(() => {
+            if (!cancelled) {
+                setSuggestions(buildFallbackPrompts(activeTool));
+            }
+        }).finally(() => {
+            if (!cancelled) {
+                setLoading(false);
+            }
+        });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [activeTool, notebookId]);
 
     return (
         <div className="flex flex-col items-center justify-center h-full text-center">
@@ -104,7 +150,7 @@ function StarterSuggestions({ activeTool }: { activeTool: string }) {
                 {toolConfig[activeTool]?.desc}. Type your query below to get started.
             </p>
             <div className="flex flex-wrap justify-center gap-2">
-                {getSuggestions(activeTool).map((suggestion) => (
+                {suggestions.map((suggestion) => (
                     <button
                         key={suggestion}
                         type="button"
@@ -115,8 +161,23 @@ function StarterSuggestions({ activeTool }: { activeTool: string }) {
                     </button>
                 ))}
             </div>
+            {loading ? <p className="mt-3 text-[10px] text-[var(--text-muted)]">Loading personalized recommendations…</p> : null}
         </div>
     );
+}
+
+function PromptSeed({ seedPrompt }: { seedPrompt?: string | null }) {
+    const aui = useAui();
+    const seededRef = useRef<string | null>(null);
+
+    useEffect(() => {
+        const normalizedPrompt = seedPrompt?.trim() || "";
+        if (!normalizedPrompt || seededRef.current === normalizedPrompt) return;
+        seededRef.current = normalizedPrompt;
+        aui.composer().setText(normalizedPrompt);
+    }, [aui, seedPrompt]);
+
+    return null;
 }
 
 function MessageBubble({ activeTool }: { activeTool?: string }) {
@@ -279,6 +340,7 @@ function AssistantStudioThread({
     thread,
     onPersistThread,
     requestOptions,
+    seedPrompt,
 }: {
     activeTool: string;
     notebookId: string | null;
@@ -289,6 +351,7 @@ function AssistantStudioThread({
         responseLength?: string;
         expertiseLevel?: string;
     };
+    seedPrompt?: string | null;
 }) {
     const chatModel = useMemo(
         () => ({
@@ -368,6 +431,7 @@ function AssistantStudioThread({
     return (
         <AssistantRuntimeProvider runtime={runtime}>
             <ThreadBootstrap thread={thread} />
+            <PromptSeed seedPrompt={seedPrompt} />
             <ThreadPersistenceSync activeTool={activeTool} thread={thread} onPersist={onPersistThread} />
             <div className="flex flex-col h-full">
                 <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border)]">
@@ -385,7 +449,7 @@ function AssistantStudioThread({
                 <ThreadPrimitive.Root className="flex min-h-0 flex-1 flex-col">
                     <ThreadPrimitive.Viewport className="flex-1 overflow-y-auto px-6 py-4">
                         <ThreadPrimitive.Empty>
-                            <StarterSuggestions activeTool={activeTool} />
+                            <StarterSuggestions activeTool={activeTool} notebookId={notebookId} />
                         </ThreadPrimitive.Empty>
                         <div className="space-y-6">
                             <ThreadPrimitive.Messages>
@@ -402,7 +466,7 @@ function AssistantStudioThread({
     );
 }
 
-export function LearningWorkspace({ activeTool, notebookId, requestOptions, initialExchange, workspaceScope }: LearningWorkspaceProps) {
+export function LearningWorkspace({ activeTool, notebookId, requestOptions, initialExchange, workspaceScope, seedPrompt }: LearningWorkspaceProps) {
     const [hydrated, setHydrated] = useState(false);
     const [threads, setThreads] = useState<PersistedAssistantThread[]>([]);
     const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
@@ -555,6 +619,7 @@ export function LearningWorkspace({ activeTool, notebookId, requestOptions, init
                 thread={activeThread}
                 onPersistThread={persistThread}
                 requestOptions={requestOptions}
+                seedPrompt={seedPrompt}
             />
         </div>
     );

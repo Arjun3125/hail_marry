@@ -54,6 +54,48 @@ class MetricsRegistryTests(unittest.TestCase):
         self.assertIn('vidyaos_stage_latency_duration_ms_sum{stage="ai_query",operation="retrieval",outcome="success"} 200.0', exported)
         self.assertIn('vidyaos_stage_latency_duration_ms_max{stage="ai_query",operation="retrieval",outcome="success"} 120.0', exported)
 
+    def test_personalization_metrics_are_snapshotted_and_exported(self):
+        from src.domains.platform.services.metrics_registry import (
+            export_prometheus_text,
+            observe_personalization_event,
+            snapshot_personalization_metrics,
+        )
+
+        observe_personalization_event("recommendation_served", surface="overview", target="quiz")
+        observe_personalization_event("recommendation_click", surface="overview", target="quiz")
+        observe_personalization_event("study_path_view", surface="overview", target="study_guide")
+        rows = snapshot_personalization_metrics()
+
+        self.assertEqual(len(rows), 3)
+        self.assertTrue(
+            any(
+                row["metric"] == "recommendation_click"
+                and row["surface"] == "overview"
+                and row["target"] == "quiz"
+                and row["count"] == 1.0
+                for row in rows
+            )
+        )
+
+        with patch("src.domains.platform.services.metrics_registry._get_global_queue_metrics", return_value={
+            "pending_depth": 0,
+            "processing_depth": 0,
+            "tracked_jobs_total": 0,
+            "retry_total": 0,
+            "dead_letter_total": 0,
+            "ready_tenants": 0,
+        }):
+            exported = export_prometheus_text()
+
+        self.assertIn(
+            'vidyaos_personalization_events_total{metric="recommendation_served",surface="overview",target="quiz"} 1.0',
+            exported,
+        )
+        self.assertIn(
+            'vidyaos_personalization_events_total{metric="study_path_view",surface="overview",target="study_guide"} 1.0',
+            exported,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

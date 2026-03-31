@@ -191,7 +191,7 @@ export default function AssignmentsPage() {
                                 </span>
 
                                 <a
-                                    href={`/student/ai?q=${encodeURIComponent(`Help me with: ${item.title}`)}`}
+                                    href="/student/assistant"
                                     className="text-xs font-medium text-[var(--primary)] hover:underline"
                                 >
                                     AI Help

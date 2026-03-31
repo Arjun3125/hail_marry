@@ -11,6 +11,8 @@ _ocr_metrics: dict[tuple[str, str], float] = defaultdict(float)
 _stage_latency_metrics: dict[tuple[str, str, str], dict[str, float]] = defaultdict(
     lambda: {"count": 0.0, "duration_ms_sum": 0.0, "duration_ms_max": 0.0}
 )
+_personalization_metrics: dict[tuple[str, str, str], float] = defaultdict(float)
+_traceability_error_metrics: dict[tuple[str, str, str], float] = defaultdict(float)
 
 
 def _sanitize_label(value: str) -> str:
@@ -81,11 +83,51 @@ def snapshot_stage_latency_metrics() -> list[dict[str, Any]]:
         ]
 
 
+def observe_personalization_event(metric: str, *, surface: str = "unknown", target: str = "unknown", count: float = 1.0) -> None:
+    key = (metric, surface, target)
+    with _lock:
+        _personalization_metrics[key] += count
+
+
+def snapshot_personalization_metrics() -> list[dict[str, Any]]:
+    with _lock:
+        return [
+            {
+                "metric": metric,
+                "surface": surface,
+                "target": target,
+                "count": value,
+            }
+            for (metric, surface, target), value in _personalization_metrics.items()
+        ]
+
+
+def observe_traceability_error(error_code: str, *, subsystem: str = "unknown", severity: str = "error", count: float = 1.0) -> None:
+    key = (error_code, subsystem, severity)
+    with _lock:
+        _traceability_error_metrics[key] += count
+
+
+def snapshot_traceability_error_metrics() -> list[dict[str, Any]]:
+    with _lock:
+        return [
+            {
+                "error_code": error_code,
+                "subsystem": subsystem,
+                "severity": severity,
+                "count": value,
+            }
+            for (error_code, subsystem, severity), value in _traceability_error_metrics.items()
+        ]
+
+
 def reset_metrics_registry() -> None:
     with _lock:
         _http_metrics.clear()
         _ocr_metrics.clear()
         _stage_latency_metrics.clear()
+        _personalization_metrics.clear()
+        _traceability_error_metrics.clear()
 
 
 def _get_global_queue_metrics() -> dict[str, int]:
@@ -169,6 +211,24 @@ def export_prometheus_text(alerts: list[dict[str, Any]] | None = None) -> str:
     for row in snapshot_stage_latency_metrics():
         lines.append(
             f'vidyaos_stage_latency_duration_ms_max{{stage="{_sanitize_label(row["stage"])}",operation="{_sanitize_label(row["operation"])}",outcome="{_sanitize_label(row["outcome"])}"}} {row["duration_ms_max"]}'
+        )
+
+    lines.extend([
+        "# HELP vidyaos_personalization_events_total Personalization events by metric, surface, and target",
+        "# TYPE vidyaos_personalization_events_total counter",
+    ])
+    for row in snapshot_personalization_metrics():
+        lines.append(
+            f'vidyaos_personalization_events_total{{metric="{_sanitize_label(row["metric"])}",surface="{_sanitize_label(row["surface"])}",target="{_sanitize_label(row["target"])}"}} {row["count"]}'
+        )
+
+    lines.extend([
+        "# HELP vidyaos_traceability_errors_total Traceability errors by code, subsystem, and severity",
+        "# TYPE vidyaos_traceability_errors_total counter",
+    ])
+    for row in snapshot_traceability_error_metrics():
+        lines.append(
+            f'vidyaos_traceability_errors_total{{error_code="{_sanitize_label(row["error_code"])}",subsystem="{_sanitize_label(row["subsystem"])}",severity="{_sanitize_label(row["severity"])}"}} {row["count"]}'
         )
 
     queue = _get_global_queue_metrics()

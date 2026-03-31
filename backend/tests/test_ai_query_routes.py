@@ -281,3 +281,207 @@ def test_student_generate_tool_job_demo_mode_marks_mock_result(
     assert "Demo mode preview" in payload["demo_notice"]
     assert payload["result"]["runtime_mode"] == "demo"
     assert payload["result"]["is_demo_response"] is True
+
+
+def test_ai_query_applies_personalized_defaults_when_request_uses_defaults(
+    client,
+    db_session,
+    active_tenant,
+    monkeypatch,
+):
+    ai_routes = importlib.import_module("src.interfaces.rest_api.ai.routes.ai")
+
+    token = _create_student_and_login(
+        client,
+        db_session,
+        active_tenant.id,
+        email="personalized-ai-defaults@testschool.edu",
+    )
+
+    async def fake_prepare_ai_query(**kwargs):
+        return kwargs["query"], [], kwargs["query"], ""
+
+    async def fake_run_text_query(request, trace_id=None):
+        assert request.language == "hindi"
+        assert request.response_length == "brief"
+        assert request.expertise_level == "simple"
+        assert request.learner_profile["preferred_language"] == "hindi"
+        assert request.learner_profile["primary_subjects"] == ["Biology"]
+        assert request.learner_topic_context["topic"] == "Photosynthesis"
+        assert request.learner_topic_context["focus_concepts"] == ["chlorophyll"]
+        assert request.learner_topic_context["repeated_confusion_count"] == 2
+        return {
+            "answer": "Grounded answer",
+            "citations": [],
+            "token_usage": 5,
+            "mode": "qa",
+            "has_context": True,
+            "citation_valid": True,
+            "citation_count": 0,
+        }
+
+    monkeypatch.setattr(ai_routes, "_prepare_ai_query", fake_prepare_ai_query)
+    monkeypatch.setattr(ai_routes, "run_text_query", fake_run_text_query)
+    monkeypatch.setattr(
+        ai_routes,
+        "get_learner_profile_dict",
+        lambda *args, **kwargs: {
+            "preferred_language": "hindi",
+            "preferred_response_length": "brief",
+            "inferred_expertise_level": "simple",
+            "primary_subjects": ["Biology"],
+        },
+    )
+    monkeypatch.setattr(
+        ai_routes,
+        "get_topic_mastery_snapshot",
+        lambda *args, **kwargs: {
+            "topic": "Photosynthesis",
+            "mastery_score": 39.0,
+            "confidence_score": 0.32,
+            "concepts": [{"concept": "chlorophyll"}],
+        },
+    )
+    monkeypatch.setattr(ai_routes, "count_recent_confusion_queries", lambda *args, **kwargs: 2)
+    monkeypatch.setattr(ai_routes, "record_ai_confusion_pattern", lambda *args, **kwargs: [])
+
+    response = client.post(
+        "/api/ai/query",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"query": "Explain photosynthesis", "mode": "qa"},
+    )
+
+    assert response.status_code == 200
+
+
+def test_ai_query_preserves_explicit_user_style_overrides(
+    client,
+    db_session,
+    active_tenant,
+    monkeypatch,
+):
+    ai_routes = importlib.import_module("src.interfaces.rest_api.ai.routes.ai")
+
+    token = _create_student_and_login(
+        client,
+        db_session,
+        active_tenant.id,
+        email="personalized-ai-overrides@testschool.edu",
+    )
+
+    async def fake_prepare_ai_query(**kwargs):
+        return kwargs["query"], [], kwargs["query"], ""
+
+    async def fake_run_text_query(request, trace_id=None):
+        assert request.language == "english"
+        assert request.response_length == "detailed"
+        assert request.expertise_level == "advanced"
+        return {
+            "answer": "Grounded answer",
+            "citations": [],
+            "token_usage": 5,
+            "mode": "qa",
+            "has_context": True,
+            "citation_valid": True,
+            "citation_count": 0,
+        }
+
+    monkeypatch.setattr(ai_routes, "_prepare_ai_query", fake_prepare_ai_query)
+    monkeypatch.setattr(ai_routes, "run_text_query", fake_run_text_query)
+    monkeypatch.setattr(
+        ai_routes,
+        "get_learner_profile_dict",
+        lambda *args, **kwargs: {
+            "preferred_language": "marathi",
+            "preferred_response_length": "brief",
+            "inferred_expertise_level": "simple",
+            "primary_subjects": ["Biology"],
+        },
+    )
+    monkeypatch.setattr(
+        ai_routes,
+        "get_topic_mastery_snapshot",
+        lambda *args, **kwargs: {
+            "topic": "Photosynthesis",
+            "mastery_score": 82.0,
+            "confidence_score": 0.8,
+            "concepts": [{"concept": "chlorophyll"}],
+        },
+    )
+    monkeypatch.setattr(ai_routes, "count_recent_confusion_queries", lambda *args, **kwargs: 0)
+
+    response = client.post(
+        "/api/ai/query",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "query": "Explain photosynthesis",
+            "mode": "qa",
+            "language": "english",
+            "response_length": "detailed",
+            "expertise_level": "advanced",
+        },
+    )
+
+    assert response.status_code == 200
+
+
+def test_ai_query_uses_fallback_model_when_token_budget_is_hot(
+    client,
+    db_session,
+    active_tenant,
+    monkeypatch,
+):
+    from src.domains.platform.services.usage_governance import record_usage_event
+    from config import settings
+
+    ai_routes = importlib.import_module("src.interfaces.rest_api.ai.routes.ai")
+
+    token = _create_student_and_login(
+        client,
+        db_session,
+        active_tenant.id,
+        email="fallback-ai@testschool.edu",
+    )
+
+    user = db_session.query(importlib.import_module("src.domains.identity.models.user").User).filter_by(
+        email="fallback-ai@testschool.edu"
+    ).first()
+    record_usage_event(
+        db_session,
+        tenant_id=active_tenant.id,
+        user_id=user.id,
+        metric="llm_tokens",
+        token_usage=26000,
+        model_used=settings.llm.model,
+    )
+    db_session.commit()
+
+    async def fake_prepare_ai_query(**kwargs):
+        return kwargs["query"], [], kwargs["query"], ""
+
+    async def fake_run_text_query(request, trace_id=None):
+        assert request.model_override == settings.llm.fallback_model
+        assert request.max_prompt_tokens == 2000
+        assert request.max_completion_tokens == 800
+        return {
+            "answer": "Grounded answer",
+            "citations": [],
+            "token_usage": 9,
+            "mode": "qa",
+            "has_context": True,
+            "citation_valid": True,
+            "citation_count": 0,
+            "model_used": request.model_override,
+        }
+
+    monkeypatch.setattr(ai_routes, "_prepare_ai_query", fake_prepare_ai_query)
+    monkeypatch.setattr(ai_routes, "run_text_query", fake_run_text_query)
+    monkeypatch.setattr(ai_routes, "record_ai_confusion_pattern", lambda *args, **kwargs: [])
+
+    response = client.post(
+        "/api/ai/query",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"query": "Explain photosynthesis", "mode": "qa"},
+    )
+
+    assert response.status_code == 200

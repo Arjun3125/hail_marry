@@ -89,13 +89,14 @@ class NormalizeToolOutputTests(unittest.TestCase):
     # ─── Quiz ────────────────────────────────────────────────
 
     def test_quiz_valid_array(self):
-        answer = '[{"question":"Q1","options":["A. One","B. Two"],"correct":"B","citation":"[notes_p1]"}]'
+        answer = '[{"question":"Q1","options":["A. One","B. Two"],"correct":"B","citation":"[notes_p1]","difficulty":"hard"}]'
         result = _normalize_tool_output("quiz", answer)
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0]["question"], "Q1")
         self.assertEqual(result[0]["correct"], "B")
         self.assertEqual(result[0]["index"], 1)
         self.assertEqual(result[0]["citation"], "[notes_p1]")
+        self.assertEqual(result[0]["difficulty"], "hard")
 
     def test_quiz_rejects_non_array(self):
         with self.assertRaises(HTTPException) as ctx:

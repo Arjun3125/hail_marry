@@ -31,4 +31,8 @@ from src.domains.platform.models.webhook import WebhookSubscription, WebhookDeli
 from src.domains.platform.models.spaced_repetition import ReviewSchedule  # noqa: F401
 from src.domains.platform.models.notebook import Notebook  # noqa: F401
 from src.domains.platform.models.generated_content import GeneratedContent  # noqa: F401
+from src.domains.platform.models.topic_mastery import TopicMastery  # noqa: F401
+from src.domains.platform.models.learner_profile import LearnerProfile  # noqa: F401
+from src.domains.platform.models.study_path_plan import StudyPathPlan  # noqa: F401
+from src.domains.platform.models.usage_counter import UsageCounter  # noqa: F401
 from src.domains.platform.models.knowledge_graph import KGConcept, KGRelationship  # noqa: F401

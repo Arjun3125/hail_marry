@@ -202,6 +202,20 @@ MASCOT_CAPABILITIES: dict[str, MascotCapability] = {
         channels=("web", "whatsapp"),
         description="Summarize pending AI review workload and recent status.",
     ),
+    "study_path_report": MascotCapability(
+        key="study_path_report",
+        kind="query",
+        roles=("student",),
+        channels=("web", "whatsapp"),
+        description="Summarize the student's current study path and remediation plan.",
+    ),
+    "study_path_execute": MascotCapability(
+        key="study_path_execute",
+        kind="query",
+        roles=("student",),
+        channels=("web", "whatsapp"),
+        description="Run the next action from the student's current study path.",
+    ),
     "navigate": MascotCapability(
         key="navigate",
         kind="navigate",

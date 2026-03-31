@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Bot, CheckCircle2, FileText, Loader2, Upload, XCircle } from "lucide-react";
 
@@ -33,6 +34,10 @@ type ActivityItem = {
 
 const ALLOWED_EXTENSIONS = ["pdf", "docx", "pptx", "xlsx", "jpg", "jpeg", "png"];
 const MAX_FILE_SIZE = 25 * 1024 * 1024;
+
+function buildMascotPromptHref(prompt: string) {
+    return `/student/assistant?prompt=${encodeURIComponent(prompt)}`;
+}
 
 export default function StudentUploadPage() {
     const [uploads, setUploads] = useState<UploadRecord[]>([]);
@@ -76,6 +81,8 @@ export default function StudentUploadPage() {
             ),
         );
     };
+
+    const latestCompletedActivity = activity.find((item) => item.status === "completed");
 
     const processFiles = async (fileList: FileList | File[]) => {
         const files = Array.from(fileList);
@@ -243,6 +250,54 @@ export default function StudentUploadPage() {
                             </div>
                         </div>
                     ))}
+                </div>
+            ) : null}
+
+            {latestCompletedActivity ? (
+                <div className="mt-6 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-[var(--shadow-card)]">
+                    <div className="flex items-start gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[var(--primary-light)] text-[var(--primary)]">
+                            <Bot className="h-5 w-5" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                            <p className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">Next study steps</p>
+                            <h2 className="mt-1 text-base font-semibold text-[var(--text-primary)]">
+                                Your upload is ready. Continue the learning flow from here.
+                            </h2>
+                            <p className="mt-1 text-sm text-[var(--text-secondary)]">
+                                Turn <span className="font-medium text-[var(--text-primary)]">{latestCompletedActivity.name}</span> into a guided explanation, practice quiz, or deeper workspace session.
+                            </p>
+                        </div>
+                    </div>
+                    <div className="mt-4 grid gap-3 md:grid-cols-3">
+                        <Link
+                            href={buildMascotPromptHref(`Summarize my latest upload "${latestCompletedActivity.name}" and tell me the best next study step.`)}
+                            className="rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--bg-page)] p-4 transition-all hover:-translate-y-0.5 hover:shadow-md"
+                        >
+                            <p className="text-sm font-semibold text-[var(--text-primary)]">Ask and understand</p>
+                            <p className="mt-1 text-xs leading-relaxed text-[var(--text-secondary)]">
+                                Open the mascot with a guided summary prompt and get the best next action.
+                            </p>
+                        </Link>
+                        <Link
+                            href={buildMascotPromptHref(`Create a short quiz from my latest upload "${latestCompletedActivity.name}" and focus on the weakest concepts first.`)}
+                            className="rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--bg-page)] p-4 transition-all hover:-translate-y-0.5 hover:shadow-md"
+                        >
+                            <p className="text-sm font-semibold text-[var(--text-primary)]">Practice immediately</p>
+                            <p className="mt-1 text-xs leading-relaxed text-[var(--text-secondary)]">
+                                Start a mastery-aware quiz flow without choosing the tool manually.
+                            </p>
+                        </Link>
+                        <Link
+                            href="/student/ai-studio"
+                            className="rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--bg-page)] p-4 transition-all hover:-translate-y-0.5 hover:shadow-md"
+                        >
+                            <p className="text-sm font-semibold text-[var(--text-primary)]">Go deeper in AI Studio</p>
+                            <p className="mt-1 text-xs leading-relaxed text-[var(--text-secondary)]">
+                                Continue with the full AI workspace when you want longer multi-step study sessions.
+                            </p>
+                        </Link>
+                    </div>
                 </div>
             ) : null}
 

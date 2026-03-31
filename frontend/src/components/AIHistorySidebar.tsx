@@ -91,8 +91,7 @@ export default function AIHistorySidebar({
         if (onSelectItem) {
             onSelectItem(item);
         } else {
-            // Navigate to AI assistant with history param
-            router.push(`/student/ai?history=${item.id}`);
+            router.push(`/student/ai-studio?history=${item.id}`);
         }
     };
 
