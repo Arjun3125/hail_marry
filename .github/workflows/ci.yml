@@ -76,6 +76,9 @@ jobs:
         working-directory: backend
         run: mypy --ignore-missing-imports .
 
+      - name: Architecture guard
+        run: python scripts/check_architecture.py
+
       - name: Run backend tests
         working-directory: backend
         env:

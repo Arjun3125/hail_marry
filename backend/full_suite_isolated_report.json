@@ -1,0 +1,14 @@
+{
+  "results": [
+    {
+      "file": "backend/tests/evaluation/test_intent_classifier_benchmark.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 13.94,
+      "output_tail": [
+        "......                                                                   [100%]",
+        "6 passed in 9.82s"
+      ]
+    }
+  ]
+}

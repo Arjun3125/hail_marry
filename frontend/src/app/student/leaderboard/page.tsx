@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Trophy, Medal, Clock, TrendingUp, ChevronDown } from "lucide-react";
+import { Trophy, Medal, Clock, TrendingUp, ChevronDown, CheckCircle2, ChevronRight, Crown } from "lucide-react";
 import { api } from "@/lib/api";
 
 type TestSeries = {
@@ -49,7 +49,7 @@ export default function LeaderboardPage() {
                     setSelectedId(data[0].id);
                 }
             } catch (err) {
-                setError(err instanceof Error ? err.message : "Failed to load");
+                setError(err instanceof Error ? err.message : "Failed to load test series");
             } finally {
                 setLoading(false);
             }
@@ -74,160 +74,218 @@ export default function LeaderboardPage() {
         void load();
     }, [selectedId]);
 
-    const getRankEmoji = (rank: number) => {
-        if (rank === 1) return "🥇";
-        if (rank === 2) return "🥈";
-        if (rank === 3) return "🥉";
-        return `#${rank}`;
-    };
-
-    const getRankColor = (rank: number) => {
-        if (rank === 1) return "text-yellow-500";
-        if (rank === 2) return "text-gray-400";
-        if (rank === 3) return "text-status-amber";
-        return "text-[var(--text-primary)]";
+    const getRankStyle = (rank: number) => {
+        if (rank === 1) return { color: "text-amber-500", bg: "bg-amber-500/10", border: "border-amber-500/50", icon: <Crown className="w-6 h-6 text-amber-500 drop-shadow-md" /> };
+        if (rank === 2) return { color: "text-slate-300", bg: "bg-slate-300/10", border: "border-slate-400/50", icon: <Medal className="w-5 h-5 text-slate-300 drop-shadow-md" /> };
+        if (rank === 3) return { color: "text-orange-400", bg: "bg-orange-400/10", border: "border-orange-500/50", icon: <Medal className="w-5 h-5 text-orange-400 drop-shadow-md" /> };
+        return { color: "text-[var(--text-primary)]", bg: "bg-[var(--bg-card)]", border: "border-transparent", icon: null };
     };
 
     return (
-        <div>
-            <div className="mb-6">
-                <h1 className="text-2xl font-bold text-[var(--text-primary)] flex items-center gap-2">
-                    <Trophy className="w-6 h-6 text-yellow-500" />
-                    Leaderboard & Rankings
-                </h1>
-                <p className="text-sm text-[var(--text-secondary)]">
-                    See how you rank against other students in mock tests
-                </p>
+        <div className="max-w-5xl mx-auto space-y-6 animate-in slide-in-from-bottom-4 duration-500 fade-in pb-12">
+            
+            {/* Header Area */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+                <div>
+                    <h1 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-amber-500 to-orange-500 flex items-center gap-3 drop-shadow-sm">
+                        <Trophy className="w-8 h-8 text-yellow-500" />
+                        Global Rankings
+                    </h1>
+                    <p className="text-sm font-medium text-[var(--text-muted)] mt-1.5 ml-1">
+                        Track your academic standing and compete with peers worldwide.
+                    </p>
+                </div>
+
+                {/* Series Selector - Glassmorphic Dropdown */}
+                {seriesList.length > 0 && (
+                    <div className="relative group">
+                        <select
+                            value={selectedId || ""}
+                            onChange={(e) => setSelectedId(e.target.value)}
+                            className="appearance-none pl-5 pr-12 py-3 text-sm font-bold border border-[var(--border-light)] rounded-2xl bg-[var(--bg-card)]/80 backdrop-blur-md text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-amber-500/50 shadow-sm cursor-pointer hover:bg-[var(--bg-card)] transition-colors w-full md:w-auto min-w-[200px]"
+                        >
+                            {seriesList.map((s) => (
+                                <option key={s.id} value={s.id}>
+                                    {s.name}
+                                </option>
+                            ))}
+                        </select>
+                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none w-6 h-6 rounded-md bg-[var(--bg-page)] flex items-center justify-center">
+                            <ChevronDown className="w-3.5 h-3.5 text-[var(--text-secondary)]" />
+                        </div>
+                    </div>
+                )}
             </div>
 
             {error && (
-                <div className="mb-4 rounded-lg border border-[var(--error)]/30 bg-error-subtle px-4 py-3 text-sm text-[var(--error)]">
+                <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-500 shadow-md flex items-center gap-2">
                     {error}
                 </div>
             )}
 
             {loading ? (
-                <div className="text-sm text-[var(--text-muted)]">Loading test series...</div>
+                <div className="flex flex-col items-center justify-center p-20 glass-panel border border-[var(--border-light)] rounded-3xl opacity-70">
+                    <Trophy className="w-12 h-12 text-[var(--text-muted)] mb-4 animate-bounce" />
+                    <p className="text-sm font-medium text-[var(--text-muted)]">Calculating percentiles...</p>
+                </div>
             ) : seriesList.length === 0 ? (
-                <div className="bg-[var(--bg-card)] rounded-xl p-8 shadow-[var(--shadow-card)] text-center">
-                    <Trophy className="w-12 h-12 mx-auto text-[var(--text-muted)] mb-3" />
-                    <p className="text-[var(--text-secondary)]">No test series available yet.</p>
-                    <p className="text-xs text-[var(--text-muted)] mt-1">Ask your teacher to create a mock test series.</p>
+                <div className="glass-panel border border-[var(--border-light)] rounded-3xl p-12 text-center flex flex-col items-center justify-center">
+                    <div className="w-20 h-20 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900 rounded-full flex items-center justify-center mb-6 shadow-inner">
+                        <Trophy className="w-10 h-10 text-[var(--text-muted)] opacity-50" />
+                    </div>
+                    <h3 className="text-xl font-bold text-[var(--text-primary)] mb-2">No Challenges Active</h3>
+                    <p className="text-sm text-[var(--text-secondary)] max-w-sm">
+                        You're currently not enrolled in any competitive test series. New challenges will appear here.
+                    </p>
                 </div>
             ) : (
-                <>
-                    {/* Series selector */}
-                    <div className="mb-6">
-                        <div className="relative inline-block">
-                            <select
-                                value={selectedId || ""}
-                                onChange={(e) => setSelectedId(e.target.value)}
-                                className="appearance-none pl-4 pr-10 py-2.5 text-sm font-medium border border-[var(--border)] rounded-lg bg-[var(--bg-card)] text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
-                            >
-                                {seriesList.map((s) => (
-                                    <option key={s.id} value={s.id}>
-                                        {s.name} ({s.attempts} attempts)
-                                    </option>
-                                ))}
-                            </select>
-                            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)] pointer-events-none" />
-                        </div>
-                    </div>
-
-                    {/* My Rank Card */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                    
+                    {/* Left Column - My Stats */}
                     {myRank && myRank.rank && (
-                        <div className="grid grid-cols-3 gap-4 mb-6">
-                            <div className="bg-gradient-to-br from-yellow-50 to-amber-50 dark:from-yellow-900/20 dark:to-amber-900/20 rounded-xl p-5 shadow-sm border border-yellow-200/50">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <Medal className="w-5 h-5 text-yellow-600" />
-                                    <span className="text-xs font-medium text-yellow-700 dark:text-yellow-400">Your Rank</span>
+                        <div className="lg:col-span-4 space-y-4">
+                            <h2 className="text-sm font-bold uppercase tracking-widest text-[var(--text-muted)] mb-3 flex items-center gap-2">
+                                <TrendingUp className="w-4 h-4" /> My Performance
+                            </h2>
+                            
+                            {/* Primary Rank Card */}
+                            <div className="relative overflow-hidden bg-gradient-to-br from-amber-500/20 via-orange-500/10 to-transparent dark:from-amber-900/30 border border-amber-500/30 rounded-3xl p-6 shadow-lg shadow-amber-500/5 group hover:shadow-amber-500/10 transition-all duration-300">
+                                <div className="absolute -right-6 -top-6 w-32 h-32 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full blur-[60px] opacity-20 pointer-events-none group-hover:scale-110 transition-transform"></div>
+                                
+                                <div className="flex items-center justify-between mb-4">
+                                    <div className="flex bg-amber-500/20 rounded-full p-2 items-center justify-center">
+                                        <Trophy className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                                    </div>
+                                    <span className="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider bg-amber-500/10 px-2.5 py-1 rounded-full">Current Rank</span>
                                 </div>
-                                <p className="text-3xl font-bold text-yellow-600">
-                                    {getRankEmoji(myRank.rank)}
+                                
+                                <div className="mt-2 flex items-baseline gap-1">
+                                    <span className="text-5xl font-black text-amber-600 dark:text-amber-400 drop-shadow-sm">#{myRank.rank}</span>
+                                </div>
+                                <p className="text-xs font-medium text-amber-700/70 dark:text-amber-400/70 mt-2">
+                                    Out of {leaderboard?.total_attempts || 0} competitors
                                 </p>
                             </div>
-                            <div className="bg-[var(--bg-card)] rounded-xl p-5 shadow-[var(--shadow-card)]">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <TrendingUp className="w-5 h-5 text-[var(--primary)]" />
-                                    <span className="text-xs font-medium text-[var(--text-muted)]">Percentile</span>
+
+                            {/* Secondary Stats Grid */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="glass-panel border border-[var(--border-light)] rounded-2xl p-5 shadow-sm hover:border-blue-500/30 transition-colors group">
+                                    <div className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-2 group-hover:text-blue-500 transition-colors">Percentile</div>
+                                    <div className="text-2xl font-black text-[var(--text-primary)]">
+                                        {myRank.percentile}<span className="text-sm font-bold text-[var(--text-muted)] ml-0.5">%</span>
+                                    </div>
                                 </div>
-                                <p className="text-3xl font-bold text-[var(--primary)]">
-                                    {myRank.percentile}%
-                                </p>
-                            </div>
-                            <div className="bg-[var(--bg-card)] rounded-xl p-5 shadow-[var(--shadow-card)]">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <Trophy className="w-5 h-5 text-green-600" />
-                                    <span className="text-xs font-medium text-[var(--text-muted)]">Score</span>
+                                <div className="glass-panel border border-[var(--border-light)] rounded-2xl p-5 shadow-sm hover:border-emerald-500/30 transition-colors group">
+                                    <div className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-2 group-hover:text-emerald-500 transition-colors">Avg Score</div>
+                                    <div className="text-2xl font-black text-[var(--text-primary)]">
+                                        {myRank.pct}<span className="text-sm font-bold text-[var(--text-muted)] ml-0.5">%</span>
+                                    </div>
                                 </div>
-                                <p className="text-3xl font-bold text-[var(--text-primary)]">
-                                    {myRank.pct}%
-                                </p>
                             </div>
                         </div>
                     )}
 
-                    {/* Leaderboard Table */}
+                    {/* Right Column - Leaderboard Table */}
                     {leaderboard && leaderboard.leaderboard.length > 0 && (
-                        <div className="bg-[var(--bg-card)] rounded-xl shadow-[var(--shadow-card)] overflow-hidden">
-                            <div className="px-5 py-4 border-b border-[var(--border)]">
-                                <h2 className="text-base font-semibold text-[var(--text-primary)]">
-                                    {leaderboard.series_name}
+                        <div className="lg:col-span-8 glass-panel border border-[var(--border-light)] rounded-3xl shadow-lg relative overflow-hidden flex flex-col">
+                            
+                            {/* Subtle background glow */}
+                            <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 rounded-full blur-[80px] pointer-events-none -z-10"></div>
+
+                            {/* Table Header */}
+                            <div className="px-6 py-5 border-b border-[var(--border-light)] bg-gradient-to-r from-[var(--bg-card)]/50 to-transparent">
+                                <h2 className="text-lg font-bold text-[var(--text-primary)] flex items-center gap-2">
+                                    <CheckCircle2 className="w-5 h-5 text-indigo-500" />
+                                    {leaderboard.series_name} Standings
                                 </h2>
-                                <p className="text-xs text-[var(--text-muted)]">
-                                    {leaderboard.total_attempts} students attempted • Max: {leaderboard.total_marks} marks
+                                <p className="text-xs font-medium text-[var(--text-muted)] mt-1 ml-7">
+                                    Max Scale: {leaderboard.total_marks} Points Formats
                                 </p>
                             </div>
+
+                            {/* Table Content */}
                             <div className="overflow-x-auto">
-                                <table className="w-full min-w-[600px]">
+                                <table className="w-full min-w-[500px] border-collapse">
                                     <thead>
-                                        <tr className="border-b border-[var(--border)]">
-                                            <th className="px-5 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase w-16">Rank</th>
-                                            <th className="px-5 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase">Student</th>
-                                            <th className="px-5 py-3 text-center text-xs font-medium text-[var(--text-muted)] uppercase">Score</th>
-                                            <th className="px-5 py-3 text-center text-xs font-medium text-[var(--text-muted)] uppercase">Percentile</th>
-                                            <th className="px-5 py-3 text-center text-xs font-medium text-[var(--text-muted)] uppercase">Time</th>
+                                        <tr className="bg-[var(--bg-page)]/50 text-[10px] uppercase tracking-widest text-[var(--text-muted)] font-black border-b border-[var(--border-light)]">
+                                            <th className="px-6 py-4 text-center w-20">Pos</th>
+                                            <th className="px-6 py-4 text-left">Challenger</th>
+                                            <th className="px-6 py-4 text-center">Score</th>
+                                            <th className="px-6 py-4 text-center hidden sm:table-cell">Tile</th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {leaderboard.leaderboard.map((entry) => (
-                                            <tr
-                                                key={entry.student_id}
-                                                className={`border-b border-[var(--border-light)] hover:bg-[var(--bg-page)] transition-colors ${entry.rank <= 3 ? "bg-warning-subtle/30 dark:bg-yellow-900/5" : ""}`}
-                                            >
-                                                <td className="px-5 py-3">
-                                                    <span className={`text-lg font-bold ${getRankColor(entry.rank)}`}>
-                                                        {getRankEmoji(entry.rank)}
-                                                    </span>
-                                                </td>
-                                                <td className="px-5 py-3">
-                                                    <p className="text-sm font-medium text-[var(--text-primary)]">{entry.student_name}</p>
-                                                </td>
-                                                <td className="px-5 py-3 text-center">
-                                                    <span className="text-sm font-bold text-[var(--text-primary)]">
-                                                        {entry.marks_obtained}/{entry.total_marks}
-                                                    </span>
-                                                    <span className="text-xs text-[var(--text-muted)] ml-1">({entry.pct}%)</span>
-                                                </td>
-                                                <td className="px-5 py-3 text-center">
-                                                    <span className={`text-sm font-medium ${entry.percentile >= 90 ? "text-green-600" : entry.percentile >= 70 ? "text-[var(--primary)]" : "text-[var(--text-secondary)]"}`}>
-                                                        {entry.percentile}%
-                                                    </span>
-                                                </td>
-                                                <td className="px-5 py-3 text-center">
-                                                    <span className="text-xs text-[var(--text-muted)] flex items-center justify-center gap-1">
-                                                        <Clock className="w-3 h-3" />
-                                                        {entry.time_taken ? `${entry.time_taken}m` : "-"}
-                                                    </span>
-                                                </td>
-                                            </tr>
-                                        ))}
+                                        {leaderboard.leaderboard.map((entry, idx) => {
+                                            const style = getRankStyle(entry.rank);
+                                            const isTop3 = entry.rank <= 3;
+                                            
+                                            return (
+                                                <tr
+                                                    key={entry.student_id}
+                                                    className={`group transition-all duration-300 hover:bg-[var(--bg-page)]/80 border-b border-[var(--border-neutral)] last:border-0 relative ${
+                                                        isTop3 ? style.bg : ""
+                                                    }`}
+                                                >
+                                                    {/* Left indicator bar for top 3 */}
+                                                    {isTop3 && (
+                                                        <td className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-transparent via-current to-transparent opacity-50" style={{ color: style.color.replace('text-', 'bg-') }}></td>
+                                                    )}
+
+                                                    <td className="px-6 py-4 text-center">
+                                                        <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full font-black text-sm shadow-sm ${
+                                                            isTop3 
+                                                                ? `${style.bg} ${style.color} border border-current/20` 
+                                                                : "bg-[var(--bg-card)] border border-[var(--border-light)] text-[var(--text-secondary)] group-hover:scale-110 transition-transform"
+                                                        }`}>
+                                                            {entry.rank}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <div className="flex items-center gap-3">
+                                                            {isTop3 && style.icon}
+                                                            <div>
+                                                                <p className={`text-sm font-bold ${isTop3 ? style.color : "text-[var(--text-primary)]"} transition-colors`}>
+                                                                    {entry.student_name}
+                                                                </p>
+                                                                {entry.time_taken && (
+                                                                    <p className="text-[10px] text-[var(--text-muted)] flex items-center gap-1 mt-0.5">
+                                                                        <Clock className="w-3 h-3" /> {entry.time_taken}m completed
+                                                                    </p>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-center">
+                                                        <div className="flex flex-col items-center">
+                                                            <span className="text-base font-black text-[var(--text-primary)] tracking-tight">
+                                                                {entry.marks_obtained}
+                                                            </span>
+                                                            <span className="text-[10px] font-bold text-[var(--text-muted)]">
+                                                                {entry.pct}%
+                                                            </span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-center hidden sm:table-cell">
+                                                        <div className="flex items-center justify-center">
+                                                            <span className={`text-xs font-black px-2.5 py-1 rounded-md border ${
+                                                                entry.percentile >= 95 ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20 dark:text-emerald-400"
+                                                                : entry.percentile >= 80 ? "bg-blue-500/10 text-blue-600 border-blue-500/20 dark:text-blue-400"
+                                                                : entry.percentile >= 50 ? "bg-amber-500/10 text-amber-600 border-amber-500/20 dark:text-amber-400"
+                                                                : "bg-[var(--bg-page)] text-[var(--text-muted)] border-[var(--border-light)]"
+                                                            }`}>
+                                                                {entry.percentile} P
+                                                            </span>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
                                     </tbody>
                                 </table>
                             </div>
                         </div>
                     )}
-                </>
+                </div>
             )}
         </div>
     );

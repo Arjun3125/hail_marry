@@ -1,0 +1,10 @@
+app:
+  debug: true
+
+sentry:
+  enabled: false
+
+startup_checks:
+  enabled: false
+  strict: false
+

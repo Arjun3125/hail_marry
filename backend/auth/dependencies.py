@@ -28,15 +28,41 @@ _demo_user_cache: dict = {}
 
 async def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
     """Extract and validate user from JWT cookie or Authorization header.
-    In DEMO_MODE, returns a demo user based on the X-Demo-Role header or defaults to student.
+    In DEMO_MODE, first tries JWT if present, then falls back to role-based lookup.
     """
-    # ── DEMO MODE: bypass JWT validation ──
+    # ── DEMO MODE ──
     if is_demo_mode():
+        # 1. Try JWT token first (from demo-login or regular login)
+        token = request.cookies.get("access_token")
+        if not token:
+            auth_header = request.headers.get("Authorization")
+            if auth_header and auth_header.startswith("Bearer "):
+                token = auth_header.split(" ", 1)[1]
+
+        if token:
+            payload = decode_access_token(token)
+            if payload and payload.get("user_id"):
+                try:
+                    user_uuid = uuid.UUID(payload["user_id"])
+                    user = db.query(User).filter(User.id == user_uuid, User.is_active == True).first()
+                    if user:
+                        request.state.tenant_id = str(user.tenant_id)
+                        request.state.user_role = user.role
+                        request.state.user_id = str(user.id)
+                        return user
+                except (ValueError, Exception):
+                    pass  # fall through to role-based lookup
+
+        # 2. Fallback: role-based lookup via header/cookie
         role = request.headers.get("X-Demo-Role") or request.cookies.get("demo_role") or "student"
         cache_key = role
 
         if cache_key not in _demo_user_cache:
-            user = db.query(User).filter(User.role == role, User.is_active == True).first()
+            user = None
+            if role == "student":
+                user = db.query(User).filter(User.email == "demo_cbse11@modernhustlers.com", User.is_active == True).first()
+            if not user:
+                user = db.query(User).filter(User.role == role, User.is_active == True).first()
             if not user:
                 user = db.query(User).filter(User.is_active == True).first()
             if user:
@@ -50,6 +76,7 @@ async def get_current_user(request: Request, db: Session = Depends(get_db)) -> U
                 request.state.user_role = user.role
                 request.state.user_id = str(user.id)
                 return user
+
 
         raise HTTPException(status_code=503, detail="Demo data not seeded. Run: python seed.py")
 

@@ -4,18 +4,15 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* VidyaOS design tokens */
+/* VidyaOS design tokens — Stripe/Linear inspired */
 :root {
   --primary: #2563eb;
   --primary-light: #eff6ff;
   --primary-hover: #1d4ed8;
 
   --text-primary: #0f172a;
-  /* Slate 900 */
   --text-secondary: #334155;
-  /* Slate 700 */
   --text-muted: #64748b;
-  /* Slate 500 */
 
   /* AI Features Accent (Indigo/Purple) */
   --accent-purple: #8b5cf6;
@@ -23,12 +20,9 @@
   --accent-purple-hover: #7c3aed;
 
   --bg-page: #f8fafc;
-  /* Slate 50 */
   --bg-card: #ffffff;
   --bg-hover: #f1f5f9;
-  /* Slate 100 */
   --border: oklch(0.922 0 0);
-  /* Slate 200 */
   --border-light: #e2e8f0;
 
   /* AI Study Studio - Tool Group Colors */
@@ -47,16 +41,14 @@
   --panel-width: 320px;
   --panel-collapsed-width: 48px;
 
-  --radius: 0.625rem;
+  --radius: 8px;
   --radius-sm: 6px;
 
-  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
-  --shadow-card: 0 2px 6px rgba(15, 23, 42, 0.08);
-  --shadow-md: 0 8px 20px rgba(15, 23, 42, 0.12);
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-card: 0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.08);
   --background: #f8fafc;
-  /* bg-page */
   --foreground: #0f172a;
-  /* text-primary */
   --card: #ffffff;
   --card-foreground: #0f172a;
   --popover: #ffffff;
@@ -87,7 +79,7 @@
 }
 
 body {
-  font-family: var(--font-sans, system-ui), -apple-system, sans-serif;
+  font-family: 'Inter', var(--font-sans, system-ui), -apple-system, sans-serif;
   color: var(--text-primary);
   background: var(--bg-page);
   line-height: 1.6;
@@ -159,6 +151,14 @@ main {
 .touch-target {
   min-height: 44px;
   min-width: 44px;
+}
+
+/* Fallback for components still using the old glassmorphism class. 
+   Mapped to the new solid Stripe/Linear card aesthetic instead. */
+.glass-panel {
+  background-color: var(--bg-card);
+  box-shadow: var(--shadow-card);
+  border: 1px solid var(--border);
 }
 
 /* Safe area for notched devices */
@@ -282,9 +282,7 @@ main>div {
 
 .dark {
   --background: #0f172a;
-  /* Slate 900 */
   --foreground: #f8fafc;
-  /* Slate 50 */
   --card: #1e293b;
   --card-foreground: #f8fafc;
   --popover: #1e293b;
@@ -317,7 +315,7 @@ main>div {
 }
 
 @theme inline {
-  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-sans: 'Inter', system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -370,17 +368,15 @@ main>div {
   }
 }
 
-/* Glassmorphism for premium layered surfaces */
+/* Card surface */
 .glass-panel {
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.05);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
 }
 
 .dark .glass-panel {
-  background: rgba(30, 41, 59, 0.7); /* Slate 800 with opacity */
+  background: var(--bg-card);
   border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
@@ -447,21 +443,21 @@ main>div {
   background-clip: text;
 }
 
-/* ── Glass stat card (premium) ── */
+/* ── Stat card (premium) ── */
 .glass-stat {
   position: relative;
   overflow: hidden;
   border-radius: var(--radius);
   padding: 1.25rem;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255,255,255,0.15);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .glass-stat:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+  box-shadow: var(--shadow-card);
 }
 
 .glass-stat::before {
@@ -469,29 +465,18 @@ main>div {
   position: absolute;
   top: 0;
   left: 0;
-  right: 0;
   bottom: 0;
-  opacity: 0.08;
+  width: 4px;
   z-index: 0;
-  border-radius: inherit;
 }
 
 .glass-stat > * { position: relative; z-index: 1; }
 
-.glass-stat-blue { background: linear-gradient(135deg, rgba(37,99,235,0.1), rgba(59,130,246,0.05)); }
-.glass-stat-blue::before { background: linear-gradient(135deg, #2563eb, #3b82f6); }
-
-.glass-stat-green { background: linear-gradient(135deg, rgba(22,163,74,0.1), rgba(34,197,94,0.05)); }
-.glass-stat-green::before { background: linear-gradient(135deg, #16a34a, #22c55e); }
-
-.glass-stat-purple { background: linear-gradient(135deg, rgba(139,92,246,0.1), rgba(168,85,247,0.05)); }
-.glass-stat-purple::before { background: linear-gradient(135deg, #8b5cf6, #a855f7); }
-
-.glass-stat-amber { background: linear-gradient(135deg, rgba(217,119,6,0.1), rgba(245,158,11,0.05)); }
-.glass-stat-amber::before { background: linear-gradient(135deg, #d97706, #f59e0b); }
-
-.glass-stat-pink { background: linear-gradient(135deg, rgba(219,39,119,0.1), rgba(236,72,153,0.05)); }
-.glass-stat-pink::before { background: linear-gradient(135deg, #db2777, #ec4899); }
+.glass-stat-blue::before { background: var(--primary); }
+.glass-stat-green::before { background: var(--success); }
+.glass-stat-purple::before { background: var(--accent-purple); }
+.glass-stat-amber::before { background: var(--warning); }
+.glass-stat-pink::before { background: #ec4899; }
 
 .dark .glass-stat { border: 1px solid rgba(255,255,255,0.06); }
 .dark .glass-stat::before { opacity: 0.12; }

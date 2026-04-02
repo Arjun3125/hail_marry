@@ -1,5 +1,5 @@
-# Multi-stage production Dockerfile for VidyaOS Backend
-# Optimized for minimal image size (~120MB vs ~800MB single-stage)
+# Compatibility production Dockerfile.
+# Canonical file: deploy/docker/backend.Dockerfile
 
 # ── Stage 1: Build dependencies ──────────────────────────────
 FROM python:3.12-slim AS builder

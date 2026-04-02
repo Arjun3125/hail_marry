@@ -163,7 +163,7 @@ def _get_redis_client():
                 or os.getenv("REDIS_URL")
                 or settings.redis.broker_url
             )
-            _redis = redis_lib.from_url(redis_url, decode_responses=True)
+            _redis = redis_lib.from_url(redis_url, decode_responses=True, socket_connect_timeout=1, socket_timeout=1)
             _redis.ping()
             _redis_available = True
         except Exception:
@@ -609,7 +609,15 @@ def get_job_detail_for_tenant(job_id: str, tenant_id: str) -> dict[str, Any] | N
 
 
 def get_queue_metrics(tenant_id: str) -> dict[str, Any]:
-    client = _require_queue_client()
+    client = _get_redis_client()
+    if not client:
+        return {
+            "pending_depth": 0, "processing_depth": 0, "tracked_jobs": 0,
+            "completed_last_window": 0, "failed_last_window": 0, "failure_rate_pct": 0.0,
+            "retry_count": 0, "stuck_jobs": 0, "stuck_job_ids": [],
+            "max_pending_jobs_per_tenant": settings.ai_queue.max_pending_jobs,
+            "by_status": {}, "by_type": {}
+        }
     _prune_recent_metrics(client, tenant_id)
     jobs = _current_jobs_from_index(client, tenant_id, limit=None)
     status_counts = Counter(job.get("status", "unknown") for job in jobs)
@@ -1074,3 +1082,4 @@ def move_to_dead_letter(job_id: str, tenant_id: str, actor_user_id: str | None =
     _metric_incr(client, tenant_id, "dead_letter_total", 1)
     _record_audit_event(job, "ai_job.dead_lettered", actor_user_id=actor_user_id)
     return _admin_job_summary(job)
+

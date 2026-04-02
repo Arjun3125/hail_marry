@@ -1,5 +1,5 @@
 """Audio overview route backed by the AI gateway."""
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from auth.dependencies import get_current_user
@@ -34,7 +34,6 @@ async def audio_overview(
         estimated_prompt_tokens=approximate_token_count(request.topic),
     )
     if not governance.allowed:
-        from fastapi import HTTPException
         raise HTTPException(status_code=429, detail=governance.detail)
     result = await run_audio_overview(
         InternalAudioOverviewRequest(

@@ -1,4 +1,6 @@
 """Billing API routes — Razorpay order creation, payment verification, webhooks, subscription status."""
+import json
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -76,8 +78,6 @@ async def razorpay_webhook(request: Request, db: Session = Depends(get_db)):
     signature = request.headers.get("X-Razorpay-Signature", "")
     if not verify_webhook_signature(body, signature):
         raise HTTPException(status_code=400, detail="Invalid webhook signature")
-
-    import json
 
     try:
         payload = json.loads(body)

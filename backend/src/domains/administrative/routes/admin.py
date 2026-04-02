@@ -1,50 +1,112 @@
-"""Admin API routes — dashboard, users, AI usage, AI review, complaints, reports, security, settings."""
-from fastapi import APIRouter, Depends, HTTPException
+"""Admin API routes â€” dashboard, users, AI usage, AI review, complaints, reports, security, settings."""
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
-from sqlalchemy import func, desc
-from datetime import date, timedelta, datetime
+from sqlalchemy import desc
+from datetime import datetime
 from pydantic import BaseModel
 from typing import Optional
-import csv
 import io
-import re
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from starlette.responses import StreamingResponse
+from starlette.responses import Response as StarletteResponse
 
 from database import get_db
 from auth.dependencies import require_role
 from src.domains.identity.models.user import User
-from src.domains.academic.models.attendance import Attendance
-from src.domains.academic.models.marks import Mark, Exam
-from src.domains.administrative.models.complaint import Complaint
-from src.domains.platform.models.ai import AIQuery
-from src.domains.academic.models.core import Enrollment, Class, Subject
-from src.domains.academic.models.timetable import Timetable
-from src.domains.platform.models.document import Document
-from src.domains.platform.models.audit import AuditLog
-from src.domains.identity.models.tenant import Tenant
-from src.domains.platform.models.webhook import WebhookSubscription, WebhookDelivery
-from src.domains.academic.models.parent_link import ParentLink
-from src.domains.platform.services.ai_queue import (
-    cancel_job,
-    drain_queue,
-    get_job_detail_for_tenant,
-    get_queue_metrics,
-    list_jobs_for_tenant,
-    move_to_dead_letter,
-    pause_queue,
-    resume_queue,
-    retry_job,
+from src.domains.identity.application.passwords import hash_password
+from src.domains.administrative.application.admin_onboarding import (
+    process_student_onboarding_upload as _process_student_onboarding_upload_impl,
+    process_teacher_onboarding_upload as _process_teacher_onboarding_upload_impl,
 )
-from src.domains.platform.services.alerting import get_active_alerts
-from src.domains.platform.services.observability_notifier import dispatch_alerts
-from src.domains.platform.services.metrics_registry import snapshot_ocr_metrics
-from src.domains.platform.services.trace_backend import get_trace_events
-from src.domains.platform.services.traceability import build_traceability_summary
-from src.domains.platform.services.usage_governance import build_usage_snapshot
+from src.domains.administrative.application.ai_review import (
+    build_ai_review_detail_response as _build_ai_review_detail_response_impl,
+    build_ai_review_list_response as _build_ai_review_list_response_impl,
+)
+from src.domains.administrative.application.ai_jobs import (
+    build_ai_job_detail_response as _build_ai_job_detail_response_impl,
+    build_ai_job_list_response as _build_ai_job_list_response_impl,
+)
+from src.domains.administrative.application.complaints import (
+    build_admin_complaints_response as _build_admin_complaints_response_impl,
+    update_admin_complaint as _update_admin_complaint_impl,
+)
+from src.domains.administrative.application.communications import (
+    build_admin_report_card_payload as _build_admin_report_card_payload_impl,
+    send_admin_whatsapp_digest_bulk as _send_admin_whatsapp_digest_bulk_impl,
+)
+from src.domains.administrative.application.academics import (
+    build_admin_classes_response as _build_admin_classes_response_impl,
+    build_admin_timetable_response as _build_admin_timetable_response_impl,
+    create_admin_class as _create_admin_class_impl,
+    create_admin_subject as _create_admin_subject_impl,
+    create_admin_timetable_slot as _create_admin_timetable_slot_impl,
+    delete_admin_timetable_slot as _delete_admin_timetable_slot_impl,
+    generate_admin_timetable_schedule as _generate_admin_timetable_schedule_impl,
+)
+from src.domains.administrative.application.dashboard import (
+    build_admin_dashboard_response as _build_admin_dashboard_response_impl,
+)
+from src.domains.administrative.application.parent_links import (
+    build_admin_parent_links_response as _build_admin_parent_links_response_impl,
+    create_admin_parent_link as _create_admin_parent_link_impl,
+    delete_admin_parent_link as _delete_admin_parent_link_impl,
+)
+from src.domains.administrative.application.reporting import (
+    build_admin_ai_usage_csv_export as _build_admin_ai_usage_csv_export_impl,
+    build_admin_ai_usage_report as _build_admin_ai_usage_report_impl,
+    build_admin_attendance_csv_export as _build_admin_attendance_csv_export_impl,
+    build_admin_attendance_report as _build_admin_attendance_report_impl,
+    build_admin_billing_info as _build_admin_billing_info_impl,
+    build_admin_performance_csv_export as _build_admin_performance_csv_export_impl,
+    build_admin_performance_heatmap as _build_admin_performance_heatmap_impl,
+    build_admin_performance_report as _build_admin_performance_report_impl,
+    build_admin_security_logs as _build_admin_security_logs_impl,
+)
+from src.domains.administrative.application.settings import (
+    build_admin_settings_response as _build_admin_settings_response_impl,
+    update_admin_settings as _update_admin_settings_impl,
+)
+from src.domains.administrative.application.user_management import (
+    build_admin_csv_template_payload as _build_admin_csv_template_payload_impl,
+    build_admin_students_response as _build_admin_students_response_impl,
+    build_admin_users_response as _build_admin_users_response_impl,
+    change_admin_user_role as _change_admin_user_role_impl,
+    generate_admin_qr_tokens as _generate_admin_qr_tokens_impl,
+    toggle_admin_user_active as _toggle_admin_user_active_impl,
+)
+from src.domains.administrative.application.webhooks import (
+    build_admin_webhook_deliveries_response as _build_admin_webhook_deliveries_response_impl,
+    build_admin_webhooks_response as _build_admin_webhooks_response_impl,
+    create_admin_webhook as _create_admin_webhook_impl,
+    delete_admin_webhook as _delete_admin_webhook_impl,
+    toggle_admin_webhook as _toggle_admin_webhook_impl,
+)
+from src.domains.platform.models.ai import AIQuery
+from src.domains.platform.models.audit import AuditLog
+from src.domains.academic.services.report_card import generate_report_card_pdf
+from src.domains.academic.services.whatsapp import send_weekly_digest
 from src.domains.academic.services.timetable_generator import generate_timetable
-from constants import performance_color
+from src.infrastructure.messaging import (
+    cancel_admin_job,
+    dead_letter_admin_job,
+    drain_admin_queue,
+    emit_webhook_event,
+    get_admin_job_detail,
+    list_admin_jobs,
+    load_queue_metrics,
+    pause_admin_queue,
+    resume_admin_queue,
+    retry_admin_job,
+)
+from src.infrastructure.observability import (
+    dispatch_active_alerts,
+    list_active_alerts,
+    load_ocr_metrics,
+    load_trace_events,
+    load_traceability_summary,
+    load_usage_snapshot,
+)
 from src.shared.ocr_imports import (
     extract_upload_content_result,
     get_extension,
@@ -193,67 +255,30 @@ class ParentLinkCreate(BaseModel):
     child_id: str
 
 
-# ─── Dashboard ───────────────────────────────────────────────
+# â”€â”€â”€ Dashboard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 @router.get("/dashboard")
 async def admin_dashboard(
     current_user: User = Depends(require_role("admin")),
     db: Session = Depends(get_db),
 ):
-    tid = current_user.tenant_id
-    total_students = db.query(User).filter(User.tenant_id == tid, User.role == "student", User.is_active == True).count()
-    total_teachers = db.query(User).filter(User.tenant_id == tid, User.role == "teacher", User.is_active == True).count()
-    active_today = max(1, total_students // 5)
-    ai_today = db.query(AIQuery).filter(AIQuery.tenant_id == tid, func.date(AIQuery.created_at) == date.today()).count()
-    total_att = db.query(Attendance).filter(Attendance.tenant_id == tid).count()
-    present_att = db.query(Attendance).filter(Attendance.tenant_id == tid, Attendance.status == "present").count()
-    avg_attendance = round(present_att / total_att * 100) if total_att > 0 else 0
-    avg_marks = db.query(func.avg(Mark.marks_obtained)).filter(Mark.tenant_id == tid).scalar()
-    open_complaints = db.query(Complaint).filter(Complaint.tenant_id == tid, Complaint.status != "resolved").count()
-    queue_metrics = {}
-    try:
-        queue_metrics = get_queue_metrics(str(current_user.tenant_id))
-    except Exception:
-        queue_metrics = {
-            "pending_depth": 0,
-            "processing_depth": 0,
-            "failure_rate_pct": 0,
-            "stuck_jobs": 0,
-        }
-
-    observability_alerts = []
-    try:
-        observability_alerts = get_active_alerts(str(current_user.tenant_id))
-    except Exception:
-        observability_alerts = []
-
-    return {
-        "total_students": total_students, "total_teachers": total_teachers,
-        "active_today": active_today, "ai_queries_today": ai_today,
-        "avg_attendance": avg_attendance, "avg_performance": round(float(avg_marks)) if avg_marks else 0,
-        "open_complaints": open_complaints,
-        "queue_pending_depth": queue_metrics.get("pending_depth", 0),
-        "queue_processing_depth": queue_metrics.get("processing_depth", 0),
-        "queue_failure_rate_pct": queue_metrics.get("failure_rate_pct", 0),
-        "queue_stuck_jobs": queue_metrics.get("stuck_jobs", 0),
-        "observability_alerts": observability_alerts,
-    }
+    return _build_admin_dashboard_response_impl(
+        db=db,
+        tenant_id=current_user.tenant_id,
+        load_queue_metrics_fn=load_queue_metrics,
+        list_active_alerts_fn=list_active_alerts,
+    )
 
 
-# ─── User Management ────────────────────────────────────────
+# â”€â”€â”€ User Management â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 @router.get("/users")
 async def list_users(
     current_user: User = Depends(require_role("admin")),
     db: Session = Depends(get_db),
 ):
-    users = db.query(User).filter(User.tenant_id == current_user.tenant_id, User.is_deleted == False).order_by(User.created_at.desc()).all()
-    return [{
-        "id": str(u.id), "name": u.full_name, "email": u.email, "role": u.role,
-        "is_active": u.is_active, "last_login": str(u.last_login) if u.last_login else None,
-        "ai_queries_30d": db.query(AIQuery).filter(
-            AIQuery.tenant_id == current_user.tenant_id,
-            AIQuery.user_id == u.id,
-        ).count(),
-    } for u in users]
+    return _build_admin_users_response_impl(
+        db=db,
+        tenant_id=current_user.tenant_id,
+    )
 
 
 @router.get("/students")
@@ -261,62 +286,34 @@ async def list_students(
     current_user: User = Depends(require_role("admin")),
     db: Session = Depends(get_db),
 ):
-    students = db.query(User).filter(
-        User.tenant_id == current_user.tenant_id,
-        User.role == "student",
-        User.is_deleted == False,
-    ).order_by(User.full_name.asc()).all()
-
-    class_by_student: dict[UUID, tuple[UUID | None, str | None]] = {}
-    if students:
-        ids = [s.id for s in students]
-        enrollment_rows = db.query(Enrollment, Class).join(
-            Class, Enrollment.class_id == Class.id
-        ).filter(
-            Enrollment.tenant_id == current_user.tenant_id,
-            Enrollment.student_id.in_(ids),
-        ).all()
-        class_by_student = {
-            row[0].student_id: (row[0].class_id, row[1].name)
-            for row in enrollment_rows
-        }
-
-    return [{
-        "id": str(student.id),
-        "name": student.full_name or student.email,
-        "email": student.email,
-        "is_active": student.is_active,
-        "class_id": str(class_by_student.get(student.id, (None, None))[0]) if student.id in class_by_student else None,
-        "class_name": class_by_student.get(student.id, (None, None))[1],
-    } for student in students]
+    return _build_admin_students_response_impl(
+        db=db,
+        tenant_id=current_user.tenant_id,
+    )
 
 @router.patch("/users/{user_id}/role")
 async def change_user_role(user_id: str, data: RoleChange, current_user: User = Depends(require_role("admin")), db: Session = Depends(get_db)):
-    user_uuid = _parse_uuid(user_id, "user_id")
-    user = db.query(User).filter(User.id == user_uuid, User.tenant_id == current_user.tenant_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    if data.role not in ("student", "teacher", "admin", "parent"):
-        raise HTTPException(status_code=400, detail="Invalid role")
-    old_role = user.role
-    user.role = data.role
-    db.add(AuditLog(tenant_id=current_user.tenant_id, user_id=current_user.id, action="role.changed", entity_type="user", entity_id=user.id, metadata_={"old": old_role, "new": data.role}))
-    db.commit()
-    return {"success": True}
+    return _change_admin_user_role_impl(
+        db=db,
+        tenant_id=current_user.tenant_id,
+        actor_user_id=current_user.id,
+        user_id=user_id,
+        role=data.role,
+        parse_uuid_fn=_parse_uuid,
+    )
 
 @router.patch("/users/{user_id}/deactivate")
 async def deactivate_user(user_id: str, current_user: User = Depends(require_role("admin")), db: Session = Depends(get_db)):
-    user_uuid = _parse_uuid(user_id, "user_id")
-    user = db.query(User).filter(User.id == user_uuid, User.tenant_id == current_user.tenant_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    user.is_active = not user.is_active
-    db.add(AuditLog(tenant_id=current_user.tenant_id, user_id=current_user.id, action="user.toggled", entity_type="user", entity_id=user.id, metadata_={"is_active": user.is_active}))
-    db.commit()
-    return {"success": True, "is_active": user.is_active}
+    return _toggle_admin_user_active_impl(
+        db=db,
+        tenant_id=current_user.tenant_id,
+        actor_user_id=current_user.id,
+        user_id=user_id,
+        parse_uuid_fn=_parse_uuid,
+    )
 
 
-# ─── User Authority & Onboarding ────────────────────────────
+# â”€â”€â”€ User Authority & Onboarding â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 @router.post("/onboard/teachers")
 async def onboard_teachers(
     file: UploadFile = File(...),
@@ -330,124 +327,27 @@ async def onboard_teachers(
     Image Format: handwritten or printed list of names (one per line). Emails/passwords auto-generated.
     """
     safe_filename = file.filename or ""
-    ext = get_extension(safe_filename)
     content = await file.read()
-    teachers_to_create = []
-    ocr_processed = False
-    ocr_review_required = False
-    ocr_warning = None
-    ocr_languages: list[str] = []
-    ocr_preprocessing: list[str] = []
-    ocr_confidence: float | None = None
-
-    parsed = None
-    if ext in ("csv", "txt", "jpg", "jpeg", "png"):
-        try:
-            extraction = extract_upload_content_result(safe_filename, content)
-        except ValueError as exc:
-            detail = str(exc)
-            if ext in ("csv", "txt") and "Invalid encoding" in detail:
-                detail = "Invalid text encoding. Please use UTF-8."
-            raise HTTPException(status_code=400, detail=detail)
-
-        text = extraction.text
-        ocr_processed = extraction.used_ocr
-        ocr_review_required = extraction.review_required
-        ocr_warning = extraction.warning
-        ocr_languages = extraction.languages
-        ocr_preprocessing = extraction.preprocessing_applied
-        ocr_confidence = getattr(extraction, "confidence", None)
-
-        if extraction.used_ocr:
-            parsed = parse_account_rows_with_diagnostics(text, default_password="Teacher123!")
-            teachers_to_create = [row for _, row in parsed.rows]
-            if parsed.review_required:
-                ocr_review_required = True
-            if parsed.warning:
-                ocr_warning = parsed.warning
-        else:
-            reader = csv.reader(io.StringIO(text))
-            for row in reader:
-                if not row or not any(row):
-                    continue
-                name = row[0].strip()
-                email = row[1].strip() if len(row) > 1 else f"{re.sub(r'[^a-zA-Z0-9]', '.', name.lower())}@example.com"
-                password = row[2].strip() if len(row) > 2 else "Teacher123!"
-                teachers_to_create.append({"name": name, "email": email, "password": password})
-    else:
-        raise HTTPException(status_code=400, detail="Only CSV, TXT, JPG, JPEG, PNG allowed")
-
-    if not teachers_to_create:
-        raise HTTPException(status_code=400, detail="No readable names found in the file")
-
-    if preview:
-        return {
-            "success": True,
-            "preview": True,
-            "preview_rows": teachers_to_create,
-            "total_rows": len(teachers_to_create),
-            "ocr_processed": ocr_processed,
-            "ocr_review_required": ocr_review_required,
-            "ocr_warning": ocr_warning,
-            "ocr_languages": ocr_languages,
-            "ocr_preprocessing": ocr_preprocessing,
-            "ocr_confidence": ocr_confidence,
-            "ocr_unmatched_lines": parsed.total_nonempty_lines - len(parsed.rows) if ocr_processed and parsed is not None else 0,
-        }
-
-    try:
-        from auth.auth import pwd_context
-    except ImportError:
-        from passlib.context import CryptContext
-        pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-    created_count = 0
-    tenant_domain = db.query(Tenant.domain).filter(Tenant.id == current_user.tenant_id).scalar()
-
-    for t in teachers_to_create:
-        email = t["email"]
-        if "@example.com" in email and tenant_domain:
-            email = email.replace("@example.com", f"@{tenant_domain}")
-
-        existing = db.query(User).filter(User.email == email).first()
-        if existing:
-            continue
-            
-        hashed_pw = pwd_context.hash(t["password"])
-        new_teacher = User(
-            tenant_id=current_user.tenant_id,
-            email=email,
-            full_name=t["name"],
-            role="teacher",
-            hashed_password=hashed_pw,
-            is_active=True
-        )
-        db.add(new_teacher)
-        created_count += 1
-        
-    db.commit()
-    
-    return {
-        "success": True, 
-        "message": f"Successfully onboarded {created_count} teachers.",
-        "created_count": created_count,
-        "ocr_processed": ocr_processed,
-        "ocr_review_required": ocr_review_required,
-        "ocr_warning": ocr_warning,
-        "ocr_languages": ocr_languages,
-        "ocr_preprocessing": ocr_preprocessing,
-        "ocr_confidence": ocr_confidence,
-        "ocr_unmatched_lines": parsed.total_nonempty_lines - len(parsed.rows) if ocr_processed and 'parsed' in locals() else 0,
-    }
+    return _process_teacher_onboarding_upload_impl(
+        db=db,
+        tenant_id=current_user.tenant_id,
+        safe_filename=safe_filename,
+        content=content,
+        preview=preview,
+        get_extension_fn=get_extension,
+        extract_upload_content_result_fn=extract_upload_content_result,
+        parse_account_rows_with_diagnostics_fn=parse_account_rows_with_diagnostics,
+        hash_password_fn=hash_password,
+    )
 
 
-# ─── Queue Operations ─────────────────────────────────────────
+# â”€â”€â”€ Queue Operations â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @router.post("/queue/pause")
 async def pause_ai_queue(current_user: User = Depends(require_role("admin"))):
     """Pause the AI background queue. Workers will stop pulling new jobs."""
     try:
-        pause_queue()
+        pause_admin_queue()
         return {"success": True, "message": "Queue paused successfully."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -456,7 +356,7 @@ async def pause_ai_queue(current_user: User = Depends(require_role("admin"))):
 async def resume_ai_queue(current_user: User = Depends(require_role("admin"))):
     """Resume the AI background queue."""
     try:
-        resume_queue()
+        resume_admin_queue()
         return {"success": True, "message": "Queue resumed successfully."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -465,17 +365,17 @@ async def resume_ai_queue(current_user: User = Depends(require_role("admin"))):
 async def drain_ai_queue(current_user: User = Depends(require_role("admin"))):
     """Drain all pending jobs immediately to dead-letter for this tenant."""
     try:
-        drained_count = drain_queue(str(current_user.tenant_id))
+        drained_count = drain_admin_queue(str(current_user.tenant_id))
         return {"success": True, "message": f"Drained {drained_count} jobs.", "drained_count": drained_count}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ── AI Job Management ─────────────────────────────────────────────────────────
+# â”€â”€ AI Job Management â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @router.get("/ai-jobs/metrics")
 async def ai_job_metrics(current_user: User = Depends(require_role("admin"))):
-    return get_queue_metrics(str(current_user.tenant_id))
+    return load_queue_metrics(str(current_user.tenant_id))
 
 
 @router.get("/ai-jobs")
@@ -486,16 +386,15 @@ async def ai_job_list(
     current_user: User = Depends(require_role("admin")),
     db: Session = Depends(get_db),
 ):
-    jobs = list_jobs_for_tenant(
-        tenant_id=str(current_user.tenant_id),
+    return _build_ai_job_list_response_impl(
+        db=db,
+        tenant_id=current_user.tenant_id,
         limit=limit,
         status=status,
         job_type=job_type,
+        list_admin_jobs_fn=list_admin_jobs,
+        resolve_user_names_fn=_resolve_user_names,
     )
-    user_map = _resolve_user_names(db, [job.get("user_id") for job in jobs])
-    for job in jobs:
-        job["user_name"] = user_map.get(job.get("user_id"), "Unknown") if job.get("user_id") else None
-    return jobs
 
 
 @router.get("/ai-jobs/history")
@@ -513,18 +412,14 @@ async def ai_job_detail(
     current_user: User = Depends(require_role("admin")),
     db: Session = Depends(get_db),
 ):
-    job = get_job_detail_for_tenant(job_id, str(current_user.tenant_id))
-    if not job:
-        raise HTTPException(status_code=404, detail="AI job not found")
-    user_map = _resolve_user_names(db, [job.get("user_id")])
-    job["user_name"] = user_map.get(job.get("user_id"), "Unknown") if job.get("user_id") else None
-    job["audit_history"] = _ai_job_audit_history(
+    return _build_ai_job_detail_response_impl(
         db,
         tenant_id=current_user.tenant_id,
         job_id=job_id,
-        limit=100,
+        get_admin_job_detail_fn=get_admin_job_detail,
+        resolve_user_names_fn=_resolve_user_names,
+        ai_job_audit_history_fn=_ai_job_audit_history,
     )
-    return job
 
 
 @router.post("/ai-jobs/{job_id}/cancel")
@@ -532,7 +427,7 @@ async def ai_job_cancel(
     job_id: str,
     current_user: User = Depends(require_role("admin")),
 ):
-    return cancel_job(job_id, str(current_user.tenant_id), actor_user_id=str(current_user.id))
+    return cancel_admin_job(job_id, str(current_user.tenant_id), actor_user_id=str(current_user.id))
 
 
 @router.post("/ai-jobs/{job_id}/retry")
@@ -540,7 +435,7 @@ async def ai_job_retry(
     job_id: str,
     current_user: User = Depends(require_role("admin")),
 ):
-    return retry_job(job_id, str(current_user.tenant_id), actor_user_id=str(current_user.id))
+    return retry_admin_job(job_id, str(current_user.tenant_id), actor_user_id=str(current_user.id))
 
 
 @router.post("/ai-jobs/{job_id}/dead-letter")
@@ -548,39 +443,23 @@ async def ai_job_dead_letter(
     job_id: str,
     current_user: User = Depends(require_role("admin")),
 ):
-    return move_to_dead_letter(job_id, str(current_user.tenant_id), actor_user_id=str(current_user.id))
+    return dead_letter_admin_job(job_id, str(current_user.tenant_id), actor_user_id=str(current_user.id))
 
-# ─── AI Usage Analytics ─────────────────────────────────────
+# â”€â”€â”€ AI Usage Analytics â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 @router.get("/ai-usage")
 async def ai_usage_analytics(current_user: User = Depends(require_role("admin")), db: Session = Depends(get_db)):
-    return build_usage_snapshot(db, tenant_id=current_user.tenant_id, days=7)
+    return load_usage_snapshot(db, tenant_id=current_user.tenant_id, days=7)
 
 
-# ─── AI Quality Review ──────────────────────────────────────
+# â”€â”€â”€ AI Quality Review â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 @router.get("/ai-review")
 async def ai_review(current_user: User = Depends(require_role("admin")), db: Session = Depends(get_db)):
-    """Random sample of recent AI responses for quality review."""
-    recent = db.query(AIQuery, User.full_name).join(User, AIQuery.user_id == User.id).filter(
-        AIQuery.tenant_id == current_user.tenant_id,
-    ).order_by(desc(AIQuery.created_at)).limit(20).all()
-    query_ids = [q.id for q, _ in recent]
-    _, latest_map = _load_review_history(
-        db,
+    return _build_ai_review_list_response_impl(
+        db=db,
         tenant_id=current_user.tenant_id,
-        query_ids=query_ids,
+        load_review_history_fn=_load_review_history,
+        review_status_from_action_fn=_review_status_from_action,
     )
-    return [{
-        **({
-            "review_status": _review_status_from_action(latest_map.get(str(q.id), {}).get("action")),
-            "review_note": latest_map.get(str(q.id), {}).get("note"),
-            "reviewed_at": latest_map.get(str(q.id), {}).get("created_at"),
-            "reviewed_by": latest_map.get(str(q.id), {}).get("reviewed_by"),
-        }),
-        "id": str(q.id), "user": name, "query": q.query_text,
-        "response": q.response_text[:500], "mode": q.mode,
-        "citations": q.citation_count, "response_time_ms": q.response_time_ms,
-        "trace_id": q.trace_id, "created_at": str(q.created_at),
-    } for q, name in recent]
 
 
 @router.get("/ai-review/{review_id}")
@@ -589,37 +468,14 @@ async def ai_review_detail(
     current_user: User = Depends(require_role("admin")),
     db: Session = Depends(get_db),
 ):
-    review_uuid = _parse_uuid(review_id, "review_id")
-    row = db.query(AIQuery, User.full_name).join(User, AIQuery.user_id == User.id).filter(
-        AIQuery.tenant_id == current_user.tenant_id,
-        AIQuery.id == review_uuid,
-    ).first()
-    if not row:
-        raise HTTPException(status_code=404, detail="AI review item not found")
-    query, name = row
-    history_map, latest_map = _load_review_history(
-        db,
+    return _build_ai_review_detail_response_impl(
+        db=db,
         tenant_id=current_user.tenant_id,
-        query_ids=[query.id],
+        review_id=review_id,
+        parse_uuid_fn=_parse_uuid,
+        load_review_history_fn=_load_review_history,
+        review_status_from_action_fn=_review_status_from_action,
     )
-    latest = latest_map.get(str(query.id), {})
-    return {
-        "id": str(query.id),
-        "user": name,
-        "query": query.query_text,
-        "response": query.response_text,
-        "mode": query.mode,
-        "citations": query.citation_count,
-        "response_time_ms": query.response_time_ms,
-        "trace_id": query.trace_id,
-        "created_at": str(query.created_at),
-        "token_usage": query.token_usage,
-        "review_status": _review_status_from_action(latest.get("action")),
-        "review_note": latest.get("note"),
-        "reviewed_at": latest.get("created_at"),
-        "reviewed_by": latest.get("reviewed_by"),
-        "review_history": history_map.get(str(query.id), []),
-    }
 
 
 @router.patch("/ai-review/{review_id}")
@@ -655,11 +511,11 @@ async def update_ai_review(
     return {"success": True}
 
 
-# ── Observability ────────────────────────────────────────────────────────────
+# â”€â”€ Observability â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @router.get("/observability/alerts")
 async def observability_alerts(current_user: User = Depends(require_role("admin"))):
-    return get_active_alerts(str(current_user.tenant_id))
+    return list_active_alerts(str(current_user.tenant_id))
 
 
 @router.post("/observability/alerts/dispatch")
@@ -667,8 +523,8 @@ async def dispatch_observability_alerts(
     current_user: User = Depends(require_role("admin")),
     db: Session = Depends(get_db),
 ):
-    alerts = get_active_alerts(str(current_user.tenant_id))
-    result = await dispatch_alerts(db, str(current_user.tenant_id), alerts)
+    alerts = list_active_alerts(str(current_user.tenant_id))
+    result = await dispatch_active_alerts(db, str(current_user.tenant_id), alerts)
     return {"alerts": len(alerts), **result}
 
 
@@ -677,7 +533,7 @@ async def trace_detail(
     trace_id: str,
     current_user: User = Depends(require_role("admin")),
 ):
-    events = get_trace_events(trace_id, current_user.tenant_id)
+    events = load_trace_events(trace_id, current_user.tenant_id)
     if not events:
         raise HTTPException(status_code=404, detail="Trace not found")
     return {"trace_id": trace_id, "events": events}
@@ -685,7 +541,7 @@ async def trace_detail(
 
 @router.get("/observability/ocr-metrics")
 async def ocr_metrics(current_user: User = Depends(require_role("admin"))):
-    return {"metrics": snapshot_ocr_metrics()}
+    return {"metrics": load_ocr_metrics()}
 
 
 @router.get("/observability/traceability")
@@ -693,47 +549,37 @@ async def traceability_summary(
     days: int = 7,
     current_user: User = Depends(require_role("admin")),
 ):
-    return build_traceability_summary(tenant_id=current_user.tenant_id, days=days)
+    return load_traceability_summary(tenant_id=current_user.tenant_id, days=days)
 
 
-# ─── Complaints Oversight ───────────────────────────────────
+# â”€â”€â”€ Complaints Oversight â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 @router.get("/complaints")
 async def admin_complaints(current_user: User = Depends(require_role("admin")), db: Session = Depends(get_db)):
-    complaints = db.query(Complaint, User.full_name).join(User, Complaint.student_id == User.id).filter(
-        Complaint.tenant_id == current_user.tenant_id,
-    ).order_by(desc(Complaint.created_at)).all()
-    return [{
-        "id": str(c.id), "student": name, "category": c.category,
-        "description": c.description, "status": c.status,
-        "resolution_note": c.resolution_note, "date": str(c.created_at.date()),
-    } for c, name in complaints]
+    return _build_admin_complaints_response_impl(
+        db=db,
+        tenant_id=current_user.tenant_id,
+    )
 
 @router.patch("/complaints/{complaint_id}")
 async def update_complaint(complaint_id: str, data: ComplaintAction, current_user: User = Depends(require_role("admin")), db: Session = Depends(get_db)):
-    complaint_uuid = _parse_uuid(complaint_id, "complaint_id")
-    complaint = db.query(Complaint).filter(Complaint.id == complaint_uuid, Complaint.tenant_id == current_user.tenant_id).first()
-    if not complaint:
-        raise HTTPException(status_code=404, detail="Complaint not found")
-    if data.status not in ALLOWED_COMPLAINT_STATUSES:
-        raise HTTPException(status_code=400, detail="Invalid complaint status")
-    complaint.status = data.status
-    complaint.resolution_note = data.resolution_note
-    if data.status == "resolved":
-        from datetime import datetime
-        complaint.resolved_by = current_user.id
-        complaint.resolved_at = datetime.utcnow()
-    db.commit()
+    result = _update_admin_complaint_impl(
+        db=db,
+        tenant_id=current_user.tenant_id,
+        actor_user_id=current_user.id,
+        complaint_id=complaint_id,
+        status=data.status,
+        resolution_note=data.resolution_note,
+        parse_uuid_fn=_parse_uuid,
+        allowed_statuses=ALLOWED_COMPLAINT_STATUSES,
+    )
+    complaint = result["complaint"]
 
     try:
         await emit_webhook_event(
             db=db,
             tenant_id=current_user.tenant_id,
             event_type="complaint.status.changed",
-            data={
-                "complaint_id": str(complaint.id),
-                "status": complaint.status,
-                "resolved_by": str(complaint.resolved_by) if complaint.resolved_by else None,
-            },
+            data=result["webhook_payload"],
         )
     except Exception:
         # Primary complaint workflow should not fail if webhook delivery fails.
@@ -742,21 +588,13 @@ async def update_complaint(complaint_id: str, data: ComplaintAction, current_use
     return {"success": True}
 
 
-# ─── Class & Subject Management ──────────────────────────────
+# â”€â”€â”€ Class & Subject Management â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 @router.get("/classes")
 async def admin_classes(current_user: User = Depends(require_role("admin")), db: Session = Depends(get_db)):
-    classes = db.query(Class).filter(Class.tenant_id == current_user.tenant_id).all()
-    return [{
-        "id": str(c.id), "name": c.name, "grade": c.grade_level,
-        "students": db.query(Enrollment).filter(
-            Enrollment.tenant_id == current_user.tenant_id,
-            Enrollment.class_id == c.id,
-        ).count(),
-        "subjects": [{"id": str(s.id), "name": s.name} for s in db.query(Subject).filter(
-            Subject.tenant_id == current_user.tenant_id,
-            Subject.class_id == c.id,
-        ).all()],
-    } for c in classes]
+    return _build_admin_classes_response_impl(
+        db=db,
+        tenant_id=current_user.tenant_id,
+    )
 
 class ClassCreate(BaseModel):
     name: str
@@ -836,94 +674,40 @@ class TimetableGenerateRequest(BaseModel):
 
 @router.post("/classes")
 async def create_class(data: ClassCreate, current_user: User = Depends(require_role("admin")), db: Session = Depends(get_db)):
-    cls = Class(tenant_id=current_user.tenant_id, name=data.name, grade_level=data.grade_level, academic_year=data.academic_year)
-    db.add(cls)
-    db.flush()
-    db.add(AuditLog(
+    return _create_admin_class_impl(
+        db=db,
         tenant_id=current_user.tenant_id,
-        user_id=current_user.id,
-        action="class.created",
-        entity_type="class",
-        entity_id=cls.id,
-        metadata_={"name": cls.name, "grade_level": cls.grade_level, "academic_year": cls.academic_year},
-    ))
-    db.commit()
-    db.refresh(cls)
-    return {"success": True, "class_id": str(cls.id)}
+        actor_user_id=getattr(current_user, "id", None),
+        name=data.name,
+        grade_level=data.grade_level,
+        academic_year=data.academic_year,
+    )
 
 @router.post("/subjects")
 async def create_subject(data: SubjectCreate, current_user: User = Depends(require_role("admin")), db: Session = Depends(get_db)):
-    class_uuid = _parse_uuid(data.class_id, "class_id")
-    cls = db.query(Class).filter(
-        Class.id == class_uuid,
-        Class.tenant_id == current_user.tenant_id,
-    ).first()
-    if not cls:
-        raise HTTPException(status_code=404, detail="Class not found")
-
-    subj = Subject(tenant_id=current_user.tenant_id, name=data.name, class_id=class_uuid)
-    db.add(subj)
-    db.flush()
-    db.add(AuditLog(
+    return _create_admin_subject_impl(
+        db=db,
         tenant_id=current_user.tenant_id,
-        user_id=current_user.id,
-        action="subject.created",
-        entity_type="subject",
-        entity_id=subj.id,
-        metadata_={"name": subj.name, "class_id": str(class_uuid)},
-    ))
-    db.commit()
-    return {"success": True, "subject_id": str(subj.id)}
+        actor_user_id=getattr(current_user, "id", None),
+        name=data.name,
+        class_id=data.class_id,
+        parse_uuid_fn=_parse_uuid,
+    )
 
 
-# ─── Reports ────────────────────────────────────────────────
+# â”€â”€â”€ Reports â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 @router.get("/timetable/{class_id}")
 async def get_class_timetable(
     class_id: str,
     current_user: User = Depends(require_role("admin")),
     db: Session = Depends(get_db),
 ):
-    class_uuid = _parse_uuid(class_id, "class_id")
-    cls = db.query(Class).filter(
-        Class.id == class_uuid,
-        Class.tenant_id == current_user.tenant_id,
-    ).first()
-    if not cls:
-        raise HTTPException(status_code=404, detail="Class not found")
-
-    slots = db.query(Timetable).filter(
-        Timetable.tenant_id == current_user.tenant_id,
-        Timetable.class_id == class_uuid,
-    ).order_by(Timetable.day_of_week, Timetable.start_time).all()
-
-    subject_ids = list({slot.subject_id for slot in slots})
-    teacher_ids = list({slot.teacher_id for slot in slots})
-    subjects = []
-    teachers = []
-    if subject_ids:
-        subjects = db.query(Subject).filter(
-            Subject.tenant_id == current_user.tenant_id,
-            Subject.id.in_(subject_ids),
-        ).all()
-    if teacher_ids:
-        teachers = db.query(User).filter(
-            User.tenant_id == current_user.tenant_id,
-            User.id.in_(teacher_ids),
-        ).all()
-    subject_name_by_id = {s.id: s.name for s in subjects}
-    teacher_name_by_id = {t.id: (t.full_name or t.email) for t in teachers}
-
-    return [{
-        "id": str(slot.id),
-        "class_id": str(slot.class_id),
-        "subject_id": str(slot.subject_id),
-        "subject": subject_name_by_id.get(slot.subject_id, "Unknown"),
-        "teacher_id": str(slot.teacher_id),
-        "teacher": teacher_name_by_id.get(slot.teacher_id, "Unknown"),
-        "day_of_week": slot.day_of_week,
-        "start_time": slot.start_time.strftime("%H:%M"),
-        "end_time": slot.end_time.strftime("%H:%M"),
-    } for slot in slots]
+    return _build_admin_timetable_response_impl(
+        db=db,
+        tenant_id=current_user.tenant_id,
+        class_id=class_id,
+        parse_uuid_fn=_parse_uuid,
+    )
 
 
 @router.post("/timetable")
@@ -932,90 +716,19 @@ async def create_timetable_slot(
     current_user: User = Depends(require_role("admin")),
     db: Session = Depends(get_db),
 ):
-    class_uuid = _parse_uuid(data.class_id, "class_id")
-    subject_uuid = _parse_uuid(data.subject_id, "subject_id")
-    teacher_uuid = _parse_uuid(data.teacher_id, "teacher_id")
-
-    if data.day_of_week < 0 or data.day_of_week > 6:
-        raise HTTPException(status_code=400, detail="day_of_week must be between 0 and 6")
-
-    start_time = _parse_hhmm(data.start_time, "start_time")
-    end_time = _parse_hhmm(data.end_time, "end_time")
-    if start_time >= end_time:
-        raise HTTPException(status_code=400, detail="start_time must be before end_time")
-
-    cls = db.query(Class).filter(
-        Class.id == class_uuid,
-        Class.tenant_id == current_user.tenant_id,
-    ).first()
-    if not cls:
-        raise HTTPException(status_code=404, detail="Class not found")
-
-    subject = db.query(Subject).filter(
-        Subject.id == subject_uuid,
-        Subject.tenant_id == current_user.tenant_id,
-    ).first()
-    if not subject:
-        raise HTTPException(status_code=404, detail="Subject not found")
-    if subject.class_id != class_uuid:
-        raise HTTPException(status_code=400, detail="Subject does not belong to class")
-
-    teacher = db.query(User).filter(
-        User.id == teacher_uuid,
-        User.tenant_id == current_user.tenant_id,
-        User.role.in_(["teacher", "admin"]),
-    ).first()
-    if not teacher:
-        raise HTTPException(status_code=404, detail="Teacher not found")
-
-    conflict = db.query(Timetable).filter(
-        Timetable.tenant_id == current_user.tenant_id,
-        Timetable.class_id == class_uuid,
-        Timetable.day_of_week == data.day_of_week,
-        Timetable.start_time < end_time,
-        Timetable.end_time > start_time,
-    ).first()
-    if conflict:
-        raise HTTPException(status_code=409, detail="Time slot overlaps with an existing timetable entry")
-
-    slot = Timetable(
+    return _create_admin_timetable_slot_impl(
+        db=db,
         tenant_id=current_user.tenant_id,
-        class_id=class_uuid,
-        subject_id=subject_uuid,
-        teacher_id=teacher_uuid,
+        actor_user_id=getattr(current_user, "id", None),
+        class_id=data.class_id,
+        subject_id=data.subject_id,
+        teacher_id=data.teacher_id,
         day_of_week=data.day_of_week,
-        start_time=start_time,
-        end_time=end_time,
+        start_time_raw=data.start_time,
+        end_time_raw=data.end_time,
+        parse_uuid_fn=_parse_uuid,
+        parse_hhmm_fn=_parse_hhmm,
     )
-    db.add(slot)
-    db.flush()
-    db.add(AuditLog(
-        tenant_id=current_user.tenant_id,
-        user_id=current_user.id,
-        action="timetable.slot.created",
-        entity_type="timetable",
-        entity_id=slot.id,
-        metadata_={
-            "class_id": str(class_uuid),
-            "day_of_week": data.day_of_week,
-            "start_time": data.start_time,
-            "end_time": data.end_time,
-            "subject_id": str(subject_uuid),
-            "teacher_id": str(teacher_uuid),
-        },
-    ))
-    db.commit()
-    db.refresh(slot)
-    return {
-        "success": True,
-        "id": str(slot.id),
-        "class_id": str(slot.class_id),
-        "subject_id": str(slot.subject_id),
-        "teacher_id": str(slot.teacher_id),
-        "day_of_week": slot.day_of_week,
-        "start_time": slot.start_time.strftime("%H:%M"),
-        "end_time": slot.end_time.strftime("%H:%M"),
-    }
 
 
 @router.delete("/timetable/{slot_id}")
@@ -1024,30 +737,13 @@ async def delete_timetable_slot(
     current_user: User = Depends(require_role("admin")),
     db: Session = Depends(get_db),
 ):
-    slot_uuid = _parse_uuid(slot_id, "slot_id")
-    slot = db.query(Timetable).filter(
-        Timetable.id == slot_uuid,
-        Timetable.tenant_id == current_user.tenant_id,
-    ).first()
-    if not slot:
-        raise HTTPException(status_code=404, detail="Timetable slot not found")
-
-    db.delete(slot)
-    db.add(AuditLog(
+    return _delete_admin_timetable_slot_impl(
+        db=db,
         tenant_id=current_user.tenant_id,
-        user_id=current_user.id,
-        action="timetable.slot.deleted",
-        entity_type="timetable",
-        entity_id=slot_uuid,
-        metadata_={
-            "class_id": str(slot.class_id),
-            "day_of_week": slot.day_of_week,
-            "start_time": slot.start_time.strftime("%H:%M"),
-            "end_time": slot.end_time.strftime("%H:%M"),
-        },
-    ))
-    db.commit()
-    return {"success": True}
+        actor_user_id=getattr(current_user, "id", None),
+        slot_id=slot_id,
+        parse_uuid_fn=_parse_uuid,
+    )
 
 
 @router.post("/timetable/generate")
@@ -1056,130 +752,23 @@ async def generate_timetable_schedule(
     current_user: User = Depends(require_role("admin")),
     db: Session = Depends(get_db),
 ):
-    """Generate a timetable based on constraints and optionally apply it."""
-    teacher_ids = {t.id for t in data.teachers}
-    if not teacher_ids:
-        raise HTTPException(status_code=400, detail="At least one teacher is required")
-
-    class_ids = {r.class_id for r in data.requirements} | {f.class_id for f in data.fixed_lessons}
-    subject_ids = {r.subject_id for r in data.requirements} | {f.subject_id for f in data.fixed_lessons}
-    fixed_teacher_ids = {f.teacher_id for f in data.fixed_lessons}
-    allowed_teacher_ids = set().union(*(r.allowed_teachers or [] for r in data.requirements))
-    if not allowed_teacher_ids:
-        allowed_teacher_ids = set(teacher_ids)
-    missing_in_payload = (allowed_teacher_ids | fixed_teacher_ids) - teacher_ids
-    if missing_in_payload:
-        raise HTTPException(status_code=400, detail="All allowed/fixed teachers must be included in teachers list")
-    all_teacher_ids = teacher_ids | fixed_teacher_ids | allowed_teacher_ids
-
-    if not class_ids or not subject_ids:
-        raise HTTPException(status_code=400, detail="Requirements must include class and subject IDs")
-
-    classes = db.query(Class).filter(
-        Class.tenant_id == current_user.tenant_id,
-        Class.id.in_([_parse_uuid(cid, "class_id") for cid in class_ids]),
-    ).all()
-    if len(classes) != len(class_ids):
-        raise HTTPException(status_code=404, detail="One or more classes not found")
-
-    subjects = db.query(Subject).filter(
-        Subject.tenant_id == current_user.tenant_id,
-        Subject.id.in_([_parse_uuid(sid, "subject_id") for sid in subject_ids]),
-    ).all()
-    if len(subjects) != len(subject_ids):
-        raise HTTPException(status_code=404, detail="One or more subjects not found")
-
-    teachers = db.query(User).filter(
-        User.tenant_id == current_user.tenant_id,
-        User.id.in_([_parse_uuid(tid, "teacher_id") for tid in all_teacher_ids]),
-        User.role.in_(["teacher", "admin"]),
-    ).all()
-    if len(teachers) != len(all_teacher_ids):
-        raise HTTPException(status_code=404, detail="One or more teachers not found")
-
-    subject_by_id = {str(s.id): s for s in subjects}
-    for req in data.requirements:
-        subject = subject_by_id.get(req.subject_id)
-        if subject and str(subject.class_id) != req.class_id:
-            raise HTTPException(status_code=400, detail="Subject does not belong to class")
-        if not req.allowed_teachers:
-            req.allowed_teachers = list(teacher_ids)
-
-    for fixed in data.fixed_lessons:
-        subject = subject_by_id.get(fixed.subject_id)
-        if subject and str(subject.class_id) != fixed.class_id:
-            raise HTTPException(status_code=400, detail="Fixed lesson subject does not belong to class")
-
-    payload = data.model_dump()
-    if data.max_nodes is not None:
-        payload["max_nodes"] = data.max_nodes
-
-    result = generate_timetable(payload)
-    if result.get("status") != "success":
-        return {"success": False, **result}
-
-    assignments = result.get("assignments", [])
-    if data.apply_to_db:
-        class_uuid_ids = [_parse_uuid(cid, "class_id") for cid in class_ids]
-        db.query(Timetable).filter(
-            Timetable.tenant_id == current_user.tenant_id,
-            Timetable.class_id.in_(class_uuid_ids),
-        ).delete(synchronize_session=False)
-
-        for assignment in assignments:
-            start_time = _parse_hhmm(assignment["start_time"], "start_time")
-            end_time = _parse_hhmm(assignment["end_time"], "end_time")
-            db.add(Timetable(
-                tenant_id=current_user.tenant_id,
-                class_id=_parse_uuid(assignment["class_id"], "class_id"),
-                subject_id=_parse_uuid(assignment["subject_id"], "subject_id"),
-                teacher_id=_parse_uuid(assignment["teacher_id"], "teacher_id"),
-                day_of_week=int(assignment["day"]),
-                start_time=start_time,
-                end_time=end_time,
-            ))
-
-        db.add(AuditLog(
-            tenant_id=current_user.tenant_id,
-            user_id=current_user.id,
-            action="timetable.generated",
-            entity_type="timetable",
-            entity_id=None,
-            metadata_={
-                "classes": [str(cid) for cid in class_ids],
-                "slots_created": len(assignments),
-            },
-        ))
-        db.commit()
-        return {"success": True, "applied": True, "created": len(assignments), **result}
-
-    return {"success": True, "applied": False, **result}
+    return _generate_admin_timetable_schedule_impl(
+        db=db,
+        tenant_id=current_user.tenant_id,
+        actor_user_id=getattr(current_user, "id", None),
+        data=data,
+        parse_uuid_fn=_parse_uuid,
+        parse_hhmm_fn=_parse_hhmm,
+        generate_timetable_fn=generate_timetable,
+    )
 
 
 @router.get("/parent-links")
 async def list_parent_links(current_user: User = Depends(require_role("admin")), db: Session = Depends(get_db)):
-    links = db.query(ParentLink).filter(
-        ParentLink.tenant_id == current_user.tenant_id,
-    ).order_by(desc(ParentLink.created_at)).all()
-
-    parent_ids = list({l.parent_id for l in links})
-    child_ids = list({l.child_id for l in links})
-    users = []
-    if parent_ids or child_ids:
-        users = db.query(User).filter(
-            User.tenant_id == current_user.tenant_id,
-            User.id.in_(parent_ids + child_ids),
-        ).all()
-    name_by_id = {u.id: u.full_name or u.email for u in users}
-
-    return [{
-        "id": str(l.id),
-        "parent_id": str(l.parent_id),
-        "parent_name": name_by_id.get(l.parent_id, "Unknown"),
-        "child_id": str(l.child_id),
-        "child_name": name_by_id.get(l.child_id, "Unknown"),
-        "created_at": str(l.created_at),
-    } for l in links]
+    return _build_admin_parent_links_response_impl(
+        db=db,
+        tenant_id=current_user.tenant_id,
+    )
 
 
 @router.post("/parent-links")
@@ -1188,51 +777,14 @@ async def create_parent_link(
     current_user: User = Depends(require_role("admin")),
     db: Session = Depends(get_db),
 ):
-    parent_uuid = _parse_uuid(data.parent_id, "parent_id")
-    child_uuid = _parse_uuid(data.child_id, "child_id")
-
-    parent = db.query(User).filter(
-        User.id == parent_uuid,
-        User.tenant_id == current_user.tenant_id,
-        User.role == "parent",
-    ).first()
-    if not parent:
-        raise HTTPException(status_code=404, detail="Parent user not found")
-
-    child = db.query(User).filter(
-        User.id == child_uuid,
-        User.tenant_id == current_user.tenant_id,
-        User.role == "student",
-    ).first()
-    if not child:
-        raise HTTPException(status_code=404, detail="Student user not found")
-
-    existing = db.query(ParentLink).filter(
-        ParentLink.tenant_id == current_user.tenant_id,
-        ParentLink.parent_id == parent_uuid,
-        ParentLink.child_id == child_uuid,
-    ).first()
-    if existing:
-        return {"success": True, "id": str(existing.id), "already_exists": True}
-
-    link = ParentLink(
+    return _create_admin_parent_link_impl(
+        db=db,
         tenant_id=current_user.tenant_id,
-        parent_id=parent_uuid,
-        child_id=child_uuid,
+        actor_user_id=getattr(current_user, "id", None),
+        parent_id=data.parent_id,
+        child_id=data.child_id,
+        parse_uuid_fn=_parse_uuid,
     )
-    db.add(link)
-    db.flush()
-    db.add(AuditLog(
-        tenant_id=current_user.tenant_id,
-        user_id=current_user.id,
-        action="parent.linked",
-        entity_type="parent_link",
-        entity_id=link.id,
-        metadata_={"parent_id": str(parent_uuid), "child_id": str(child_uuid)},
-    ))
-    db.commit()
-    db.refresh(link)
-    return {"success": True, "id": str(link.id)}
 
 
 @router.delete("/parent-links/{link_id}")
@@ -1241,109 +793,62 @@ async def delete_parent_link(
     current_user: User = Depends(require_role("admin")),
     db: Session = Depends(get_db),
 ):
-    link_uuid = _parse_uuid(link_id, "link_id")
-    link = db.query(ParentLink).filter(
-        ParentLink.id == link_uuid,
-        ParentLink.tenant_id == current_user.tenant_id,
-    ).first()
-    if not link:
-        raise HTTPException(status_code=404, detail="Parent link not found")
-
-    db.delete(link)
-    db.add(AuditLog(
+    return _delete_admin_parent_link_impl(
+        db=db,
         tenant_id=current_user.tenant_id,
-        user_id=current_user.id,
-        action="parent.unlinked",
-        entity_type="parent_link",
-        entity_id=link_uuid,
-    ))
-    db.commit()
-    return {"success": True}
+        actor_user_id=getattr(current_user, "id", None),
+        link_id=link_id,
+        parse_uuid_fn=_parse_uuid,
+    )
 
 
 @router.get("/reports/attendance")
 async def attendance_report(current_user: User = Depends(require_role("admin")), db: Session = Depends(get_db)):
-    """Generate attendance summary grouped by class."""
-    classes = db.query(Class).filter(Class.tenant_id == current_user.tenant_id).all()
-    report = []
-    for cls in classes:
-        total = db.query(Attendance).filter(Attendance.tenant_id == current_user.tenant_id, Attendance.class_id == cls.id).count()
-        present = db.query(Attendance).filter(Attendance.tenant_id == current_user.tenant_id, Attendance.class_id == cls.id, Attendance.status == "present").count()
-        report.append({"class": cls.name, "total_records": total, "present": present, "pct": round(present / total * 100) if total > 0 else 0})
-    return report
+    return _build_admin_attendance_report_impl(
+        db=db,
+        tenant_id=current_user.tenant_id,
+    )
 
 @router.get("/reports/performance")
 async def performance_report(current_user: User = Depends(require_role("admin")), db: Session = Depends(get_db)):
-    """Generate performance summary grouped by subject."""
-    subjects = db.query(Subject).filter(Subject.tenant_id == current_user.tenant_id).all()
-    report = []
-    for subj in subjects:
-        exams = db.query(Exam).filter(
-            Exam.tenant_id == current_user.tenant_id,
-            Exam.subject_id == subj.id,
-        ).all()
-        if not exams:
-            continue
-        exam_ids = [e.id for e in exams]
-        avg = db.query(func.avg(Mark.marks_obtained)).filter(
-            Mark.tenant_id == current_user.tenant_id,
-            Mark.exam_id.in_(exam_ids),
-        ).scalar()
-        max_m = max(e.max_marks for e in exams)
-        report.append({"subject": subj.name, "avg_marks": round(float(avg)) if avg else 0, "max_marks": max_m, "pct": round(float(avg) / max_m * 100) if avg and max_m else 0})
-    return report
+    return _build_admin_performance_report_impl(
+        db=db,
+        tenant_id=current_user.tenant_id,
+    )
 
 @router.get("/reports/ai-usage")
 async def ai_usage_report(current_user: User = Depends(require_role("admin")), db: Session = Depends(get_db)):
-    """AI usage report."""
-    queries = db.query(AIQuery, User.full_name).join(User, AIQuery.user_id == User.id).filter(AIQuery.tenant_id == current_user.tenant_id).order_by(desc(AIQuery.created_at)).limit(200).all()
-    return [{"user": name, "query": q.query_text[:100], "mode": q.mode, "tokens": q.token_usage, "time_ms": q.response_time_ms, "date": str(q.created_at)} for q, name in queries]
+    return _build_admin_ai_usage_report_impl(
+        db=db,
+        tenant_id=current_user.tenant_id,
+    )
 
 
-# ─── Security / Audit Logs ──────────────────────────────────
+# â”€â”€â”€ Security / Audit Logs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 @router.get("/security")
 async def security_logs(current_user: User = Depends(require_role("admin")), db: Session = Depends(get_db)):
-    logs = db.query(AuditLog, User.full_name).join(User, AuditLog.user_id == User.id).filter(
-        AuditLog.tenant_id == current_user.tenant_id,
-    ).order_by(desc(AuditLog.created_at)).limit(50).all()
-    return [{
-        "id": str(log.id), "user": name, "action": log.action,
-        "entity_type": log.entity_type, "metadata": log.metadata_,
-        "date": str(log.created_at),
-    } for log, name in logs]
+    return _build_admin_security_logs_impl(
+        db=db,
+        tenant_id=current_user.tenant_id,
+    )
 
 
-# ─── Billing ────────────────────────────────────────────────
+# â”€â”€â”€ Billing â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 @router.get("/billing")
 async def billing_info(current_user: User = Depends(require_role("admin")), db: Session = Depends(get_db)):
-    tenant = db.query(Tenant).filter(Tenant.id == current_user.tenant_id).first()
-    total_queries = db.query(AIQuery).filter(AIQuery.tenant_id == current_user.tenant_id).count()
-    total_tokens = db.query(func.sum(AIQuery.token_usage)).filter(AIQuery.tenant_id == current_user.tenant_id).scalar()
-    total_docs = db.query(Document).filter(Document.tenant_id == current_user.tenant_id).count()
-    return {
-        "plan": tenant.plan_tier if tenant else "basic",
-        "max_students": tenant.max_students if tenant else 50,
-        "ai_daily_limit": tenant.ai_daily_limit if tenant else 50,
-        "total_queries": total_queries,
-        "total_tokens": total_tokens or 0,
-        "total_documents": total_docs,
-        "estimated_cost": "Pilot — Free tier",
-    }
+    return _build_admin_billing_info_impl(
+        db=db,
+        tenant_id=current_user.tenant_id,
+    )
 
 
-# ─── Settings ───────────────────────────────────────────────
+# â”€â”€â”€ Settings â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 @router.get("/webhooks")
 async def list_webhooks(current_user: User = Depends(require_role("admin")), db: Session = Depends(get_db)):
-    subs = db.query(WebhookSubscription).filter(
-        WebhookSubscription.tenant_id == current_user.tenant_id,
-    ).order_by(desc(WebhookSubscription.created_at)).all()
-    return [{
-        "id": str(s.id),
-        "event_type": s.event_type,
-        "target_url": s.target_url,
-        "is_active": s.is_active,
-        "created_at": str(s.created_at),
-    } for s in subs]
+    return _build_admin_webhooks_response_impl(
+        db=db,
+        tenant_id=current_user.tenant_id,
+    )
 
 
 @router.post("/webhooks")
@@ -1352,37 +857,14 @@ async def create_webhook(
     current_user: User = Depends(require_role("admin")),
     db: Session = Depends(get_db),
 ):
-    if data.event_type not in SUPPORTED_WEBHOOK_EVENTS:
-        raise HTTPException(status_code=400, detail="Unsupported event_type")
-    if not data.target_url.startswith(("http://", "https://")):
-        raise HTTPException(status_code=400, detail="target_url must be an http/https URL")
-
-    sub = WebhookSubscription(
+    return _create_admin_webhook_impl(
+        db=db,
         tenant_id=current_user.tenant_id,
+        actor_user_id=getattr(current_user, "id", None),
         event_type=data.event_type,
-        target_url=data.target_url.strip(),
-        created_by=current_user.id,
-        is_active=True,
+        target_url=data.target_url,
+        supported_webhook_events=SUPPORTED_WEBHOOK_EVENTS,
     )
-    db.add(sub)
-    db.flush()
-    db.add(AuditLog(
-        tenant_id=current_user.tenant_id,
-        user_id=current_user.id,
-        action="webhook.created",
-        entity_type="webhook_subscription",
-        entity_id=sub.id,
-        metadata_={"event_type": sub.event_type, "target_url": sub.target_url, "is_active": sub.is_active},
-    ))
-    db.commit()
-    db.refresh(sub)
-    return {
-        "success": True,
-        "id": str(sub.id),
-        "event_type": sub.event_type,
-        "target_url": sub.target_url,
-        "secret": sub.secret,
-    }
 
 
 @router.patch("/webhooks/{webhook_id}")
@@ -1392,25 +874,14 @@ async def toggle_webhook(
     current_user: User = Depends(require_role("admin")),
     db: Session = Depends(get_db),
 ):
-    webhook_uuid = _parse_uuid(webhook_id, "webhook_id")
-    sub = db.query(WebhookSubscription).filter(
-        WebhookSubscription.id == webhook_uuid,
-        WebhookSubscription.tenant_id == current_user.tenant_id,
-    ).first()
-    if not sub:
-        raise HTTPException(status_code=404, detail="Webhook not found")
-    previous_state = sub.is_active
-    sub.is_active = data.is_active
-    db.add(AuditLog(
+    return _toggle_admin_webhook_impl(
+        db=db,
         tenant_id=current_user.tenant_id,
-        user_id=current_user.id,
-        action="webhook.toggled",
-        entity_type="webhook_subscription",
-        entity_id=sub.id,
-        metadata_={"event_type": sub.event_type, "old": previous_state, "new": sub.is_active},
-    ))
-    db.commit()
-    return {"success": True, "is_active": sub.is_active}
+        actor_user_id=getattr(current_user, "id", None),
+        webhook_id=webhook_id,
+        is_active=data.is_active,
+        parse_uuid_fn=_parse_uuid,
+    )
 
 
 @router.get("/webhooks/{webhook_id}/deliveries")
@@ -1419,28 +890,12 @@ async def list_webhook_deliveries(
     current_user: User = Depends(require_role("admin")),
     db: Session = Depends(get_db),
 ):
-    webhook_uuid = _parse_uuid(webhook_id, "webhook_id")
-    sub = db.query(WebhookSubscription).filter(
-        WebhookSubscription.id == webhook_uuid,
-        WebhookSubscription.tenant_id == current_user.tenant_id,
-    ).first()
-    if not sub:
-        raise HTTPException(status_code=404, detail="Webhook not found")
-
-    deliveries = db.query(WebhookDelivery).filter(
-        WebhookDelivery.tenant_id == current_user.tenant_id,
-        WebhookDelivery.subscription_id == webhook_uuid,
-    ).order_by(desc(WebhookDelivery.created_at)).limit(100).all()
-
-    return [{
-        "id": str(d.id),
-        "event_type": d.event_type,
-        "status": d.status,
-        "status_code": d.status_code,
-        "attempt_count": d.attempt_count,
-        "last_attempt_at": str(d.last_attempt_at) if d.last_attempt_at else None,
-        "created_at": str(d.created_at),
-    } for d in deliveries]
+    return _build_admin_webhook_deliveries_response_impl(
+        db=db,
+        tenant_id=current_user.tenant_id,
+        webhook_id=webhook_id,
+        parse_uuid_fn=_parse_uuid,
+    )
 
 
 @router.delete("/webhooks/{webhook_id}")
@@ -1449,36 +904,21 @@ async def delete_webhook(
     current_user: User = Depends(require_role("admin")),
     db: Session = Depends(get_db),
 ):
-    webhook_uuid = _parse_uuid(webhook_id, "webhook_id")
-    sub = db.query(WebhookSubscription).filter(
-        WebhookSubscription.id == webhook_uuid,
-        WebhookSubscription.tenant_id == current_user.tenant_id,
-    ).first()
-    if not sub:
-        raise HTTPException(status_code=404, detail="Webhook not found")
-    db.add(AuditLog(
+    return _delete_admin_webhook_impl(
+        db=db,
         tenant_id=current_user.tenant_id,
-        user_id=current_user.id,
-        action="webhook.deleted",
-        entity_type="webhook_subscription",
-        entity_id=sub.id,
-        metadata_={"event_type": sub.event_type, "target_url": sub.target_url},
-    ))
-    db.delete(sub)
-    db.commit()
-    return {"success": True}
+        actor_user_id=getattr(current_user, "id", None),
+        webhook_id=webhook_id,
+        parse_uuid_fn=_parse_uuid,
+    )
 
 
 @router.get("/settings")
 async def get_settings(current_user: User = Depends(require_role("admin")), db: Session = Depends(get_db)):
-    tenant = db.query(Tenant).filter(Tenant.id == current_user.tenant_id).first()
-    return {
-        "name": tenant.name if tenant else "",
-        "plan_tier": tenant.plan_tier if tenant else "basic",
-        "max_students": tenant.max_students if tenant else 50,
-        "ai_daily_limit": tenant.ai_daily_limit if tenant else 50,
-        "domain": tenant.domain if tenant else "",
-    }
+    return _build_admin_settings_response_impl(
+        db=db,
+        tenant_id=current_user.tenant_id,
+    )
 
 class SettingsUpdate(BaseModel):
     ai_daily_limit: Optional[int] = None
@@ -1486,84 +926,43 @@ class SettingsUpdate(BaseModel):
 
 @router.patch("/settings")
 async def update_settings(data: SettingsUpdate, current_user: User = Depends(require_role("admin")), db: Session = Depends(get_db)):
-    tenant = db.query(Tenant).filter(Tenant.id == current_user.tenant_id).first()
-    if not tenant:
-        raise HTTPException(status_code=404, detail="Tenant not found")
-    if data.ai_daily_limit is not None:
-        tenant.ai_daily_limit = data.ai_daily_limit
-    if data.name:
-        tenant.name = data.name
-    db.add(AuditLog(tenant_id=current_user.tenant_id, user_id=current_user.id, action="settings.updated", entity_type="tenant", entity_id=tenant.id))
-    db.commit()
-    return {"success": True}
+    return _update_admin_settings_impl(
+        db=db,
+        tenant_id=current_user.tenant_id,
+        actor_user_id=getattr(current_user, "id", None),
+        ai_daily_limit=data.ai_daily_limit,
+        name=data.name,
+    )
 
 
-# ─── Performance Heatmap ────────────────────────────────────
+# â”€â”€â”€ Performance Heatmap â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 @router.get("/heatmap")
 async def performance_heatmap(
     current_user: User = Depends(require_role("admin")),
     db: Session = Depends(get_db),
 ):
-    """Performance heatmap: Subjects × Classes, color-coded by avg score."""
-    tid = current_user.tenant_id
-    classes = db.query(Class).filter(Class.tenant_id == tid).all()
-    subjects = db.query(Subject).filter(Subject.tenant_id == tid).all()
-
-    heatmap = []
-    for cls in classes:
-        row = {"class": cls.name, "class_id": str(cls.id), "subjects": []}
-        for subj in subjects:
-            if str(subj.class_id) != str(cls.id):
-                continue
-            exams = db.query(Exam).filter(
-                Exam.tenant_id == tid,
-                Exam.subject_id == subj.id,
-            ).all()
-            if not exams:
-                row["subjects"].append({"subject": subj.name, "avg": 0, "color": "gray"})
-                continue
-            exam_ids = [e.id for e in exams]
-            max_marks_val = max(e.max_marks for e in exams)
-            avg = db.query(func.avg(Mark.marks_obtained * 100.0 / max_marks_val)).filter(
-                Mark.exam_id.in_(exam_ids), Mark.tenant_id == tid
-            ).scalar()
-            avg_pct = round(float(avg)) if avg else 0
-            color = performance_color(avg_pct)
-            row["subjects"].append({"subject": subj.name, "avg": avg_pct, "color": color})
-        heatmap.append(row)
-
-    return {"heatmap": heatmap, "classes": len(classes), "subjects": len(subjects)}
+    """Performance heatmap: Subjects Ã— Classes, color-coded by avg score."""
+    return _build_admin_performance_heatmap_impl(
+        db=db,
+        tenant_id=current_user.tenant_id,
+    )
 
 
-# ─── CSV Export Endpoints ───────────────────────────────────
+# â”€â”€â”€ CSV Export Endpoints â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 @router.get("/export/attendance")
 async def export_attendance_csv(
     current_user: User = Depends(require_role("admin")),
     db: Session = Depends(get_db),
     academic_year: str = "",
 ):
-    """Export attendance data as CSV."""
-    from starlette.responses import StreamingResponse
-
-    query = db.query(Attendance, User.full_name, Class.name.label("class_name")).join(
-        User, Attendance.student_id == User.id
-    ).join(
-        Class, Attendance.class_id == Class.id
-    ).filter(Attendance.tenant_id == current_user.tenant_id)
-
-    records = query.order_by(Attendance.date.desc()).limit(5000).all()
-
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow(["Student", "Class", "Date", "Status"])
-    for att, name, cls_name in records:
-        writer.writerow([name, cls_name, str(att.date), att.status])
-
-    output.seek(0)
+    payload = _build_admin_attendance_csv_export_impl(
+        db=db,
+        tenant_id=current_user.tenant_id,
+    )
     return StreamingResponse(
-        output,
-        media_type="text/csv",
-        headers={"Content-Disposition": "attachment; filename=attendance_export.csv"},
+        io.StringIO(payload["content"]),
+        media_type=payload["media_type"],
+        headers={"Content-Disposition": f"attachment; filename={payload['filename']}"},
     )
 
 
@@ -1572,32 +971,14 @@ async def export_performance_csv(
     current_user: User = Depends(require_role("admin")),
     db: Session = Depends(get_db),
 ):
-    """Export student performance as CSV."""
-    from starlette.responses import StreamingResponse
-
-    marks = db.query(Mark, User.full_name, Exam.name.label("exam_name"), Subject.name.label("subject_name")).join(
-        User, Mark.student_id == User.id
-    ).join(
-        Exam, Mark.exam_id == Exam.id
-    ).join(
-        Subject, Exam.subject_id == Subject.id
-    ).filter(Mark.tenant_id == current_user.tenant_id).order_by(User.full_name).limit(5000).all()
-
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow(["Student", "Subject", "Exam", "Marks Obtained", "Max Marks"])
-    for m, name, exam_name, subj_name in marks:
-        exam_obj = db.query(Exam).filter(
-            Exam.id == m.exam_id,
-            Exam.tenant_id == current_user.tenant_id,
-        ).first()
-        writer.writerow([name, subj_name, exam_name, m.marks_obtained, exam_obj.max_marks if exam_obj else ""])
-
-    output.seek(0)
+    payload = _build_admin_performance_csv_export_impl(
+        db=db,
+        tenant_id=current_user.tenant_id,
+    )
     return StreamingResponse(
-        output,
-        media_type="text/csv",
-        headers={"Content-Disposition": "attachment; filename=performance_export.csv"},
+        io.StringIO(payload["content"]),
+        media_type=payload["media_type"],
+        headers={"Content-Disposition": f"attachment; filename={payload['filename']}"},
     )
 
 
@@ -1606,64 +987,18 @@ async def export_ai_usage_csv(
     current_user: User = Depends(require_role("admin")),
     db: Session = Depends(get_db),
 ):
-    """Export AI usage data as CSV."""
-    from starlette.responses import StreamingResponse
-
-    queries = db.query(AIQuery, User.full_name).join(
-        User, AIQuery.user_id == User.id
-    ).filter(AIQuery.tenant_id == current_user.tenant_id).order_by(desc(AIQuery.created_at)).limit(5000).all()
-
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow(["User", "Query", "Mode", "Tokens", "Response Time (ms)", "Date"])
-    for q, name in queries:
-        writer.writerow([name, q.query_text[:200], q.mode, q.token_usage, q.response_time_ms, str(q.created_at)])
-
-    output.seek(0)
+    payload = _build_admin_ai_usage_csv_export_impl(
+        db=db,
+        tenant_id=current_user.tenant_id,
+    )
     return StreamingResponse(
-        output,
-        media_type="text/csv",
-        headers={"Content-Disposition": "attachment; filename=ai_usage_export.csv"},
+        io.StringIO(payload["content"]),
+        media_type=payload["media_type"],
+        headers={"Content-Disposition": f"attachment; filename={payload['filename']}"},
     )
 
 
-# ─── CSV Templates for Setup Wizard ─────────────────────────
-
-CSV_TEMPLATES = {
-    "teachers": {
-        "filename": "teachers_template.csv",
-        "headers": ["full_name", "email", "password"],
-        "sample_rows": [
-            ["Priya Sharma", "priya@yourschool.com", "Welcome@123"],
-            ["Raj Patel", "raj@yourschool.com", "Welcome@123"],
-        ],
-    },
-    "students": {
-        "filename": "students_template.csv",
-        "headers": ["full_name", "email", "password", "class_name"],
-        "sample_rows": [
-            ["Ananya Kumari", "ananya@yourschool.com", "Student@123", "Class 9A"],
-            ["Vikram Singh", "vikram@yourschool.com", "Student@123", "Class 9B"],
-        ],
-    },
-    "attendance": {
-        "filename": "attendance_template.csv",
-        "headers": ["student_id", "status"],
-        "sample_rows": [
-            ["<paste-student-uuid-here>", "present"],
-            ["<paste-student-uuid-here>", "absent"],
-        ],
-    },
-    "marks": {
-        "filename": "marks_template.csv",
-        "headers": ["student_id", "marks_obtained"],
-        "sample_rows": [
-            ["<paste-student-uuid-here>", "85"],
-            ["<paste-student-uuid-here>", "72"],
-        ],
-    },
-}
-
+# â”€â”€â”€ CSV Templates for Setup Wizard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @router.get("/csv-template/{template_type}")
 async def download_csv_template(
@@ -1671,30 +1006,15 @@ async def download_csv_template(
     current_user: User = Depends(require_role("admin")),
 ):
     """Download a pre-filled CSV template for bulk import."""
-    from starlette.responses import StreamingResponse
-
-    tpl = CSV_TEMPLATES.get(template_type)
-    if not tpl:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Unknown template type. Available: {', '.join(CSV_TEMPLATES.keys())}",
-        )
-
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow(tpl["headers"])
-    for row in tpl["sample_rows"]:
-        writer.writerow(row)
-
-    output.seek(0)
+    payload = _build_admin_csv_template_payload_impl(template_type=template_type)
     return StreamingResponse(
-        output,
-        media_type="text/csv",
-        headers={"Content-Disposition": f"attachment; filename={tpl['filename']}"},
+        io.StringIO(payload["content"]),
+        media_type=payload["media_type"],
+        headers={"Content-Disposition": f"attachment; filename={payload['filename']}"},
     )
 
 
-# ─── Onboard Students via CSV ───────────────────────────────
+# â”€â”€â”€ Onboard Students via CSV â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @router.post("/onboard-students")
 async def onboard_students(
@@ -1705,150 +1025,21 @@ async def onboard_students(
 ):
     """Onboard students from CSV/TXT or OCR image. Columns: full_name, email, password, class_name"""
     safe_filename = file.filename or ""
-    ext = get_extension(safe_filename)
-    if ext not in ("csv", "txt", "jpg", "jpeg", "png"):
-        raise HTTPException(status_code=400, detail="Only CSV, TXT, JPG, JPEG, PNG files allowed.")
-
     content = await file.read()
-    try:
-        extraction = extract_upload_content_result(safe_filename, content)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
-    text = extraction.text
-
-    try:
-        from auth.auth import pwd_context as pwctx
-    except ImportError:
-        from passlib.context import CryptContext
-        pwctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-    created = 0
-    errors = []
-    parsed = None
-    if extraction.used_ocr:
-        parsed = parse_student_import_rows_with_diagnostics(text)
-        source_rows = []
-        for row_num, (_, row) in enumerate(parsed.rows, start=2):
-            source_rows.append({
-                "row_num": row_num,
-                "full_name": row["full_name"],
-                "email": row["email"],
-                "password": "Student123!",
-                "class_name": row["class_name"],
-            })
-    else:
-        source_rows = []
-        reader = csv.DictReader(io.StringIO(text))
-        for row_num, row in enumerate(reader, start=2):
-            name = (row.get("full_name") or "").strip()
-            email = (row.get("email") or "").strip().lower()
-            if name and not email:
-                email = make_generated_email(name)
-            source_rows.append({
-                "row_num": row_num,
-                "full_name": name,
-                "email": email,
-                "password": (row.get("password") or "Student123!").strip(),
-                "class_name": (row.get("class_name") or "").strip(),
-            })
-
-    if preview:
-        preview_errors = []
-        for row in source_rows:
-            row_num = row["row_num"]
-            name = row["full_name"]
-            email = row["email"] or make_generated_email(name)
-            if not name or not email:
-                preview_errors.append(f"Row {row_num}: missing name or email")
-                continue
-            existing = db.query(User).filter(User.email == email).first()
-            if existing:
-                preview_errors.append(f"Row {row_num}: email {email} already exists")
-        response = {
-            "success": True,
-            "preview": True,
-            "preview_rows": source_rows,
-            "errors": preview_errors,
-            "ocr_processed": extraction.used_ocr,
-            "ocr_review_required": extraction.review_required,
-            "ocr_warning": extraction.warning,
-            "ocr_languages": extraction.languages,
-            "ocr_preprocessing": extraction.preprocessing_applied,
-            "ocr_confidence": getattr(extraction, "confidence", None),
-        }
-        if parsed is not None:
-            response["ocr_review_required"] = extraction.review_required or parsed.review_required
-            response["ocr_warning"] = parsed.warning or extraction.warning
-            response["ocr_unmatched_lines"] = len(parsed.unmatched_lines)
-        return response
-
-    for row in source_rows:
-        row_num = row["row_num"]
-        name = row["full_name"]
-        email = row["email"] or make_generated_email(name)
-        password = row["password"]
-        class_name = row["class_name"]
-
-        if not name or not email:
-            errors.append(f"Row {row_num}: missing name or email")
-            continue
-
-        existing = db.query(User).filter(User.email == email).first()
-        if existing:
-            errors.append(f"Row {row_num}: email {email} already exists")
-            continue
-
-        # Find class by name if provided
-        class_id = None
-        if class_name:
-            cls = db.query(Class).filter(
-                Class.tenant_id == current_user.tenant_id,
-                Class.name == class_name,
-            ).first()
-            if cls:
-                class_id = cls.id
-
-        student = User(
-            tenant_id=current_user.tenant_id,
-            email=email,
-            full_name=name,
-            role="student",
-            hashed_password=pwctx.hash(password),
-            is_active=True,
-        )
-        db.add(student)
-        db.flush()
-
-        if class_id:
-            enrollment = Enrollment(
-                tenant_id=current_user.tenant_id,
-                student_id=student.id,
-                class_id=class_id,
-            )
-            db.add(enrollment)
-
-        created += 1
-
-    db.commit()
-    response = {
-        "success": True,
-        "created": created,
-        "errors": errors,
-        "ocr_processed": extraction.used_ocr,
-        "ocr_review_required": extraction.review_required,
-        "ocr_warning": extraction.warning,
-        "ocr_languages": extraction.languages,
-        "ocr_preprocessing": extraction.preprocessing_applied,
-        "ocr_confidence": getattr(extraction, "confidence", None),
-    }
-    if parsed is not None:
-        response["ocr_review_required"] = extraction.review_required or parsed.review_required
-        response["ocr_warning"] = parsed.warning or extraction.warning
-        response["ocr_unmatched_lines"] = len(parsed.unmatched_lines)
-    return response
+    return _process_student_onboarding_upload_impl(
+        db=db,
+        tenant_id=current_user.tenant_id,
+        safe_filename=safe_filename,
+        content=content,
+        preview=preview,
+        get_extension_fn=get_extension,
+        extract_upload_content_result_fn=extract_upload_content_result,
+        parse_student_import_rows_with_diagnostics_fn=parse_student_import_rows_with_diagnostics,
+        hash_password_fn=hash_password,
+    )
 
 
-# ─── QR Code Login Tokens ───────────────────────────────────
+# â”€â”€â”€ QR Code Login Tokens â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class QrTokenBatchRequest(BaseModel):
     student_ids: list[str] | None = None
@@ -1865,79 +1056,19 @@ async def generate_qr_tokens(
 ):
     """Generate QR login tokens for students.
     Supports optional class filtering and token reuse when still valid."""
-    import secrets
-    from datetime import datetime, timedelta, timezone
-
     payload = data or QrTokenBatchRequest()
-    if payload.expires_in_days <= 0:
-        raise HTTPException(status_code=400, detail="expires_in_days must be positive")
-
-    query = db.query(User).filter(
-        User.tenant_id == current_user.tenant_id,
-        User.role == "student",
-        User.is_active == True,
-        User.is_deleted == False,
+    return _generate_admin_qr_tokens_impl(
+        db=db,
+        tenant_id=current_user.tenant_id,
+        student_ids=payload.student_ids,
+        class_id=payload.class_id,
+        expires_in_days=payload.expires_in_days,
+        regenerate=payload.regenerate,
+        parse_uuid_fn=_parse_uuid,
     )
 
-    student_ids: list[UUID] | None = None
-    if payload.student_ids:
-        student_ids = [_parse_uuid(sid, "student_id") for sid in payload.student_ids]
-        query = query.filter(User.id.in_(student_ids))
-    elif payload.class_id:
-        class_uuid = _parse_uuid(payload.class_id, "class_id")
-        enrollments = db.query(Enrollment).filter(
-            Enrollment.tenant_id == current_user.tenant_id,
-            Enrollment.class_id == class_uuid,
-        ).all()
-        student_ids = [e.student_id for e in enrollments]
-        if not student_ids:
-            return {"success": True, "tokens": [], "count": 0}
-        query = query.filter(User.id.in_(student_ids))
 
-    students = query.order_by(User.full_name.asc()).all()
-
-    class_by_student: dict[UUID, str] = {}
-    if students:
-        ids = [s.id for s in students]
-        enrollment_rows = db.query(Enrollment, Class).join(
-            Class, Enrollment.class_id == Class.id
-        ).filter(
-            Enrollment.tenant_id == current_user.tenant_id,
-            Enrollment.student_id.in_(ids),
-        ).all()
-        class_by_student = {row[0].student_id: row[1].name for row in enrollment_rows}
-
-    now = datetime.now(timezone.utc)
-    expiry = now + timedelta(days=payload.expires_in_days)
-    results = []
-
-    for student in students:
-        token = student.qr_login_token
-        expires_at = student.qr_login_expires_at
-        if payload.regenerate or not token or (expires_at and expires_at <= now):
-            token = secrets.token_urlsafe(32)
-            student.qr_login_token = token
-            student.qr_login_expires_at = expiry
-            expires_at = expiry
-        elif expires_at is None:
-            student.qr_login_expires_at = expiry
-            expires_at = expiry
-
-        results.append({
-            "student_id": str(student.id),
-            "student_name": student.full_name,
-            "email": student.email,
-            "class_name": class_by_student.get(student.id),
-            "qr_token": token,
-            "expires_at": expires_at.isoformat() if expires_at else None,
-            "login_url": f"/api/auth/qr-login/{token}",
-        })
-
-    db.commit()
-    return {"success": True, "tokens": results, "count": len(results)}
-
-
-# ─── Report Card PDF ────────────────────────────────────────
+# â”€â”€â”€ Report Card PDF â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @router.get("/report-card/{student_id}")
 async def download_report_card(
@@ -1945,32 +1076,22 @@ async def download_report_card(
     current_user: User = Depends(require_role("admin")),
     db: Session = Depends(get_db),
 ):
-    """Generate and download a PDF report card for a student."""
-    from starlette.responses import Response as StarletteResponse
-    from src.domains.academic.services.report_card import generate_report_card_pdf
-
-    student_uuid = _parse_uuid(student_id, "student_id")
-    tenant = db.query(Tenant).filter(Tenant.id == current_user.tenant_id).first()
-    school_name = tenant.name if tenant and hasattr(tenant, "name") else "VidyaOS School"
-
-    try:
-        pdf_bytes = generate_report_card_pdf(
-            db,
-            student_id=str(student_uuid),
-            tenant_id=str(current_user.tenant_id),
-            school_name=school_name,
-        )
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    payload = _build_admin_report_card_payload_impl(
+        db=db,
+        tenant_id=current_user.tenant_id,
+        student_id=student_id,
+        parse_uuid_fn=_parse_uuid,
+        generate_report_card_pdf_fn=generate_report_card_pdf,
+    )
 
     return StarletteResponse(
-        content=pdf_bytes,
+        content=payload["content"],
         media_type="application/pdf",
-        headers={"Content-Disposition": f"attachment; filename=report_card_{student_id}.pdf"},
+        headers={"Content-Disposition": f"attachment; filename={payload['filename']}"},
     )
 
 
-# ─── WhatsApp Bulk Digest ───────────────────────────────────
+# â”€â”€â”€ WhatsApp Bulk Digest â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class WhatsAppDigestRequest(BaseModel):
     phone_numbers: list[str] | None = None  # if None, send to all parents with phone numbers
@@ -1982,51 +1103,9 @@ async def send_whatsapp_digest_bulk(
     current_user: User = Depends(require_role("admin")),
     db: Session = Depends(get_db),
 ):
-    """Send weekly digest via WhatsApp to all parents or specified phone numbers."""
-    from src.domains.academic.services.whatsapp import send_weekly_digest
-    from src.domains.academic.models.parent_link import ParentLink
-
-    links = db.query(ParentLink).filter(
-        ParentLink.tenant_id == current_user.tenant_id,
-    ).all()
-
-    sent = 0
-    errors = []
-    for link in links:
-        parent = db.query(User).filter(User.id == link.parent_id).first()
-        child = db.query(User).filter(User.id == link.child_id).first()
-        if not parent or not child:
-            continue
-
-        # Use parent email as phone placeholder (in production, use a phone field)
-        phone = parent.email.split("@")[0] if parent.email else None
-        if not phone:
-            continue
-
-        # Calculate child stats
-        from src.domains.academic.models.attendance import Attendance
-        total_att = db.query(Attendance).filter(
-            Attendance.tenant_id == current_user.tenant_id,
-            Attendance.student_id == child.id,
-        ).count()
-        present_att = db.query(Attendance).filter(
-            Attendance.tenant_id == current_user.tenant_id,
-            Attendance.student_id == child.id,
-            Attendance.status == "present",
-        ).count()
-        att_pct = round(present_att / total_att * 100) if total_att > 0 else 0
-
-        result = await send_weekly_digest(
-            to_phone=phone,
-            student_name=child.full_name or child.email,
-            attendance_pct=att_pct,
-            avg_marks=0,
-            top_subject="N/A",
-            weak_subject="N/A",
-        )
-        if result.get("success"):
-            sent += 1
-        else:
-            errors.append(f"{parent.email}: {result.get('error', 'Unknown')}")
-
-    return {"success": True, "sent": sent, "errors": errors}
+    return await _send_admin_whatsapp_digest_bulk_impl(
+        db=db,
+        tenant_id=current_user.tenant_id,
+        phone_numbers=(data.phone_numbers if data else None),
+        send_weekly_digest_fn=send_weekly_digest,
+    )

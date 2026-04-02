@@ -1,38 +1,75 @@
 """Teacher-facing API routes — dashboard, attendance, marks, assignments, upload, insights."""
 import logging
+from datetime import datetime
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import func
 from pydantic import BaseModel
 from typing import List, Optional
-import csv
 import io
-import re
-from pathlib import Path
-from uuid import UUID, uuid4
+from uuid import UUID
+from starlette.responses import StreamingResponse
 
 from database import get_db
 from auth.dependencies import require_role
 from auth.scoping import get_teacher_class_ids
+from src.domains.academic.application.assessment_generation import generate_subject_assessment
+from src.domains.academic.application.teacher_analytics import (
+    build_teacher_classes_response as _build_teacher_classes_response_impl,
+    build_teacher_dashboard_response as _build_teacher_dashboard_response_impl,
+    build_teacher_doubt_heatmap_response as _build_teacher_doubt_heatmap_response_impl,
+    build_teacher_insights_response as _build_teacher_insights_response_impl,
+)
+from src.domains.academic.application.teacher_bulk_updates import (
+    apply_bulk_attendance_entries,
+    apply_bulk_marks_entries,
+    apply_structured_attendance_import_rows,
+    apply_structured_marks_import_rows,
+)
+from src.domains.academic.application.teacher_coursework import (
+    build_class_attendance_response as _build_class_attendance_response_impl,
+    build_created_assignment_response as _build_created_assignment_response_impl,
+    build_created_exam_response as _build_created_exam_response_impl,
+    build_teacher_assignments_response as _build_teacher_assignments_response_impl,
+)
+from src.domains.academic.application.teacher_ingestion import (
+    TeacherIngestionError as _TeacherIngestionError,
+    ingest_teacher_youtube_video as _ingest_teacher_youtube_video_impl,
+    upload_teacher_document as _upload_teacher_document_impl,
+)
+from src.domains.academic.application.teacher_onboarding import (
+    TeacherOnboardingError as _TeacherOnboardingError,
+    onboard_students_from_upload as _onboard_students_from_upload_impl,
+)
+from src.domains.academic.application.teacher_reporting import (
+    build_attendance_csv_payload as _build_attendance_csv_payload_impl,
+    build_created_test_series_response as _build_created_test_series_response_impl,
+    build_marks_csv_payload as _build_marks_csv_payload_impl,
+    build_teacher_test_series_leaderboard_response as _build_teacher_test_series_leaderboard_response_impl,
+    list_teacher_test_series_response as _list_teacher_test_series_response_impl,
+    queue_teacher_ai_grade_job as _queue_teacher_ai_grade_job_impl,
+)
 from src.domains.platform.services.webhooks import emit_webhook_event
 from src.infrastructure.llm.cache import invalidate_tenant_cache
+from src.domains.identity.application.passwords import hash_password
+from src.domains.identity.models.tenant import Tenant
 from src.domains.identity.models.user import User
 from src.domains.academic.models.core import Class, Subject, Enrollment
 from src.domains.academic.models.attendance import Attendance
 from src.domains.academic.models.marks import Exam, Mark
 from src.domains.academic.models.assignment import Assignment, AssignmentSubmission
+from src.domains.academic.models.test_series import TestSeries
 from src.domains.platform.models.document import Document
+from src.domains.platform.models.ai import AIQuery
 from src.domains.academic.models.lecture import Lecture
 from src.domains.academic.models.timetable import Timetable
+from src.domains.academic.services.leaderboard import get_all_series, get_leaderboard
+from src.domains.platform.services.ai_queue import enqueue_job
 from src.shared.ocr_imports import (
     StructuredImportParseResult,
     extract_upload_content_result,
-    extract_text_from_upload_content,
     get_extension,
     parse_account_rows_with_diagnostics,
-    parse_attendance_rows,
     parse_attendance_rows_with_diagnostics,
-    parse_marks_rows,
     parse_marks_rows_with_diagnostics,
 )
 from utils.upload_security import (
@@ -244,84 +281,20 @@ async def teacher_dashboard(
     db: Session = Depends(get_db),
 ):
     """Teacher dashboard: classes overview with stats."""
-    class_ids = list(teacher_class_ids)
-
-    classes = []
-    for cid in class_ids:
-        cls = db.query(Class).filter(
-            Class.id == cid,
-            Class.tenant_id == current_user.tenant_id,
-        ).first()
-        if not cls:
-            continue
-        student_count = db.query(Enrollment).filter(
-            Enrollment.tenant_id == current_user.tenant_id,
-            Enrollment.class_id == cid,
-        ).count()
-        total_att = db.query(Attendance).filter(Attendance.tenant_id == current_user.tenant_id, Attendance.class_id == cid).count()
-        present_att = db.query(Attendance).filter(Attendance.tenant_id == current_user.tenant_id, Attendance.class_id == cid, Attendance.status == "present").count()
-        avg_att = round(present_att / total_att * 100) if total_att > 0 else 0
-        subject_ids = [s.id for s in db.query(Subject).filter(Subject.tenant_id == current_user.tenant_id, Subject.class_id == cid).all()]
-        exam_ids = [e.id for e in db.query(Exam).filter(
-            Exam.tenant_id == current_user.tenant_id,
-            Exam.subject_id.in_(subject_ids),
-        ).all()] if subject_ids else []
-        avg_m = db.query(func.avg(Mark.marks_obtained)).filter(
-            Mark.tenant_id == current_user.tenant_id,
-            Mark.exam_id.in_(exam_ids),
-        ).scalar() if exam_ids else None
-        classes.append({"id": str(cls.id), "name": cls.name, "students": student_count, "avg_attendance": avg_att, "avg_marks": round(float(avg_m)) if avg_m else 0})
-
-    # Today's timetable for quick access
-    from datetime import datetime
-    today = datetime.now().weekday()
-    today_slots = db.query(Timetable).filter(
-        Timetable.tenant_id == current_user.tenant_id,
-        Timetable.teacher_id == current_user.id,
-        Timetable.day_of_week == today,
-    ).order_by(Timetable.start_time.asc()).all()
-
-    subject_ids = list({slot.subject_id for slot in today_slots})
-    class_ids_for_slots = list({slot.class_id for slot in today_slots})
-    subjects = db.query(Subject).filter(
-        Subject.tenant_id == current_user.tenant_id,
-        Subject.id.in_(subject_ids),
-    ).all() if subject_ids else []
-    classes_for_slots = db.query(Class).filter(
-        Class.tenant_id == current_user.tenant_id,
-        Class.id.in_(class_ids_for_slots),
-    ).all() if class_ids_for_slots else []
-
-    subject_by_id = {s.id: s.name for s in subjects}
-    class_by_id = {c.id: c.name for c in classes_for_slots}
-
-    today_classes = [{
-        "class_id": str(slot.class_id),
-        "class_name": class_by_id.get(slot.class_id, "Unknown"),
-        "subject": subject_by_id.get(slot.subject_id, "Unknown"),
-        "start_time": slot.start_time.strftime("%H:%M"),
-        "end_time": slot.end_time.strftime("%H:%M"),
-    } for slot in today_slots]
-
-    pending_reviews = db.query(AssignmentSubmission).join(
-        Assignment, AssignmentSubmission.assignment_id == Assignment.id
-    ).filter(
-        Assignment.tenant_id == current_user.tenant_id,
-        Assignment.created_by == current_user.id,
-        AssignmentSubmission.grade == None,
-    ).count()
-
-    open_assignments = db.query(Assignment).filter(
-        Assignment.tenant_id == current_user.tenant_id,
-        Assignment.created_by == current_user.id,
-    ).count()
-
-    return {
-        "classes": classes,
-        "today_classes": today_classes,
-        "pending_reviews": pending_reviews,
-        "open_assignments": open_assignments,
-    }
+    return _build_teacher_dashboard_response_impl(
+        db=db,
+        current_user=current_user,
+        class_ids=list(teacher_class_ids),
+        class_model=Class,
+        enrollment_model=Enrollment,
+        attendance_model=Attendance,
+        subject_model=Subject,
+        exam_model=Exam,
+        mark_model=Mark,
+        timetable_model=Timetable,
+        assignment_model=Assignment,
+        assignment_submission_model=AssignmentSubmission,
+    )
 
 
 # ─── Attendance Entry ────────────────────────────────────────
@@ -333,8 +306,6 @@ async def submit_attendance(
     db: Session = Depends(get_db),
 ):
     """Bulk attendance entry for a class."""
-    from datetime import datetime
-
     allowed_class_ids = set(teacher_class_ids)
     class_uuid = _parse_uuid(data.class_id, "class_id")
     _ensure_class_access(current_user, class_uuid, allowed_class_ids)
@@ -344,30 +315,19 @@ async def submit_attendance(
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date. Expected YYYY-MM-DD.")
 
-    for entry in data.entries:
-        if entry.status not in ALLOWED_ATTENDANCE_STATUSES:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Invalid attendance status for student {entry.student_id}",
-            )
-        student_uuid = _validate_student_in_class(db, current_user, entry.student_id, class_uuid)
-        existing = db.query(Attendance).filter(
-            Attendance.tenant_id == current_user.tenant_id,
-            Attendance.student_id == student_uuid,
-            Attendance.class_id == class_uuid,
-            Attendance.date == att_date,
-        ).first()
-        if existing:
-            existing.status = entry.status
-        else:
-            db.add(Attendance(
-                tenant_id=current_user.tenant_id,
-                student_id=student_uuid,
-                class_id=class_uuid,
-                date=att_date,
-                status=entry.status,
-            ))
-    db.commit()
+    try:
+        count = apply_bulk_attendance_entries(
+            db=db,
+            current_user=current_user,
+            entries=data.entries,
+            class_uuid=class_uuid,
+            att_date=att_date,
+            allowed_statuses=ALLOWED_ATTENDANCE_STATUSES,
+            validate_student_in_class_fn=_validate_student_in_class,
+            attendance_model=Attendance,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
     try:
         await emit_webhook_event(
@@ -377,7 +337,7 @@ async def submit_attendance(
             data={
                 "class_id": str(class_uuid),
                 "date": str(att_date),
-                "submitted_count": len(data.entries),
+                "submitted_count": count,
                 "marked_by": str(current_user.id),
             },
         )
@@ -385,7 +345,7 @@ async def submit_attendance(
         # Attendance submission should not fail if webhook delivery fails.
         pass
 
-    return {"success": True, "count": len(data.entries)}
+    return {"success": True, "count": count}
 
 @router.get("/attendance/{class_id}")
 async def get_class_attendance(
@@ -398,27 +358,13 @@ async def get_class_attendance(
     allowed_class_ids = set(teacher_class_ids)
     class_uuid = _parse_uuid(class_id, "class_id")
     _ensure_class_access(current_user, class_uuid, allowed_class_ids)
-
-    records = db.query(Attendance).filter(
-        Attendance.tenant_id == current_user.tenant_id,
-        Attendance.class_id == class_uuid,
-    ).order_by(Attendance.date.desc()).limit(100).all()
-
-    student_ids = list({r.student_id for r in records})
-    users = []
-    if student_ids:
-        users = db.query(User).filter(
-            User.tenant_id == current_user.tenant_id,
-            User.id.in_(student_ids),
-        ).all()
-    student_name_by_id = {u.id: u.full_name for u in users}
-
-    return [{
-        "student_id": str(r.student_id),
-        "student_name": student_name_by_id.get(r.student_id, "Unknown"),
-        "date": str(r.date),
-        "status": r.status,
-    } for r in records]
+    return _build_class_attendance_response_impl(
+        db=db,
+        current_user=current_user,
+        class_uuid=class_uuid,
+        attendance_model=Attendance,
+        user_model=User,
+    )
 
 
 # ─── Marks Entry ─────────────────────────────────────────────
@@ -430,37 +376,25 @@ async def create_exam(
     db: Session = Depends(get_db),
 ):
     """Create a new exam."""
-    from datetime import datetime
-
     allowed_class_ids = set(teacher_class_ids)
-    if data.max_marks <= 0:
-        raise HTTPException(status_code=400, detail="max_marks must be greater than 0")
-
     subject = _get_subject_in_scope(
         db=db,
         current_user=current_user,
         subject_id=data.subject_id,
         allowed_class_ids=allowed_class_ids,
     )
-
-    exam_date = None
-    if data.exam_date:
-        try:
-            exam_date = datetime.strptime(data.exam_date, "%Y-%m-%d").date()
-        except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid exam_date. Expected YYYY-MM-DD.")
-
-    exam = Exam(
-        tenant_id=current_user.tenant_id,
-        name=data.name,
-        subject_id=subject.id,
-        max_marks=data.max_marks,
-        exam_date=exam_date,
-    )
-    db.add(exam)
-    db.commit()
-    db.refresh(exam)
-    return {"success": True, "exam_id": str(exam.id), "name": exam.name}
+    try:
+        return _build_created_exam_response_impl(
+            db=db,
+            current_user=current_user,
+            name=data.name,
+            subject_id=subject.id,
+            max_marks=data.max_marks,
+            exam_date_raw=data.exam_date,
+            exam_model=Exam,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 @router.post("/marks")
 async def submit_marks(
@@ -478,35 +412,18 @@ async def submit_marks(
         allowed_class_ids=allowed_class_ids,
     )
 
-    for entry in data.entries:
-        if entry.marks_obtained < 0 or entry.marks_obtained > exam.max_marks:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Invalid marks for student {entry.student_id}. Must be between 0 and {exam.max_marks}.",
-            )
-
-        student_uuid = _validate_student_in_class(
+    try:
+        count = apply_bulk_marks_entries(
             db=db,
             current_user=current_user,
-            student_id=entry.student_id,
-            class_id=subject.class_id,
+            entries=data.entries,
+            exam=exam,
+            subject=subject,
+            validate_student_in_class_fn=_validate_student_in_class,
+            mark_model=Mark,
         )
-
-        existing = db.query(Mark).filter(
-            Mark.tenant_id == current_user.tenant_id,
-            Mark.exam_id == exam.id,
-            Mark.student_id == student_uuid,
-        ).first()
-        if existing:
-            existing.marks_obtained = entry.marks_obtained
-        else:
-            db.add(Mark(
-                tenant_id=current_user.tenant_id,
-                student_id=student_uuid,
-                exam_id=exam.id,
-                marks_obtained=entry.marks_obtained,
-            ))
-    db.commit()
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
     try:
         await emit_webhook_event(
@@ -517,7 +434,7 @@ async def submit_marks(
                 "exam_id": str(exam.id),
                 "subject_id": str(subject.id),
                 "class_id": str(subject.class_id),
-                "submitted_count": len(data.entries),
+                "submitted_count": count,
                 "published_by": str(current_user.id),
             },
         )
@@ -525,7 +442,7 @@ async def submit_marks(
         # Marks submission should not fail if webhook delivery fails.
         pass
 
-    return {"success": True, "count": len(data.entries)}
+    return {"success": True, "count": count}
 
 
 # ─── Assignments CRUD ────────────────────────────────────────
@@ -535,29 +452,13 @@ async def list_assignments(
     db: Session = Depends(get_db),
 ):
     """List all assignments created by this teacher."""
-    assignments = db.query(Assignment).filter(
-        Assignment.tenant_id == current_user.tenant_id,
-        Assignment.created_by == current_user.id,
-    ).order_by(Assignment.created_at.desc()).all()
-    subject_ids = list({a.subject_id for a in assignments})
-    subjects = []
-    if subject_ids:
-        subjects = db.query(Subject).filter(
-            Subject.tenant_id == current_user.tenant_id,
-            Subject.id.in_(subject_ids),
-        ).all()
-    subject_name_by_id = {s.id: s.name for s in subjects}
-
-    return [{
-        "id": str(a.id),
-        "title": a.title,
-        "subject": subject_name_by_id.get(a.subject_id, "Unknown"),
-        "due_date": str(a.due_date.date()) if a.due_date else None,
-        "submissions": db.query(AssignmentSubmission).filter(
-            AssignmentSubmission.tenant_id == current_user.tenant_id,
-            AssignmentSubmission.assignment_id == a.id,
-        ).count(),
-    } for a in assignments]
+    return _build_teacher_assignments_response_impl(
+        db=db,
+        current_user=current_user,
+        assignment_model=Assignment,
+        subject_model=Subject,
+        assignment_submission_model=AssignmentSubmission,
+    )
 
 @router.post("/assignments")
 async def create_assignment(
@@ -567,8 +468,6 @@ async def create_assignment(
     db: Session = Depends(get_db),
 ):
     """Create a new assignment."""
-    from datetime import datetime
-
     allowed_class_ids = set(teacher_class_ids)
     subject = _get_subject_in_scope(
         db=db,
@@ -576,26 +475,18 @@ async def create_assignment(
         subject_id=data.subject_id,
         allowed_class_ids=allowed_class_ids,
     )
-
-    due_date = None
-    if data.due_date:
-        try:
-            due_date = datetime.strptime(data.due_date, "%Y-%m-%d")
-        except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid due_date. Expected YYYY-MM-DD.")
-
-    assignment = Assignment(
-        tenant_id=current_user.tenant_id,
-        subject_id=subject.id,
-        title=data.title,
-        description=data.description,
-        due_date=due_date,
-        created_by=current_user.id,
-    )
-    db.add(assignment)
-    db.commit()
-    db.refresh(assignment)
-    return {"success": True, "assignment_id": str(assignment.id)}
+    try:
+        return _build_created_assignment_response_impl(
+            db=db,
+            current_user=current_user,
+            subject_id=subject.id,
+            title=data.title,
+            description=data.description,
+            due_date_raw=data.due_date,
+            assignment_model=Assignment,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 
 # ─── Upload + Ingestion ─────────────────────────────────────
@@ -606,176 +497,26 @@ async def upload_document(
     db: Session = Depends(get_db),
 ):
     """Upload a document or OCR image for AI ingestion with the RAG pipeline."""
-    safe_filename = Path(file.filename or "").name
-    if not safe_filename:
-        raise HTTPException(status_code=400, detail="Filename is required.")
-
-    # Validate file type
-    ext = safe_filename.split(".")[-1].lower() if "." in safe_filename else ""
-    if ext not in ALLOWED_EXTENSIONS:
-        raise HTTPException(status_code=400, detail=f"Only {', '.join(sorted(ALLOWED_EXTENSIONS))} files allowed.")
-
-    content = await file.read()
-    macros_removed = False
-    ocr_processed = False
-    ocr_review_required = False
-    ocr_warning = None
-    ocr_languages: list[str] = []
-    ocr_preprocessing: list[str] = []
-    ocr_confidence: float | None = None
-    if ext == "docx":
-        try:
-            content, macros_removed = sanitize_docx_bytes(content)
-        except UploadValidationError as exc:
-            raise HTTPException(status_code=400, detail=str(exc))
-    if len(content) > MAX_FILE_SIZE:
-        raise HTTPException(status_code=400, detail="File exceeds 50MB limit.")
-    upload_metrics = resolve_upload_metrics(ext)
-    for metric in upload_metrics:
-        governance = evaluate_governance(
-            db,
-            tenant_id=current_user.tenant_id,
-            user_id=current_user.id,
-            metric=metric,
-            mode=metric,
-        )
-        if not governance.allowed:
-            raise HTTPException(status_code=429, detail=governance.detail)
-    if ext in ("jpg", "jpeg", "png"):
-        from src.infrastructure.vector_store.ocr_service import image_bytes_to_pdf, validate_image_size
-
-        try:
-            validate_image_size(content)
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc))
-        pdf_name = f"{current_user.tenant_id}_{current_user.id}_{uuid4().hex}_ocr.pdf"
-        file_path = UPLOAD_DIR / pdf_name
-        try:
-            ocr_result = image_bytes_to_pdf(
-                content,
-                str(file_path),
-                suffix=f".{ext}",
-                title=safe_filename,
-                source_name=safe_filename,
-            )
-        except Exception:
-            logger.exception("OCR processing failed for teacher upload")
-            raise HTTPException(
-                status_code=500,
-                detail="OCR processing failed. Please upload a clearer, higher-contrast image or a PDF.",
-            )
-        safe_filename = pdf_name
-        ext = "pdf"
-        ocr_processed = True
-        ocr_review_required = ocr_result.review_required
-        ocr_warning = ocr_result.warning
-        ocr_languages = ocr_result.languages
-        ocr_preprocessing = ocr_result.preprocessing_applied
-        ocr_confidence = getattr(ocr_result, "confidence", None)
-    else:
-        file_path = UPLOAD_DIR / f"{current_user.tenant_id}_{current_user.id}_{uuid4().hex}_{safe_filename}"
-        with open(file_path, "wb") as f:
-            f.write(content)
-
-    # Track in DB
-    doc = Document(
-        tenant_id=current_user.tenant_id,
-        uploaded_by=current_user.id,
-        file_name=safe_filename,
-        file_type=ext,
-        storage_path=str(file_path),
-        ingestion_status="processing",
-    )
-    db.add(doc)
-    db.commit()
-    db.refresh(doc)
-
-    # Trigger RAG ingestion
     try:
-        from src.infrastructure.vector_store.ingestion import ingest_document
-        from src.infrastructure.llm.embeddings import generate_embeddings_batch
-        from src.infrastructure.vector_store.vector_store import get_vector_store
-
-        chunks = ingest_document(
-            file_path=str(file_path),
-            document_id=str(doc.id),
-            tenant_id=str(current_user.tenant_id),
-            notebook_id=str(doc.notebook_id) if doc.notebook_id else None,
+        return await _upload_teacher_document_impl(
+            db=db,
+            current_user=current_user,
+            file=file,
+            allowed_extensions=ALLOWED_EXTENSIONS,
+            max_file_size=MAX_FILE_SIZE,
+            upload_dir=UPLOAD_DIR,
+            sanitize_docx_bytes_fn=sanitize_docx_bytes,
+            upload_validation_error_cls=UploadValidationError,
+            resolve_upload_metrics_fn=resolve_upload_metrics,
+            evaluate_governance_fn=evaluate_governance,
+            record_usage_event_fn=record_usage_event,
+            invalidate_tenant_cache_fn=invalidate_tenant_cache,
+            emit_webhook_event_fn=emit_webhook_event,
+            document_model=Document,
+            logger=logger,
         )
-
-        if chunks:
-            texts = [c.text for c in chunks]
-            embeddings = await generate_embeddings_batch(texts)
-            store = get_vector_store(str(current_user.tenant_id))
-            chunk_dicts = [{
-                "text": c.text,
-                "document_id": c.document_id,
-                "page_number": c.page_number,
-                "section_title": c.section_title or "",
-                "subject_id": c.subject_id or "",
-                "notebook_id": c.notebook_id or "",
-                "source_file": c.source_file or "",
-            } for c in chunks]
-            store.add_chunks(chunk_dicts, embeddings)
-
-        invalidate_tenant_cache(str(current_user.tenant_id))
-
-        doc.ingestion_status = "completed"
-        doc.chunk_count = len(chunks) if chunks else 0
-        for metric in upload_metrics:
-            record_usage_event(
-                db,
-                tenant_id=current_user.tenant_id,
-                user_id=current_user.id,
-                metric=metric,
-                metadata={
-                    "route": "teacher.upload",
-                    "file_type": ext,
-                    "document_id": str(doc.id),
-                    "ocr_processed": ocr_processed,
-                },
-            )
-        db.commit()
-
-        try:
-            await emit_webhook_event(
-                db=db,
-                tenant_id=current_user.tenant_id,
-                event_type="document.ingested",
-                data={
-                    "document_id": str(doc.id),
-                    "file_name": doc.file_name,
-                    "uploaded_by": str(current_user.id),
-                    "chunks": doc.chunk_count,
-                },
-            )
-        except Exception:
-            # Upload should not fail if webhook delivery fails.
-            pass
-
-        return {
-            "success": True,
-            "document_id": str(doc.id),
-            "chunks": len(chunks),
-            "status": "completed",
-            "macros_removed": macros_removed,
-            "ocr_processed": ocr_processed,
-            "ocr_review_required": ocr_review_required,
-            "ocr_warning": ocr_warning,
-            "ocr_languages": ocr_languages,
-            "ocr_preprocessing": ocr_preprocessing,
-            "ocr_confidence": ocr_confidence,
-        }
-    except Exception:
-        logger.exception("Teacher document ingestion failed", extra={"document_id": str(doc.id)})
-        doc.ingestion_status = "failed"
-        db.commit()
-        return {
-            "success": False,
-            "document_id": str(doc.id),
-            "error": "Document ingestion failed.",
-            "status": "failed",
-        }
+    except _TeacherIngestionError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail)
 
 
 @router.post("/youtube")
@@ -786,70 +527,22 @@ async def ingest_youtube_video(
     db: Session = Depends(get_db),
 ):
     """Ingest a YouTube transcript for AI."""
-    if not data.subject_id:
-        raise HTTPException(status_code=400, detail="subject_id is required")
-    governance = evaluate_governance(
-        db,
-        tenant_id=current_user.tenant_id,
-        user_id=current_user.id,
-        metric="youtube_ingestions",
-        mode="youtube_ingestions",
-    )
-    if not governance.allowed:
-        raise HTTPException(status_code=429, detail=governance.detail)
-
-    allowed_class_ids = set(teacher_class_ids)
-    subject = _get_subject_in_scope(
-        db=db,
-        current_user=current_user,
-        subject_id=data.subject_id,
-        allowed_class_ids=allowed_class_ids,
-    )
-    subject_uuid = subject.id
-
-    lecture = Lecture(
-        tenant_id=current_user.tenant_id,
-        title=data.title,
-        youtube_url=data.url,
-        subject_id=subject_uuid,
-        transcript_ingested=False,
-    )
-    db.add(lecture)
-    db.commit()
-    db.refresh(lecture)
-
     try:
-        from src.infrastructure.vector_store.ingestion import ingest_youtube
-        from src.infrastructure.llm.embeddings import generate_embeddings_batch
-        from src.infrastructure.vector_store.vector_store import get_vector_store
-
-        chunks = ingest_youtube(
+        return await _ingest_teacher_youtube_video_impl(
+            db=db,
+            current_user=current_user,
+            title=data.title,
             url=data.url,
-            document_id=str(lecture.id),
-            tenant_id=str(current_user.tenant_id),
-            subject_id=str(subject_uuid),
+            subject_id=data.subject_id,
+            allowed_class_ids=set(teacher_class_ids),
+            get_subject_in_scope_fn=_get_subject_in_scope,
+            evaluate_governance_fn=evaluate_governance,
+            record_usage_event_fn=record_usage_event,
+            invalidate_tenant_cache_fn=invalidate_tenant_cache,
+            lecture_model=Lecture,
         )
-        if chunks:
-            texts = [c.text for c in chunks]
-            embeddings = await generate_embeddings_batch(texts)
-            store = get_vector_store(str(current_user.tenant_id))
-            chunk_dicts = [{"text": c.text, "document_id": c.document_id, "page_number": c.page_number, "section_title": c.section_title or "", "subject_id": c.subject_id or "", "source_file": c.source_file or ""} for c in chunks]
-            store.add_chunks(chunk_dicts, embeddings)
-
-        invalidate_tenant_cache(str(current_user.tenant_id))
-
-        lecture.transcript_ingested = True
-        record_usage_event(
-            db,
-            tenant_id=current_user.tenant_id,
-            user_id=current_user.id,
-            metric="youtube_ingestions",
-            metadata={"route": "teacher.youtube", "lecture_id": str(lecture.id)},
-        )
-        db.commit()
-        return {"success": True, "lecture_id": str(lecture.id), "chunks": len(chunks)}
-    except Exception as e:
-        return {"success": False, "error": str(e)}
+    except _TeacherIngestionError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail)
 
 
 # ─── Onboarding ──────────────────────────────────────────────
@@ -864,113 +557,21 @@ async def onboard_students(
     Teacher can onboard a list of students via CSV or Image.
     Format is same as admin teacher onboarding: name (email/password generated).
     """
-    safe_filename = file.filename or ""
-    ext = get_extension(safe_filename)
-    content = await file.read()
-    students_to_create = []
-    ocr_processed = False
-    ocr_review_required = False
-    ocr_warning = None
-    ocr_languages: list[str] = []
-    ocr_preprocessing: list[str] = []
-
-    parsed = None
-    if ext in ("csv", "txt", "jpg", "jpeg", "png"):
-        try:
-            extraction = extract_upload_content_result(safe_filename, content)
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc))
-
-        text = extraction.text
-        ocr_processed = extraction.used_ocr
-        ocr_review_required = extraction.review_required
-        ocr_warning = extraction.warning
-        ocr_languages = extraction.languages
-        ocr_preprocessing = extraction.preprocessing_applied
-        ocr_confidence = getattr(extraction, "confidence", None)
-
-        if extraction.used_ocr:
-            parsed = parse_account_rows_with_diagnostics(text, default_password="Student123!")
-            students_to_create = [row for _, row in parsed.rows]
-            if parsed.review_required:
-                ocr_review_required = True
-            if parsed.warning:
-                ocr_warning = parsed.warning
-        else:
-            reader = csv.reader(io.StringIO(text))
-            for row in reader:
-                if not row or not any(row):
-                    continue
-                name = row[0].strip()
-                email = row[1].strip() if len(row) > 1 else f"{re.sub(r'[^a-zA-Z0-9]', '.', name.lower())}@example.com"
-                password = row[2].strip() if len(row) > 2 else "Student123!"
-                students_to_create.append({"name": name, "email": email, "password": password})
-    else:
-        raise HTTPException(status_code=400, detail="Only CSV, TXT, JPG, JPEG, PNG allowed")
-
-    if not students_to_create:
-        raise HTTPException(status_code=400, detail="No readable names found in the file")
-
-    if preview:
-        return {
-            "success": True,
-            "preview": True,
-            "preview_rows": students_to_create,
-            "total_rows": len(students_to_create),
-            "ocr_processed": ocr_processed,
-            "ocr_review_required": ocr_review_required,
-            "ocr_warning": ocr_warning,
-            "ocr_languages": ocr_languages,
-            "ocr_preprocessing": ocr_preprocessing,
-            "ocr_confidence": ocr_confidence,
-            "ocr_unmatched_lines": len(parsed.unmatched_lines) if ocr_processed and parsed is not None else 0,
-        }
-
     try:
-        from auth.auth import pwd_context
-    except ImportError:
-        from passlib.context import CryptContext
-        pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-    created_count = 0
-    from src.domains.identity.models.tenant import Tenant
-    tenant_domain = db.query(Tenant.domain).filter(Tenant.id == current_user.tenant_id).scalar()
-
-    for s in students_to_create:
-        email = s["email"]
-        if "@example.com" in email and tenant_domain:
-            email = email.replace("@example.com", f"@{tenant_domain}")
-
-        existing = db.query(User).filter(User.email == email).first()
-        if existing:
-            continue
-            
-        hashed_pw = pwd_context.hash(s["password"])
-        new_student = User(
-            tenant_id=current_user.tenant_id,
-            email=email,
-            full_name=s["name"],
-            role="student",
-            hashed_password=hashed_pw,
-            is_active=True
+        return await _onboard_students_from_upload_impl(
+            file=file,
+            preview=preview,
+            current_user=current_user,
+            db=db,
+            get_extension_fn=get_extension,
+            extract_upload_content_result_fn=extract_upload_content_result,
+            parse_account_rows_with_diagnostics_fn=parse_account_rows_with_diagnostics,
+            user_model=User,
+            tenant_model=Tenant,
+            hash_password_fn=hash_password,
         )
-        db.add(new_student)
-        created_count += 1
-        
-    db.commit()
-    
-    return {
-        "success": True, 
-        "message": f"Successfully onboarded {created_count} students.",
-        "created_count": created_count,
-        "ocr_processed": ocr_processed,
-        "ocr_review_required": ocr_review_required,
-        "ocr_warning": ocr_warning,
-        "ocr_languages": ocr_languages,
-        "ocr_preprocessing": ocr_preprocessing,
-        "ocr_confidence": ocr_confidence,
-        "ocr_unmatched_lines": len(parsed.unmatched_lines) if ocr_processed and 'parsed' in locals() else 0,
-    }
+    except _TeacherOnboardingError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail)
 
 
 # ─── Classes ─────────────────────────────────────────────────
@@ -981,32 +582,15 @@ async def teacher_classes(
     db: Session = Depends(get_db),
 ):
     """List classes with students."""
-    allowed_class_ids = list(teacher_class_ids)
-    if not allowed_class_ids:
-        return []
-
-    classes = db.query(Class).filter(
-        Class.tenant_id == current_user.tenant_id,
-        Class.id.in_(allowed_class_ids),
-    ).all()
-    result = []
-    for cls in classes:
-        enrollments = db.query(Enrollment).filter(Enrollment.tenant_id == current_user.tenant_id, Enrollment.class_id == cls.id).all()
-        students = []
-        for e in enrollments:
-            student = db.query(User).filter(
-                User.id == e.student_id,
-                User.tenant_id == current_user.tenant_id,
-            ).first()
-            if student:
-                students.append({"id": str(student.id), "name": student.full_name, "email": student.email, "roll_number": e.roll_number})
-        subjects = db.query(Subject).filter(Subject.tenant_id == current_user.tenant_id, Subject.class_id == cls.id).all()
-        result.append({
-            "id": str(cls.id), "name": cls.name, "grade": cls.grade_level,
-            "students": students,
-            "subjects": [{"id": str(s.id), "name": s.name} for s in subjects],
-        })
-    return result
+    return _build_teacher_classes_response_impl(
+        db=db,
+        current_user=current_user,
+        allowed_class_ids=list(teacher_class_ids),
+        class_model=Class,
+        enrollment_model=Enrollment,
+        user_model=User,
+        subject_model=Subject,
+    )
 
 
 # ─── Insights ────────────────────────────────────────────────
@@ -1017,44 +601,15 @@ async def teacher_insights(
     db: Session = Depends(get_db),
 ):
     """AI-powered class analytics and weak topic insights."""
-    allowed_class_ids = list(teacher_class_ids)
-    if not allowed_class_ids:
-        return {"insights": []}
-
-    classes = db.query(Class).filter(
-        Class.tenant_id == current_user.tenant_id,
-        Class.id.in_(allowed_class_ids),
-    ).all()
-    insights = []
-    for cls in classes:
-        subjects = db.query(Subject).filter(
-            Subject.tenant_id == current_user.tenant_id,
-            Subject.class_id == cls.id,
-        ).all()
-        subject_stats = []
-        for subj in subjects:
-            exams = db.query(Exam).filter(
-                Exam.tenant_id == current_user.tenant_id,
-                Exam.subject_id == subj.id,
-            ).all()
-            if not exams:
-                continue
-            exam_ids = [e.id for e in exams]
-            avg = db.query(func.avg(Mark.marks_obtained)).filter(
-                Mark.tenant_id == current_user.tenant_id,
-                Mark.exam_id.in_(exam_ids),
-            ).scalar()
-            max_m = max(e.max_marks for e in exams)
-            pct = round(float(avg) / max_m * 100) if avg and max_m else 0
-            subject_stats.append({"subject": subj.name, "avg_pct": pct, "is_weak": pct < 60})
-        weak_topics = [s["subject"] for s in subject_stats if s.get("is_weak")]
-        insights.append({
-            "class": cls.name,
-            "subjects": subject_stats,
-            "weak_topics": weak_topics,
-            "recommendation": f"Focus on: {', '.join(weak_topics)}" if weak_topics else "All subjects performing well",
-        })
-    return {"insights": insights}
+    return _build_teacher_insights_response_impl(
+        db=db,
+        current_user=current_user,
+        allowed_class_ids=list(teacher_class_ids),
+        class_model=Class,
+        subject_model=Subject,
+        exam_model=Exam,
+        mark_model=Mark,
+    )
 
 
 # ─── Assessment Generator ────────────────────────────────────
@@ -1078,26 +633,17 @@ async def generate_assessment(
         db=db, current_user=current_user,
         subject_id=data.subject_id, allowed_class_ids=allowed_class_ids,
     )
-
-    from src.interfaces.rest_api.ai.routes.ai import ai_query, AIQueryRequest
-    n = max(1, min(data.num_questions, 15))
-    prompt_query = (
-        f"Generate exactly {n} multiple-choice questions about: {data.topic}. "
-        f"Subject: {subject.name}. Format as JSON array."
-    )
-    ai_request = AIQueryRequest(
-        query=prompt_query,
-        mode="quiz",
+    ai_result = await generate_subject_assessment(
+        tenant_id=str(current_user.tenant_id),
+        user_id=str(current_user.id),
         subject_id=str(subject.id),
+        subject_name=subject.name,
+        topic=data.topic,
+        num_questions=data.num_questions,
     )
-    ai_result = await ai_query(ai_request, current_user, db)
     return {
         "success": True,
-        "subject": subject.name,
-        "topic": data.topic,
-        "assessment": ai_result.get("answer", ""),
-        "citations": ai_result.get("citations", []),
-        "trace_id": ai_result.get("trace_id", ""),
+        **ai_result,
     }
 
 
@@ -1110,98 +656,16 @@ async def teacher_doubt_heatmap(
     db: Session = Depends(get_db),
 ):
     """Aggregate student AI queries by subject to identify doubt hotspots."""
-    from src.domains.platform.models.ai import AIQuery
-    from collections import Counter
+    return _build_teacher_doubt_heatmap_response_impl(
+        db=db,
+        current_user=current_user,
+        allowed_class_ids=list(teacher_class_ids),
+        class_model=Class,
+        subject_model=Subject,
+        enrollment_model=Enrollment,
+        ai_query_model=AIQuery,
+    )
 
-    allowed_class_ids = list(teacher_class_ids)
-    if not allowed_class_ids:
-        return {"heatmap": []}
-
-    # Get student IDs in teacher's classes
-    student_ids = []
-    for cid in allowed_class_ids:
-        enrollments = db.query(Enrollment).filter(
-            Enrollment.tenant_id == current_user.tenant_id,
-            Enrollment.class_id == cid,
-        ).all()
-        student_ids.extend([e.student_id for e in enrollments])
-
-    if not student_ids:
-        return {"heatmap": []}
-
-    student_ids = list(set(student_ids))
-
-    # Get recent AI queries from these students
-    queries = db.query(AIQuery).filter(
-        AIQuery.tenant_id == current_user.tenant_id,
-        AIQuery.user_id.in_(student_ids),
-    ).order_by(AIQuery.created_at.desc()).limit(500).all()
-
-    # Build subject mapping for context
-    subject_map = {}
-    for cid in allowed_class_ids:
-        cls = db.query(Class).filter(
-            Class.id == cid,
-            Class.tenant_id == current_user.tenant_id,
-        ).first()
-        subjects = db.query(Subject).filter(
-            Subject.tenant_id == current_user.tenant_id,
-            Subject.class_id == cid,
-        ).all()
-        for subj in subjects:
-            subject_map[str(subj.id)] = {
-                "subject": subj.name,
-                "class": cls.name if cls else "Unknown",
-            }
-
-    # Count queries per topic keyword (use query text as topic proxy)
-    topic_counter: Counter = Counter()
-    subject_counter: Counter = Counter()
-    queries_by_subject: dict = {}
-
-    for q in queries:
-        # Extract short topic from query text (first 60 chars)
-        topic = q.query_text[:60].strip() if q.query_text else "Unknown"
-        topic_counter[topic] += 1
-
-        # Count by mode
-        mode_key = q.mode or "qa"
-
-        # Try to associate with a subject if subject queries exist
-        for subj_id, info in subject_map.items():
-            subj_name = info["subject"]
-            cls_name = info["class"]
-            key = f"{cls_name} — {subj_name}"
-            if subj_name.lower() in (q.query_text or "").lower():
-                subject_counter[key] += 1
-                if key not in queries_by_subject:
-                    queries_by_subject[key] = []
-                queries_by_subject[key].append(topic)
-                break
-
-    # Build heatmap data
-    heatmap = []
-    for key, count in subject_counter.most_common(20):
-        sample_topics = list(set(queries_by_subject.get(key, [])))[:5]
-        heatmap.append({
-            "label": key,
-            "query_count": count,
-            "intensity": min(1.0, count / max(1, len(queries)) * 10),
-            "sample_topics": sample_topics,
-        })
-
-    # Top doubt topics overall
-    top_topics = [
-        {"topic": t, "count": c}
-        for t, c in topic_counter.most_common(15)
-    ]
-
-    return {
-        "heatmap": heatmap,
-        "top_topics": top_topics,
-        "total_queries": len(queries),
-        "student_count": len(student_ids),
-    }
 
 
 # ─── Bulk CSV Import / Export ────────────────────────────────
@@ -1224,8 +688,6 @@ async def import_attendance_csv(
     db: Session = Depends(get_db),
 ):
     """Import attendance from CSV/TXT or OCR image. Rows may use student ID, email, or full name."""
-    from datetime import datetime
-
     if not class_id or not date:
         raise HTTPException(status_code=400, detail="class_id and date are required query params")
 
@@ -1245,37 +707,16 @@ async def import_attendance_csv(
         parser=parse_attendance_rows_with_diagnostics,
         empty_detail="No readable attendance rows found in the file.",
     )
-    count = 0
-    errors = []
-    for row_num, (identifier, status) in enumerate(rows, start=2):
-        if status not in ALLOWED_ATTENDANCE_STATUSES:
-            errors.append(f"Row {row_num}: invalid status '{status}'")
-            continue
-        try:
-            student_uuid = _resolve_student_identifier_in_class(db, current_user, identifier, class_uuid)
-        except HTTPException:
-            errors.append(f"Row {row_num}: student {identifier} not in class")
-            continue
-
-        existing = db.query(Attendance).filter(
-            Attendance.tenant_id == current_user.tenant_id,
-            Attendance.student_id == student_uuid,
-            Attendance.class_id == class_uuid,
-            Attendance.date == att_date,
-        ).first()
-        if existing:
-            existing.status = status
-        else:
-            db.add(Attendance(
-                tenant_id=current_user.tenant_id,
-                student_id=student_uuid,
-                class_id=class_uuid,
-                date=att_date,
-                status=status,
-            ))
-        count += 1
-
-    db.commit()
+    count, errors = apply_structured_attendance_import_rows(
+        db=db,
+        current_user=current_user,
+        rows=rows,
+        class_uuid=class_uuid,
+        att_date=att_date,
+        allowed_statuses=ALLOWED_ATTENDANCE_STATUSES,
+        resolve_student_identifier_in_class_fn=_resolve_student_identifier_in_class,
+        attendance_model=Attendance,
+    )
     if errors and ocr_meta["ocr_processed"] and not ocr_meta["ocr_warning"]:
         ocr_meta["ocr_warning"] = f"OCR parsed {count} attendance rows but {len(errors)} rows need manual review."
     return {"success": True, "imported": count, "errors": errors, **ocr_meta}
@@ -1289,32 +730,21 @@ async def export_attendance_csv(
     db: Session = Depends(get_db),
 ):
     """Export class attendance as CSV."""
-    from starlette.responses import StreamingResponse
-
     allowed_class_ids = set(teacher_class_ids)
     class_uuid = _parse_uuid(class_id, "class_id")
     _ensure_class_access(current_user, class_uuid, allowed_class_ids)
-
-    records = db.query(Attendance).filter(
-        Attendance.tenant_id == current_user.tenant_id,
-        Attendance.class_id == class_uuid,
-    ).order_by(Attendance.date.desc()).all()
-
-    student_ids = list({r.student_id for r in records})
-    users = db.query(User).filter(User.id.in_(student_ids)).all() if student_ids else []
-    name_map = {u.id: u.full_name for u in users}
-
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow(["student_id", "student_name", "date", "status"])
-    for r in records:
-        writer.writerow([str(r.student_id), name_map.get(r.student_id, ""), str(r.date), r.status])
-
-    output.seek(0)
+    payload = _build_attendance_csv_payload_impl(
+        db=db,
+        current_user=current_user,
+        class_uuid=class_uuid,
+        requested_class_id=class_id,
+        attendance_model=Attendance,
+        user_model=User,
+    )
     return StreamingResponse(
-        output,
+        io.StringIO(payload["content"]),
         media_type="text/csv",
-        headers={"Content-Disposition": f"attachment; filename=attendance_{class_id}.csv"},
+        headers={"Content-Disposition": f"attachment; filename={payload['filename']}"},
     )
 
 
@@ -1340,35 +770,15 @@ async def import_marks_csv(
         parser=parse_marks_rows_with_diagnostics,
         empty_detail="No readable marks rows found in the file.",
     )
-    count = 0
-    errors = []
-    for row_num, (identifier, marks_val) in enumerate(rows, start=2):
-        if marks_val < 0 or marks_val > exam.max_marks:
-            errors.append(f"Row {row_num}: marks out of range [0, {exam.max_marks}]")
-            continue
-        try:
-            student_uuid = _resolve_student_identifier_in_class(db, current_user, identifier, subject.class_id)
-        except HTTPException:
-            errors.append(f"Row {row_num}: student {identifier} not in class")
-            continue
-
-        existing = db.query(Mark).filter(
-            Mark.tenant_id == current_user.tenant_id,
-            Mark.exam_id == exam.id,
-            Mark.student_id == student_uuid,
-        ).first()
-        if existing:
-            existing.marks_obtained = marks_val
-        else:
-            db.add(Mark(
-                tenant_id=current_user.tenant_id,
-                student_id=student_uuid,
-                exam_id=exam.id,
-                marks_obtained=marks_val,
-            ))
-        count += 1
-
-    db.commit()
+    count, errors = apply_structured_marks_import_rows(
+        db=db,
+        current_user=current_user,
+        rows=rows,
+        exam=exam,
+        subject=subject,
+        resolve_student_identifier_in_class_fn=_resolve_student_identifier_in_class,
+        mark_model=Mark,
+    )
     if errors and ocr_meta["ocr_processed"] and not ocr_meta["ocr_warning"]:
         ocr_meta["ocr_warning"] = f"OCR parsed {count} marks rows but {len(errors)} rows need manual review."
     return {"success": True, "imported": count, "errors": errors, **ocr_meta}
@@ -1382,31 +792,20 @@ async def export_marks_csv(
     db: Session = Depends(get_db),
 ):
     """Export exam marks as CSV."""
-    from starlette.responses import StreamingResponse
-
     allowed_class_ids = set(teacher_class_ids)
     exam, subject = _get_exam_with_subject_in_scope(db, current_user, exam_id, allowed_class_ids)
-
-    marks = db.query(Mark).filter(
-        Mark.tenant_id == current_user.tenant_id,
-        Mark.exam_id == exam.id,
-    ).all()
-
-    student_ids = [m.student_id for m in marks]
-    users = db.query(User).filter(User.id.in_(student_ids)).all() if student_ids else []
-    name_map = {u.id: u.full_name for u in users}
-
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow(["student_id", "student_name", "marks_obtained", "max_marks"])
-    for m in marks:
-        writer.writerow([str(m.student_id), name_map.get(m.student_id, ""), m.marks_obtained, exam.max_marks])
-
-    output.seek(0)
+    payload = _build_marks_csv_payload_impl(
+        db=db,
+        current_user=current_user,
+        exam=exam,
+        requested_exam_id=exam_id,
+        mark_model=Mark,
+        user_model=User,
+    )
     return StreamingResponse(
-        output,
+        io.StringIO(payload["content"]),
         media_type="text/csv",
-        headers={"Content-Disposition": f"attachment; filename=marks_{exam_id}.csv"},
+        headers={"Content-Disposition": f"attachment; filename={payload['filename']}"},
     )
 
 
@@ -1421,41 +820,18 @@ async def ai_grade_answer_sheet(
     """Upload a student answer sheet image for AI-assisted grading.
     Returns a job ID that can be polled for results.
     """
-    safe_filename = Path(file.filename or "").name
-    if not safe_filename:
-        raise HTTPException(status_code=400, detail="Filename is required.")
-
-    ext = safe_filename.split(".")[-1].lower() if "." in safe_filename else ""
-    if ext not in {"jpg", "jpeg", "png", "pdf"}:
-        raise HTTPException(status_code=400, detail="Only JPG, JPEG, PNG, PDF files allowed.")
-
     content = await file.read()
-    if len(content) > MAX_FILE_SIZE:
-        raise HTTPException(status_code=400, detail="File exceeds 50MB limit.")
-
-    file_path = UPLOAD_DIR / f"{current_user.tenant_id}_grade_{uuid4().hex}_{safe_filename}"
-    with open(file_path, "wb") as f:
-        f.write(content)
-
-    from src.domains.platform.services.ai_queue import enqueue_job
-
-    job = enqueue_job(
-        job_type="ai_grade",
-        payload={
-            "file_path": str(file_path),
-            "file_name": safe_filename,
-            "teacher_id": str(current_user.id),
-        },
-        tenant_id=str(current_user.tenant_id),
-        user_id=str(current_user.id),
-    )
-
-    return {
-        "success": True,
-        "message": "Answer sheet queued for AI grading.",
-        "job_id": job.get("job_id"),
-        "file_name": safe_filename,
-    }
+    try:
+        return _queue_teacher_ai_grade_job_impl(
+            file_name=file.filename or "",
+            content=content,
+            current_user=current_user,
+            max_file_size=MAX_FILE_SIZE,
+            upload_dir=UPLOAD_DIR,
+            enqueue_job_fn=enqueue_job,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 
 # ─── Test Series Management ─────────────────────────────────
@@ -1476,22 +852,17 @@ async def create_test_series(
     db: Session = Depends(get_db),
 ):
     """Create a new test series / mock test."""
-    from src.domains.academic.models.test_series import TestSeries
-
-    series = TestSeries(
-        tenant_id=current_user.tenant_id,
+    return _build_created_test_series_response_impl(
+        db=db,
+        current_user=current_user,
         name=data.name,
         description=data.description,
         total_marks=data.total_marks,
         duration_minutes=data.duration_minutes,
         class_id=data.class_id,
         subject_id=data.subject_id,
-        created_by=current_user.id,
+        test_series_model=TestSeries,
     )
-    db.add(series)
-    db.commit()
-    db.refresh(series)
-    return {"success": True, "series_id": str(series.id), "name": series.name}
 
 
 @router.get("/test-series")
@@ -1500,8 +871,11 @@ async def list_teacher_test_series(
     db: Session = Depends(get_db),
 ):
     """List all test series created by this teacher."""
-    from src.domains.academic.services.leaderboard import get_all_series
-    return get_all_series(db, tenant_id=str(current_user.tenant_id))
+    return _list_teacher_test_series_response_impl(
+        db=db,
+        current_user=current_user,
+        get_all_series_fn=get_all_series,
+    )
 
 
 @router.get("/test-series/{series_id}/leaderboard")
@@ -1511,6 +885,10 @@ async def teacher_leaderboard(
     db: Session = Depends(get_db),
 ):
     """View the leaderboard for a test series (teacher view)."""
-    from src.domains.academic.services.leaderboard import get_leaderboard
-    return get_leaderboard(db, test_series_id=series_id, tenant_id=str(current_user.tenant_id))
+    return _build_teacher_test_series_leaderboard_response_impl(
+        db=db,
+        current_user=current_user,
+        series_id=series_id,
+        get_leaderboard_fn=get_leaderboard,
+    )
 

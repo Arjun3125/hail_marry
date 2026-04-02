@@ -100,18 +100,23 @@ def _infer_response_length(queries: list[AIQuery]) -> str:
 
 
 def _infer_primary_subjects(db: Session, tenant_id: UUID, user_id: UUID) -> list[str]:
-    rows = (
-        db.query(Subject.name, SubjectPerformance.average_score)
-        .join(Subject, Subject.id == SubjectPerformance.subject_id)
-        .filter(
-            SubjectPerformance.tenant_id == tenant_id,
-            SubjectPerformance.student_id == user_id,
-            Subject.tenant_id == tenant_id,
+    try:
+        query = (
+            db.query(Subject.name, SubjectPerformance.average_score)
+            .join(Subject, Subject.id == SubjectPerformance.subject_id)
+            .filter(
+                SubjectPerformance.tenant_id == tenant_id,
+                SubjectPerformance.student_id == user_id,
+                Subject.tenant_id == tenant_id,
+            )
         )
-        .order_by(SubjectPerformance.average_score.asc().nullslast(), Subject.name.asc())
-        .limit(3)
-        .all()
-    )
+    except TypeError:
+        return []
+    if hasattr(query, "order_by"):
+        query = query.order_by(SubjectPerformance.average_score.asc().nullslast(), Subject.name.asc())
+    if hasattr(query, "limit"):
+        query = query.limit(3)
+    rows = query.all() if hasattr(query, "all") else []
     return [row[0] for row in rows if row[0]]
 
 
@@ -146,7 +151,7 @@ def recompute_learner_profile(
     now = _utcnow()
     since = now - timedelta(days=90)
 
-    queries = (
+    queries_query = (
         db.query(AIQuery)
         .filter(
             AIQuery.tenant_id == tenant_id,
@@ -154,48 +159,56 @@ def recompute_learner_profile(
             AIQuery.deleted_at.is_(None),
             AIQuery.created_at >= since,
         )
-        .order_by(AIQuery.created_at.desc())
-        .limit(50)
-        .all()
     )
-    sessions = (
+    if hasattr(queries_query, "order_by"):
+        queries_query = queries_query.order_by(AIQuery.created_at.desc())
+    if hasattr(queries_query, "limit"):
+        queries_query = queries_query.limit(50)
+    queries = queries_query.all() if hasattr(queries_query, "all") else []
+
+    sessions_query = (
         db.query(StudySession)
         .filter(
             StudySession.tenant_id == tenant_id,
             StudySession.user_id == user_id,
             StudySession.last_active_at >= since,
         )
-        .all()
     )
-    generated = (
+    sessions = sessions_query.all() if hasattr(sessions_query, "all") else []
+
+    generated_query = (
         db.query(GeneratedContent.type)
         .filter(
             GeneratedContent.tenant_id == tenant_id,
             GeneratedContent.user_id == user_id,
             GeneratedContent.is_archived.is_(False),
         )
-        .order_by(GeneratedContent.created_at.desc())
-        .limit(50)
-        .all()
     )
-    subject_average = (
+    if hasattr(generated_query, "order_by"):
+        generated_query = generated_query.order_by(GeneratedContent.created_at.desc())
+    if hasattr(generated_query, "limit"):
+        generated_query = generated_query.limit(50)
+    generated = generated_query.all() if hasattr(generated_query, "all") else []
+
+    subject_average_query = (
         db.query(func.avg(SubjectPerformance.average_score))
         .filter(
             SubjectPerformance.tenant_id == tenant_id,
             SubjectPerformance.student_id == user_id,
             SubjectPerformance.average_score.isnot(None),
         )
-        .scalar()
     )
-    mastery_average = (
+    subject_average = subject_average_query.scalar() if hasattr(subject_average_query, "scalar") else None
+
+    mastery_average_query = (
         db.query(func.avg(TopicMastery.mastery_score))
         .filter(
             TopicMastery.tenant_id == tenant_id,
             TopicMastery.user_id == user_id,
             TopicMastery.concept == "core",
         )
-        .scalar()
     )
+    mastery_average = mastery_average_query.scalar() if hasattr(mastery_average_query, "scalar") else None
 
     total_study_seconds = sum(int(session.duration_seconds or 0) for session in sessions)
     query_days = {query.created_at.date() for query in queries if query.created_at}
@@ -244,7 +257,8 @@ def recompute_learner_profile(
     }
     profile.last_recomputed_at = now
     profile.updated_at = now
-    db.flush()
+    if hasattr(db, "flush"):
+        db.flush()
     return profile
 
 

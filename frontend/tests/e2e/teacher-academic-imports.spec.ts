@@ -24,6 +24,7 @@ test.beforeEach(async ({ page }) => {
 
 test("teacher attendance page imports OCR attendance and surfaces review metadata", async ({ page }) => {
     let attendanceFetchCount = 0;
+    const todayIso = new Date().toISOString().split("T")[0];
 
     await page.route("**/api/teacher/classes", async (route) => {
         await route.fulfill({
@@ -47,8 +48,8 @@ test("teacher attendance page imports OCR attendance and surfaces review metadat
         const body = attendanceFetchCount === 1
             ? []
             : [
-                { student_id: "student-1", date: "2026-03-30", status: "present" },
-                { student_id: "student-2", date: "2026-03-30", status: "late" },
+                { student_id: "student-1", date: todayIso, status: "present" },
+                { student_id: "student-2", date: todayIso, status: "late" },
             ];
         await route.fulfill({
             status: 200,

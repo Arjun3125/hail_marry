@@ -240,7 +240,7 @@ def test_execute_text_query_returns_retrieval_audit(monkeypatch):
     from src.domains.platform.schemas.ai_runtime import InternalAIQueryRequest
 
     class FakeLLM:
-        async def generate(self, prompt, model, temperature, num_predict):
+        async def generate(self, prompt, model, temperature, num_predict, **kwargs):
             return {"response": "Grounded answer [biology.pdf_p4]", "token_usage": 12}
 
     monkeypatch.setattr(

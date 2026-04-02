@@ -1,0 +1,143 @@
+app:
+  debug: true
+  cors_origins:
+    - "http://localhost:3000"
+
+database:
+  url: "postgresql://postgres:postgres@localhost:5432/vidyaos"
+  echo: false
+
+redis:
+  url: "redis://localhost:6379/0"
+
+auth:
+  jwt_secret: ""
+  jwt_expiry_minutes: 60
+  google_client_id: ""
+  saml_sp_base_url: "http://localhost:8000"
+
+observability:
+  service_name: "vidyaos-api"
+  log_level: "INFO"
+  log_path: ""
+  metrics_token: ""
+  queue_depth_warn_threshold_pct: 80
+  queue_failure_warn_pct: 20
+  ocr_failure_warn_pct: 15
+  ocr_review_warn_pct: 50
+  ocr_min_events_for_alert: 20
+  alert_email_recipients: []
+  alert_sms_recipients: []
+  otlp_endpoint: ""
+  trace_sample_ratio: 1.0
+
+sentry:
+  enabled: false
+  dsn: ""
+  environment: ""
+  traces_sample_rate: 0.05
+  profiles_sample_rate: 0.0
+  send_default_pii: false
+
+ai_service:
+  url: "http://localhost:8001"
+  urls: []
+  api_key: ""
+
+ai_queue:
+  pending_key: "ai_jobs:pending"
+  processing_key: "ai_jobs:processing"
+  result_ttl_seconds: 86400
+  max_retries: 2
+  poll_timeout_seconds: 5
+  stuck_after_seconds: 300
+  metrics_window_seconds: 3600
+  max_pending_jobs: 1000
+  max_pending_jobs_per_tenant: 200
+
+startup_checks:
+  timeout_seconds: 5
+
+worker_health:
+  host: "0.0.0.0"
+  port: 8010
+  heartbeat_stale_seconds: 60
+
+rate_limit:
+  requests_per_minute: 30
+  ai_queries_per_day: 50
+
+rag:
+  similarity_top_k: 8
+  rerank:
+    enabled: true
+    model: "cross-encoder/ms-marco-MiniLM-L-2-v2"
+    top_n: 5
+  dedup:
+    similarity_threshold: 0.85
+  context:
+    max_tokens: 3000
+    compress_lower_ranked: true
+
+llm:
+  provider: "ollama"
+  model: "llama3.2"
+  max_new_tokens: 800
+  context_window: 4096
+  temperature: 0.1
+  timeout_seconds: 60
+  fallback_model: "llama3.2"
+
+embedding:
+  provider: "ollama"
+  model: "nomic-embed-text"
+  embed_dim: 768
+
+vector_backend:
+  provider: "faiss"
+  qdrant_url: "http://localhost:6333"
+  qdrant_api_key: ""
+  collection_prefix: "tenant_"
+  timeout_seconds: 20
+
+compliance:
+  export_retention_days: 30
+  default_data_retention_days: 365
+
+incidents:
+  default_escalation_minutes: 30
+
+cache:
+  enabled: true
+  query_ttl_seconds: 86400
+  study_guide_ttl_seconds: 604800
+  quiz_ttl_seconds: 604800
+
+doc_watch:
+  enabled: false
+  dirs: []
+  poll_interval_seconds: 30
+  tenant_id: ""
+  uploader_id: ""
+
+email:
+  enabled: false
+  host: ""
+  port: 587
+  username: ""
+  password: ""
+  use_tls: true
+  from_email: "no-reply@vidyaos.local"
+  from_name: "VidyaOS"
+
+digest_email:
+  enabled: false
+  interval_minutes: 10080
+
+sms:
+  enabled: false
+  provider: "twilio"
+  account_sid: ""
+  auth_token: ""
+  from_number: ""
+

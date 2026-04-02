@@ -1,4 +1,5 @@
-# Docker Compose - VidyaOS Full Stack (Pilot)
+# Compatibility compose entrypoint.
+# Canonical file: deploy/compose/production.yml
 # Usage: docker-compose up -d
 # Optional observability stack: docker-compose --profile observability up -d
 

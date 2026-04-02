@@ -7,7 +7,7 @@ from uuid import uuid4
 
 import httpx
 import pytest
-from fastapi import HTTPException
+from src.domains.platform.services.traceability import TraceabilityError
 
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
@@ -45,7 +45,7 @@ async def test_execute_text_query_records_retrieval_and_generation_success_metri
     ]
 
     class FakeLLM:
-        async def generate(self, prompt, model, temperature, num_predict):
+        async def generate(self, prompt, model, temperature, num_predict, **kwargs):
             return {"response": "Plants make glucose using sunlight [biology.pdf_p10]", "token_usage": 11}
 
     with patch.object(workflows, "retrieve_context", AsyncMock(return_value=chunks)), \
@@ -87,12 +87,12 @@ async def test_execute_text_query_records_generation_timeout_metric():
     ]
 
     class TimeoutLLM:
-        async def generate(self, prompt, model, temperature, num_predict):
+        async def generate(self, prompt, model, temperature, num_predict, **kwargs):
             raise httpx.TimeoutException("timed out")
 
     with patch.object(workflows, "retrieve_context", AsyncMock(return_value=chunks)), \
          patch.object(workflows, "get_llm_provider", return_value=TimeoutLLM()):
-        with pytest.raises(HTTPException) as exc_info:
+        with pytest.raises(TraceabilityError) as exc_info:
             await workflows.execute_text_query(
                 InternalAIQueryRequest(
                     query="Explain the light reaction",

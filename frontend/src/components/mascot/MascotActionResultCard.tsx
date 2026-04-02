@@ -15,21 +15,25 @@ function summarizeArtifact(artifact: Record<string, unknown>) {
         return {
             title: `Indexed ${artifact.file_name}`,
             detail: [chunks, ocr].filter(Boolean).join(" • "),
+            citations: null,
             icon: FileText,
         };
     }
     if (typeof artifact.tool === "string") {
         const tool = String(artifact.tool).toUpperCase();
         const answer = typeof artifact.answer === "string" ? artifact.answer : null;
+        const citations = Array.isArray(artifact.citations) ? artifact.citations.map(String) : null;
         return {
             title: `${tool} output ready`,
             detail: answer ? answer : "Grounded output prepared for this request.",
+            citations: citations?.length ? citations : null,
             icon: Layers3,
         };
     }
     return {
         title: "Workflow artifact ready",
         detail: "The mascot produced structured output for this step.",
+        citations: null,
         icon: Sparkles,
     };
 }
@@ -82,15 +86,26 @@ export function MascotActionResultCard({
                         const summary = summarizeArtifact(artifact);
                         const Icon = summary.icon;
                         return (
-                            <div key={`artifact-${index}`} className="flex items-start gap-3 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-3 py-3">
-                                <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-2xl bg-[var(--bg-page)] text-[var(--primary)]">
-                                    <Icon className="h-4 w-4" />
+                            <div key={`artifact-${index}`} className="flex flex-col gap-2 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-3 py-3">
+                                <div className="flex items-start gap-3">
+                                    <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-2xl bg-[var(--bg-page)] text-[var(--primary)] shrink-0">
+                                        <Icon className="h-4 w-4" />
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">Artifact</p>
+                                        <p className="mt-1 text-sm font-medium text-[var(--text-primary)]">{summary.title}</p>
+                                        <p className="mt-1 text-xs leading-5 text-[var(--text-secondary)]">{summary.detail}</p>
+                                    </div>
                                 </div>
-                                <div className="min-w-0">
-                                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">Artifact</p>
-                                    <p className="mt-1 text-sm font-medium text-[var(--text-primary)]">{summary.title}</p>
-                                    <p className="mt-1 text-xs leading-5 text-[var(--text-secondary)]">{summary.detail}</p>
-                                </div>
+                                {summary.citations && (
+                                    <div className="mt-1 flex flex-wrap gap-1 border-t border-[var(--border)] pt-2">
+                                        {summary.citations.map((cite, i) => (
+                                            <span key={i} className="rounded border border-[var(--border)] bg-[var(--bg-page)] px-2 py-0.5 text-[10px] uppercase tracking-wide text-[var(--text-secondary)]">
+                                                {cite}
+                                            </span>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         );
                     })}

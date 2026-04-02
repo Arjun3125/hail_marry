@@ -1,0 +1,35 @@
+# Canonical frontend demo image definition.
+# Legacy compatibility copy remains at /frontend/Dockerfile.demo.
+
+FROM node:20-alpine AS deps
+WORKDIR /app
+COPY frontend/package*.json ./
+RUN npm ci
+
+FROM node:20-alpine AS builder
+WORKDIR /app
+ARG NEXT_PUBLIC_API_URL=""
+ARG NEXT_PUBLIC_DEMO_MODE="false"
+ARG NEXT_PUBLIC_ENABLE_DEMO_LOGIN="false"
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+ENV NEXT_PUBLIC_DEMO_MODE=${NEXT_PUBLIC_DEMO_MODE}
+ENV NEXT_PUBLIC_ENABLE_DEMO_LOGIN=${NEXT_PUBLIC_ENABLE_DEMO_LOGIN}
+
+COPY --from=deps /app/node_modules ./node_modules
+COPY frontend/ .
+RUN npm run build
+
+FROM node:20-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+
+COPY frontend/package*.json ./
+RUN npm ci --omit=dev
+
+COPY --from=builder /app/.next ./.next
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/next.config.ts ./next.config.ts
+
+EXPOSE 3000
+
+CMD ["npm", "run", "start"]

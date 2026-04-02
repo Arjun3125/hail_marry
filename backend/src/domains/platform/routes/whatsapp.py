@@ -80,10 +80,8 @@ except ModuleNotFoundError:  # Lightweight test environments
 
 try:
     from sqlalchemy.orm import Session
-    from sqlalchemy import func as sqlfunc
 except ModuleNotFoundError:  # Lightweight test environments
     Session = object
-    sqlfunc = None
 
 try:
     from auth.dependencies import get_current_user
@@ -98,6 +96,60 @@ except ModuleNotFoundError:  # Lightweight test environments
 
     def get_db():
         yield None
+try:
+    from sqlalchemy import func as sqlfunc
+except ModuleNotFoundError:  # Lightweight test environments
+    class _SQLFuncShim:
+        def __getattr__(self, _name):
+            return lambda *args, **kwargs: None
+
+    sqlfunc = _SQLFuncShim()
+
+try:
+    from src.domains.identity.models.user import User
+except ModuleNotFoundError:  # Lightweight test environments
+    class User:  # pragma: no cover - query shim for lightweight tests
+        id = "id"
+        role = "role"
+        email = "email"
+        tenant_id = "tenant_id"
+
+try:
+    from src.domains.identity.models.tenant import Tenant
+except ModuleNotFoundError:  # Lightweight test environments
+    class Tenant:  # pragma: no cover - query shim for lightweight tests
+        id = "id"
+        name = "name"
+
+try:
+    from src.domains.platform.models.whatsapp_models import PhoneUserLink, WhatsAppMessage
+except ModuleNotFoundError:  # Lightweight test environments
+    class PhoneUserLink:  # pragma: no cover - query shim for lightweight tests
+        phone = "phone"
+        user_id = "user_id"
+        tenant_id = "tenant_id"
+        verified = "verified"
+        verified_at = "verified_at"
+
+        def __init__(self, **kwargs):
+            for key, value in kwargs.items():
+                setattr(self, key, value)
+
+    class WhatsAppMessage:  # pragma: no cover - query shim for lightweight tests
+        id = "id"
+        phone = "phone"
+        tenant_id = "tenant_id"
+        created_at = "created_at"
+        direction = "direction"
+        intent = "intent"
+        latency_ms = "latency_ms"
+
+try:
+    from src.domains.academic.services.report_card import generate_report_card_pdf
+except ModuleNotFoundError:  # Lightweight test environments
+    def generate_report_card_pdf(*_args, **_kwargs):  # pragma: no cover - runtime guard
+        raise HTTPException(status_code=503, detail="Report card service unavailable")
+from src.domains.platform.application.whatsapp_analytics import build_whatsapp_usage_snapshot
 from src.domains.platform.services.whatsapp_gateway import (
     WHATSAPP_VERIFY_TOKEN,
     delete_session,
@@ -117,7 +169,7 @@ from src.domains.platform.services.whatsapp_gateway import (
 from src.shared.ai_tools.whatsapp_tools import serialize_tool_catalog
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/whatsapp", tags=["WhatsApp"])
+router = APIRouter(prefix="/api/whatsapp", tags=["WhatsApp"])
 WHATSAPP_TEXT_CHUNK_LIMIT = 1500
 
 
@@ -127,49 +179,7 @@ def _require_admin(current_user) -> None:
 
 
 def _build_whatsapp_usage_snapshot(current_user, db: Session, days: int) -> dict:
-    since = datetime.now(timezone.utc) - timedelta(days=days)
-    from src.domains.platform.models.whatsapp_models import WhatsAppMessage
-
-    base_query = db.query(WhatsAppMessage).filter(
-        WhatsAppMessage.tenant_id == current_user.tenant_id,
-        WhatsAppMessage.created_at >= since,
-    )
-
-    total_messages = base_query.count()
-    inbound = base_query.filter(WhatsAppMessage.direction == "inbound").count()
-    outbound = base_query.filter(WhatsAppMessage.direction == "outbound").count()
-
-    unique_users = db.query(sqlfunc.count(sqlfunc.distinct(WhatsAppMessage.phone))).filter(
-        WhatsAppMessage.tenant_id == current_user.tenant_id,
-        WhatsAppMessage.created_at >= since,
-    ).scalar()
-
-    top_intents = db.query(
-        WhatsAppMessage.intent,
-        sqlfunc.count(WhatsAppMessage.id).label("count"),
-    ).filter(
-        WhatsAppMessage.tenant_id == current_user.tenant_id,
-        WhatsAppMessage.created_at >= since,
-        WhatsAppMessage.intent.isnot(None),
-    ).group_by(WhatsAppMessage.intent).order_by(
-        sqlfunc.count(WhatsAppMessage.id).desc()
-    ).limit(10).all()
-
-    avg_latency = db.query(sqlfunc.avg(WhatsAppMessage.latency_ms)).filter(
-        WhatsAppMessage.tenant_id == current_user.tenant_id,
-        WhatsAppMessage.created_at >= since,
-        WhatsAppMessage.latency_ms.isnot(None),
-    ).scalar()
-
-    return {
-        "period_days": days,
-        "total_messages": total_messages,
-        "inbound": inbound,
-        "outbound": outbound,
-        "unique_users": unique_users or 0,
-        "avg_latency_ms": round(avg_latency) if avg_latency else None,
-        "top_intents": [{"intent": i[0], "count": i[1]} for i in top_intents],
-    }
+    return build_whatsapp_usage_snapshot(current_user, db, days)
 
 
 # ─── Schemas ──────────────────────────────────────────────────
@@ -456,13 +466,11 @@ async def initiate_phone_linking(
 
     Can be called from the web UI settings page or via WhatsApp.
     """
-    from src.domains.identity.models.user import User
     user = db.query(User).filter(User.email == data.email.lower()).first()
     if not user:
         raise HTTPException(status_code=404, detail="No account found with that email")
 
     # Check if already linked
-    from src.domains.platform.models.whatsapp_models import PhoneUserLink
     existing = db.query(PhoneUserLink).filter(
         PhoneUserLink.phone == data.phone,
         PhoneUserLink.tenant_id == user.tenant_id,
@@ -488,13 +496,11 @@ async def complete_phone_verification(
     if not result["success"]:
         raise HTTPException(status_code=400, detail=result["error"])
 
-    from src.domains.identity.models.user import User
     user = db.query(User).filter(User.email == result["email"]).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
     # Create or update phone link
-    from src.domains.platform.models.whatsapp_models import PhoneUserLink
     existing = db.query(PhoneUserLink).filter(
         PhoneUserLink.phone == data.phone,
         PhoneUserLink.tenant_id == user.tenant_id,
@@ -524,12 +530,6 @@ async def whatsapp_report_card_download(
     db: Session = Depends(get_db),
 ):
     """Download a WhatsApp-shared report card PDF using a short-lived token."""
-    try:
-        from src.domains.identity.models.tenant import Tenant
-    except ModuleNotFoundError:  # Lightweight test environments
-        class Tenant:  # pragma: no cover - minimal query shim
-            id = "id"
-
     payload = consume_report_card_token(token)
     if not payload:
         raise HTTPException(status_code=404, detail="Report card link is invalid or expired")
@@ -558,7 +558,6 @@ async def whatsapp_report_card_download(
 
 
 def _generate_report_card_pdf(db, student_id: str, tenant_id: str, school_name: str) -> bytes:
-    from src.domains.academic.services.report_card import generate_report_card_pdf
     return generate_report_card_pdf(db, student_id=student_id, tenant_id=tenant_id, school_name=school_name)
 
 
@@ -622,8 +621,6 @@ async def list_sessions(
     """List active WhatsApp sessions (admin only)."""
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Admin access required")
-
-    from src.domains.platform.models.whatsapp_models import WhatsAppMessage
     phone_query = db.query(
         WhatsAppMessage.phone,
         sqlfunc.max(WhatsAppMessage.created_at).label("last_activity"),

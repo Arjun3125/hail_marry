@@ -84,18 +84,18 @@ rag:
     compress_lower_ranked: true
 
 llm:
-  provider: "ollama"
-  model: "llama3.2"
+  provider: "openai"
+  model: "meta/llama-3.1-70b-instruct"
   max_new_tokens: 800
-  context_window: 4096
+  context_window: 128000
   temperature: 0.1
   timeout_seconds: 60
-  fallback_model: "llama3.2"
+  fallback_model: "meta/llama-3.1-8b-instruct"
 
 embedding:
-  provider: "ollama"
-  model: "nomic-embed-text"
-  embed_dim: 768
+  provider: "openai"
+  model: "nvidia/nv-embedqa-e5-v5"
+  embed_dim: 1024
 
 vector_backend:
   provider: "faiss"

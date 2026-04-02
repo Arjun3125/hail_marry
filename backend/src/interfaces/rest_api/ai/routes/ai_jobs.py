@@ -2,14 +2,17 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import random
+import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from auth.dependencies import get_current_user
 from src.infrastructure.vector_store.citation_linker import make_citations_clickable
-from database import get_db
+from database import SessionLocal, get_db
 from src.domains.identity.models.user import User
+from src.domains.platform.models.ai import AIQuery
 from src.domains.platform.schemas.ai_runtime import (
     AIQueryRequest,
     AudioOverviewRequest,
@@ -25,6 +28,8 @@ from src.domains.platform.services.ai_queue import (
     build_public_job_response,
     enqueue_job,
     get_job,
+    STATUS_COMPLETED,
+    _persist_job_state,
 )
 from src.domains.platform.services.usage_governance import (
     apply_model_override,
@@ -78,13 +83,6 @@ async def enqueue_text_query_job(
         max_completion_tokens=governance.max_completion_tokens,
     )
     if settings.app.demo_mode:
-        import uuid
-        import time
-        import random
-        from database import SessionLocal
-        from src.domains.platform.models.ai import AIQuery
-        from src.domains.platform.services.ai_queue import STATUS_COMPLETED, _persist_job_state
-        
         db = SessionLocal()
         try:
             try:

@@ -7,6 +7,7 @@ from uuid import UUID
 
 from auth.dependencies import require_role
 from database import get_db
+from src.domains.administrative.models.admission import AdmissionApplication
 from src.domains.administrative.services.admission import (
     bulk_enroll,
     get_admission_stats,
@@ -110,8 +111,6 @@ def get_application_detail(
         app_uuid = UUID(application_id)
     except (TypeError, ValueError):
         raise HTTPException(status_code=400, detail="Invalid application_id")
-
-    from src.domains.administrative.models.admission import AdmissionApplication
 
     app = db.query(AdmissionApplication).filter(
         AdmissionApplication.id == app_uuid,

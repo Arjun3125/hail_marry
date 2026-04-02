@@ -12,7 +12,23 @@ EMBED_DIM = settings.embedding.embed_dim
 
 
 async def generate_embedding(text: str) -> List[float]:
-    """Generate a single embedding vector using Ollama."""
+    """Generate a single embedding vector."""
+    if settings.embedding.provider == "openai":
+        import os
+        from openai import AsyncOpenAI
+        client = AsyncOpenAI(
+            api_key=os.getenv("EMBEDDING_API_KEY", settings.llm.openai_api_key),
+            base_url=os.getenv("OPENAI_BASE_URL", "https://integrate.api.nvidia.com/v1"),
+        )
+        response = await client.embeddings.create(
+            input=text,
+            model=settings.embedding.model,
+            encoding_format="float",
+            extra_body={"input_type": "query", "truncate": "END"}
+        )
+        return response.data[0].embedding
+
+    # Ollama Default logic
     async with httpx.AsyncClient(timeout=30.0) as client:
         response = await client.post(
             f"{OLLAMA_URL}/api/embed",
@@ -20,7 +36,6 @@ async def generate_embedding(text: str) -> List[float]:
         )
         if response.status_code == 200:
             data = response.json()
-            # Ollama returns embeddings in 'embeddings' key (list of lists)
             embeddings = data.get("embeddings", [])
             if embeddings:
                 return embeddings[0]
@@ -29,6 +44,21 @@ async def generate_embedding(text: str) -> List[float]:
 
 async def generate_embeddings_batch(texts: List[str], batch_size: int = 10) -> List[List[float]]:
     """Generate embeddings for multiple texts in batches."""
+    if settings.embedding.provider == "openai":
+        import os
+        from openai import AsyncOpenAI
+        client = AsyncOpenAI(
+            api_key=os.getenv("EMBEDDING_API_KEY", settings.llm.openai_api_key),
+            base_url=os.getenv("OPENAI_BASE_URL", "https://integrate.api.nvidia.com/v1"),
+        )
+        response = await client.embeddings.create(
+            input=texts,
+            model=settings.embedding.model,
+            encoding_format="float",
+            extra_body={"input_type": "passage", "truncate": "END"}
+        )
+        return [item.embedding for item in response.data]
+
     all_embeddings = []
     for i in range(0, len(texts), batch_size):
         batch = texts[i:i + batch_size]
@@ -42,7 +72,6 @@ async def generate_embeddings_batch(texts: List[str], batch_size: int = 10) -> L
                 embeddings = data.get("embeddings", [])
                 all_embeddings.extend(embeddings)
             else:
-                # Fallback: embed one by one
                 for text in batch:
                     emb = await generate_embedding(text)
                     all_embeddings.append(emb)

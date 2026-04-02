@@ -21,6 +21,7 @@ The audit covered every backend `UploadFile` input point in the current applicat
 | `/api/admin/onboard-students` | `backend/src/domains/administrative/routes/admin.py` | admin bulk student onboarding | Fixed in this pass | `ocr_optional` |
 | `/api/onboarding/import-students` | `backend/src/domains/identity/routes/onboarding.py` | self-serve school onboarding import | Fixed in this pass | `ocr_optional` |
 | `/api/branding/extract` | `backend/src/domains/platform/routes/branding.py` | logo color extraction | OCR not applicable; image is visual input, not text input | `ocr_not_applicable` |
+| `/api/mascot/upload` | `backend/src/domains/platform/routes/mascot.py` | mascot knowledge upload | Already OCR-enabled before this pass | `ocr_optional` |
 | WhatsApp media upload flow | `backend/src/domains/platform/services/whatsapp_gateway.py` | OCR-backed knowledge ingestion from WhatsApp | Already OCR-enabled before this pass | `ocr_optional` |
 
 ## Fixes Applied

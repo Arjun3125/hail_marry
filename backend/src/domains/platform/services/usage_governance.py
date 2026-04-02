@@ -136,7 +136,13 @@ def _bucket_start(bucket_type: str, *, today: date | None = None) -> date:
     return current
 
 
+def _supports_usage_counter_storage(db: Session) -> bool:
+    return all(hasattr(db, attr) for attr in ("get_bind", "query", "add"))
+
+
 def _ensure_usage_counter_table(db: Session) -> None:
+    if not _supports_usage_counter_storage(db):
+        return
     bind = db.get_bind()
     inspector = inspect(bind)
     if "usage_counters" not in inspector.get_table_names():
@@ -144,6 +150,8 @@ def _ensure_usage_counter_table(db: Session) -> None:
 
 
 def _table_exists(db: Session, table_name: str) -> bool:
+    if not _supports_usage_counter_storage(db):
+        return False
     return table_name in inspect(db.get_bind()).get_table_names()
 
 
@@ -157,6 +165,8 @@ def _get_counter(
     bucket_type: str,
     bucket_start: date,
 ) -> UsageCounter | None:
+    if not _supports_usage_counter_storage(db):
+        return None
     _ensure_usage_counter_table(db)
     return (
         db.query(UsageCounter)
@@ -229,6 +239,23 @@ def _upsert_counter(
     bucket_type: str,
 ) -> UsageCounter:
     start = _bucket_start(bucket_type)
+    if not _supports_usage_counter_storage(db):
+        counter = UsageCounter(
+            tenant_id=tenant_id,
+            user_id=user_id,
+            scope=scope,
+            metric=metric,
+            bucket_type=bucket_type,
+            bucket_start=start,
+        )
+        counter.count = int(counter.count or 0) + count_inc
+        counter.token_total = int(counter.token_total or 0) + token_inc
+        counter.cache_hits = int(counter.cache_hits or 0) + cache_hit_inc
+        counter.estimated_cost_units = float(counter.estimated_cost_units or 0.0) + float(cost_inc)
+        if last_model:
+            counter.last_model = last_model
+        counter.updated_at = datetime.now(UTC)
+        return counter
     counter = _get_counter(
         db,
         tenant_id=tenant_id,
@@ -575,7 +602,7 @@ def build_usage_snapshot(db: Session, *, tenant_id: UUID, days: int = 7) -> dict
         if row.last_model:
             model_mix[row.last_model] = model_mix.get(row.last_model, 0) + int(row.count or 0)
 
-        quota_saturation: list[dict[str, Any]] = []
+    quota_saturation: list[dict[str, Any]] = []
     for metric, limits in USER_QUOTAS.items():
         current = int(by_metric.get(metric, {}).get("count", 0))
         if metric == "llm_tokens":

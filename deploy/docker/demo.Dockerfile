@@ -1,0 +1,45 @@
+# Canonical backend demo image definition.
+# Legacy compatibility copy remains at /Dockerfile.demo.
+
+FROM python:3.12-slim AS builder
+
+WORKDIR /build
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc libpq-dev && rm -rf /var/lib/apt/lists/*
+
+COPY backend/requirements.txt .
+
+RUN grep -v -iE '^(torch|torchvision)' requirements.txt > requirements-demo.txt && \
+    pip install --no-cache-dir --prefix=/install -r requirements-demo.txt
+
+FROM python:3.12-slim
+
+RUN groupadd -r vidyaos && useradd -r -g vidyaos -d /app vidyaos
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq5 curl && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY --from=builder /install /usr/local
+COPY backend/ .
+
+RUN mkdir -p /app/uploads /app/logs /app/data && \
+    chown -R vidyaos:vidyaos /app
+
+USER vidyaos
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    DEMO_MODE=true \
+    DATABASE_URL=sqlite:///demo.db \
+    APP_ENV=demo \
+    PORT=8000
+
+HEALTHCHECK --interval=15s --timeout=5s --start-period=15s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+EXPOSE 8000
+
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

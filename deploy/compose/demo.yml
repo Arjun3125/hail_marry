@@ -1,0 +1,53 @@
+services:
+  api:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/demo.Dockerfile
+    container_name: vidyaos-demo-api
+    restart: unless-stopped
+    environment:
+      DEMO_MODE: "true"
+      DATABASE_URL: "sqlite:///demo.db"
+      JWT_SECRET: "demo-secret-key-not-for-production"
+      STARTUP_CHECKS_STRICT: "false"
+      APP_DEBUG: "true"
+      VidyaOS_STORAGE_ROOT: "/app/data"
+      VidyaOS_VECTOR_STORE_DIR: "/app/data/vector_store"
+      VidyaOS_COMPLIANCE_EXPORT_DIR: "/app/data/compliance_exports"
+      VECTOR_BACKEND_PROVIDER: "faiss"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      start_period: 15s
+      retries: 5
+
+  frontend:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/frontend.demo.Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ""
+        NEXT_PUBLIC_DEMO_MODE: "true"
+        NEXT_PUBLIC_ENABLE_DEMO_LOGIN: "true"
+    container_name: vidyaos-demo-frontend
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_URL: "http://localhost"
+    depends_on:
+      api:
+        condition: service_healthy
+
+  nginx:
+    image: nginx:alpine
+    container_name: vidyaos-demo-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ../nginx/demo.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      api:
+        condition: service_healthy
+      frontend:
+        condition: service_started

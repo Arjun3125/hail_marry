@@ -25,7 +25,7 @@ def _get_redis():
                 or os.getenv("REDIS_URL")
                 or settings.redis.state_url
             )
-            _redis = redis_lib.from_url(redis_url, decode_responses=True)
+            _redis = redis_lib.from_url(redis_url, decode_responses=True, socket_timeout=1, socket_connect_timeout=1)
             _redis.ping()
             _redis_available = True
         except Exception:

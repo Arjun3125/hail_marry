@@ -1,6 +1,7 @@
 """Source discovery and queued URL ingestion for teachers."""
 import httpx
 import re
+import urllib.parse
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -51,7 +52,6 @@ async def discover_sources(
                     clean_snippet = strip_html(snippet)
                     actual_url = url
                     if "uddg=" in url:
-                        import urllib.parse
                         parsed = urllib.parse.parse_qs(urllib.parse.urlparse(url).query)
                         actual_url = parsed.get("uddg", [url])[0]
                     results.append({

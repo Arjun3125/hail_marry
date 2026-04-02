@@ -17,7 +17,7 @@ import {
     Loader2,
     Play,
 } from "lucide-react";
-import { API_BASE, setStoredAccessToken } from "@/lib/api";
+import { API_BASE, setStoredAccessToken, clearDemoSession } from "@/lib/api";
 
 type RoleCard = {
     id: "student" | "teacher" | "admin" | "parent";
@@ -37,7 +37,7 @@ const roles: RoleCard[] = [
         desc: "AI assistant, study tools, mind maps, podcasts, video overviews",
         gradient: "from-blue-500 to-indigo-600",
         path: "/student/overview",
-        persona: "Arjun Patel - Class 10-A",
+        persona: "Naren - Class 11 Science",
     },
     {
         id: "teacher",
@@ -64,7 +64,7 @@ const roles: RoleCard[] = [
         desc: "Child dashboard, audio progress report, attendance tracking",
         gradient: "from-amber-500 to-orange-600",
         path: "/parent/dashboard",
-        persona: "Mr. Vikram Patel - Parent of Arjun",
+        persona: "Mrs. Sharma - Parent of Naren",
     },
 ];
 
@@ -225,6 +225,7 @@ export default function DemoPage() {
 
     const enterAs = async (role: RoleCard) => {
         setLoading(role.id);
+        clearDemoSession();
         try {
             await fetch(`${API_BASE}/api/demo/switch-role`, {
                 method: "POST",
@@ -248,6 +249,20 @@ export default function DemoPage() {
             router.push(role.path);
         } finally {
             setLoading(null);
+        }
+    };
+
+    const [resetting, setResetting] = useState(false);
+    const resetDemo = async () => {
+        setResetting(true);
+        try {
+            await fetch(`${API_BASE}/api/demo/reset`, { method: "POST", credentials: "include" });
+            clearDemoSession();
+            window.location.reload();
+        } catch {
+            alert("Reset failed — backend may not be running.");
+        } finally {
+            setResetting(false);
         }
     };
 
@@ -451,6 +466,18 @@ export default function DemoPage() {
                             </div>
                         </div>
                     ) : null}
+
+                    {/* Reset Demo Button */}
+                    <div className="mt-6 text-center">
+                        <button
+                            onClick={() => void resetDemo()}
+                            disabled={resetting}
+                            className="px-6 py-2.5 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg text-sm font-medium text-white transition-colors disabled:opacity-50"
+                        >
+                            {resetting ? "Resetting..." : "🔄 Reset Demo Environment"}
+                        </button>
+                        <p className="text-[11px] text-slate-400 mt-2">Restores all data to its original demo state.</p>
+                    </div>
                 </div>
             </div>
         </div>

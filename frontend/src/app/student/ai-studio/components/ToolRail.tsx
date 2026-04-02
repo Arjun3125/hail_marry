@@ -76,7 +76,7 @@ const toolGroups = [
 export function ToolRail({ activeTool, onToolChange, collapsed, onToggleCollapse }: ToolRailProps) {
     return (
         <aside
-            className={`tool-rail ${collapsed ? "w-16" : "w-64"} flex flex-col border-r border-[var(--border)] bg-[var(--bg-card)] transition-all duration-300`}
+            className={`tool-rail ${collapsed ? "w-16" : "w-64"} flex flex-col border-r border-[var(--border-light)] bg-[var(--bg-card)]/80 backdrop-blur-md transition-all duration-300 shadow-sm z-10`}
         >
             {/* Header */}
             <div className="flex items-center justify-between p-4 border-b border-[var(--border)]">

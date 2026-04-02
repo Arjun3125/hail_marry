@@ -147,7 +147,8 @@ def _get_or_create_mastery(
         confidence_score=baseline_confidence,
     )
     db.add(record)
-    db.flush()
+    if hasattr(db, "flush"):
+        db.flush()
     return record
 
 
@@ -200,7 +201,7 @@ def record_study_tool_activity(
     )
     now = _utcnow()
     for record in records:
-        record.evidence_count += 1
+        record.evidence_count = int(record.evidence_count or 0) + 1
         record.last_evidence_type = f"{tool}_requested"
         record.last_evidence_score = None
         record.last_evidence_at = now
@@ -305,7 +306,7 @@ def count_recent_confusion_queries(
         return 0
 
     since = _utcnow() - timedelta(days=since_days)
-    queries = (
+    query = (
         db.query(AIQuery)
         .filter(
             AIQuery.tenant_id == tenant_id,
@@ -314,8 +315,8 @@ def count_recent_confusion_queries(
             AIQuery.created_at >= since,
             AIQuery.mode.in_(("qa", "study_guide", "socratic")),
         )
-        .all()
     )
+    queries = query.all() if hasattr(query, "all") else []
     return sum(1 for query in queries if infer_topic_from_query(query.query_text).lower() == normalized_topic.lower())
 
 
@@ -374,15 +375,15 @@ def get_topic_mastery_snapshot(
             "concepts": [],
         }
 
-    records = (
+    query = (
         db.query(TopicMastery)
         .filter(
             TopicMastery.tenant_id == tenant_id,
             TopicMastery.user_id == user_id,
             TopicMastery.topic == normalized_topic,
         )
-        .all()
     )
+    records = query.all() if hasattr(query, "all") else []
     if not records:
         baseline_score, baseline_confidence = _subject_baseline(db, tenant_id, user_id, subject_id)
         extracted_concepts = extract_concepts(normalized_topic)

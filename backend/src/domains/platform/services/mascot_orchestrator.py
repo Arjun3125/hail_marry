@@ -24,6 +24,7 @@ from src.domains.academic.models.core import Class, Enrollment, Subject
 from src.domains.academic.models.marks import Exam, Mark
 from src.domains.academic.models.parent_link import ParentLink
 from src.domains.academic.models.timetable import Timetable
+from src.domains.identity.application.passwords import hash_password
 from src.domains.identity.models.user import User
 from src.domains.identity.models.tenant import Tenant
 from src.domains.platform.models.document import Document
@@ -1883,11 +1884,6 @@ async def _apply_teacher_roster_import(session: AsyncSession, request: MascotMes
     rows = [dict(item) for item in action.get("rows", []) if isinstance(item, dict)]
     if not rows:
         return {"summary": "No student rows were available to import.", "created_count": 0, "tool": "teacher_roster_import", "errors": []}
-    try:
-        from src.domains.identity.routes.auth import pwd_context
-    except Exception:
-        from passlib.context import CryptContext
-        pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
     tenant_domain = await _tenant_domain(session, request.tenant_id)
     tenant_uuid = _safe_uuid(request.tenant_id)
     created_count = 0
@@ -1908,7 +1904,7 @@ async def _apply_teacher_roster_import(session: AsyncSession, request: MascotMes
             email=email,
             full_name=str(row.get("name") or "").strip() or email,
             role="student",
-            hashed_password=pwd_context.hash(str(row.get("password") or "Student123!")),
+            hashed_password=hash_password(str(row.get("password") or "Student123!")),
             is_active=True,
         )
         session.add(student)
@@ -1924,11 +1920,6 @@ async def _apply_admin_teacher_import(session: AsyncSession, request: MascotMess
     rows = [dict(item) for item in action.get("rows", []) if isinstance(item, dict)]
     if not rows:
         return {"summary": "No teacher rows were available to import.", "created_count": 0, "tool": "admin_teacher_import", "errors": []}
-    try:
-        from src.domains.identity.routes.auth import pwd_context
-    except Exception:
-        from passlib.context import CryptContext
-        pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
     tenant_domain = await _tenant_domain(session, request.tenant_id)
     tenant_uuid = _safe_uuid(request.tenant_id)
     created_count = 0
@@ -1949,7 +1940,7 @@ async def _apply_admin_teacher_import(session: AsyncSession, request: MascotMess
             email=email,
             full_name=str(row.get("name") or "").strip() or email,
             role="teacher",
-            hashed_password=pwd_context.hash(str(row.get("password") or "Teacher123!")),
+            hashed_password=hash_password(str(row.get("password") or "Teacher123!")),
             is_active=True,
         )
         session.add(teacher)
@@ -1965,11 +1956,6 @@ async def _apply_admin_student_import(session: AsyncSession, request: MascotMess
     rows = [dict(item) for item in action.get("rows", []) if isinstance(item, dict)]
     if not rows:
         return {"summary": "No student rows were available to import.", "created": 0, "tool": "admin_student_import", "errors": []}
-    try:
-        from src.domains.identity.routes.auth import pwd_context
-    except Exception:
-        from passlib.context import CryptContext
-        pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
     tenant_uuid = _safe_uuid(request.tenant_id)
     created = 0
     errors: list[str] = []
@@ -1995,7 +1981,7 @@ async def _apply_admin_student_import(session: AsyncSession, request: MascotMess
             email=email,
             full_name=name,
             role="student",
-            hashed_password=pwd_context.hash(password),
+            hashed_password=hash_password(password),
             is_active=True,
         )
         session.add(student)

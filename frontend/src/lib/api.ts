@@ -117,6 +117,18 @@ export function clearStoredAccessToken() {
     window.localStorage.removeItem(ACCESS_TOKEN_KEY);
 }
 
+/**
+ * Clear all demo session state (token + role cookie).
+ * Call before every demo login to prevent stale token collisions.
+ */
+export function clearDemoSession() {
+    clearStoredAccessToken();
+    if (typeof document !== "undefined") {
+        document.cookie = "demo_role=; path=/; max-age=0";
+        document.cookie = "access_token=; path=/; max-age=0";
+    }
+}
+
 function getApiBaseCandidates(path: string): string[] {
     const candidates = new Set<string>();
 

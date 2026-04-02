@@ -1,0 +1,17 @@
+app:
+  debug: false
+
+startup_checks:
+  enabled: true
+  strict: true
+  timeout_seconds: 5
+
+worker_health:
+  enabled: true
+  host: "0.0.0.0"
+  port: 8010
+  heartbeat_stale_seconds: 60
+
+sentry:
+  enabled: true
+

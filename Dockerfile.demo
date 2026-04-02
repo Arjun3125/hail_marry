@@ -1,5 +1,5 @@
-# Lightweight backend Dockerfile for Demo Mode
-# Uses SQLite (no Postgres), skips heavy ML deps, runs uvicorn directly
+# Compatibility demo Dockerfile.
+# Canonical file: deploy/docker/demo.Dockerfile
 
 FROM python:3.12-slim AS builder
 

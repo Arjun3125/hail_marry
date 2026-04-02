@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { GraduationCap, Loader2 } from "lucide-react";
-import { api, API_BASE, setStoredAccessToken } from "@/lib/api";
+import { api, API_BASE, setStoredAccessToken, clearDemoSession } from "@/lib/api";
 import { getRoleDashboard } from "@/lib/auth";
 
 declare global {
@@ -61,6 +61,7 @@ export default function LoginPage() {
     const runDemoLogin = async (role: "student" | "teacher" | "admin" | "parent", redirectPath: string) => {
         setLoading(true);
         setError(null);
+        clearDemoSession();
         try {
             const res = await fetch(`${API_BASE}/api/auth/demo-login`, {
                 method: "POST",

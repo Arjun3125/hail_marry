@@ -440,6 +440,12 @@ class LLMSettings(BaseSettings):
 
 
 class EmbeddingSettings(BaseSettings):
+    provider: str = Field(
+        default=os.getenv(
+            "EMBEDDING_PROVIDER",
+            _yaml_config.get("embedding", {}).get("provider", "ollama"),
+        )
+    )
     url: str = Field(
         default=os.getenv(
             "OLLAMA_URL",

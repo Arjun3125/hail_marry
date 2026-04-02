@@ -1,6 +1,6 @@
 """AI History API routes for viewing and managing past AI queries."""
 from typing import Optional
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, HTTPException
@@ -53,7 +53,7 @@ def _query_to_item(query, folder_name=None):
     )
 
 
-@router.get("/", response_model=AIHistoryListResponse)
+@router.get("", response_model=AIHistoryListResponse)
 async def get_ai_history(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -124,136 +124,6 @@ async def get_ai_history(
     )
 
 
-@router.get("/{item_id}", response_model=AIHistoryItem)
-async def get_ai_history_item(
-    item_id: str,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """Get a single AI history item."""
-    item_uuid = _parse_uuid(item_id, field_name="item_id")
-    query = db.query(AIQuery).filter(
-        AIQuery.id == item_uuid,
-        AIQuery.user_id == current_user.id,
-        AIQuery.tenant_id == current_user.tenant_id,
-        AIQuery.deleted_at.is_(None),
-    ).first()
-    
-    if not query:
-        raise HTTPException(status_code=404, detail="Item not found")
-    
-    folder_name = None
-    if query.folder_id:
-        folder = db.query(AIFolder).filter(AIFolder.id == query.folder_id).first()
-        folder_name = folder.name if folder else None
-    
-    return _query_to_item(query, folder_name)
-
-
-@router.patch("/{item_id}/title")
-async def update_item_title(
-    item_id: str,
-    data: AIHistoryUpdateTitle,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """Update the title of an AI history item."""
-    item_uuid = _parse_uuid(item_id, field_name="item_id")
-    query = db.query(AIQuery).filter(
-        AIQuery.id == item_uuid,
-        AIQuery.user_id == current_user.id,
-        AIQuery.tenant_id == current_user.tenant_id,
-    ).first()
-    
-    if not query:
-        raise HTTPException(status_code=404, detail="Item not found")
-    
-    query.title = data.title
-    db.commit()
-    return {"success": True, "title": data.title}
-
-
-@router.post("/{item_id}/pin")
-async def toggle_pin(
-    item_id: str,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """Toggle pin status of an AI history item."""
-    item_uuid = _parse_uuid(item_id, field_name="item_id")
-    query = db.query(AIQuery).filter(
-        AIQuery.id == item_uuid,
-        AIQuery.user_id == current_user.id,
-        AIQuery.tenant_id == current_user.tenant_id,
-    ).first()
-    
-    if not query:
-        raise HTTPException(status_code=404, detail="Item not found")
-    
-    query.is_pinned = not (query.is_pinned or False)
-    db.commit()
-    return {"success": True, "is_pinned": query.is_pinned}
-
-
-@router.delete("/{item_id}")
-async def delete_history_item(
-    item_id: str,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """Soft delete an AI history item."""
-    item_uuid = _parse_uuid(item_id, field_name="item_id")
-    query = db.query(AIQuery).filter(
-        AIQuery.id == item_uuid,
-        AIQuery.user_id == current_user.id,
-        AIQuery.tenant_id == current_user.tenant_id,
-    ).first()
-    
-    if not query:
-        raise HTTPException(status_code=404, detail="Item not found")
-    
-    query.deleted_at = datetime.now(UTC)
-    db.commit()
-    return {"success": True, "deleted": True}
-
-
-@router.post("/{item_id}/move")
-async def move_to_folder(
-    item_id: str,
-    data: AIHistoryMoveToFolder,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """Move AI history item to a folder."""
-    item_uuid = _parse_uuid(item_id, field_name="item_id")
-    query = db.query(AIQuery).filter(
-        AIQuery.id == item_uuid,
-        AIQuery.user_id == current_user.id,
-        AIQuery.tenant_id == current_user.tenant_id,
-    ).first()
-    
-    if not query:
-        raise HTTPException(status_code=404, detail="Item not found")
-    
-    # Verify folder exists and belongs to user
-    if data.folder_id:
-        folder_uuid = _parse_uuid(data.folder_id, field_name="folder_id")
-        folder = db.query(AIFolder).filter(
-            AIFolder.id == folder_uuid,
-            AIFolder.user_id == current_user.id,
-            AIFolder.tenant_id == current_user.tenant_id,
-        ).first()
-        if not folder:
-            raise HTTPException(status_code=404, detail="Folder not found")
-    else:
-        folder_uuid = None
-    
-    query.folder_id = folder_uuid
-    db.commit()
-    return {"success": True, "folder_id": str(folder_uuid) if folder_uuid else None}
-
-
-# Folder management endpoints
 
 @router.get("/folders", response_model=AIFolderListResponse)
 async def get_folders(
@@ -415,7 +285,6 @@ async def get_stats(
     queries_by_mode = {mode: count for mode, count in mode_counts}
     
     # Time-based stats
-    from datetime import timedelta
     now = datetime.now(UTC)
     week_ago = now - timedelta(days=7)
     month_ago = now - timedelta(days=30)
@@ -437,3 +306,136 @@ async def get_stats(
         favorite_mode=favorite_mode,
         streak_days=streak_days,
     )
+
+
+# Item Management endpoints
+@router.get("/{item_id}", response_model=AIHistoryItem)
+async def get_ai_history_item(
+    item_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Get a single AI history item."""
+    item_uuid = _parse_uuid(item_id, field_name="item_id")
+    query = db.query(AIQuery).filter(
+        AIQuery.id == item_uuid,
+        AIQuery.user_id == current_user.id,
+        AIQuery.tenant_id == current_user.tenant_id,
+        AIQuery.deleted_at.is_(None),
+    ).first()
+    
+    if not query:
+        raise HTTPException(status_code=404, detail="Item not found")
+    
+    folder_name = None
+    if query.folder_id:
+        folder = db.query(AIFolder).filter(AIFolder.id == query.folder_id).first()
+        folder_name = folder.name if folder else None
+    
+    return _query_to_item(query, folder_name)
+
+
+@router.patch("/{item_id}/title")
+async def update_item_title(
+    item_id: str,
+    data: AIHistoryUpdateTitle,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Update the title of an AI history item."""
+    item_uuid = _parse_uuid(item_id, field_name="item_id")
+    query = db.query(AIQuery).filter(
+        AIQuery.id == item_uuid,
+        AIQuery.user_id == current_user.id,
+        AIQuery.tenant_id == current_user.tenant_id,
+    ).first()
+    
+    if not query:
+        raise HTTPException(status_code=404, detail="Item not found")
+    
+    query.title = data.title
+    db.commit()
+    return {"success": True, "title": data.title}
+
+
+@router.post("/{item_id}/pin")
+async def toggle_pin(
+    item_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Toggle pin status of an AI history item."""
+    item_uuid = _parse_uuid(item_id, field_name="item_id")
+    query = db.query(AIQuery).filter(
+        AIQuery.id == item_uuid,
+        AIQuery.user_id == current_user.id,
+        AIQuery.tenant_id == current_user.tenant_id,
+    ).first()
+    
+    if not query:
+        raise HTTPException(status_code=404, detail="Item not found")
+    
+    query.is_pinned = not (query.is_pinned or False)
+    db.commit()
+    return {"success": True, "is_pinned": query.is_pinned}
+
+
+@router.delete("/{item_id}")
+async def delete_history_item(
+    item_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Soft delete an AI history item."""
+    item_uuid = _parse_uuid(item_id, field_name="item_id")
+    query = db.query(AIQuery).filter(
+        AIQuery.id == item_uuid,
+        AIQuery.user_id == current_user.id,
+        AIQuery.tenant_id == current_user.tenant_id,
+    ).first()
+    
+    if not query:
+        raise HTTPException(status_code=404, detail="Item not found")
+    
+    query.deleted_at = datetime.now(UTC)
+    db.commit()
+    return {"success": True, "deleted": True}
+
+
+@router.post("/{item_id}/move")
+async def move_to_folder(
+    item_id: str,
+    data: AIHistoryMoveToFolder,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Move AI history item to a folder."""
+    item_uuid = _parse_uuid(item_id, field_name="item_id")
+    query = db.query(AIQuery).filter(
+        AIQuery.id == item_uuid,
+        AIQuery.user_id == current_user.id,
+        AIQuery.tenant_id == current_user.tenant_id,
+    ).first()
+    
+    if not query:
+        raise HTTPException(status_code=404, detail="Item not found")
+    
+    # Verify folder exists and belongs to user
+    if data.folder_id:
+        folder_uuid = _parse_uuid(data.folder_id, field_name="folder_id")
+        folder = db.query(AIFolder).filter(
+            AIFolder.id == folder_uuid,
+            AIFolder.user_id == current_user.id,
+            AIFolder.tenant_id == current_user.tenant_id,
+        ).first()
+        if not folder:
+            raise HTTPException(status_code=404, detail="Folder not found")
+    else:
+        folder_uuid = None
+    
+    query.folder_id = folder_uuid
+    db.commit()
+    return {"success": True, "folder_id": str(folder_uuid) if folder_uuid else None}
+
+
+# Folder management endpoints

@@ -3,6 +3,8 @@ node_modules/
 __pycache__/
 *.pyc
 .pytest_cache/
+.pytest_tmp/
+pytest_tmp/
 .venv/
 venv/
 
@@ -40,6 +42,8 @@ proxy_notebooklm_publish_*/
 # Frontend test artifacts
 frontend/test-results/
 frontend/playwright-report/
+compliance_exports/
+production_readiness_report.md
 
 # Logs
 *.log

@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from auth.jwt import create_access_token
+from auth.dependencies import is_demo_mode
 from config import settings
 from src.domains.identity.models.user import User
 from src.domains.identity.schemas.auth import TokenResponse
@@ -28,13 +29,33 @@ async def demo_login(
     Demo login: pick a role and login as a demo user.
     For development/demo only — disabled in production.
     """
-    if not settings.app.debug:
+    if not (settings.app.debug or is_demo_mode()):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
 
     role = data.get("role", "student")
+    email = data.get("email", "")
 
-    # Find a user with this role
-    user = db.query(User).filter(User.role == role, User.is_active == True).first()
+    # Prefer specific demo email if provided
+    if email:
+        user = db.query(User).filter(User.email == email, User.is_active == True).first()
+    else:
+        user = None
+
+    # Prefer CBSE demo users (modernhustlers.com) for ALL roles
+    cbse_demo_emails = {
+        "student": "demo_cbse11@modernhustlers.com",
+        "teacher": "teacher@modernhustlers.com",
+        "admin": "admin@modernhustlers.com",
+        "parent": "parent@modernhustlers.com",
+    }
+    if not user and role in cbse_demo_emails:
+        user = db.query(User).filter(
+            User.email == cbse_demo_emails[role], User.is_active == True
+        ).first()
+
+    # Fallback: any user with matching role
+    if not user:
+        user = db.query(User).filter(User.role == role, User.is_active == True).first()
 
     if not user:
         # Fallback: find any active user

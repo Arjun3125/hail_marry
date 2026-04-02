@@ -1,0 +1,1577 @@
+{
+  "summary": {
+    "total_files": 78,
+    "completed_files": 78,
+    "remaining_files": 0,
+    "passed_files": 74,
+    "failed_files": 4,
+    "crashed_files": 0,
+    "timeout_files": 0
+  },
+  "results": [
+    {
+      "file": "backend\\tests\\evaluation\\test_intent_classifier_benchmark.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 12.18,
+      "output_tail": [
+        "......                                                                   [100%]",
+        "============================== warnings summary ===============================",
+        "..\\..\\..\\AppData\\Roaming\\Python\\Python314\\site-packages\\langchain_core\\_api\\deprecation.py:25",
+        "  C:\\Users\\naren\\AppData\\Roaming\\Python\\Python314\\site-packages\\langchain_core\\_api\\deprecation.py:25: UserWarning: Core Pydantic V1 functionality isn't compatible with Python 3.14 or greater.",
+        "    from pydantic.v1.fields import FieldInfo as FieldInfoV1",
+        "backend/tests/evaluation/test_intent_classifier_benchmark.py::TestIntentClassifierBenchmark::test_heuristic_accuracy",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "backend/tests/evaluation/test_intent_classifier_benchmark.py::TestIntentClassifierBenchmark::test_heuristic_accuracy",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "backend/tests/evaluation/test_intent_classifier_benchmark.py::TestIntentClassifierBenchmark::test_heuristic_accuracy",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "6 passed, 4 warnings in 8.51s"
+      ],
+      "ran_at": "2026-04-02 04:15:43"
+    },
+    {
+      "file": "backend\\tests\\evaluation\\test_ocr_benchmark.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 769.2,
+      "output_tail": [
+        "............                                                             [100%]",
+        "12 passed, 18 warnings in 762.43s (0:12:42)"
+      ],
+      "ran_at": "2026-04-02 04:22:43"
+    },
+    {
+      "file": "backend\\tests\\evaluation\\test_personalization_benchmark.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 15.1,
+      "output_tail": [
+        "..                                                                       [100%]",
+        "============================== warnings summary ===============================",
+        "<frozen importlib._bootstrap>:491",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "<frozen importlib._bootstrap>:491",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "<frozen importlib._bootstrap>:491",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "2 passed, 3 warnings in 10.93s"
+      ],
+      "ran_at": "2026-04-02 04:22:58"
+    },
+    {
+      "file": "backend\\tests\\evaluation\\test_ragas_evaluation.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 11.7,
+      "output_tail": [
+        "......s                                                                  [100%]",
+        "============================== warnings summary ===============================",
+        "backend/tests/evaluation/test_ragas_evaluation.py::TestRAGEvaluation::test_faithfulness",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "backend/tests/evaluation/test_ragas_evaluation.py::TestRAGEvaluation::test_faithfulness",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "backend/tests/evaluation/test_ragas_evaluation.py::TestRAGEvaluation::test_faithfulness",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "6 passed, 1 skipped, 3 warnings in 8.04s"
+      ],
+      "ran_at": "2026-04-02 04:23:10"
+    },
+    {
+      "file": "backend\\tests\\evaluation\\test_retrieval_benchmark.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 12.52,
+      "output_tail": [
+        "........                                                                 [100%]",
+        "============================== warnings summary ===============================",
+        "backend/tests/evaluation/test_retrieval_benchmark.py::TestRetrievalBenchmark::test_mrr",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "backend/tests/evaluation/test_retrieval_benchmark.py::TestRetrievalBenchmark::test_mrr",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "backend/tests/evaluation/test_retrieval_benchmark.py::TestRetrievalBenchmark::test_mrr",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "8 passed, 3 warnings in 8.62s"
+      ],
+      "ran_at": "2026-04-02 04:23:23"
+    },
+    {
+      "file": "backend\\tests\\evaluation\\test_textbook_feature_grounding.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 11.81,
+      "output_tail": [
+        ".....................                                                    [100%]",
+        "============================== warnings summary ===============================",
+        "<frozen importlib._bootstrap>:491",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "<frozen importlib._bootstrap>:491",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "<frozen importlib._bootstrap>:491",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "21 passed, 3 warnings in 8.21s"
+      ],
+      "ran_at": "2026-04-02 04:23:34"
+    },
+    {
+      "file": "backend\\tests\\integration\\test_webhook_integration.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 12.63,
+      "output_tail": [
+        ".                                                                        [100%]",
+        "============================== warnings summary ===============================",
+        "<frozen importlib._bootstrap>:491",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "<frozen importlib._bootstrap>:491",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "<frozen importlib._bootstrap>:491",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "1 passed, 3 warnings in 8.58s"
+      ],
+      "ran_at": "2026-04-02 04:23:47"
+    },
+    {
+      "file": "backend\\tests\\test_admission.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 11.72,
+      "output_tail": [
+        "...........                                                              [100%]",
+        "============================== warnings summary ===============================",
+        "backend/tests/test_admission.py::test_admission_statuses_defined",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "backend/tests/test_admission.py::test_admission_statuses_defined",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "backend/tests/test_admission.py::test_admission_statuses_defined",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "11 passed, 3 warnings in 7.94s"
+      ],
+      "ran_at": "2026-04-02 04:23:59"
+    },
+    {
+      "file": "backend\\tests\\test_agent_orchestrator.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 33.32,
+      "output_tail": [
+        "........                                                                 [100%]",
+        "============================== warnings summary ===============================",
+        "..\\..\\..\\AppData\\Roaming\\Python\\Python314\\site-packages\\langchain_core\\_api\\deprecation.py:25",
+        "  C:\\Users\\naren\\AppData\\Roaming\\Python\\Python314\\site-packages\\langchain_core\\_api\\deprecation.py:25: UserWarning: Core Pydantic V1 functionality isn't compatible with Python 3.14 or greater.",
+        "    from pydantic.v1.fields import FieldInfo as FieldInfoV1",
+        "<frozen importlib._bootstrap>:491",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "<frozen importlib._bootstrap>:491",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "<frozen importlib._bootstrap>:491",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "8 passed, 4 warnings in 29.52s"
+      ],
+      "ran_at": "2026-04-02 04:24:32"
+    },
+    {
+      "file": "backend\\tests\\test_ai_gateway_errors.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 11.82,
+      "output_tail": [
+        "...                                                                      [100%]",
+        "============================== warnings summary ===============================",
+        "<frozen importlib._bootstrap>:491",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "<frozen importlib._bootstrap>:491",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "<frozen importlib._bootstrap>:491",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "3 passed, 3 warnings in 8.03s"
+      ],
+      "ran_at": "2026-04-02 04:24:44"
+    },
+    {
+      "file": "backend\\tests\\test_ai_query_routes.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 17.58,
+      "output_tail": [
+        "..........                                                               [100%]",
+        "============================== warnings summary ===============================",
+        "backend/tests/test_ai_query_routes.py::test_ai_query_rejects_invalid_mode",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "backend/tests/test_ai_query_routes.py::test_ai_query_rejects_invalid_mode",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "backend/tests/test_ai_query_routes.py::test_ai_query_rejects_invalid_mode",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "10 passed, 3 warnings in 13.74s"
+      ],
+      "ran_at": "2026-04-02 04:25:30"
+    },
+    {
+      "file": "backend\\tests\\test_ai_queue.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 12.0,
+      "output_tail": [
+        ".......                                                                  [100%]",
+        "============================== warnings summary ===============================",
+        "backend/tests/test_ai_queue.py::AIQueueTests::test_cancel_retry_and_dead_letter_controls",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "backend/tests/test_ai_queue.py::AIQueueTests::test_cancel_retry_and_dead_letter_controls",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "backend/tests/test_ai_queue.py::AIQueueTests::test_cancel_retry_and_dead_letter_controls",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "7 passed, 3 warnings in 8.27s"
+      ],
+      "ran_at": "2026-04-02 04:25:42"
+    },
+    {
+      "file": "backend\\tests\\test_ai_studio_sessions.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 12.45,
+      "output_tail": [
+        "...                                                                      [100%]",
+        "============================== warnings summary ===============================",
+        "<frozen importlib._bootstrap>:491",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "<frozen importlib._bootstrap>:491",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "<frozen importlib._bootstrap>:491",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "3 passed, 3 warnings in 8.52s"
+      ],
+      "ran_at": "2026-04-02 04:25:55"
+    },
+    {
+      "file": "backend\\tests\\test_alerting.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 11.33,
+      "output_tail": [
+        ".............                                                            [100%]",
+        "============================== warnings summary ===============================",
+        "backend/tests/test_alerting.py::AlertingTests::test_alerting_disabled_returns_empty",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "backend/tests/test_alerting.py::AlertingTests::test_alerting_disabled_returns_empty",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "backend/tests/test_alerting.py::AlertingTests::test_alerting_disabled_returns_empty",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "13 passed, 3 warnings in 7.74s"
+      ],
+      "ran_at": "2026-04-02 04:26:06"
+    },
+    {
+      "file": "backend\\tests\\test_audit_fixes.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 11.37,
+      "output_tail": [
+        "..                                                                       [100%]",
+        "============================== warnings summary ===============================",
+        "backend/tests/test_audit_fixes.py::TestAuditFixes::test_demo_mode_production_guard",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "backend/tests/test_audit_fixes.py::TestAuditFixes::test_demo_mode_production_guard",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "backend/tests/test_audit_fixes.py::TestAuditFixes::test_demo_mode_production_guard",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "2 passed, 3 warnings in 7.81s"
+      ],
+      "ran_at": "2026-04-02 04:26:18"
+    },
+    {
+      "file": "backend\\tests\\test_auth_qr_routes.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 12.13,
+      "output_tail": [
+        "..                                                                       [100%]",
+        "============================== warnings summary ===============================",
+        "backend/tests/test_auth_qr_routes.py::test_qr_login_route_is_registered_once",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "backend/tests/test_auth_qr_routes.py::test_qr_login_route_is_registered_once",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "backend/tests/test_auth_qr_routes.py::test_qr_login_route_is_registered_once",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "2 passed, 3 warnings in 8.35s"
+      ],
+      "ran_at": "2026-04-02 04:26:30"
+    },
+    {
+      "file": "backend\\tests\\test_auth_security.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 24.75,
+      "output_tail": [
+        "...                                                                      [100%]",
+        "============================== warnings summary ===============================",
+        "backend/tests/test_auth_security.py::test_login_brute_force_rate_limit",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "backend/tests/test_auth_security.py::test_login_brute_force_rate_limit",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "backend/tests/test_auth_security.py::test_login_brute_force_rate_limit",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "3 passed, 3 warnings in 20.36s"
+      ],
+      "ran_at": "2026-04-02 04:26:54"
+    },
+    {
+      "file": "backend\\tests\\test_billing.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 12.11,
+      "output_tail": [
+        "..........                                                               [100%]",
+        "============================== warnings summary ===============================",
+        "backend/tests/test_billing.py::test_billing_plans_structure",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "backend/tests/test_billing.py::test_billing_plans_structure",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "backend/tests/test_billing.py::test_billing_plans_structure",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "10 passed, 3 warnings in 8.35s"
+      ],
+      "ran_at": "2026-04-02 04:27:07"
+    },
+    {
+      "file": "backend\\tests\\test_branding_routes.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 13.33,
+      "output_tail": [
+        "..                                                                       [100%]",
+        "============================== warnings summary ===============================",
+        "backend/tests/test_branding_routes.py::test_branding_save_requires_admin_role",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "backend/tests/test_branding_routes.py::test_branding_save_requires_admin_role",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "backend/tests/test_branding_routes.py::test_branding_save_requires_admin_role",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "2 passed, 3 warnings in 9.40s"
+      ],
+      "ran_at": "2026-04-02 04:27:20"
+    },
+    {
+      "file": "backend\\tests\\test_captcha.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 11.74,
+      "output_tail": [
+        "......                                                                   [100%]",
+        "============================== warnings summary ===============================",
+        "backend/tests/test_captcha.py::test_protected_endpoints",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "backend/tests/test_captcha.py::test_protected_endpoints",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "backend/tests/test_captcha.py::test_protected_endpoints",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "6 passed, 3 warnings in 8.08s"
+      ],
+      "ran_at": "2026-04-02 04:27:32"
+    },
+    {
+      "file": "backend\\tests\\test_citations.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 12.19,
+      "output_tail": [
+        ".........                                                                [100%]",
+        "============================== warnings summary ===============================",
+        "backend/tests/test_citations.py::test_parse_simple_citation",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "backend/tests/test_citations.py::test_parse_simple_citation",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "backend/tests/test_citations.py::test_parse_simple_citation",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "9 passed, 3 warnings in 8.41s"
+      ],
+      "ran_at": "2026-04-02 04:28:12"
+    },
+    {
+      "file": "backend\\tests\\test_compliance.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 11.54,
+      "output_tail": [
+        "...                                                                      [100%]",
+        "============================== warnings summary ===============================",
+        "backend/tests/test_compliance.py::TestListComplianceExports::test_empty_list",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "backend/tests/test_compliance.py::TestListComplianceExports::test_empty_list",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "backend/tests/test_compliance.py::TestListComplianceExports::test_empty_list",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "3 passed, 3 warnings in 7.68s"
+      ],
+      "ran_at": "2026-04-02 04:28:23"
+    },
+    {
+      "file": "backend\\tests\\test_config_validation.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 12.57,
+      "output_tail": [
+        ".............                                                            [100%]",
+        "============================== warnings summary ===============================",
+        "backend/tests/test_config_validation.py::CORSParsingTests::test_csv_string",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "backend/tests/test_config_validation.py::CORSParsingTests::test_csv_string",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "backend/tests/test_config_validation.py::CORSParsingTests::test_csv_string",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "13 passed, 3 warnings in 8.81s"
+      ],
+      "ran_at": "2026-04-02 04:28:36"
+    },
+    {
+      "file": "backend\\tests\\test_connectors.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 12.58,
+      "output_tail": [
+        ".......                                                                  [100%]",
+        "============================== warnings summary ===============================",
+        "backend/tests/test_connectors.py::test_extended_file_types",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "backend/tests/test_connectors.py::test_extended_file_types",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "backend/tests/test_connectors.py::test_extended_file_types",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "7 passed, 3 warnings in 8.84s"
+      ],
+      "ran_at": "2026-04-02 04:28:48"
+    },
+    {
+      "file": "backend\\tests\\test_constants.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 12.37,
+      "output_tail": [
+        "...........................                                              [100%]",
+        "============================== warnings summary ===============================",
+        "backend/tests/test_constants.py::TestComputeGrade::test_grade_a_plus",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "backend/tests/test_constants.py::TestComputeGrade::test_grade_a_plus",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "backend/tests/test_constants.py::TestComputeGrade::test_grade_a_plus",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "27 passed, 3 warnings in 8.63s"
+      ],
+      "ran_at": "2026-04-02 04:29:01"
+    },
+    {
+      "file": "backend\\tests\\test_csrf_middleware.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 12.1,
+      "output_tail": [
+        ".............                                                            [100%]",
+        "============================== warnings summary ===============================",
+        "backend/tests/test_csrf_middleware.py::CSRFMiddlewareTests::test_exempt_path_bypasses_csrf",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "backend/tests/test_csrf_middleware.py::CSRFMiddlewareTests::test_exempt_path_bypasses_csrf",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "backend/tests/test_csrf_middleware.py::CSRFMiddlewareTests::test_exempt_path_bypasses_csrf",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "13 passed, 3 warnings in 8.36s"
+      ],
+      "ran_at": "2026-04-02 04:29:13"
+    },
+    {
+      "file": "backend\\tests\\test_doc_watcher.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 12.31,
+      "output_tail": [
+        ".......                                                                  [100%]",
+        "============================== warnings summary ===============================",
+        "backend/tests/test_doc_watcher.py::test_supported_extensions",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "backend/tests/test_doc_watcher.py::test_supported_extensions",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "backend/tests/test_doc_watcher.py::test_supported_extensions",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "7 passed, 3 warnings in 8.34s"
+      ],
+      "ran_at": "2026-04-02 04:29:25"
+    },
+    {
+      "file": "backend\\tests\\test_docs_chatbot.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 16.22,
+      "output_tail": [
+        "........                                                                 [100%]",
+        "============================== warnings summary ===============================",
+        "backend/tests/test_docs_chatbot.py::test_faq_database_not_empty",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "backend/tests/test_docs_chatbot.py::test_faq_database_not_empty",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "backend/tests/test_docs_chatbot.py::test_faq_database_not_empty",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "8 passed, 3 warnings in 12.01s"
+      ],
+      "ran_at": "2026-04-02 04:29:41"
+    },
+    {
+      "file": "backend\\tests\\test_enterprise_routes.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 13.23,
+      "output_tail": [
+        ".....                                                                    [100%]",
+        "============================== warnings summary ===============================",
+        "<frozen importlib._bootstrap>:491",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "<frozen importlib._bootstrap>:491",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "<frozen importlib._bootstrap>:491",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "5 passed, 3 warnings in 9.19s"
+      ],
+      "ran_at": "2026-04-02 04:29:55"
+    },
+    {
+      "file": "backend\\tests\\test_feature_flags_routes.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 13.15,
+      "output_tail": [
+        "..                                                                       [100%]",
+        "============================== warnings summary ===============================",
+        "backend/tests/test_feature_flags_routes.py::test_feature_flags_require_admin_role",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "backend/tests/test_feature_flags_routes.py::test_feature_flags_require_admin_role",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "backend/tests/test_feature_flags_routes.py::test_feature_flags_require_admin_role",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "2 passed, 3 warnings in 9.34s"
+      ],
+      "ran_at": "2026-04-02 04:30:08"
+    },
+    {
+      "file": "backend\\tests\\test_fee_management.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 11.61,
+      "output_tail": [
+        ".........                                                                [100%]",
+        "============================== warnings summary ===============================",
+        "backend/tests/test_fee_management.py::test_fee_types_defined",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "backend/tests/test_fee_management.py::test_fee_types_defined",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "backend/tests/test_fee_management.py::test_fee_types_defined",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "9 passed, 3 warnings in 7.95s"
+      ],
+      "ran_at": "2026-04-02 04:30:50"
+    },
+    {
+      "file": "backend\\tests\\test_file_uploads.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 13.32,
+      "output_tail": [
+        "..                                                                       [100%]",
+        "============================== warnings summary ===============================",
+        "backend/tests/test_file_uploads.py::test_admin_onboard_teachers_rejects_empty_csv",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "backend/tests/test_file_uploads.py::test_admin_onboard_teachers_rejects_empty_csv",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "backend/tests/test_file_uploads.py::test_admin_onboard_teachers_rejects_empty_csv",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "2 passed, 3 warnings in 9.45s"
+      ],
+      "ran_at": "2026-04-02 04:31:03"
+    },
+    {
+      "file": "backend\\tests\\test_gamification.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 11.75,
+      "output_tail": [
+        ".......                                                                  [100%]",
+        "============================== warnings summary ===============================",
+        "backend/tests/test_gamification.py::GetBadgesTests::test_100_sessions_badge",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "backend/tests/test_gamification.py::GetBadgesTests::test_100_sessions_badge",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "backend/tests/test_gamification.py::GetBadgesTests::test_100_sessions_badge",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "7 passed, 3 warnings in 8.05s"
+      ],
+      "ran_at": "2026-04-02 04:31:15"
+    },
+    {
+      "file": "backend\\tests\\test_hyde.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 21.06,
+      "output_tail": [
+        "...........                                                              [100%]",
+        "============================== warnings summary ===============================",
+        "<frozen importlib._bootstrap>:491",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "<frozen importlib._bootstrap>:491",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "<frozen importlib._bootstrap>:491",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "11 passed, 3 warnings in 16.90s"
+      ],
+      "ran_at": "2026-04-02 04:31:36"
+    },
+    {
+      "file": "backend\\tests\\test_i18n.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 11.68,
+      "output_tail": [
+        "..............                                                           [100%]",
+        "============================== warnings summary ===============================",
+        "backend/tests/test_i18n.py::test_supported_locales_count",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "backend/tests/test_i18n.py::test_supported_locales_count",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "backend/tests/test_i18n.py::test_supported_locales_count",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "14 passed, 3 warnings in 8.04s"
+      ],
+      "ran_at": "2026-04-02 04:31:47"
+    },
+    {
+      "file": "backend\\tests\\test_incident_management.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 11.59,
+      "output_tail": [
+        "....                                                                     [100%]",
+        "============================== warnings summary ===============================",
+        "backend/tests/test_incident_management.py::TestListIncidents::test_empty_returns_empty",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "backend/tests/test_incident_management.py::TestListIncidents::test_empty_returns_empty",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "backend/tests/test_incident_management.py::TestListIncidents::test_empty_returns_empty",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "4 passed, 3 warnings in 7.85s"
+      ],
+      "ran_at": "2026-04-02 04:31:59"
+    },
+    {
+      "file": "backend\\tests\\test_infra_utils.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 19.97,
+      "output_tail": [
+        ".......                                                                  [100%]",
+        "============================== warnings summary ===============================",
+        "backend/tests/test_infra_utils.py::TestStructuredLogging::test_configure_does_not_raise",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "backend/tests/test_infra_utils.py::TestStructuredLogging::test_configure_does_not_raise",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "backend/tests/test_infra_utils.py::TestStructuredLogging::test_configure_does_not_raise",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "7 passed, 3 warnings in 16.28s"
+      ],
+      "ran_at": "2026-04-02 04:32:19"
+    },
+    {
+      "file": "backend\\tests\\test_knowledge_graph.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 11.96,
+      "output_tail": [
+        "......                                                                   [100%]",
+        "============================== warnings summary ===============================",
+        "<frozen importlib._bootstrap>:491",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "<frozen importlib._bootstrap>:491",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "<frozen importlib._bootstrap>:491",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "6 passed, 3 warnings in 8.11s"
+      ],
+      "ran_at": "2026-04-02 04:32:31"
+    },
+    {
+      "file": "backend\\tests\\test_leaderboard.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 12.02,
+      "output_tail": [
+        ".......                                                                  [100%]",
+        "============================== warnings summary ===============================",
+        "backend/tests/test_leaderboard.py::TestCalculateRankings::test_empty_attempts_returns_empty",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "backend/tests/test_leaderboard.py::TestCalculateRankings::test_empty_attempts_returns_empty",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "backend/tests/test_leaderboard.py::TestCalculateRankings::test_empty_attempts_returns_empty",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "7 passed, 3 warnings in 8.26s"
+      ],
+      "ran_at": "2026-04-02 04:32:43"
+    },
+    {
+      "file": "backend\\tests\\test_library.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 11.9,
+      "output_tail": [
+        ".......                                                                  [100%]",
+        "============================== warnings summary ===============================",
+        "backend/tests/test_library.py::test_default_lending_days",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "backend/tests/test_library.py::test_default_lending_days",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "backend/tests/test_library.py::test_default_lending_days",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "7 passed, 3 warnings in 8.20s"
+      ],
+      "ran_at": "2026-04-02 04:32:55"
+    },
+    {
+      "file": "backend\\tests\\test_llm_providers_ollama_failover.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 12.01,
+      "output_tail": [
+        "..                                                                       [100%]",
+        "============================== warnings summary ===============================",
+        "backend/tests/test_llm_providers_ollama_failover.py::test_ollama_provider_fails_over_to_next_endpoint",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "backend/tests/test_llm_providers_ollama_failover.py::test_ollama_provider_fails_over_to_next_endpoint",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "backend/tests/test_llm_providers_ollama_failover.py::test_ollama_provider_fails_over_to_next_endpoint",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "2 passed, 3 warnings in 8.20s"
+      ],
+      "ran_at": "2026-04-02 04:33:36"
+    },
+    {
+      "file": "backend\\tests\\test_mascot_routes.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 37.58,
+      "output_tail": [
+        ".........................................                                [100%]",
+        "============================== warnings summary ===============================",
+        "backend/tests/test_mascot_routes.py::test_mascot_creates_notebook_and_returns_ai_studio_navigation",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "backend/tests/test_mascot_routes.py::test_mascot_creates_notebook_and_returns_ai_studio_navigation",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "backend/tests/test_mascot_routes.py::test_mascot_creates_notebook_and_returns_ai_studio_navigation",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "41 passed, 3 warnings in 33.22s"
+      ],
+      "ran_at": "2026-04-02 04:34:14"
+    },
+    {
+      "file": "backend\\tests\\test_mascot_whatsapp_adapter.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 11.91,
+      "output_tail": [
+        ".....                                                                    [100%]",
+        "============================== warnings summary ===============================",
+        "backend/tests/test_mascot_whatsapp_adapter.py::test_run_whatsapp_agent_delegates_to_mascot",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "backend/tests/test_mascot_whatsapp_adapter.py::test_run_whatsapp_agent_delegates_to_mascot",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "backend/tests/test_mascot_whatsapp_adapter.py::test_run_whatsapp_agent_delegates_to_mascot",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "5 passed, 3 warnings in 8.23s"
+      ],
+      "ran_at": "2026-04-02 04:34:26"
+    },
+    {
+      "file": "backend\\tests\\test_metrics_registry.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 12.98,
+      "output_tail": [
+        "..                                                                       [100%]",
+        "============================== warnings summary ===============================",
+        "backend/tests/test_metrics_registry.py::MetricsRegistryTests::test_personalization_metrics_are_snapshotted_and_exported",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "backend/tests/test_metrics_registry.py::MetricsRegistryTests::test_personalization_metrics_are_snapshotted_and_exported",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "backend/tests/test_metrics_registry.py::MetricsRegistryTests::test_personalization_metrics_are_snapshotted_and_exported",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "2 passed, 3 warnings in 9.23s"
+      ],
+      "ran_at": "2026-04-02 04:34:39"
+    },
+    {
+      "file": "backend\\tests\\test_normalize_tool_output.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 12.04,
+      "output_tail": [
+        "..................................                                       [100%]",
+        "============================== warnings summary ===============================",
+        "<frozen importlib._bootstrap>:491",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "<frozen importlib._bootstrap>:491",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "<frozen importlib._bootstrap>:491",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "34 passed, 3 warnings in 8.37s"
+      ],
+      "ran_at": "2026-04-02 04:34:51"
+    },
+    {
+      "file": "backend\\tests\\test_notebook_job_scope_regressions.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 12.43,
+      "output_tail": [
+        "...                                                                      [100%]",
+        "============================== warnings summary ===============================",
+        "backend/tests/test_notebook_job_scope_regressions.py::test_ingest_whatsapp_media_upload_trims_queued_history_snapshot_to_last_ten_items",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "backend/tests/test_notebook_job_scope_regressions.py::test_ingest_whatsapp_media_upload_trims_queued_history_snapshot_to_last_ten_items",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "backend/tests/test_notebook_job_scope_regressions.py::test_ingest_whatsapp_media_upload_trims_queued_history_snapshot_to_last_ten_items",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "3 passed, 3 warnings in 8.68s"
+      ],
+      "ran_at": "2026-04-02 04:35:03"
+    },
+    {
+      "file": "backend\\tests\\test_notebook_retrieval.py",
+      "status": "failed",
+      "returncode": 1,
+      "duration_sec": 12.42,
+      "output_tail": [
+        "            if mode in SCHEMA_MAP:",
+        "                data = await llm.generate_structured(",
+        "                    prompt,",
+        "                    schema=SCHEMA_MAP[mode],",
+        "                    model=model_name,",
+        "                    temperature=settings.llm.temperature,",
+        "                    max_tokens=max_completion_tokens,",
+        "                )",
+        "                data[\"response\"] = json.dumps(data[\"response\"]) # Keep downstream pipeline intact",
+        "            else:",
+        ">               data = await llm.generate(",
+        "                    prompt,",
+        "                    model=model_name,",
+        "                    temperature=settings.llm.temperature,",
+        "                    num_predict=max_completion_tokens,",
+        "                    max_tokens=max_completion_tokens,",
+        "                )",
+        "E               TypeError: test_execute_text_query_returns_retrieval_audit.<locals>.FakeLLM.generate() got an unexpected keyword argument 'max_tokens'",
+        "backend\\src\\interfaces\\rest_api\\ai\\workflows.py:539: TypeError",
+        "============================== warnings summary ===============================",
+        "backend/tests/test_notebook_retrieval.py::test_retrieve_context_passes_notebook_id_to_vector_store",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "backend/tests/test_notebook_retrieval.py::test_retrieve_context_passes_notebook_id_to_vector_store",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "backend/tests/test_notebook_retrieval.py::test_retrieve_context_passes_notebook_id_to_vector_store",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "=========================== short test summary info ===========================",
+        "FAILED backend/tests/test_notebook_retrieval.py::test_execute_text_query_returns_retrieval_audit",
+        "1 failed, 8 passed, 3 warnings in 8.76s"
+      ],
+      "ran_at": "2026-04-02 04:35:16"
+    },
+    {
+      "file": "backend\\tests\\test_notebook_tenant_scope.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 14.34,
+      "output_tail": [
+        "...                                                                      [100%]",
+        "============================== warnings summary ===============================",
+        "backend/tests/test_notebook_tenant_scope.py::test_notebook_creation_persists_tenant_id",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "backend/tests/test_notebook_tenant_scope.py::test_notebook_creation_persists_tenant_id",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "backend/tests/test_notebook_tenant_scope.py::test_notebook_creation_persists_tenant_id",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "3 passed, 3 warnings in 10.29s"
+      ],
+      "ran_at": "2026-04-02 04:35:30"
+    },
+    {
+      "file": "backend\\tests\\test_notifications.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 12.46,
+      "output_tail": [
+        ".........                                                                [100%]",
+        "============================== warnings summary ===============================",
+        "backend/tests/test_notifications.py::NotificationStoreTests::test_add_and_get",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "backend/tests/test_notifications.py::NotificationStoreTests::test_add_and_get",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "backend/tests/test_notifications.py::NotificationStoreTests::test_add_and_get",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "9 passed, 3 warnings in 8.62s"
+      ],
+      "ran_at": "2026-04-02 04:35:42"
+    },
+    {
+      "file": "backend\\tests\\test_ocr_audit.py",
+      "status": "failed",
+      "returncode": 1,
+      "duration_sec": 11.86,
+      "output_tail": [
+        "F                                                                        [100%]",
+        "================================== FAILURES ===================================",
+        "_______________________ test_upload_routes_are_audited ________________________",
+        "    def test_upload_routes_are_audited():",
+        "        upload_routes = _collect_upload_routes()",
+        "        audited_routes = _collect_audit_routes()",
+        "        missing = sorted(route for route in upload_routes if route not in audited_routes)",
+        ">       assert not missing, (",
+        "            \"OCR audit report is missing UploadFile routes. \"",
+        "            \"Add these routes to documentation/ocr_system_audit_report.md: \"",
+        "            + \", \".join(missing)",
+        "        )",
+        "E       AssertionError: OCR audit report is missing UploadFile routes. Add these routes to documentation/ocr_system_audit_report.md: /api/mascot/upload",
+        "E       assert not ['/api/mascot/upload']",
+        "backend\\tests\\test_ocr_audit.py:70: AssertionError",
+        "---------------------------- Captured stdout setup ----------------------------",
+        "{\"timestamp\": \"2026-04-01T23:05:51.818834+00:00\", \"level\": \"WARNING\", \"service\": \"vidyaos-api\", \"logger\": \"telemetry\", \"message\": \"OpenTelemetry packages unavailable: No module named 'opentelemetry'\"}",
+        "{\"timestamp\": \"2026-04-01T23:05:51.819445+00:00\", \"level\": \"WARNING\", \"service\": \"vidyaos-api\", \"logger\": \"telemetry\", \"message\": \"OpenTelemetry packages unavailable: No module named 'opentelemetry'\"}",
+        "============================== warnings summary ===============================",
+        "backend/tests/test_ocr_audit.py::test_upload_routes_are_audited",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "backend/tests/test_ocr_audit.py::test_upload_routes_are_audited",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "backend/tests/test_ocr_audit.py::test_upload_routes_are_audited",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "=========================== short test summary info ===========================",
+        "FAILED backend/tests/test_ocr_audit.py::test_upload_routes_are_audited - Asse...",
+        "1 failed, 3 warnings in 7.93s"
+      ],
+      "ran_at": "2026-04-02 04:35:54"
+    },
+    {
+      "file": "backend\\tests\\test_ocr_integration.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 13.28,
+      "output_tail": [
+        ".............                                                            [100%]",
+        "============================== warnings summary ===============================",
+        "backend/tests/test_ocr_integration.py::test_parse_attendance_rows_supports_freeform_ocr_lines",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "backend/tests/test_ocr_integration.py::test_parse_attendance_rows_supports_freeform_ocr_lines",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "backend/tests/test_ocr_integration.py::test_parse_attendance_rows_supports_freeform_ocr_lines",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "13 passed, 3 warnings in 9.60s"
+      ],
+      "ran_at": "2026-04-02 04:36:36"
+    },
+    {
+      "file": "backend\\tests\\test_ocr_route_metadata.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 12.12,
+      "output_tail": [
+        "....                                                                     [100%]",
+        "============================== warnings summary ===============================",
+        "backend/tests/test_ocr_route_metadata.py::test_student_upload_non_image_always_returns_ocr_metadata_keys",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "backend/tests/test_ocr_route_metadata.py::test_student_upload_non_image_always_returns_ocr_metadata_keys",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "backend/tests/test_ocr_route_metadata.py::test_student_upload_non_image_always_returns_ocr_metadata_keys",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "4 passed, 3 warnings in 8.23s"
+      ],
+      "ran_at": "2026-04-02 04:36:48"
+    },
+    {
+      "file": "backend\\tests\\test_onboarding.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 11.13,
+      "output_tail": [
+        "............                                                             [100%]",
+        "============================== warnings summary ===============================",
+        "backend/tests/test_onboarding.py::test_onboarding_status_structure",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "backend/tests/test_onboarding.py::test_onboarding_status_structure",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "backend/tests/test_onboarding.py::test_onboarding_status_structure",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "12 passed, 3 warnings in 7.54s"
+      ],
+      "ran_at": "2026-04-02 04:36:59"
+    },
+    {
+      "file": "backend\\tests\\test_openai_compat.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 11.57,
+      "output_tail": [
+        "..........                                                               [100%]",
+        "============================== warnings summary ===============================",
+        "backend/tests/test_openai_compat.py::test_default_provider_is_ollama",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "backend/tests/test_openai_compat.py::test_default_provider_is_ollama",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "backend/tests/test_openai_compat.py::test_default_provider_is_ollama",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "10 passed, 3 warnings in 7.93s"
+      ],
+      "ran_at": "2026-04-02 04:37:11"
+    },
+    {
+      "file": "backend\\tests\\test_openai_compat_routes.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 12.35,
+      "output_tail": [
+        "....                                                                     [100%]",
+        "============================== warnings summary ===============================",
+        "backend/tests/test_openai_compat_routes.py::test_openai_compat_requires_configured_api_key",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "backend/tests/test_openai_compat_routes.py::test_openai_compat_requires_configured_api_key",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "backend/tests/test_openai_compat_routes.py::test_openai_compat_requires_configured_api_key",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "4 passed, 3 warnings in 8.55s"
+      ],
+      "ran_at": "2026-04-02 04:37:23"
+    },
+    {
+      "file": "backend\\tests\\test_personalization_learning.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 20.31,
+      "output_tail": [
+        "........................                                                 [100%]",
+        "============================== warnings summary ===============================",
+        "<frozen importlib._bootstrap>:491",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "<frozen importlib._bootstrap>:491",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "<frozen importlib._bootstrap>:491",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "24 passed, 3 warnings in 16.41s"
+      ],
+      "ran_at": "2026-04-02 04:37:44"
+    },
+    {
+      "file": "backend\\tests\\test_pipeline_stage_metrics.py",
+      "status": "failed",
+      "returncode": 1,
+      "duration_sec": 11.48,
+      "output_tail": [
+        "                data = await llm.generate_structured(",
+        "                    prompt,",
+        "                    schema=SCHEMA_MAP[mode],",
+        "                    model=model_name,",
+        "                    temperature=settings.llm.temperature,",
+        "                    max_tokens=max_completion_tokens,",
+        "                )",
+        "                data[\"response\"] = json.dumps(data[\"response\"]) # Keep downstream pipeline intact",
+        "            else:",
+        ">               data = await llm.generate(",
+        "                    prompt,",
+        "                    model=model_name,",
+        "                    temperature=settings.llm.temperature,",
+        "                    num_predict=max_completion_tokens,",
+        "                    max_tokens=max_completion_tokens,",
+        "                )",
+        "E               TypeError: test_execute_text_query_records_generation_timeout_metric.<locals>.TimeoutLLM.generate() got an unexpected keyword argument 'max_tokens'",
+        "backend\\src\\interfaces\\rest_api\\ai\\workflows.py:539: TypeError",
+        "============================== warnings summary ===============================",
+        "backend/tests/test_pipeline_stage_metrics.py::test_execute_text_query_records_retrieval_and_generation_success_metrics",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "backend/tests/test_pipeline_stage_metrics.py::test_execute_text_query_records_retrieval_and_generation_success_metrics",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "backend/tests/test_pipeline_stage_metrics.py::test_execute_text_query_records_retrieval_and_generation_success_metrics",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "=========================== short test summary info ===========================",
+        "FAILED backend/tests/test_pipeline_stage_metrics.py::test_execute_text_query_records_retrieval_and_generation_success_metrics",
+        "FAILED backend/tests/test_pipeline_stage_metrics.py::test_execute_text_query_records_generation_timeout_metric",
+        "2 failed, 2 passed, 3 warnings in 7.86s"
+      ],
+      "ran_at": "2026-04-02 04:37:55"
+    },
+    {
+      "file": "backend\\tests\\test_plugin_registry.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 11.31,
+      "output_tail": [
+        "........                                                                 [100%]",
+        "============================== warnings summary ===============================",
+        "backend/tests/test_plugin_registry.py::test_hook_names_defined",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "backend/tests/test_plugin_registry.py::test_hook_names_defined",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "backend/tests/test_plugin_registry.py::test_hook_names_defined",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "8 passed, 3 warnings in 7.72s"
+      ],
+      "ran_at": "2026-04-02 04:38:06"
+    },
+    {
+      "file": "backend\\tests\\test_queue_resiliency.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 11.58,
+      "output_tail": [
+        "..                                                                       [100%]",
+        "============================== warnings summary ===============================",
+        "backend/tests/test_queue_resiliency.py::test_job_not_claimed_while_paused",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "backend/tests/test_queue_resiliency.py::test_job_not_claimed_while_paused",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "backend/tests/test_queue_resiliency.py::test_job_not_claimed_while_paused",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "2 passed, 3 warnings in 8.01s"
+      ],
+      "ran_at": "2026-04-02 04:38:18"
+    },
+    {
+      "file": "backend\\tests\\test_rate_limit.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 24.4,
+      "output_tail": [
+        ".....                                                                    [100%]",
+        "============================== warnings summary ===============================",
+        "backend/tests/test_rate_limit.py::TestRateLimitConstants::test_window_is_60_seconds",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "backend/tests/test_rate_limit.py::TestRateLimitConstants::test_window_is_60_seconds",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "backend/tests/test_rate_limit.py::TestRateLimitConstants::test_window_is_60_seconds",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "5 passed, 3 warnings in 20.08s"
+      ],
+      "ran_at": "2026-04-02 04:38:42"
+    },
+    {
+      "file": "backend\\tests\\test_redis_split.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 12.16,
+      "output_tail": [
+        "..                                                                       [100%]",
+        "============================== warnings summary ===============================",
+        "<frozen importlib._bootstrap>:491",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "<frozen importlib._bootstrap>:491",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "<frozen importlib._bootstrap>:491",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "2 passed, 3 warnings in 8.38s"
+      ],
+      "ran_at": "2026-04-02 04:39:24"
+    },
+    {
+      "file": "backend\\tests\\test_report_card.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 11.9,
+      "output_tail": [
+        "...                                                                      [100%]",
+        "============================== warnings summary ===============================",
+        "backend/tests/test_report_card.py::TestReportCardGrading::test_grade_distribution",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "backend/tests/test_report_card.py::TestReportCardGrading::test_grade_distribution",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "backend/tests/test_report_card.py::TestReportCardGrading::test_grade_distribution",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "3 passed, 3 warnings in 8.31s"
+      ],
+      "ran_at": "2026-04-02 04:39:36"
+    },
+    {
+      "file": "backend\\tests\\test_runtime_ops.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 12.05,
+      "output_tail": [
+        "....                                                                     [100%]",
+        "============================== warnings summary ===============================",
+        "backend/tests/test_runtime_ops.py::test_collect_dependency_status_shapes_response",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "backend/tests/test_runtime_ops.py::test_collect_dependency_status_shapes_response",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "backend/tests/test_runtime_ops.py::test_collect_dependency_status_shapes_response",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "4 passed, 3 warnings in 8.27s"
+      ],
+      "ran_at": "2026-04-02 04:39:48"
+    },
+    {
+      "file": "backend\\tests\\test_security_regressions.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 12.25,
+      "output_tail": [
+        ".........................                                                [100%]",
+        "============================== warnings summary ===============================",
+        "backend/tests/test_security_regressions.py::MiddlewareOrderingTests::test_tenant_middleware_precedes_rate_limit_middleware",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "backend/tests/test_security_regressions.py::MiddlewareOrderingTests::test_tenant_middleware_precedes_rate_limit_middleware",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "backend/tests/test_security_regressions.py::MiddlewareOrderingTests::test_tenant_middleware_precedes_rate_limit_middleware",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "25 passed, 3 warnings in 8.61s"
+      ],
+      "ran_at": "2026-04-02 04:40:00"
+    },
+    {
+      "file": "backend\\tests\\test_sm2_algorithm.py",
+      "status": "failed",
+      "returncode": 2,
+      "duration_sec": 2.24,
+      "output_tail": [
+        "=================================== ERRORS ====================================",
+        "____________ ERROR collecting backend/tests/test_sm2_algorithm.py _____________",
+        "ImportError while importing test module 'c:\\Users\\naren\\Work\\Projects\\proxy_notebooklm\\backend\\tests\\test_sm2_algorithm.py'.",
+        "Hint: make sure your test modules/packages have valid Python names.",
+        "Traceback:",
+        "C:\\Python314\\Lib\\importlib\\__init__.py:88: in import_module",
+        "    return _bootstrap._gcd_import(name[level:], package, level)",
+        "           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+        "backend\\tests\\test_sm2_algorithm.py:13: in <module>",
+        "    from src.domains.academic.routes.students import _sm2_update",
+        "E   ImportError: cannot import name '_sm2_update' from 'src.domains.academic.routes.students' (c:\\Users\\naren\\Work\\Projects\\proxy_notebooklm\\backend\\src\\domains\\academic\\routes\\students.py)",
+        "============================== warnings summary ===============================",
+        "<frozen importlib._bootstrap>:491",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "<frozen importlib._bootstrap>:491",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "<frozen importlib._bootstrap>:491",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "=========================== short test summary info ===========================",
+        "ERROR backend/tests/test_sm2_algorithm.py",
+        "!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!",
+        "3 warnings, 1 error in 0.57s"
+      ],
+      "ran_at": "2026-04-02 04:40:03"
+    },
+    {
+      "file": "backend\\tests\\test_structured_tool_output_contracts.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 11.04,
+      "output_tail": [
+        "...                                                                      [100%]",
+        "============================== warnings summary ===============================",
+        "backend/tests/test_structured_tool_output_contracts.py::test_shared_normalizer_keeps_structured_contract_for_all_supported_tools",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "backend/tests/test_structured_tool_output_contracts.py::test_shared_normalizer_keeps_structured_contract_for_all_supported_tools",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "backend/tests/test_structured_tool_output_contracts.py::test_shared_normalizer_keeps_structured_contract_for_all_supported_tools",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "3 passed, 3 warnings in 7.47s"
+      ],
+      "ran_at": "2026-04-02 04:40:14"
+    },
+    {
+      "file": "backend\\tests\\test_team_invite.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 11.97,
+      "output_tail": [
+        ".........                                                                [100%]",
+        "============================== warnings summary ===============================",
+        "backend/tests/test_team_invite.py::test_invite_expiry",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "backend/tests/test_team_invite.py::test_invite_expiry",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "backend/tests/test_team_invite.py::test_invite_expiry",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "9 passed, 3 warnings in 8.36s"
+      ],
+      "ran_at": "2026-04-02 04:40:26"
+    },
+    {
+      "file": "backend\\tests\\test_tenant_middleware.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 12.16,
+      "output_tail": [
+        ".......                                                                  [100%]",
+        "============================== warnings summary ===============================",
+        "backend/tests/test_tenant_middleware.py::TenantMiddlewareTests::test_bearer_token_preferred_over_cookie",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "backend/tests/test_tenant_middleware.py::TenantMiddlewareTests::test_bearer_token_preferred_over_cookie",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "backend/tests/test_tenant_middleware.py::TenantMiddlewareTests::test_bearer_token_preferred_over_cookie",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "7 passed, 3 warnings in 8.42s"
+      ],
+      "ran_at": "2026-04-02 04:40:38"
+    },
+    {
+      "file": "backend\\tests\\test_token_blacklist.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 12.59,
+      "output_tail": [
+        "......                                                                   [100%]",
+        "============================== warnings summary ===============================",
+        "backend/tests/test_token_blacklist.py::test_blacklisted_token_model",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "backend/tests/test_token_blacklist.py::test_blacklisted_token_model",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "backend/tests/test_token_blacklist.py::test_blacklisted_token_model",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "6 passed, 3 warnings in 8.88s"
+      ],
+      "ran_at": "2026-04-02 04:40:50"
+    },
+    {
+      "file": "backend\\tests\\test_traceability.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 12.57,
+      "output_tail": [
+        "....                                                                     [100%]",
+        "============================== warnings summary ===============================",
+        "backend/tests/test_traceability.py::test_classify_error_key_maps_subsystems",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "backend/tests/test_traceability.py::test_classify_error_key_maps_subsystems",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "backend/tests/test_traceability.py::test_classify_error_key_maps_subsystems",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "4 passed, 3 warnings in 8.49s"
+      ],
+      "ran_at": "2026-04-02 04:41:03"
+    },
+    {
+      "file": "backend\\tests\\test_upload_security.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 12.13,
+      "output_tail": [
+        ".....                                                                    [100%]",
+        "============================== warnings summary ===============================",
+        "backend/tests/test_upload_security.py::TestSanitizeDocxBytes::test_non_zip_raises",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "backend/tests/test_upload_security.py::TestSanitizeDocxBytes::test_non_zip_raises",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "backend/tests/test_upload_security.py::TestSanitizeDocxBytes::test_non_zip_raises",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "5 passed, 3 warnings in 8.39s"
+      ],
+      "ran_at": "2026-04-02 04:41:45"
+    },
+    {
+      "file": "backend\\tests\\test_usage_governance.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 12.81,
+      "output_tail": [
+        "..                                                                       [100%]",
+        "============================== warnings summary ===============================",
+        "backend/tests/test_usage_governance.py::test_usage_governance_blocks_daily_quota",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "backend/tests/test_usage_governance.py::test_usage_governance_blocks_daily_quota",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "backend/tests/test_usage_governance.py::test_usage_governance_blocks_daily_quota",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "2 passed, 3 warnings in 9.07s"
+      ],
+      "ran_at": "2026-04-02 04:41:57"
+    },
+    {
+      "file": "backend\\tests\\test_weakness_alerts.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 12.1,
+      "output_tail": [
+        "........                                                                 [100%]",
+        "============================== warnings summary ===============================",
+        "backend/tests/test_weakness_alerts.py::WeaknessAlertTests::test_alert_has_action",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "backend/tests/test_weakness_alerts.py::WeaknessAlertTests::test_alert_has_action",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "backend/tests/test_weakness_alerts.py::WeaknessAlertTests::test_alert_has_action",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "8 passed, 3 warnings in 8.44s"
+      ],
+      "ran_at": "2026-04-02 04:42:10"
+    },
+    {
+      "file": "backend\\tests\\test_webhooks.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 12.7,
+      "output_tail": [
+        "..                                                                       [100%]",
+        "============================== warnings summary ===============================",
+        "backend/tests/test_webhooks.py::TestEmitWebhookEvent::test_no_subscriptions_returns_zero",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "backend/tests/test_webhooks.py::TestEmitWebhookEvent::test_no_subscriptions_returns_zero",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "backend/tests/test_webhooks.py::TestEmitWebhookEvent::test_no_subscriptions_returns_zero",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "2 passed, 3 warnings in 8.72s"
+      ],
+      "ran_at": "2026-04-02 04:42:22"
+    },
+    {
+      "file": "backend\\tests\\test_whatsapp.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 11.98,
+      "output_tail": [
+        ".........                                                                [100%]",
+        "============================== warnings summary ===============================",
+        "backend/tests/test_whatsapp.py::TestSendWhatsAppMessage::test_returns_error_when_not_configured",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "backend/tests/test_whatsapp.py::TestSendWhatsAppMessage::test_returns_error_when_not_configured",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "backend/tests/test_whatsapp.py::TestSendWhatsAppMessage::test_returns_error_when_not_configured",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "9 passed, 3 warnings in 8.27s"
+      ],
+      "ran_at": "2026-04-02 04:42:34"
+    },
+    {
+      "file": "backend\\tests\\test_whatsapp_gateway.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 19.63,
+      "output_tail": [
+        "........................................................................ [ 56%]",
+        ".......................................................                  [100%]",
+        "============================== warnings summary ===============================",
+        "<frozen importlib._bootstrap>:491",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "<frozen importlib._bootstrap>:491",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "<frozen importlib._bootstrap>:491",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "..\\..\\..\\AppData\\Roaming\\Python\\Python314\\site-packages\\langchain_core\\_api\\deprecation.py:25",
+        "  C:\\Users\\naren\\AppData\\Roaming\\Python\\Python314\\site-packages\\langchain_core\\_api\\deprecation.py:25: UserWarning: Core Pydantic V1 functionality isn't compatible with Python 3.14 or greater.",
+        "    from pydantic.v1.fields import FieldInfo as FieldInfoV1",
+        "backend/tests/test_whatsapp_gateway.py::TestLlmIntentInterpretation::test_classify_intent_requests_clarification_for_missing_topic",
+        "backend/tests/test_whatsapp_gateway.py::TestLlmIntentInterpretation::test_classify_intent_requests_clarification_for_conflicting_study_tools",
+        "  C:\\Users\\naren\\AppData\\Roaming\\Python\\Python314\\site-packages\\langchain_core\\runnables\\utils.py:756: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead",
+        "    return asyncio.iscoroutinefunction(func) or (",
+        "backend/tests/test_whatsapp_gateway.py::TestLlmIntentInterpretation::test_classify_intent_requests_clarification_for_missing_topic",
+        "backend/tests/test_whatsapp_gateway.py::TestLlmIntentInterpretation::test_classify_intent_requests_clarification_for_conflicting_study_tools",
+        "  C:\\Users\\naren\\AppData\\Roaming\\Python\\Python314\\site-packages\\langchain_core\\runnables\\utils.py:758: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead",
+        "    and asyncio.iscoroutinefunction(func.__call__)",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "127 passed, 8 warnings in 15.33s"
+      ],
+      "ran_at": "2026-04-02 04:42:54"
+    },
+    {
+      "file": "backend\\tests\\test_whatsapp_integration.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 11.54,
+      "output_tail": [
+        ".....                                                                    [100%]",
+        "============================== warnings summary ===============================",
+        "<frozen importlib._bootstrap>:491",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "<frozen importlib._bootstrap>:491",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "<frozen importlib._bootstrap>:491",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "5 passed, 3 warnings in 7.81s"
+      ],
+      "ran_at": "2026-04-02 04:43:05"
+    },
+    {
+      "file": "backend\\tests\\test_whatsapp_media_queue_failures.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 11.99,
+      "output_tail": [
+        "..                                                                       [100%]",
+        "============================== warnings summary ===============================",
+        "backend/tests/test_whatsapp_media_queue_failures.py::WhatsAppMediaQueueFailureTests::test_whatsapp_media_ingest_failure_is_requeued_when_retryable",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute",
+        "backend/tests/test_whatsapp_media_queue_failures.py::WhatsAppMediaQueueFailureTests::test_whatsapp_media_ingest_failure_is_requeued_when_retryable",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute",
+        "backend/tests/test_whatsapp_media_queue_failures.py::WhatsAppMediaQueueFailureTests::test_whatsapp_media_ingest_failure_is_requeued_when_retryable",
+        "  <frozen importlib._bootstrap>:491: DeprecationWarning: builtin type swigvarlink has no __module__ attribute",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "2 passed, 3 warnings in 8.36s"
+      ],
+      "ran_at": "2026-04-02 04:43:17"
+    }
+  ]
+}

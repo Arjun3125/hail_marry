@@ -1,0 +1,2 @@
+"""Legacy WhatsApp compatibility package."""
+

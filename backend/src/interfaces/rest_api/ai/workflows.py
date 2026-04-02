@@ -486,7 +486,7 @@ async def execute_text_query(request: InternalAIQueryRequest) -> dict:
             tenant_id=request.tenant_id,
             top_k=8,
             subject_id=request.subject_id,
-            notebook_id=request.notebook_id,
+            notebook_id=str(request.notebook_id) if request.notebook_id else None,
         )
     except Exception as exc:
         observe_stage_latency("ai_query", "retrieval", (time.perf_counter() - retrieval_started) * 1000, "error")

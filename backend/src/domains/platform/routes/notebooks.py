@@ -9,6 +9,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from auth.dependencies import get_current_user
 from database import get_async_session
 from src.domains.identity.models.user import User
+from src.domains.platform.models.ai import AIQuery
+from src.domains.platform.models.document import Document
+from src.domains.platform.models.generated_content import GeneratedContent
 from src.domains.platform.models.notebook import Notebook
 from src.domains.platform.schemas.notebook import (
     BulkNotebookOperation,
@@ -152,10 +155,6 @@ async def get_notebook_stats(
     """Get comprehensive statistics for a notebook."""
     await _get_user_notebook(notebook_id, current_user, session)
 
-    from src.domains.platform.models.ai import AIQuery
-    from src.domains.platform.models.document import Document
-    from src.domains.platform.models.generated_content import GeneratedContent
-
     doc_result = await session.execute(
         select(func.count(Document.id)).where(
             Document.tenant_id == current_user.tenant_id,
@@ -251,10 +250,6 @@ async def export_notebook(
 ) -> NotebookExport:
     """Export all notebook data for backup or sharing."""
     notebook = await _get_user_notebook(notebook_id, current_user, session)
-
-    from src.domains.platform.models.ai import AIQuery
-    from src.domains.platform.models.document import Document
-    from src.domains.platform.models.generated_content import GeneratedContent
 
     doc_result = await session.execute(
         select(Document).where(

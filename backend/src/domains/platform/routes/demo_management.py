@@ -3,8 +3,11 @@ import os
 from fastapi import APIRouter, Depends, Response
 from sqlalchemy.orm import Session
 
+from auth.dependencies import _demo_user_cache
 from database import get_db, Base, engine
 from config import settings
+from demo_seed import seed_demo_data
+from src.domains.identity.models.user import User
 
 router = APIRouter(prefix="/api/demo", tags=["Demo"])
 
@@ -47,8 +50,6 @@ async def demo_status():
 @router.get("/profiles")
 async def demo_profiles(db: Session = Depends(get_db)):
     """Return demo personas plus role-specific walkthrough steps."""
-    from src.domains.identity.models.user import User
-
     role_order = ["student", "teacher", "admin", "parent"]
     users = db.query(User).filter(User.role.in_(role_order), User.is_active == True).all()
     user_by_role = {u.role: u for u in users}
@@ -262,11 +263,9 @@ async def reset_demo(db: Session = Depends(get_db)):
         Base.metadata.create_all(bind=engine)
 
         # Re-run seed logic
-        from demo_seed import seed_demo_data
         seed_demo_data(db)
 
         # Clear user cache
-        from auth.dependencies import _demo_user_cache
         _demo_user_cache.clear()
 
         return {"status": "reset_complete", "message": "Demo environment restored to initial state"}

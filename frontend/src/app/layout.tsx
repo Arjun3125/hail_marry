@@ -7,8 +7,6 @@ import { BrandingProvider } from "@/components/theme/BrandingProvider";
 import DemoToolbarWrapper from "@/components/DemoToolbarWrapper";
 import { QueryProvider } from "@/components/providers/QueryProvider";
 
-
-
 export const metadata: Metadata = {
   title: "ModernHustlers — AI-Powered Learning Infrastructure",
   description:
@@ -26,6 +24,9 @@ export default function RootLayout({
     <html lang="en" className="font-sans" suppressHydrationWarning>
       <head>
         <meta name="theme-color" content="#0f172a" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
         <script
           src="https://accounts.google.com/gsi/client"
           async
@@ -57,7 +58,7 @@ export default function RootLayout({
         </ThemeProvider>
         <script
           dangerouslySetInnerHTML={{
-            __html: `if('serviceWorker' in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('/sw.js').catch(()=>{})})}`
+            __html: `if('serviceWorker' in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('/sw.js').catch(()=>{})})}`,
           }}
         />
       </body>
