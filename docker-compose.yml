@@ -3,8 +3,6 @@
 # Usage: docker-compose up -d
 # Optional observability stack: docker-compose --profile observability up -d
 
-version: "3.9"
-
 services:
   postgres:
     image: postgres:15-alpine
@@ -28,7 +26,7 @@ services:
     image: redis:7-alpine
     container_name: vidyaos-redis
     restart: unless-stopped
-    command: [\'redis-server\', \'--maxmemory\', \'256mb\', \'--maxmemory-policy\', \'volatile-lru\']
+    command: ["redis-server", "--maxmemory", "256mb", "--maxmemory-policy", "volatile-lru"]
     ports:
       - "6379:6379"
     volumes:
@@ -60,12 +58,13 @@ services:
     environment:
       DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/vidyaos
       REDIS_URL: redis://redis:6379/0
-      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production-32-char-secret}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       OLLAMA_URL: http://host.docker.internal:11434
       VidyaOS_STORAGE_ROOT: /app/data
       VidyaOS_VECTOR_STORE_DIR: /app/data/vector_store
+      VidyaOS_COMPLIANCE_EXPORT_DIR: /app/data/compliance_exports
       VECTOR_BACKEND_PROVIDER: ${VECTOR_BACKEND_PROVIDER:-faiss}
       QDRANT_URL: ${QDRANT_URL:-http://qdrant:6333}
       QDRANT_API_KEY: ${QDRANT_API_KEY:-}
@@ -96,10 +95,12 @@ services:
     environment:
       DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/vidyaos
       REDIS_URL: redis://redis:6379/0
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production-32-char-secret}
       OLLAMA_URL: http://host.docker.internal:11434
       APP_ENV: production
       VidyaOS_STORAGE_ROOT: /app/data
       VidyaOS_VECTOR_STORE_DIR: /app/data/vector_store
+      VidyaOS_COMPLIANCE_EXPORT_DIR: /app/data/compliance_exports
       VECTOR_BACKEND_PROVIDER: ${VECTOR_BACKEND_PROVIDER:-faiss}
       QDRANT_URL: ${QDRANT_URL:-http://qdrant:6333}
       QDRANT_API_KEY: ${QDRANT_API_KEY:-}

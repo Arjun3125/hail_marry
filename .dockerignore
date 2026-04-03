@@ -39,8 +39,13 @@ wheels/
 .installed.cfg
 *.egg
 .pytest_cache/
+.pytest_tmp/
+pytest_tmp/
 .coverage
 htmlcov/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
 venv/
 .venv/
 ENV/
@@ -58,6 +63,9 @@ out/
 build/
 dist/
 .vercel
+coverage/
+test-results/
+playwright-report/
 
 # Databases & Data
 *.db
@@ -67,9 +75,16 @@ data/
 uploads/
 vector_store/
 private_storage/
+repo/
+raw/
+proxy_notebooklm_publish_*/
+compliance_exports/
+production_readiness_report.md
+*_suite_report.json
 
 # IDE / OS
 .vscode/
 .idea/
 .DS_Store
 Thumbs.db
+*.log

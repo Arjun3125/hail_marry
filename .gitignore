@@ -42,11 +42,18 @@ proxy_notebooklm_publish_*/
 # Frontend test artifacts
 frontend/test-results/
 frontend/playwright-report/
+frontend/coverage/
 compliance_exports/
 production_readiness_report.md
+*_suite_report.json
 
 # Logs
 *.log
+
+# Local tool caches
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
 
 # OS
 .DS_Store
