@@ -20,11 +20,17 @@ depends_on = None
 def upgrade() -> None:
     conn = op.get_bind()
     inspector = Inspector.from_engine(conn)
-    
+
+    parent_history_fk = None
+    table_names = inspector.get_table_names()
+    if "ai_queries" in table_names:
+        parent_history_fk = sa.ForeignKey("ai_queries.id", ondelete="SET NULL")
+    elif "ai_history" in table_names:
+        parent_history_fk = sa.ForeignKey("ai_history.id", ondelete="SET NULL")
+
     # Create generated_content table
-    if "generated_content" not in inspector.get_table_names():
-        op.create_table(
-            "generated_content",
+    if "generated_content" not in table_names:
+        columns = [
             sa.Column("id", UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
             sa.Column("notebook_id", UUID(as_uuid=True), sa.ForeignKey("notebooks.id", ondelete="CASCADE"), nullable=False, index=True),
             sa.Column("user_id", UUID(as_uuid=True), sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True),
@@ -32,10 +38,19 @@ def upgrade() -> None:
             sa.Column("title", sa.String(255), nullable=True),
             sa.Column("content", JSONB, nullable=False),
             sa.Column("source_query", sa.Text(), nullable=True),
-            sa.Column("parent_conversation_id", UUID(as_uuid=True), sa.ForeignKey("ai_history.id", ondelete="SET NULL"), nullable=True),
+        ]
+        if parent_history_fk is not None:
+            columns.append(sa.Column("parent_conversation_id", UUID(as_uuid=True), parent_history_fk, nullable=True))
+        else:
+            columns.append(sa.Column("parent_conversation_id", UUID(as_uuid=True), nullable=True))
+        columns.extend([
             sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("NOW()")),
             sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("NOW()"), onupdate=sa.text("NOW()")),
             sa.Column("is_archived", sa.Boolean(), nullable=False, server_default=sa.text("false")),
+        ])
+        op.create_table(
+            "generated_content",
+            *columns,
         )
         
         # Create composite index for efficient querying
