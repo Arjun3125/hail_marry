@@ -4,15 +4,17 @@
 FROM python:3.12-slim AS builder
 
 WORKDIR /build
+ENV PATH="/opt/venv/bin:$PATH"
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc libpq-dev && rm -rf /var/lib/apt/lists/*
+    gcc libpq-dev && python -m venv /opt/venv && rm -rf /var/lib/apt/lists/*
 
 COPY backend/requirements.txt .
 
-# Install deps, but skip torch/torchvision (not needed for demo)
+# Install demo deps while forcing CPU torch so transitive installs do not pull CUDA wheels.
 RUN grep -v -iE '^(torch|torchvision)' requirements.txt > requirements-demo.txt && \
-    pip install --no-cache-dir --prefix=/install -r requirements-demo.txt
+    pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch==2.10.0 && \
+    pip install --no-cache-dir -r requirements-demo.txt
 
 
 FROM python:3.12-slim
@@ -23,8 +25,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq5 curl && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
+ENV PATH="/opt/venv/bin:$PATH"
 
-COPY --from=builder /install /usr/local
+COPY --from=builder /opt/venv /opt/venv
 
 COPY backend/ .
 
