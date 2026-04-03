@@ -1,0 +1,102 @@
+{
+  "results": [
+    {
+      "file": "backend/tests/evaluation/test_intent_classifier_benchmark.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 41.94,
+      "output_tail": [
+        "......                                                                   [100%]",
+        "6 passed in 36.76s"
+      ]
+    },
+    {
+      "file": "backend/tests/evaluation/test_personalization_benchmark.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 11.05,
+      "output_tail": [
+        "..                                                                       [100%]",
+        "2 passed in 7.34s"
+      ]
+    },
+    {
+      "file": "backend/tests/evaluation/test_ragas_evaluation.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 11.17,
+      "output_tail": [
+        "......s                                                                  [100%]",
+        "6 passed, 1 skipped in 7.57s"
+      ]
+    },
+    {
+      "file": "backend/tests/evaluation/test_retrieval_benchmark.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 11.52,
+      "output_tail": [
+        "........                                                                 [100%]",
+        "8 passed in 7.85s"
+      ]
+    },
+    {
+      "file": "backend/tests/evaluation/test_textbook_feature_grounding.py",
+      "status": "passed",
+      "returncode": 0,
+      "duration_sec": 11.56,
+      "output_tail": [
+        ".....................                                                    [100%]",
+        "21 passed in 7.87s"
+      ]
+    },
+    {
+      "file": "backend/tests/integration/test_webhook_integration.py",
+      "status": "failed",
+      "returncode": 1,
+      "duration_sec": 11.87,
+      "output_tail": [
+        "{\"timestamp\": \"2026-04-02T17:04:48.669582+00:00\", \"level\": \"INFO\", \"service\": \"vidyaos-api\", \"logger\": \"httpx\", \"message\": \"HTTP Request: POST http://testserver/whatsapp/webhook \\\"HTTP/1.1 404 Not Found\\\"\"}",
+        "{\"timestamp\": \"2026-04-02T17:04:48.669777+00:00\", \"level\": \"INFO\", \"service\": \"vidyaos-api\", \"logger\": \"httpx\", \"message\": \"HTTP Request: POST http://testserver/whatsapp/webhook \\\"HTTP/1.1 404 Not Found\\\"\"}",
+        "{\"timestamp\": \"2026-04-02T17:04:48.669967+00:00\", \"level\": \"INFO\", \"service\": \"vidyaos-api\", \"logger\": \"httpx\", \"message\": \"HTTP Request: POST http://testserver/whatsapp/webhook \\\"HTTP/1.1 404 Not Found\\\"\"}",
+        "{\"timestamp\": \"2026-04-02T17:04:48.670156+00:00\", \"level\": \"INFO\", \"service\": \"vidyaos-api\", \"logger\": \"httpx\", \"message\": \"HTTP Request: POST http://testserver/whatsapp/webhook \\\"HTTP/1.1 404 Not Found\\\"\"}",
+        "\\n--- INTEGRATION TEST RESULTS ---",
+        "Status codes array: [404, 404, 404, 404, 404, 404, 404, 404, 404, 404, 404, 404, 404, 404, 404, 404, 404, 404, 404, 404, 404, 404, 404, 404, 404, 404, 404, 404, 404, 404]",
+        "------------------------------ Captured log call ------------------------------",
+        "INFO     httpx:_client.py:1740 HTTP Request: POST http://testserver/whatsapp/webhook \"HTTP/1.1 404 Not Found\"",
+        "INFO     httpx:_client.py:1740 HTTP Request: POST http://testserver/whatsapp/webhook \"HTTP/1.1 404 Not Found\"",
+        "INFO     httpx:_client.py:1740 HTTP Request: POST http://testserver/whatsapp/webhook \"HTTP/1.1 404 Not Found\"",
+        "INFO     httpx:_client.py:1740 HTTP Request: POST http://testserver/whatsapp/webhook \"HTTP/1.1 404 Not Found\"",
+        "INFO     httpx:_client.py:1740 HTTP Request: POST http://testserver/whatsapp/webhook \"HTTP/1.1 404 Not Found\"",
+        "INFO     httpx:_client.py:1740 HTTP Request: POST http://testserver/whatsapp/webhook \"HTTP/1.1 404 Not Found\"",
+        "INFO     httpx:_client.py:1740 HTTP Request: POST http://testserver/whatsapp/webhook \"HTTP/1.1 404 Not Found\"",
+        "INFO     httpx:_client.py:1740 HTTP Request: POST http://testserver/whatsapp/webhook \"HTTP/1.1 404 Not Found\"",
+        "INFO     httpx:_client.py:1740 HTTP Request: POST http://testserver/whatsapp/webhook \"HTTP/1.1 404 Not Found\"",
+        "INFO     httpx:_client.py:1740 HTTP Request: POST http://testserver/whatsapp/webhook \"HTTP/1.1 404 Not Found\"",
+        "INFO     httpx:_client.py:1740 HTTP Request: POST http://testserver/whatsapp/webhook \"HTTP/1.1 404 Not Found\"",
+        "INFO     httpx:_client.py:1740 HTTP Request: POST http://testserver/whatsapp/webhook \"HTTP/1.1 404 Not Found\"",
+        "INFO     httpx:_client.py:1740 HTTP Request: POST http://testserver/whatsapp/webhook \"HTTP/1.1 404 Not Found\"",
+        "INFO     httpx:_client.py:1740 HTTP Request: POST http://testserver/whatsapp/webhook \"HTTP/1.1 404 Not Found\"",
+        "INFO     httpx:_client.py:1740 HTTP Request: POST http://testserver/whatsapp/webhook \"HTTP/1.1 404 Not Found\"",
+        "INFO     httpx:_client.py:1740 HTTP Request: POST http://testserver/whatsapp/webhook \"HTTP/1.1 404 Not Found\"",
+        "INFO     httpx:_client.py:1740 HTTP Request: POST http://testserver/whatsapp/webhook \"HTTP/1.1 404 Not Found\"",
+        "INFO     httpx:_client.py:1740 HTTP Request: POST http://testserver/whatsapp/webhook \"HTTP/1.1 404 Not Found\"",
+        "INFO     httpx:_client.py:1740 HTTP Request: POST http://testserver/whatsapp/webhook \"HTTP/1.1 404 Not Found\"",
+        "INFO     httpx:_client.py:1740 HTTP Request: POST http://testserver/whatsapp/webhook \"HTTP/1.1 404 Not Found\"",
+        "INFO     httpx:_client.py:1740 HTTP Request: POST http://testserver/whatsapp/webhook \"HTTP/1.1 404 Not Found\"",
+        "INFO     httpx:_client.py:1740 HTTP Request: POST http://testserver/whatsapp/webhook \"HTTP/1.1 404 Not Found\"",
+        "INFO     httpx:_client.py:1740 HTTP Request: POST http://testserver/whatsapp/webhook \"HTTP/1.1 404 Not Found\"",
+        "INFO     httpx:_client.py:1740 HTTP Request: POST http://testserver/whatsapp/webhook \"HTTP/1.1 404 Not Found\"",
+        "INFO     httpx:_client.py:1740 HTTP Request: POST http://testserver/whatsapp/webhook \"HTTP/1.1 404 Not Found\"",
+        "INFO     httpx:_client.py:1740 HTTP Request: POST http://testserver/whatsapp/webhook \"HTTP/1.1 404 Not Found\"",
+        "INFO     httpx:_client.py:1740 HTTP Request: POST http://testserver/whatsapp/webhook \"HTTP/1.1 404 Not Found\"",
+        "INFO     httpx:_client.py:1740 HTTP Request: POST http://testserver/whatsapp/webhook \"HTTP/1.1 404 Not Found\"",
+        "INFO     httpx:_client.py:1740 HTTP Request: POST http://testserver/whatsapp/webhook \"HTTP/1.1 404 Not Found\"",
+        "INFO     httpx:_client.py:1740 HTTP Request: POST http://testserver/whatsapp/webhook \"HTTP/1.1 404 Not Found\"",
+        "=========================== short test summary info ===========================",
+        "FAILED backend/tests/integration/test_webhook_integration.py::test_concurrent_webhook_deduplication",
+        "1 failed in 8.13s"
+      ]
+    }
+  ]
+}
