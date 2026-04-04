@@ -21,6 +21,8 @@ def upgrade() -> None:
     conn = op.get_bind()
     inspector = Inspector.from_engine(conn)
     dialect = conn.dialect.name
+    json_array_default = sa.text("'[]'::jsonb") if dialect == "postgresql" else sa.text("'[]'")
+    json_object_default = sa.text("'{}'::jsonb") if dialect == "postgresql" else sa.text("'{}'")
 
     if "learner_profiles" in inspector.get_table_names():
         return
@@ -33,10 +35,10 @@ def upgrade() -> None:
         sa.Column("preferred_language", sa.String(length=32), nullable=False, server_default="english"),
         sa.Column("inferred_expertise_level", sa.String(length=32), nullable=False, server_default="standard"),
         sa.Column("preferred_response_length", sa.String(length=32), nullable=False, server_default="default"),
-        sa.Column("primary_subjects", JSONB(astext_type=sa.Text()), nullable=False, server_default=sa.text("'[]'::jsonb")),
+        sa.Column("primary_subjects", JSONB(astext_type=sa.Text()), nullable=False, server_default=json_array_default),
         sa.Column("engagement_score", sa.Float(), nullable=False, server_default="0"),
         sa.Column("consistency_score", sa.Float(), nullable=False, server_default="0"),
-        sa.Column("signal_summary", JSONB(astext_type=sa.Text()), nullable=False, server_default=sa.text("'{}'::jsonb")),
+        sa.Column("signal_summary", JSONB(astext_type=sa.Text()), nullable=False, server_default=json_object_default),
         sa.Column("last_recomputed_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=True),

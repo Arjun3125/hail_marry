@@ -21,6 +21,8 @@ def upgrade() -> None:
     conn = op.get_bind()
     inspector = Inspector.from_engine(conn)
     dialect = conn.dialect.name
+    json_array_default = sa.text("'[]'::jsonb") if dialect == "postgresql" else sa.text("'[]'")
+    json_object_default = sa.text("'{}'::jsonb") if dialect == "postgresql" else sa.text("'{}'")
 
     if "study_path_plans" in inspector.get_table_names():
         return
@@ -36,8 +38,8 @@ def upgrade() -> None:
         sa.Column("focus_topic", sa.String(length=255), nullable=False),
         sa.Column("status", sa.String(length=32), nullable=False, server_default="active"),
         sa.Column("current_step_index", sa.Integer(), nullable=False, server_default="0"),
-        sa.Column("items", JSONB(astext_type=sa.Text()), nullable=False, server_default=sa.text("'[]'::jsonb")),
-        sa.Column("source_context", JSONB(astext_type=sa.Text()), nullable=False, server_default=sa.text("'{}'::jsonb")),
+        sa.Column("items", JSONB(astext_type=sa.Text()), nullable=False, server_default=json_array_default),
+        sa.Column("source_context", JSONB(astext_type=sa.Text()), nullable=False, server_default=json_object_default),
         sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.text("true")),
         sa.Column("completed_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=True),
