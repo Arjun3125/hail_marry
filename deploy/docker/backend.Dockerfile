@@ -10,8 +10,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-COPY backend/requirements.txt .
-RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+COPY backend/requirements.runtime.txt .
+RUN pip install --no-cache-dir --prefix=/install -r requirements.runtime.txt
 
 FROM python:3.12-slim AS runtime
 

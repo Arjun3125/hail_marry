@@ -4,13 +4,13 @@
 FROM python:3.11-slim as builder
 
 WORKDIR /app
+ENV PATH="/opt/venv/bin:$PATH"
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc libpq-dev && rm -rf /var/lib/apt/lists/*
+    gcc libpq-dev && python -m venv /opt/venv && rm -rf /var/lib/apt/lists/*
 
-COPY backend/requirements.txt .
-RUN pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu && \
-    pip wheel --no-cache-dir --no-deps --wheel-dir /app/wheels -r requirements.txt
+COPY backend/requirements.runtime.txt .
+RUN pip install --no-cache-dir -r requirements.runtime.txt
 
 FROM python:3.11-slim
 
@@ -18,11 +18,9 @@ RUN groupadd -r vidyaos && useradd -r -g vidyaos -d /app -s /sbin/nologin -c "Do
     && apt-get update && apt-get install -y --no-install-recommends libpq-dev curl && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
+ENV PATH="/opt/venv/bin:$PATH"
 
-COPY --from=builder /app/wheels /wheels
-COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
-COPY backend/requirements.txt .
-RUN pip install --no-cache /wheels/*
+COPY --from=builder /opt/venv /opt/venv
 
 COPY backend/ .
 

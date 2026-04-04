@@ -6,10 +6,8 @@ ENV PATH="/opt/venv/bin:$PATH"
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc libpq-dev && python -m venv /opt/venv && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
-RUN grep -v -iE '^(torch|torchvision)(==|$)' requirements.txt > requirements-build.txt && \
-    pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch==2.10.0 && \
-    pip install --no-cache-dir -r requirements-build.txt
+COPY requirements.runtime.txt .
+RUN pip install --no-cache-dir -r requirements.runtime.txt
 
 
 FROM python:3.11-slim

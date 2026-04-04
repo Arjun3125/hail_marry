@@ -8,10 +8,8 @@ WORKDIR /build
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc libpq-dev && rm -rf /var/lib/apt/lists/*
 
-COPY backend/requirements.txt .
-
-RUN grep -v -iE '^(torch|torchvision)' requirements.txt > requirements-demo.txt && \
-    pip install --no-cache-dir --prefix=/install -r requirements-demo.txt
+COPY backend/requirements.runtime.txt .
+RUN pip install --no-cache-dir --prefix=/install -r requirements.runtime.txt
 
 FROM python:3.12-slim
 
