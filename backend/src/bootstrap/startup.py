@@ -98,6 +98,11 @@ def _apply_demo_schema_compatibility_fixes(engine) -> None:
         if column_name not in existing_columns:
             connection.exec_driver_sql(f"ALTER TABLE {table_name} ADD COLUMN {ddl}")
 
+    # These schema fixes use SQLite-specific queries (PRAGMA, sqlite_master).
+    # If the user is running production Postgres, Alembic handles migrations.
+    if engine.url.drivername != "sqlite":
+        return
+
     with engine.begin() as connection:
         table_names = {
             row[0]
