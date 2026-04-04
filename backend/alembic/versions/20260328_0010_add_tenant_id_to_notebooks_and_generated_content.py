@@ -25,12 +25,13 @@ def upgrade() -> None:
     conn = op.get_bind()
     inspector = Inspector.from_engine(conn)
     dialect = conn.dialect.name
+    table_names = set(inspector.get_table_names())
 
-    if "notebooks" in inspector.get_table_names():
+    if "notebooks" in table_names:
         notebook_columns = [col["name"] for col in inspector.get_columns("notebooks")]
         if "tenant_id" not in notebook_columns:
             op.add_column("notebooks", sa.Column("tenant_id", UUID(as_uuid=True), nullable=True))
-            if dialect == "postgresql":
+            if dialect == "postgresql" and "tenants" in table_names:
                 op.create_foreign_key(
                     "fk_notebooks_tenant",
                     "notebooks",
@@ -39,30 +40,33 @@ def upgrade() -> None:
                     ["id"],
                     ondelete="CASCADE",
                 )
-        conn.execute(
-            sa.text(
-                """
-                UPDATE notebooks
-                SET tenant_id = (
-                    SELECT users.tenant_id
-                    FROM users
-                    WHERE users.id = notebooks.user_id
+        if "users" in table_names and "user_id" in notebook_columns:
+            conn.execute(
+                sa.text(
+                    """
+                    UPDATE notebooks
+                    SET tenant_id = (
+                        SELECT users.tenant_id
+                        FROM users
+                        WHERE users.id = notebooks.user_id
+                    )
+                    WHERE tenant_id IS NULL
+                    """
                 )
-                WHERE tenant_id IS NULL
-                """
             )
-        )
+        inspector = Inspector.from_engine(conn)
         if not _has_index(inspector, "notebooks", "idx_notebooks_tenant_id"):
             op.create_index("idx_notebooks_tenant_id", "notebooks", ["tenant_id"])
         if dialect == "postgresql":
             op.alter_column("notebooks", "tenant_id", nullable=False)
 
     inspector = Inspector.from_engine(conn)
-    if "generated_content" in inspector.get_table_names():
+    table_names = set(inspector.get_table_names())
+    if "generated_content" in table_names:
         content_columns = [col["name"] for col in inspector.get_columns("generated_content")]
         if "tenant_id" not in content_columns:
             op.add_column("generated_content", sa.Column("tenant_id", UUID(as_uuid=True), nullable=True))
-            if dialect == "postgresql":
+            if dialect == "postgresql" and "tenants" in table_names:
                 op.create_foreign_key(
                     "fk_generated_content_tenant",
                     "generated_content",
@@ -71,19 +75,26 @@ def upgrade() -> None:
                     ["id"],
                     ondelete="CASCADE",
                 )
-        conn.execute(
-            sa.text(
-                """
-                UPDATE generated_content
-                SET tenant_id = (
-                    SELECT notebooks.tenant_id
-                    FROM notebooks
-                    WHERE notebooks.id = generated_content.notebook_id
-                )
-                WHERE tenant_id IS NULL
-                """
-            )
+        notebook_columns = (
+            [col["name"] for col in inspector.get_columns("notebooks")]
+            if "notebooks" in table_names
+            else []
         )
+        if "notebooks" in table_names and "tenant_id" in notebook_columns:
+            conn.execute(
+                sa.text(
+                    """
+                    UPDATE generated_content
+                    SET tenant_id = (
+                        SELECT notebooks.tenant_id
+                        FROM notebooks
+                        WHERE notebooks.id = generated_content.notebook_id
+                    )
+                    WHERE tenant_id IS NULL
+                    """
+                )
+            )
+        inspector = Inspector.from_engine(conn)
         if not _has_index(inspector, "generated_content", "idx_generated_content_tenant_id"):
             op.create_index("idx_generated_content_tenant_id", "generated_content", ["tenant_id"])
         if dialect == "postgresql":
