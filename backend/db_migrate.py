@@ -65,6 +65,51 @@ def _get_alembic_config():
     return alembic_cfg
 
 
+def _fix_postgresql_boolean_columns() -> None:
+    """
+    On PostgreSQL, columns like is_active must be BOOLEAN, not INTEGER,
+    otherwise 'column = true' queries fail. This function auto-converts them.
+    """
+    from sqlalchemy import text
+    from database import engine
+
+    if "postgresql" not in str(engine.url):
+        return
+
+    tables_to_fix = {
+        "tenants": ["is_active"],
+        "billing_plans": ["is_active"],
+        "fee_structures": ["is_active"],
+    }
+
+    logger.info("Checking PostgreSQL column types for boolean compatibility...")
+    with engine.connect() as conn:
+        for table, columns in tables_to_fix.items():
+            for col in columns:
+                try:
+                    # Check if column is integer
+                    res = conn.execute(text(
+                        f"SELECT data_type FROM information_schema.columns "
+                        f"WHERE table_name = '{table}' AND column_name = '{col}'"
+                    )).scalar()
+                    
+                    if res == "integer":
+                        logger.info(f"Converting {table}.{col} from INTEGER to BOOLEAN...")
+                        # PostgreSQL requires explicit conversion: USING (col::boolean)
+                        conn.execute(text(
+                            f"ALTER TABLE {table} ALTER COLUMN {col} TYPE BOOLEAN "
+                            f"USING ({col}::boolean)"
+                        ))
+                        # Also fix default if it was '1'
+                        conn.execute(text(
+                            f"ALTER TABLE {table} ALTER COLUMN {col} SET DEFAULT true"
+                        ))
+                        conn.commit()
+                        logger.info(f"Successfully converted {table}.{col}.")
+                except Exception as e:
+                    logger.warning(f"Could not fix column {table}.{col}: {e}")
+
+
 def run_migrations() -> bool:
     """Run database migrations. Returns True on success."""
     try:
@@ -79,6 +124,10 @@ def run_migrations() -> bool:
             logger.info("Running database migrations (alembic upgrade head)...")
             command.upgrade(alembic_cfg, "head")
             logger.info("Database migrations completed successfully.")
+        
+        # After migrations/creation, ensure PostgreSQL types are correct
+        _fix_postgresql_boolean_columns()
+        
         return True
     except Exception as exc:
         logger.error("Database migration failed: %s", exc)

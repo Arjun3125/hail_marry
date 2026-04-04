@@ -1,6 +1,6 @@
 """Fee management models — fee structures, invoices, and payments."""
 import uuid
-from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String, func
+from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from database import Base
 
@@ -16,7 +16,7 @@ class FeeStructure(Base):
     frequency = Column(String(20), nullable=False)       # monthly, quarterly, yearly, one_time
     academic_year = Column(String(20), default="2025-26")
     description = Column(String(500), nullable=True)
-    is_active = Column(Integer, default=1)
+    is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 

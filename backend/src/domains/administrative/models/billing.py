@@ -1,6 +1,6 @@
 """Billing models for Razorpay payment integration."""
 import uuid
-from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String, func
+from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from database import Base
 
@@ -14,7 +14,7 @@ class BillingPlan(Base):
     price_per_student_yearly = Column(Integer, nullable=False)      # in INR
     features = Column(JSONB, nullable=True)                         # {"ai_chat": true, ...}
     razorpay_plan_id = Column(String(100), nullable=True)           # Razorpay plan reference
-    is_active = Column(Integer, default=1)
+    is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 

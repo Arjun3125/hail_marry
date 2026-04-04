@@ -17,7 +17,7 @@ class Tenant(Base):
     plan_tier = Column(String(50), default="basic")
     max_students = Column(Integer, default=100)
     ai_daily_limit = Column(Integer, default=50)
-    is_active = Column(Integer, default=1)
+    is_active = Column(Boolean, default=True)
 
     saml_enabled = Column(Boolean, nullable=False, default=False, server_default="false")
     saml_entity_id = Column(String(500), nullable=True)
