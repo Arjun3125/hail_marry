@@ -13,7 +13,14 @@ _HTTPX_INSTRUMENTED = False
 _SQLALCHEMY_INSTRUMENTED_ENGINES: set[int] = set()
 
 
+_OTEL_CACHE = None
+_OTEL_CHECKED = False
+
 def _load_otel():
+    global _OTEL_CACHE, _OTEL_CHECKED
+    if _OTEL_CHECKED:
+        return _OTEL_CACHE
+    _OTEL_CHECKED = True
     try:
         from opentelemetry import trace
         from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
@@ -25,7 +32,7 @@ def _load_otel():
         from opentelemetry.sdk.trace import TracerProvider
         from opentelemetry.sdk.trace.export import BatchSpanProcessor
         from opentelemetry.sdk.trace.sampling import TraceIdRatioBased
-        return {
+        _OTEL_CACHE = {
             "trace": trace,
             "OTLPSpanExporter": OTLPSpanExporter,
             "FastAPIInstrumentor": FastAPIInstrumentor,
@@ -37,8 +44,9 @@ def _load_otel():
             "BatchSpanProcessor": BatchSpanProcessor,
             "TraceIdRatioBased": TraceIdRatioBased,
         }
+        return _OTEL_CACHE
     except Exception as exc:
-        logger.warning("OpenTelemetry packages unavailable: %s", exc)
+        logger.debug("OpenTelemetry not installed (optional): %s", exc)
         return None
 
 

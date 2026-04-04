@@ -8,7 +8,7 @@ try:
     _HAS_POSTHOG = True
 except ImportError:
     _HAS_POSTHOG = False
-    logger.warning("posthog package not installed — analytics disabled.")
+    logger.debug("posthog package not installed — analytics disabled.")
 
 class AnalyticsService:
     def __init__(self):
@@ -27,7 +27,7 @@ class AnalyticsService:
             except Exception as e:
                 logger.error(f"Failed to initialize PostHog: {e}")
         else:
-            logger.warning("POSTHOG_API_KEY not found. Analytics disabled.")
+            logger.info("PostHog analytics disabled (no POSTHOG_API_KEY).")
 
     def track_event(self, distinct_id: str, event_name: str, properties: dict = None):
         if not self.client:

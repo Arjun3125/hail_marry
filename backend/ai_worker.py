@@ -100,24 +100,33 @@ async def worker_loop() -> None:
     # ── 5. Main job loop with exponential backoff ──
     consecutive_queue_failures = 0
     MAX_BACKOFF = 300  # 5 minutes max
+    _queue_warned = False
 
     try:
         while True:
             update_dependency_status(collect_dependency_status("worker"))
             mark_worker_heartbeat(status="idle")
             try:
+                # Reset Redis availability cache periodically so we can reconnect
+                if consecutive_queue_failures > 0 and consecutive_queue_failures % 10 == 0:
+                    from src.domains.platform.services import ai_queue as _aq
+                    _aq._redis_available = None
+
                 job_id = await asyncio.to_thread(claim_next_job)
                 consecutive_queue_failures = 0  # Reset on success
+                if _queue_warned:
+                    logger.info("Queue connection restored — processing jobs.")
+                    _queue_warned = False
             except Exception as e:
                 consecutive_queue_failures += 1
-                # Exponential backoff: 15s → 30s → 60s → 120s → 300s (cap)
                 backoff = min(15 * (2 ** (consecutive_queue_failures - 1)), MAX_BACKOFF)
-                if consecutive_queue_failures <= 3 or consecutive_queue_failures % 20 == 0:
-                    # Only log first few failures and then every 20th to avoid spam
-                    logger.warning(
-                        "Queue unavailable (attempt %d, sleeping %ds): %s",
-                        consecutive_queue_failures, backoff, e,
+                if not _queue_warned:
+                    # Log once, then stay quiet
+                    logger.info(
+                        "Queue not available (%s). Worker will silently retry every %ds.",
+                        e, MAX_BACKOFF,
                     )
+                    _queue_warned = True
                 await asyncio.sleep(backoff)
                 continue
 
