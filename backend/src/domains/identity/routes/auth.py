@@ -24,6 +24,7 @@ from src.domains.identity.services.saml_sso import (
     process_saml_acs,
     saml_login_redirect,
 )
+from src.shared.analytics import analytics
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
@@ -153,6 +154,16 @@ async def google_login(
         max_age=7 * 24 * 3600,
         path="/api/auth/refresh",
     )
+    # Identify user in PostHog
+    analytics.identify_user(str(user.id), {
+        "email": user.email,
+        "name": user.full_name,
+        "role": user.role,
+        "tenant_id": str(user.tenant_id),
+        "auth_provider": "google"
+    })
+    analytics.track_event(str(user.id), "user_logged_in", {"method": "google"})
+
     return TokenResponse(access_token=access_token)
 
 
@@ -234,6 +245,16 @@ async def local_login(
         max_age=7 * 24 * 3600,
         path="/api/auth/refresh",
     )
+    # Identify user in PostHog
+    analytics.identify_user(str(user.id), {
+        "email": user.email,
+        "name": user.full_name,
+        "role": user.role,
+        "tenant_id": str(user.tenant_id),
+        "auth_provider": "local"
+    })
+    analytics.track_event(str(user.id), "user_logged_in", {"method": "local"})
+
     return TokenResponse(access_token=access_token)
 
 
@@ -275,6 +296,16 @@ async def qr_login(
 ):
     user = _consume_qr_token(db, request.token)
     access_token = _issue_login_tokens(user, response)
+    # Identify user in PostHog
+    analytics.identify_user(str(user.id), {
+        "email": user.email,
+        "name": user.full_name,
+        "role": user.role,
+        "tenant_id": str(user.tenant_id),
+        "auth_provider": "qr"
+    })
+    analytics.track_event(str(user.id), "user_logged_in", {"method": "qr"})
+
     return TokenResponse(access_token=access_token)
 
 

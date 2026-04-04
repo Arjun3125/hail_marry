@@ -21,6 +21,7 @@ from src.domains.platform.services.worker_runtime import (
     mark_worker_success,
     update_dependency_status,
 )
+from src.shared.analytics import analytics
 
 configure_structured_logging(service_name="vidyaos-ai-worker")
 configure_sentry(service_name="vidyaos-ai-worker")
@@ -124,14 +125,35 @@ async def worker_loop() -> None:
                 continue
 
             logger.info("Processing AI job %s on worker %s", job_id, WORKER_ID)
+            analytics.track_event(
+                WORKER_ID, 
+                "ai_worker_job_processed", 
+                {"job_id": job_id, "worker_id": WORKER_ID}
+            )
             mark_worker_heartbeat(status="running", job_id=job_id)
             try:
                 result = await process_job(job_id, worker_id=WORKER_ID)
                 if result and result.get("status") == "completed":
+                    analytics.track_event(
+                        WORKER_ID, 
+                        "ai_worker_job_success", 
+                        {"job_id": job_id, "worker_id": WORKER_ID}
+                    )
                     mark_worker_success(job_id)
                 else:
-                    mark_worker_failure(job_id, result.get("error", "job did not complete") if result else "job missing")
+                    error_msg = result.get("error", "job did not complete") if result else "job missing"
+                    analytics.track_event(
+                        WORKER_ID, 
+                        "ai_worker_job_failed", 
+                        {"job_id": job_id, "worker_id": WORKER_ID, "error": error_msg}
+                    )
+                    mark_worker_failure(job_id, error_msg)
             except Exception as exc:
+                analytics.track_event(
+                    WORKER_ID, 
+                    "ai_worker_job_exception", 
+                    {"job_id": job_id, "worker_id": WORKER_ID, "error": str(exc)}
+                )
                 mark_worker_failure(job_id, str(exc))
                 raise
     finally:

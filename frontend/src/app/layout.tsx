@@ -6,6 +6,7 @@ import { LanguageProvider } from "@/i18n/LanguageProvider";
 import { BrandingProvider } from "@/components/theme/BrandingProvider";
 import DemoToolbarWrapper from "@/components/DemoToolbarWrapper";
 import { QueryProvider } from "@/components/providers/QueryProvider";
+import { PostHogProvider } from "@/providers/PostHogProvider";
 
 export const metadata: Metadata = {
   title: "ModernHustlers — AI-Powered Learning Infrastructure",
@@ -44,17 +45,19 @@ export default function RootLayout({
           storageKey="vidyaos-theme"
           disableTransitionOnChange
         >
-          <LanguageProvider>
-            <QueryProvider>
-              <BrandingProvider>
-                <main id="main-content">
-                  {children}
-                </main>
-                <DemoToolbarWrapper />
-                <div aria-live="polite" aria-atomic="true" className="sr-only" id="screen-reader-announcer" />
-              </BrandingProvider>
-            </QueryProvider>
-          </LanguageProvider>
+          <PostHogProvider>
+            <LanguageProvider>
+              <QueryProvider>
+                <BrandingProvider>
+                  <main id="main-content">
+                    {children}
+                  </main>
+                  <DemoToolbarWrapper />
+                  <div aria-live="polite" aria-atomic="true" className="sr-only" id="screen-reader-announcer" />
+                </BrandingProvider>
+              </QueryProvider>
+            </LanguageProvider>
+          </PostHogProvider>
         </ThemeProvider>
         <script
           dangerouslySetInnerHTML={{
