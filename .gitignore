@@ -28,7 +28,12 @@ out/
 # Data
 data/
 uploads/
-vector_store/
+/vector_store/
+/backend/vector_store/
+!backend/src/infrastructure/vector_store/
+!backend/src/infrastructure/vector_store/**
+backend/src/infrastructure/vector_store/__pycache__/
+backend/src/infrastructure/vector_store/*.py[cod]
 private_storage/
 *.db
 *.sqlite

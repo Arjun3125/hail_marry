@@ -2,13 +2,15 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 from contextlib import asynccontextmanager
 
 from database import Base
 from src.domains.platform.services.feature_flags import init_feature_flags
-from src.domains.platform.services.runtime_scheduler import run_digest_loop, run_doc_watch_loop
 from src.domains.platform.services.startup_checks import enforce_startup_dependencies
+
+logger = logging.getLogger("startup")
 
 
 def create_lifespan(container):
@@ -24,8 +26,7 @@ def create_lifespan(container):
             try:
                 enforce_startup_dependencies("api")
             except Exception as exc:
-                import logging
-                logging.getLogger("startup").warning(
+                logger.warning(
                     "Startup dependency checks failed (continuing in demo mode): %s", exc
                 )
 
@@ -33,9 +34,19 @@ def create_lifespan(container):
         tasks: list[asyncio.Task] = []
         if not os.environ.get("TESTING"):
             if container.settings.doc_watch.enabled:
-                tasks.append(asyncio.create_task(run_doc_watch_loop(stop_event)))
+                _maybe_schedule_runtime_task(
+                    tasks,
+                    stop_event,
+                    task_label="doc watch",
+                    runner_name="run_doc_watch_loop",
+                )
             if container.settings.digest_email.enabled:
-                tasks.append(asyncio.create_task(run_digest_loop(stop_event)))
+                _maybe_schedule_runtime_task(
+                    tasks,
+                    stop_event,
+                    task_label="digest email",
+                    runner_name="run_digest_loop",
+                )
         yield
         stop_event.set()
         for task in tasks:
@@ -44,6 +55,28 @@ def create_lifespan(container):
             await asyncio.gather(*tasks, return_exceptions=True)
 
     return lifespan
+
+
+def _maybe_schedule_runtime_task(
+    tasks: list[asyncio.Task],
+    stop_event: asyncio.Event,
+    *,
+    task_label: str,
+    runner_name: str,
+) -> None:
+    """Import the runtime scheduler lazily so optional background jobs do not block API boot."""
+    try:
+        from src.domains.platform.services import runtime_scheduler
+
+        runner = getattr(runtime_scheduler, runner_name)
+    except Exception as exc:  # pragma: no cover - defensive startup path
+        logger.warning("Skipping %s startup because runtime scheduler import failed: %s", task_label, exc)
+        return
+
+    try:
+        tasks.append(asyncio.create_task(runner(stop_event)))
+    except Exception as exc:  # pragma: no cover - defensive startup path
+        logger.warning("Skipping %s startup because task creation failed: %s", task_label, exc)
 
 
 def _apply_demo_schema_compatibility_fixes(engine) -> None:
@@ -95,4 +128,3 @@ def initialize_demo_mode(container) -> None:
         db_session.close()
     except Exception as exc:  # pragma: no cover - demo-only compatibility path
         print(f"Warning: demo seed check failed: {exc}")
-

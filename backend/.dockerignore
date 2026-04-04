@@ -73,7 +73,11 @@ playwright-report/
 *.sqlite3
 data/
 uploads/
-vector_store/
+/vector_store/
+!src/infrastructure/vector_store/
+!src/infrastructure/vector_store/**
+src/infrastructure/vector_store/__pycache__/
+src/infrastructure/vector_store/*.py[cod]
 private_storage/
 repo/
 raw/
