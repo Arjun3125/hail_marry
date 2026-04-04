@@ -24,6 +24,33 @@ def create_lifespan(container):
 
         if not os.environ.get("TESTING"):
             try:
+                # 1. Run Alembic migrations programmatically
+                logger.info("Running database migrations...")
+                from alembic import command
+                from alembic.config import Config
+                alembic_cfg = Config("alembic.ini")
+                
+                # Execute in thread to avoid blocking async loop
+                await asyncio.to_thread(command.upgrade, alembic_cfg, "head")
+
+                # 2. Check if we need to seed
+                from src.domains.identity.models.tenant import Tenant
+                db = container.session_local()
+                tenant_count = db.query(Tenant).count()
+                db.close()
+
+                if tenant_count == 0:
+                    logger.info("Database is empty, running CBSE Demo seeder...")
+                    try:
+                        from seed_cbse_demo import seed as seed_cbse
+                        await asyncio.to_thread(seed_cbse, skip_embeddings=False) 
+                    except Exception as seed_exc:
+                        logger.error("CBSE seeder failed (continuing boot): %s", seed_exc)
+
+            except Exception as exc:
+                logger.error("Failed to auto-migrate or seed database on boot: %s", exc)
+
+            try:
                 enforce_startup_dependencies("api")
             except Exception as exc:
                 logger.warning(

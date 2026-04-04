@@ -50,12 +50,10 @@ def _service_checks(service_name: str) -> dict[str, tuple[bool, str]]:
         "database": _check_database(),
         "redis": _check_redis(),
     }
-    if service_name == "api":
-        checks["ai_service"] = _check_http_health(f"{settings.ai_service.url.rstrip('/')}/health", timeout_seconds=timeout)
-    elif service_name == "ai-service":
+    
+    if service_name == "ai-service":
         checks["ollama"] = _check_http_health(f"{settings.llm.url.rstrip('/')}/api/tags", timeout_seconds=timeout)
-    elif service_name == "worker":
-        checks["ai_service"] = _check_http_health(f"{settings.ai_service.url.rstrip('/')}/health", timeout_seconds=timeout)
+    
     return checks
 
 
