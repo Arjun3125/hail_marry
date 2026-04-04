@@ -6,7 +6,7 @@ import json
 import os
 import secrets
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 try:
     import yaml
 except ModuleNotFoundError:  # Lightweight test environments
@@ -29,7 +29,7 @@ except ModuleNotFoundError:  # Lightweight test environments
         return decorator
 
 try:
-    from pydantic_settings import BaseSettings, SettingsConfigDict
+    from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 except ModuleNotFoundError:
     # Minimal compatibility fallback for environments where
     # `pydantic-settings` is not installed.
@@ -51,6 +51,9 @@ except ModuleNotFoundError:
 
     class BaseSettings(BaseModel):
         model_config = {"extra": "ignore"}
+
+    class NoDecode:
+        pass
 
     def SettingsConfigDict(**kwargs):
         return kwargs
@@ -994,7 +997,7 @@ class AppSettings(BaseSettings):
     demo_mode: bool = Field(
         default=os.getenv("DEMO_MODE", "false").strip().lower() in ("true", "1", "yes")
     )
-    cors_origins: list[str] = Field(
+    cors_origins: Annotated[list[str], NoDecode] = Field(
         default_factory=lambda: _parse_cors_origins(
             os.getenv("APP_CORS_ORIGINS"),
             _yaml_config.get("app", {}).get("cors_origins", ["http://localhost:3000"]),
