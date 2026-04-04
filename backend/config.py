@@ -12,12 +12,15 @@ try:
 except ModuleNotFoundError:  # Lightweight test environments
     yaml = None
 try:
-    from pydantic import Field
+    from pydantic import BeforeValidator, Field
     try:
         from pydantic import field_validator
     except ImportError:  # Pydantic v1 compatibility
         from pydantic import validator as field_validator
 except ModuleNotFoundError:  # Lightweight test environments
+    def BeforeValidator(fn):
+        return fn
+
     def Field(default=None, default_factory=None, **_kwargs):
         if default_factory is not None:
             return default_factory()
@@ -92,6 +95,7 @@ def _deep_merge(base: dict, override: dict) -> dict:
 
 
 _yaml_config = load_yaml_config()
+_default_cors_origins = _yaml_config.get("app", {}).get("cors_origins", ["http://localhost:3000"])
 
 
 def _normalize_origin(origin: str) -> str:
@@ -997,10 +1001,14 @@ class AppSettings(BaseSettings):
     demo_mode: bool = Field(
         default=os.getenv("DEMO_MODE", "false").strip().lower() in ("true", "1", "yes")
     )
-    cors_origins: Annotated[list[str], NoDecode] = Field(
+    cors_origins: Annotated[
+        list[str],
+        NoDecode,
+        BeforeValidator(lambda value: _parse_cors_origins(value, _default_cors_origins)),
+    ] = Field(
         default_factory=lambda: _parse_cors_origins(
             os.getenv("APP_CORS_ORIGINS"),
-            _yaml_config.get("app", {}).get("cors_origins", ["http://localhost:3000"]),
+            _default_cors_origins,
         )
     )
 
@@ -1009,7 +1017,7 @@ class AppSettings(BaseSettings):
     def validate_cors_origins(cls, value: Any):
         return _parse_cors_origins(
             value,
-            _yaml_config.get("app", {}).get("cors_origins", ["http://localhost:3000"]),
+            _default_cors_origins,
         )
 
 

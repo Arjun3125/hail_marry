@@ -58,6 +58,20 @@ class CORSParsingTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.parse(12345)
 
+    def test_app_settings_accepts_plain_env_origin(self):
+        from config import AppSettings
+
+        original = os.environ.get("APP_CORS_ORIGINS")
+        os.environ["APP_CORS_ORIGINS"] = "https://proxy-notebooklm.vercel.app"
+        try:
+            settings = AppSettings()
+            self.assertEqual(settings.cors_origins, ["https://proxy-notebooklm.vercel.app"])
+        finally:
+            if original is None:
+                os.environ.pop("APP_CORS_ORIGINS", None)
+            else:
+                os.environ["APP_CORS_ORIGINS"] = original
+
 
 class SecurityDefaultTests(unittest.TestCase):
     """Verify JWT secret enforcement behavior."""
