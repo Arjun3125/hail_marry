@@ -6,10 +6,9 @@ from config import settings
 from database import SessionLocal
 from src.infrastructure.llm.cache import _get_redis as _get_redis_client
 
-# We will need to import the actual models used for Attendance and Fees.
-# Assuming standard domain layouts based on the previous tools:
-from src.domains.academic.models.attendance import DailyAttendance
-from src.domains.administrative.models.fee import FeeRecord
+# Attendance records are stored in the Attendance model.
+from src.domains.academic.models.attendance import Attendance
+from src.domains.administrative.models.fee import FeeInvoice
 from src.domains.identity.models.user import User
 
 logger = logging.getLogger(__name__)
@@ -31,7 +30,7 @@ def aggregate_tenant_analytics(tenant_id: str, db: Session | None = None):
         # 1. School Attendance Summary
         # Simple count for demonstration. In reality, it matches the erp_tools logic.
         total_students = db.query(User).filter_by(tenant_id=tenant_id, role="student", is_active=True).count()
-        today_attendance = db.query(DailyAttendance).filter_by(tenant_id=tenant_id).count() # Simplified
+        today_attendance = db.query(Attendance).filter_by(tenant_id=tenant_id).count()  # Simplified
         
         attendance_data = {
             "total_students": total_students,
@@ -46,9 +45,9 @@ def aggregate_tenant_analytics(tenant_id: str, db: Session | None = None):
         )
         
         # 2. Fee Pending Report
-        total_pending = db.query(func.sum(FeeRecord.balance_amount)).filter(
-            FeeRecord.tenant_id == tenant_id,
-            FeeRecord.status == "pending"
+        total_pending = db.query(func.sum(FeeInvoice.amount_due - FeeInvoice.amount_paid)).filter(
+            FeeInvoice.tenant_id == tenant_id,
+            FeeInvoice.status == "pending"
         ).scalar() or Decimal("0.00")
         
         fee_data = {
