@@ -52,9 +52,10 @@ async def _run_periodic_aggregation() -> None:
     while True:
         try:
             await asyncio.to_thread(run_analytics_aggregation)
+            await asyncio.sleep(900)  # 15 minutes
         except Exception as e:
             logger.error(f"Error in periodic aggregation task: {e}")
-        await asyncio.sleep(900)  # 15 minutes
+            await asyncio.sleep(60)  # Retry sooner on error (e.g., db not migrated yet)
 
 
 async def worker_loop() -> None:
@@ -64,16 +65,25 @@ async def worker_loop() -> None:
     health_task = asyncio.create_task(_serve_worker_health())
     aggregation_task = asyncio.create_task(_run_periodic_aggregation())
 
-    recovered = recover_processing_jobs()
-    if recovered:
-        logger.info("Recovered %s in-flight AI jobs back to the pending queue.", recovered)
+    try:
+        recovered = recover_processing_jobs()
+        if recovered:
+            logger.info("Recovered %s in-flight AI jobs back to the pending queue.", recovered)
+    except Exception as e:
+        logger.warning(f"Failed to recover jobs (queue may be disabled or unavailable): {e}")
 
     logger.info("AI worker started.")
     try:
         while True:
             update_dependency_status(collect_dependency_status("worker"))
             mark_worker_heartbeat(status="idle")
-            job_id = await asyncio.to_thread(claim_next_job)
+            try:
+                job_id = await asyncio.to_thread(claim_next_job)
+            except Exception as e:
+                logger.warning(f"Queue unavailable (sleeping 15s): {e}")
+                await asyncio.sleep(15)
+                continue
+
             if not job_id:
                 continue
 
