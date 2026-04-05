@@ -91,7 +91,7 @@ export default function ParentDashboardPage() {
             {loading ? (
                 <div className="flex flex-col items-center justify-center p-20 min-h-[50vh]">
                     <Loader2 className="w-10 h-10 animate-spin text-[var(--accent-indigo)] mb-4" />
-                    <p className="text-sm font-medium text-[var(--text-muted)] animate-pulse">Syncing child's records...</p>
+                    <p className="text-sm font-medium text-[var(--text-muted)] animate-pulse">Syncing child&apos;s records...</p>
                 </div>
             ) : data ? (
                 <>
@@ -110,7 +110,7 @@ export default function ParentDashboardPage() {
                                     </div>
                                 </div>
                                 <h1 className="text-4xl md:text-5xl font-black text-[var(--text-primary)] tracking-tight mb-2">
-                                    {data.child.name}'s Dashboard
+                                    {`${data.child.name}'s Dashboard`}
                                 </h1>
                                 <p className="text-sm text-[var(--text-muted)] flex items-center gap-2">
                                     <GraduationCap className="w-4 h-4 text-[var(--accent-purple)]" />

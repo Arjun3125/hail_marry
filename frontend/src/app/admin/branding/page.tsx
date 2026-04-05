@@ -97,7 +97,7 @@ export default function BrandingConfigPage() {
                         Branding Engine
                     </h1>
                     <p className="text-sm text-[var(--text-secondary)] mt-1">
-                        Customize the platform's visual identity. Changes will instantly propagate to all students and teachers under your organization.
+                        Customize the platform visual identity. Changes will instantly propagate to all students and teachers under your organization.
                     </p>
                 </div>
 
@@ -110,7 +110,7 @@ export default function BrandingConfigPage() {
                             Logo & Color Extraction
                         </h3>
                         <p className="text-xs text-[var(--text-muted)] mb-4">
-                            Upload a logo to automatically extract your brand's color palette mathematically powered by AI color analysis.
+                            Upload a logo to automatically extract your brand color palette mathematically powered by AI color analysis.
                         </p>
                         
                         <div className="flex items-center gap-4">

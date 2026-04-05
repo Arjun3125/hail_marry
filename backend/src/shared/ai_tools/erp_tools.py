@@ -3,10 +3,8 @@ import json
 from uuid import UUID
 
 from langchain_core.tools import tool
-from sqlalchemy.orm import Session
 
 from src.domains.administrative.services.library import search_catalog, get_library_stats
-from src.domains.administrative.services.fee_management import get_fee_report
 
 # Using a global context hack or passing state via RunnableConfig in real LangGraph
 # but for simplicity, we mock Db session access for the agent tools if needed

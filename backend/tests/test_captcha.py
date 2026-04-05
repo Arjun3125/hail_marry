@@ -1,5 +1,4 @@
 """Tests for reCAPTCHA / bot protection."""
-import pytest
 from middleware.captcha import (
     PROTECTED_ENDPOINTS, RECAPTCHA_SCORE_THRESHOLD,
     is_human, is_protected_endpoint,

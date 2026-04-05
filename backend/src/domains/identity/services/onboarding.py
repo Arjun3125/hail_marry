@@ -1,7 +1,6 @@
 """Self-service tenant onboarding — school registration, class/subject setup, student import."""
 import csv
 import io
-import uuid
 from typing import Optional
 
 from passlib.context import CryptContext

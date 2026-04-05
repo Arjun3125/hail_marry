@@ -53,14 +53,9 @@ def test_feature_flag_toggle_creates_audit_log(client, db_session, active_tenant
     )
     token = _login(client, "admin-features@testschool.edu")
 
-    feature = FeatureFlag(
-        feature_id="ai_chat",
-        name="AI Chat",
-        description="Core AI chat capability",
-        category="AI",
-        enabled=True,
-    )
-    db_session.add(feature)
+    feature = db_session.query(FeatureFlag).filter(FeatureFlag.feature_id == "ai_chat").first()
+    assert feature is not None, "Feature catalog should be initialized during app startup"
+    feature.enabled = True
     db_session.commit()
 
     response = client.post(

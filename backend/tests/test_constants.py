@@ -1,8 +1,6 @@
 """Tests for the centralized constants module."""
-import pytest
 from constants import (
     GRADE_THRESHOLDS,
-    GRADE_FAIL,
     compute_grade,
     ATTENDANCE_HEALTHY_PCT,
     ATTENDANCE_WARNING_PCT,

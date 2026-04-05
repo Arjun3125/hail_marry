@@ -42,7 +42,6 @@ def _create_schema_from_models() -> None:
 def _stamp_alembic_head() -> None:
     """Mark alembic as fully up-to-date (all migrations applied)."""
     from alembic import command
-    from alembic.config import Config
 
     alembic_cfg = _get_alembic_config()
     logger.info("Stamping alembic to 'head' (schema already matches latest models)...")

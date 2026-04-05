@@ -86,7 +86,7 @@ def submit_student_mock_test(
         .filter(
             test_series_model.id == series_id,
             test_series_model.tenant_id == tenant_id,
-            test_series_model.is_active == True,
+            test_series_model.is_active,
         )
         .first()
     )

@@ -63,8 +63,10 @@ export default function GuidedTour({
 
     // Only read localStorage after mounting on client to avoid hydration mismatch
     useEffect(() => {
-        setMounted(true);
-        setShowButton(!localStorage.getItem(storageKey));
+        queueMicrotask(() => {
+            setMounted(true);
+            setShowButton(!localStorage.getItem(storageKey));
+        });
     }, [storageKey]);
 
     const isActive = currentStep >= 0 && currentStep < steps.length;

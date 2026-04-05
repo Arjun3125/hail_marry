@@ -58,7 +58,7 @@ CSV_TEMPLATES = {
 def build_admin_users_response(*, db: Session, tenant_id) -> list[dict]:
     users = db.query(User).filter(
         User.tenant_id == tenant_id,
-        User.is_deleted == False,
+        User.is_deleted.is_(False),
     ).order_by(User.created_at.desc()).all()
 
     user_ids = [user.id for user in users]
@@ -91,7 +91,7 @@ def build_admin_students_response(*, db: Session, tenant_id) -> list[dict]:
     students = db.query(User).filter(
         User.tenant_id == tenant_id,
         User.role == "student",
-        User.is_deleted == False,
+        User.is_deleted.is_(False),
     ).order_by(User.full_name.asc()).all()
 
     class_by_student: dict[UUID, tuple[UUID | None, str | None]] = {}
@@ -229,8 +229,8 @@ def generate_admin_qr_tokens(
     query = db.query(User).filter(
         User.tenant_id == tenant_id,
         User.role == "student",
-        User.is_active == True,
-        User.is_deleted == False,
+        User.is_active,
+        User.is_deleted.is_(False),
     )
 
     parsed_student_ids: list[UUID] | None = None

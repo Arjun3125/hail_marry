@@ -1,7 +1,6 @@
 """Persistent trace event recording and lookup."""
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Any
 from uuid import UUID
 

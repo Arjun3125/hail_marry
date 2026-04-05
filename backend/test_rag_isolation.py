@@ -1,5 +1,6 @@
 """Isolate exactly where the RAG pipeline breaks."""
-import asyncio, os, sys
+import asyncio
+import os
 
 # Set env vars before importing config
 os.environ.setdefault("DATABASE_URL", "sqlite:///./vidyaos_demo.db")
@@ -12,7 +13,7 @@ async def main():
     print("=== RAG Pipeline Isolation Test ===\n")
 
     # 1. Check config
-    print(f"1. Config Check:")
+    print("1. Config Check:")
     print(f"   embedding.provider: {settings.embedding.provider}")
     print(f"   embedding.model: {settings.embedding.model}")
     print(f"   embedding.embed_dim: {settings.embedding.embed_dim}")
@@ -21,7 +22,7 @@ async def main():
     print(f"   OPENAI_BASE_URL: {os.getenv('OPENAI_BASE_URL')}")
 
     # 2. Check FAISS store directly
-    print(f"\n2. FAISS Store Check:")
+    print("\n2. FAISS Store Check:")
     from src.infrastructure.vector_store.vector_store import get_vector_store
     tenant_id = "cc2e868d-7dab-41a4-b474-a65fc23e843c"
     store = get_vector_store(tenant_id)
@@ -30,9 +31,8 @@ async def main():
     if store.chunk_count > 0 and store.metadata:
         print(f"   first chunk text: {store.metadata[0].get('text', '')[:80]}...")
     else:
-        print(f"   ❌ NO CHUNKS FOUND!")
+        print("   ❌ NO CHUNKS FOUND!")
         # Check if files exist at the right path
-        import json
         from pathlib import Path
         vs_dir = Path(settings.storage.vector_store_dir).resolve()
         print(f"   Looking in: {vs_dir}")
@@ -44,7 +44,7 @@ async def main():
             print(f"   dir contents: {list(vs_dir.iterdir())}")
 
     # 3. Test embedding generation
-    print(f"\n3. Embedding Test:")
+    print("\n3. Embedding Test:")
     try:
         from src.infrastructure.llm.embeddings import generate_embedding
         query = "What is the difference between displacement and distance?"
@@ -55,7 +55,7 @@ async def main():
 
     # 4. Test full retrieval
     if store.chunk_count > 0:
-        print(f"\n4. Vector Search Test:")
+        print("\n4. Vector Search Test:")
         try:
             results = store.search(query_embedding=emb, top_k=5)
             print(f"   ✅ Found {len(results)} results")
@@ -64,7 +64,7 @@ async def main():
         except Exception as e:
             print(f"   ❌ Search FAILED: {e}")
 
-        print(f"\n5. Full retrieve_context Test:")
+        print("\n5. Full retrieve_context Test:")
         try:
             from src.infrastructure.vector_store.retrieval import retrieve_context
             chunks = await retrieve_context(query="What is the difference between displacement and distance?", tenant_id=tenant_id, top_k=5)

@@ -6,7 +6,9 @@ Run: python seed_cbse_demo.py
 Env vars required:
   EMBEDDING_API_KEY  — NVIDIA NIM key for nv-embedqa-e5-v5
 """
-import os, sys, uuid, random, json
+import os
+import uuid
+import random
 from datetime import datetime, timedelta, date, time, UTC
 from pathlib import Path
 
@@ -677,10 +679,10 @@ def seed(skip_embeddings: bool = False):
         db.commit()
         logger.info("═" * 60)
         logger.info("  🎉 FULL 20-MODEL SEEDING COMPLETE!")
-        logger.info(f"  Student login: demo_cbse11@modernhustlers.com")
-        logger.info(f"  Teacher login: teacher@modernhustlers.com")
-        logger.info(f"  Admin login:   admin@modernhustlers.com")
-        logger.info(f"  Parent login:  parent@modernhustlers.com")
+        logger.info("  Student login: demo_cbse11@modernhustlers.com")
+        logger.info("  Teacher login: teacher@modernhustlers.com")
+        logger.info("  Admin login:   admin@modernhustlers.com")
+        logger.info("  Parent login:  parent@modernhustlers.com")
         logger.info(f"  Tenant ID:     {tenant_id}")
         logger.info(f"  FAISS chunks:  {total_chunks}")
         logger.info("═" * 60)

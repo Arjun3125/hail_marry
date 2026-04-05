@@ -269,8 +269,8 @@ def _consume_qr_token(db: Session, token: str) -> User:
 
     user = db.query(User).filter(
         User.qr_login_token == token_value,
-        User.is_active == True,
-        User.is_deleted == False,
+        User.is_active,
+        User.is_deleted.is_(False),
     ).first()
     if not user or user.role != "student":
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid QR token")
@@ -344,7 +344,7 @@ async def refresh_tokens(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token revoked")
 
     user_id = payload.get("user_id")
-    user = db.query(User).filter(User.id == user_id, User.is_active == True).first()
+    user = db.query(User).filter(User.id == user_id, User.is_active).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
 

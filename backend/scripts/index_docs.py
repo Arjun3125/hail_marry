@@ -1,5 +1,4 @@
 """Script to index VidyaOS documentation into FAISS for the RAG chatbot."""
-import os
 import sys
 import asyncio
 from pathlib import Path

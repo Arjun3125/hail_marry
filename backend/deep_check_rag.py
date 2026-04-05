@@ -1,5 +1,7 @@
 """Quick end-to-end RAG verification."""
-import httpx, json, base64
+import httpx
+import json
+import base64
 
 BASE = "http://localhost:7125"
 
@@ -8,7 +10,7 @@ print("1. Demo login...")
 r = httpx.post(f"{BASE}/api/auth/demo-login", json={"role": "student"})
 assert r.status_code == 200, f"Login failed: {r.status_code}"
 token = r.json()["access_token"]
-print(f"   ✅ Got token")
+print("   ✅ Got token")
 
 # Decode JWT to see tenant_id
 payload_b64 = token.split(".")[1] + "=="

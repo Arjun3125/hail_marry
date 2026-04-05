@@ -1,9 +1,7 @@
-import pytest
-from httpx import Response
 from uuid import uuid4
 
-def test_login_brute_force_rate_limit(client, db_session, active_tenant):
-    """Ensure that submitting invalid passwords repeatedly triggers HTTP 429."""
+def test_login_brute_force_rate_limit(client, db_session, active_tenant, stub_ai_query_runtime):
+    """Ensure governed AI requests trip the burst limiter before the AI stack matters."""
     hit_rate_limit = False
     
     # Need valid user token up front to pass into the AI query gateway and fetch user_id in middleware
@@ -28,7 +26,8 @@ def test_login_brute_force_rate_limit(client, db_session, active_tenant):
     token = resp.json().get("access_token")
     assert token is not None, "Failed to login for rate limit test"
     
-    # Default rate limit is 5 requests per minute. Make 15 requests to absolutely ensure the boundary trips.
+    # Default rate limit is 5 requests per minute. Use a stubbed AI runtime so the test
+    # exercises middleware behavior rather than embeddings/retrieval latency.
     for _ in range(15):
         resp = client.post(
             "/api/ai/query", 

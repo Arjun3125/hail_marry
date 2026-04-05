@@ -37,7 +37,7 @@ async def demo_login(
 
     # Prefer specific demo email if provided
     if email:
-        user = db.query(User).filter(User.email == email, User.is_active == True).first()
+        user = db.query(User).filter(User.email == email, User.is_active).first()
     else:
         user = None
 
@@ -50,16 +50,16 @@ async def demo_login(
     }
     if not user and role in cbse_demo_emails:
         user = db.query(User).filter(
-            User.email == cbse_demo_emails[role], User.is_active == True
+            User.email == cbse_demo_emails[role], User.is_active
         ).first()
 
     # Fallback: any user with matching role
     if not user:
-        user = db.query(User).filter(User.role == role, User.is_active == True).first()
+        user = db.query(User).filter(User.role == role, User.is_active).first()
 
     if not user:
         # Fallback: find any active user
-        user = db.query(User).filter(User.is_active == True).first()
+        user = db.query(User).filter(User.is_active).first()
 
     if not user:
         raise HTTPException(

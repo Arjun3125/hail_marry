@@ -6,8 +6,7 @@ and persisted via Redis.
 """
 import json
 from datetime import datetime, timezone
-from typing import TypedDict, Annotated, Optional
-import operator
+from typing import TypedDict, Optional
 from uuid import uuid4
 
 from langchain_ollama import ChatOllama
@@ -15,6 +14,11 @@ from langchain_core.messages import SystemMessage
 from langgraph.graph import StateGraph, END
 
 from src.infrastructure.llm.cache import _get_redis
+from src.shared.ai_tools.erp_tools import (
+    check_library_catalog,
+    get_school_library_stats,
+    get_school_financial_report,
+)
 
 WORKFLOW_TEMPLATES = {
     "deep_study": {
@@ -53,8 +57,6 @@ class AgentState(TypedDict):
     
     # Admin context gathered from tools
     tool_context: Optional[str]
-
-from src.shared.ai_tools.erp_tools import check_library_catalog, get_school_library_stats, get_school_financial_report
 
 def plan_node(state: AgentState) -> dict:
     """Agent node that decides the next step based on context."""
@@ -101,7 +103,7 @@ def plan_node(state: AgentState) -> dict:
                 return {"pending_mode": "qa", "pending_prompt": "Provide this exact summary: " + final_res.content}
             else:
                 return {"pending_mode": "qa", "pending_prompt": "Respond with: " + res.content}
-        except Exception as e:
+        except Exception:
             return {
                 "pending_mode": "qa",
                 "pending_prompt": "Respond with: Sorry, the admin tools are temporarily unavailable. Please retry the request in a moment.",

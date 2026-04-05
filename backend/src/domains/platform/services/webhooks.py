@@ -27,7 +27,7 @@ async def emit_webhook_event(
     subscriptions = db.query(WebhookSubscription).filter(
         WebhookSubscription.tenant_id == tenant_id,
         WebhookSubscription.event_type == event_type,
-        WebhookSubscription.is_active == True,
+        WebhookSubscription.is_active,
     ).all()
 
     if not subscriptions:

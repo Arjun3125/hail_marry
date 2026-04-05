@@ -1,7 +1,6 @@
 """Tests for admission workflow service."""
 import uuid
 
-import pytest
 
 from constants import ADMISSION_STATUSES, ADMISSION_STATUS_TRANSITIONS
 

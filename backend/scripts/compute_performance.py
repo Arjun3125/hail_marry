@@ -24,7 +24,7 @@ def compute_all_performance():
     try:
         # Get all active students
         students = db.query(User).filter(
-            User.role == "student", User.is_active == True, User.is_deleted == False
+            User.role == "student", User.is_active, not User.is_deleted
         ).all()
 
         updated = 0

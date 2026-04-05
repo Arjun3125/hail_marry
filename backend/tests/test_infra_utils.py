@@ -1,5 +1,4 @@
 """Tests for infra utilities — logging, startup checks, pagination."""
-import pytest
 from unittest.mock import MagicMock
 
 

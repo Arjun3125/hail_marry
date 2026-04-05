@@ -1,12 +1,10 @@
 """Student-facing API routes — dashboard, attendance, results, timetable, assignments, lectures, complaints, upload."""
 import logging
-from datetime import datetime, timezone
-from typing import Any, Literal, Optional
+from typing import Any, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from database import get_db

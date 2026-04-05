@@ -3,9 +3,12 @@ Database engine, session factory, and base model.
 Supports PostgreSQL (production) and SQLite (demo mode).
 """
 import os
-import uuid
 import sqlite3
+import uuid
 from typing import AsyncGenerator
+
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import DeclarativeBase
 
 
 # ── SQLite ↔ PostgreSQL type compatibility ──
@@ -39,18 +42,33 @@ _SessionLocalRO = None
 _AsyncSessionLocal = None
 
 
+def _is_truthy_env(name: str) -> bool:
+    return os.getenv(name, "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _normalize_postgres_url(url: str) -> str:
+    if url.startswith("postgres://"):
+        return url.replace("postgres://", "postgresql://", 1)
+    return url
+
+
+def _resolve_database_url(env_name: str, fallback: str) -> str:
+    if _is_truthy_env("TESTING"):
+        test_env_name = f"TEST_{env_name}"
+        test_url = os.getenv(test_env_name)
+        if test_url:
+            return _normalize_postgres_url(test_url)
+    return _normalize_postgres_url(os.getenv(env_name, fallback))
+
+
 def _get_db_urls() -> tuple[str, str, str]:
     """Resolve database URLs from environment and settings."""
     from config import settings
-    url = os.getenv("DATABASE_URL", settings.database.url)
-    if url and url.startswith("postgres://"):
-        url = url.replace("postgres://", "postgresql://", 1)
-
+    url = _resolve_database_url("DATABASE_URL", settings.database.url)
     url_ro = (
-        os.getenv("DATABASE_URL_RO", getattr(settings.database, "url_ro", "")) or url
+        _resolve_database_url("DATABASE_URL_RO", getattr(settings.database, "url_ro", ""))
+        or url
     )
-    if url_ro and url_ro.startswith("postgres://"):
-        url_ro = url_ro.replace("postgres://", "postgresql://", 1)
 
     # Async database URL - convert postgresql:// to postgresql+asyncpg://
     async_url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
@@ -58,6 +76,35 @@ def _get_db_urls() -> tuple[str, str, str]:
         async_url = url.replace("sqlite://", "sqlite+aiosqlite://", 1)
 
     return url, url_ro, async_url
+
+
+def _reset_lazy_proxy(proxy) -> None:
+    if hasattr(proxy, "_instance"):
+        object.__setattr__(proxy, "_instance", None)
+
+
+def reset_database_state(dispose: bool = True) -> None:
+    global _engine, _engine_ro, _async_engine
+    global _SessionLocal, _SessionLocalRO, _AsyncSessionLocal
+
+    if dispose:
+        for candidate in (_engine, _engine_ro):
+            if candidate is not None:
+                candidate.dispose()
+        if _async_engine is not None:
+            sync_engine = getattr(_async_engine, "sync_engine", None)
+            if sync_engine is not None:
+                sync_engine.dispose()
+
+    _engine = None
+    _engine_ro = None
+    _async_engine = None
+    _SessionLocal = None
+    _SessionLocalRO = None
+    _AsyncSessionLocal = None
+
+    for proxy in (engine, engine_ro, async_engine, SessionLocal, SessionLocalRO, AsyncSessionLocal):
+        _reset_lazy_proxy(proxy)
 
 
 def get_engine():
@@ -202,25 +249,6 @@ SessionLocalRO = _LazyProxy(get_session_local_ro)
 AsyncSessionLocal = _LazyProxy(get_async_session_local)
 
 
-class Base:
-    """Lazy base class for all models."""
-    _actual_base = None
-
-    def __init_subclass__(cls, **kwargs):
-        if Base._actual_base is None:
-            from sqlalchemy.orm import DeclarativeBase
-            class ActualBase(DeclarativeBase): pass
-            Base._actual_base = ActualBase
-        
-        # This is tricky because we need to inherit from ActualBase dynamically.
-        # But for SQLAlchemy, it's better to just use a property or a factory.
-        pass
-
-# Actually, making Base lazy is too complex for SQLAlchemy's metaclass magic.
-# I'll keep DeclarativeBase at the top level but move everything else inside.
-
-from sqlalchemy.orm import DeclarativeBase
-
 class Base(DeclarativeBase):
     """Base class for all models."""
     pass
@@ -244,7 +272,7 @@ def get_db_ro():
         db.close()
 
 
-async def get_async_session() -> AsyncGenerator["AsyncSession", None]:
+async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
     """FastAPI dependency that yields an async database session."""
     async with get_async_session_local()() as session:
         yield session

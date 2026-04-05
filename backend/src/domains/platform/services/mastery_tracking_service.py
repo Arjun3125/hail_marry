@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable
 from datetime import datetime, timedelta, timezone
 from typing import Any
 from uuid import UUID

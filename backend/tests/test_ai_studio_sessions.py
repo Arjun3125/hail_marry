@@ -1,9 +1,7 @@
 """Tests for AI Studio session tracking and smart suggestions endpoints."""
 import uuid
 import pytest
-from fastapi.testclient import TestClient
 
-from main import app
 from auth.dependencies import get_current_user
 from src.domains.identity.models.user import User
 from src.domains.identity.models.tenant import Tenant
@@ -33,9 +31,9 @@ def test_user(db_session, test_tenant):
 
 @pytest.fixture
 def auth_client(client, test_user):
-    app.dependency_overrides[get_current_user] = lambda: test_user
+    client.app.dependency_overrides[get_current_user] = lambda: test_user
     yield client
-    app.dependency_overrides.pop(get_current_user, None)
+    client.app.dependency_overrides.pop(get_current_user, None)
 
 def test_start_session(auth_client, db_session, test_user):
     response = auth_client.post(

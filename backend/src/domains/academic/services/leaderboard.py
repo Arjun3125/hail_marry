@@ -1,7 +1,7 @@
 """Leaderboard ranking service for competitive exam test series."""
 import uuid as _uuid
 from sqlalchemy.orm import Session
-from sqlalchemy import func, desc
+from sqlalchemy import desc
 from src.domains.academic.models.test_series import TestSeries, MockTestAttempt
 from src.domains.identity.models.user import User
 
@@ -125,7 +125,7 @@ def get_all_series(db: Session, tenant_id: str) -> list[dict]:
     """Get all active test series for a tenant with attempt counts."""
     series_list = db.query(TestSeries).filter(
         TestSeries.tenant_id == _to_uuid(tenant_id),
-        TestSeries.is_active == True,
+        TestSeries.is_active,
     ).order_by(desc(TestSeries.created_at)).all()
 
     results = []

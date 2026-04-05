@@ -3,8 +3,28 @@ from __future__ import annotations
 
 import json
 import time
-from pydantic import BaseModel, Field
 from typing import List, Optional
+
+import httpx
+from pydantic import BaseModel, Field
+
+from config import settings
+from src.infrastructure.llm.providers import get_llm_provider
+from src.infrastructure.vector_store.retrieval import (
+    retrieve_context,
+    build_context_string,
+    build_retrieval_audit,
+    extract_citations,
+    sanitize_ai_output,
+    enforce_citations,
+)
+from src.domains.platform.schemas.ai_runtime import (
+    InternalAIQueryRequest,
+    InternalAudioOverviewRequest,
+    InternalVideoOverviewRequest,
+)
+from src.domains.platform.services.metrics_registry import observe_stage_latency
+from src.domains.platform.services.traceability import TraceabilityError
 
 class QuizQuestion(BaseModel):
     question: str
@@ -80,27 +100,6 @@ SCHEMA_MAP = {
     "flowchart": FlowchartOutput,
 }
 
-
-from fastapi import HTTPException
-import httpx
-
-from config import settings
-from src.infrastructure.llm.providers import get_llm_provider
-from src.infrastructure.vector_store.retrieval import (
-    retrieve_context,
-    build_context_string,
-    build_retrieval_audit,
-    extract_citations,
-    sanitize_ai_output,
-    enforce_citations,
-)
-from src.domains.platform.schemas.ai_runtime import (
-    InternalAIQueryRequest,
-    InternalAudioOverviewRequest,
-    InternalVideoOverviewRequest,
-)
-from src.domains.platform.services.metrics_registry import observe_stage_latency
-from src.domains.platform.services.traceability import TraceabilityError
 
 LENGTH_TOKENS = {"brief": 250, "default": 800, "detailed": 1500}
 LENGTH_INSTRUCTIONS = {

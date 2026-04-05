@@ -9,7 +9,6 @@ import hmac
 import httpx
 import json
 import os
-import secrets
 from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, mock_open, patch
@@ -40,7 +39,6 @@ from src.domains.platform.services.whatsapp_gateway import (
     get_whatsapp_metrics,
     get_session,
     create_session,
-    save_session,
     delete_session,
     unlink_phone,
     is_rate_limited,
@@ -55,11 +53,9 @@ from src.domains.platform.services.whatsapp_gateway import (
     _build_child_switch_response,
     _handle_child_switch_selection,
     _build_report_card_response,
-    SYSTEM_COMMANDS,
 )
 from src.shared.ai_tools.whatsapp_tools import (
     authorize_tool,
-    TOOL_ROLE_MAP,
     _format_study_tool_payload,
     get_tools_for_role,
     get_tool_spec,

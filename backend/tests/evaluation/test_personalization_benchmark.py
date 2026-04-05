@@ -15,7 +15,6 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-import pytest
 
 backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 if backend_dir not in sys.path:

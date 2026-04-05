@@ -110,8 +110,6 @@ from src.infrastructure.observability import (
 from src.shared.ocr_imports import (
     extract_upload_content_result,
     get_extension,
-    make_generated_email,
-    normalize_name_lines,
     parse_account_rows_with_diagnostics,
     parse_student_import_rows_with_diagnostics,
 )
@@ -572,7 +570,7 @@ async def update_complaint(complaint_id: str, data: ComplaintAction, current_use
         parse_uuid_fn=_parse_uuid,
         allowed_statuses=ALLOWED_COMPLAINT_STATUSES,
     )
-    complaint = result["complaint"]
+    result["complaint"]
 
     try:
         await emit_webhook_event(

@@ -8,7 +8,6 @@ This script uses the teacher upload endpoint which triggers the actual RAG pipel
 4. Vector store storage (FAISS)
 """
 import os
-import sys
 
 # CRITICAL: Set these BEFORE any other imports to ensure SQLite is used
 os.environ["DEMO_MODE"] = "true"
@@ -18,12 +17,11 @@ os.environ["VECTOR_STORE_PATH"] = "./vector_store"
 
 import uuid
 from pathlib import Path
-from datetime import datetime
 
 
 def setup_demo_environment():
     """Set up the demo environment with SQLite database."""
-    from database import SessionLocal, engine, Base
+    from database import SessionLocal
     from src.domains.identity.models.tenant import Tenant
     from src.domains.identity.models.user import User
     from src.domains.academic.models.core import Class, Subject
@@ -50,7 +48,7 @@ def setup_demo_environment():
         return None, None, None
 
     # Get first class and subject for association
-    class_obj = db.query(Class).filter(Class.tenant_id == tenant_id).first()
+    db.query(Class).filter(Class.tenant_id == tenant_id).first()
     subject = db.query(Subject).filter(Subject.tenant_id == tenant_id).first()
 
     db.close()
@@ -98,7 +96,7 @@ def upload_and_ingest_pdf(file_path: Path, teacher, subject):
         print(f"  📝 Created document record: {doc.id}")
 
         # Now trigger the actual ingestion pipeline
-        print(f"  🔄 Starting ingestion (chunking + embedding)...")
+        print("  🔄 Starting ingestion (chunking + embedding)...")
 
         try:
             from src.infrastructure.vector_store.ingestion import ingest_document
@@ -130,7 +128,7 @@ def upload_and_ingest_pdf(file_path: Path, teacher, subject):
                     "source_file": c.source_file or "",
                 } for c in chunks]
                 store.add_chunks(chunk_dicts, embeddings)
-                print(f"  💾 Stored in vector store")
+                print("  💾 Stored in vector store")
 
                 doc.ingestion_status = "completed"
                 doc.chunk_count = len(chunks)
@@ -143,7 +141,7 @@ def upload_and_ingest_pdf(file_path: Path, teacher, subject):
                     "file_name": safe_filename,
                 }
             else:
-                print(f"  ⚠️  No chunks created")
+                print("  ⚠️  No chunks created")
                 doc.ingestion_status = "failed"
                 db.commit()
                 return {"success": False, "error": "No chunks created"}
@@ -190,7 +188,7 @@ def main():
     if not tenant or not teacher:
         return
 
-    print(f"✅ Demo environment ready:")
+    print("✅ Demo environment ready:")
     print(f"   Tenant: {tenant.name}")
     print(f"   Teacher: {teacher.full_name} ({teacher.email})")
     if subject:

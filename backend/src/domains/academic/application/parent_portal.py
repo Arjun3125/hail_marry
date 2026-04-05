@@ -37,7 +37,7 @@ def get_child_for_parent(
             user_model.id == link.child_id,
             user_model.tenant_id == current_user.tenant_id,
             user_model.role == "student",
-            user_model.is_active == True,
+            user_model.is_active,
         )
         .first()
     )

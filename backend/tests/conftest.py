@@ -2,7 +2,6 @@ import pytest
 import os
 import shutil
 import sys
-import tempfile
 import uuid
 from pathlib import Path
 from importlib.util import find_spec
@@ -17,78 +16,28 @@ if project_root not in sys.path:
 
 
 try:
-    from sqlalchemy import create_engine
+    from sqlalchemy import event
     from sqlalchemy.orm import sessionmaker
 except ModuleNotFoundError:
-    create_engine = None
+    event = None
     sessionmaker = None
 
 os.environ["DEBUG"] = "true"
-os.environ["DEBUG"] = "true"
 os.environ["DEMO_MODE"] = "false"
-os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 os.environ["TESTING"] = "true"
 
 _TEST_TEMP_DIR = os.path.join(project_root, ".pytest_tmp")
 os.makedirs(_TEST_TEMP_DIR, exist_ok=True)
-os.environ["TMP"] = _TEST_TEMP_DIR
-os.environ["TEMP"] = _TEST_TEMP_DIR
-os.environ["TMPDIR"] = _TEST_TEMP_DIR
-tempfile.tempdir = _TEST_TEMP_DIR
+_TEST_DB_PATH = os.path.join(_TEST_TEMP_DIR, f"test_suite_{uuid.uuid4().hex}.sqlite3")
+_TEST_DB_URL = f"sqlite:///{Path(_TEST_DB_PATH).as_posix()}"
+os.environ["TEST_DATABASE_URL"] = _TEST_DB_URL
+os.environ["DATABASE_URL"] = _TEST_DB_URL
 
 
 def _make_safe_temp_dir() -> str:
     path = os.path.join(_TEST_TEMP_DIR, f"tmp_{uuid.uuid4().hex}")
     os.makedirs(path, exist_ok=True)
     return path
-
-
-class _SafeTemporaryDirectory:
-    def __init__(self, suffix="", prefix="tmp", dir=None, ignore_cleanup_errors=False):
-        base_dir = dir or _TEST_TEMP_DIR
-        os.makedirs(base_dir, exist_ok=True)
-        self.name = os.path.join(base_dir, f"{prefix}_{uuid.uuid4().hex}{suffix}")
-        os.makedirs(self.name, exist_ok=True)
-        self._ignore_cleanup_errors = ignore_cleanup_errors
-
-    def __enter__(self):
-        return self.name
-
-    def cleanup(self):
-        shutil.rmtree(self.name, ignore_errors=self._ignore_cleanup_errors or True)
-
-    def __exit__(self, exc_type, exc, tb):
-        self.cleanup()
-
-
-class _NamedTemporaryFileWrapper:
-    def __init__(self, file_obj, path: str, delete: bool):
-        self._file = file_obj
-        self.name = path
-        self._delete = delete
-
-    def __getattr__(self, item):
-        return getattr(self._file, item)
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc, tb):
-        self.close()
-
-    def close(self):
-        if not self._file.closed:
-            self._file.close()
-        if self._delete and os.path.exists(self.name):
-            os.unlink(self.name)
-
-
-def _safe_named_temporary_file(mode="w+b", suffix="", prefix="tmp", dir=None, delete=True, encoding=None, **_kwargs):
-    base_dir = dir or _TEST_TEMP_DIR
-    os.makedirs(base_dir, exist_ok=True)
-    path = os.path.join(base_dir, f"{prefix}_{uuid.uuid4().hex}{suffix}")
-    file_obj = open(path, mode, encoding=encoding)
-    return _NamedTemporaryFileWrapper(file_obj, path, delete)
 
 _LIGHTWEIGHT_TEST_ALLOWLIST = {
     os.path.join("backend", "tests", "test_whatsapp_gateway.py"),
@@ -151,14 +100,6 @@ def pytest_report_header(config):
         f"(LIGHTWEIGHT_TEST_MODE={mode}; missing dependencies skipped during collection: {', '.join(missing_modules)})"
     )
 
-
-
-@pytest.fixture(autouse=True)
-def _patch_tempfile(monkeypatch):
-    monkeypatch.setattr(tempfile, "TemporaryDirectory", _SafeTemporaryDirectory)
-    monkeypatch.setattr(tempfile, "NamedTemporaryFile", _safe_named_temporary_file)
-
-
 @pytest.fixture(autouse=True)
 def _stabilize_runtime_env(monkeypatch):
     monkeypatch.setenv("DEMO_MODE", "false")
@@ -174,15 +115,55 @@ def _stabilize_runtime_env(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
-def _clear_app_dependency_overrides():
+def _reset_rate_limit_state():
     try:
-        from main import app
+        from middleware import rate_limit
 
-        app.dependency_overrides.clear()
-        yield
-        app.dependency_overrides.clear()
+        rate_limit._memory_store.clear()
+        rate_limit._redis = None
+        rate_limit._redis_available = False
     except Exception:
-        yield
+        pass
+    yield
+    try:
+        from middleware import rate_limit
+
+        rate_limit._memory_store.clear()
+        rate_limit._redis = None
+        rate_limit._redis_available = False
+    except Exception:
+        pass
+
+
+@pytest.fixture(autouse=True)
+def _clear_app_dependency_overrides():
+    yield
+
+
+@pytest.fixture
+def stub_ai_query_runtime(monkeypatch):
+    import importlib
+
+    ai_routes = importlib.import_module("src.interfaces.rest_api.ai.routes.ai")
+
+    async def fake_prepare_ai_query(**kwargs):
+        return kwargs["query"], [], kwargs["query"], ""
+
+    async def fake_run_text_query(request, trace_id=None):
+        return {
+            "answer": f"Stubbed answer for {request.query}",
+            "citations": [],
+            "token_usage": 1,
+            "mode": request.mode,
+            "has_context": False,
+            "citation_valid": False,
+            "citation_count": 0,
+            "runtime_mode": "test-stub",
+        }
+
+    monkeypatch.setattr(ai_routes, "_prepare_ai_query", fake_prepare_ai_query)
+    monkeypatch.setattr(ai_routes, "run_text_query", fake_run_text_query)
+    return ai_routes
 
 
 @pytest.fixture
@@ -193,25 +174,17 @@ def tmp_path():
     finally:
         shutil.rmtree(path, ignore_errors=True)
 
-_test_engine = None
 _TestingSessionLocal = None
 
 
 def get_test_engine():
     """Lazily create and return the test engine."""
-    global _test_engine
-    if _test_engine is None:
-        if create_engine is None:
-            return None
-        import models  # noqa: F401  # Ensure all models are loaded
-        from database import Base  # noqa: F401
+    if sessionmaker is None:
+        return None
+    import models  # noqa: F401  # Ensure all models are loaded
+    from database import Base, get_engine  # noqa: F401
 
-        _test_engine = create_engine(
-            os.getenv("DATABASE_URL"), connect_args={"check_same_thread": False}
-        )
-        _test_engine.dialect.insert_returning = False
-        _test_engine.dialect.update_returning = False
-    return _test_engine
+    return get_engine()
 
 
 def get_testing_session_local():
@@ -258,28 +231,67 @@ except ImportError:
 
 @pytest.fixture(scope="session")
 def setup_database():
-    if Base is None or get_test_engine() is None:
+    if Base is None:
         pytest.skip("SQLAlchemy is unavailable in this environment")
-    Base.metadata.create_all(bind=get_test_engine())
+    from database import reset_database_state
+
+    reset_database_state()
+    test_engine = get_test_engine()
+    if test_engine is None:
+        pytest.skip("SQLAlchemy is unavailable in this environment")
+    Base.metadata.create_all(bind=test_engine)
     yield
-    Base.metadata.drop_all(bind=get_test_engine())
+    Base.metadata.drop_all(bind=test_engine)
+    reset_database_state()
+    if os.path.exists(_TEST_DB_PATH):
+        try:
+            os.remove(_TEST_DB_PATH)
+        except PermissionError:
+            pass
 
 @pytest.fixture
 def db_session(setup_database):
     connection = get_test_engine().connect()
     transaction = connection.begin()
     session = get_testing_session_local()(bind=connection)
+    nested = connection.begin_nested()
+
+    if event is not None:
+        @event.listens_for(session, "after_transaction_end")
+        def restart_savepoint(sess, trans):
+            nonlocal nested
+            parent = getattr(trans, "_parent", None)
+            if trans.nested and parent is not None and not parent.nested:
+                nested = connection.begin_nested()
 
     yield session
 
+    if event is not None:
+        event.remove(session, "after_transaction_end", restart_savepoint)
     session.close()
-    transaction.rollback()
+    if nested.is_active:
+        nested.rollback()
+    if transaction.is_active:
+        transaction.rollback()
     connection.close()
 
 @pytest.fixture
-def client(db_session):
+def app_instance():
+    from database import reset_database_state
+    from src.bootstrap.app_factory import create_app
+
+    reset_database_state()
+    app = create_app()
+    try:
+        yield app
+    finally:
+        app.dependency_overrides.clear()
+        reset_database_state()
+
+
+@pytest.fixture
+def client(db_session, app_instance):
     fastapi = pytest.importorskip("fastapi.testclient")
-    from main import app
     from database import get_db, get_async_session
 
     class AsyncSessionAdapter:
@@ -307,11 +319,11 @@ def client(db_session):
     async def override_get_async_session():
         yield AsyncSessionAdapter(db_session)
 
-    app.dependency_overrides[get_db] = override_get_db
-    app.dependency_overrides[get_async_session] = override_get_async_session
-    with fastapi.TestClient(app) as c:
+    app_instance.dependency_overrides[get_db] = override_get_db
+    app_instance.dependency_overrides[get_async_session] = override_get_async_session
+    with fastapi.TestClient(app_instance) as c:
         yield c
-    app.dependency_overrides.clear()
+    app_instance.dependency_overrides.clear()
 
 @pytest.fixture
 def active_tenant(db_session):

@@ -2,7 +2,7 @@ import logging
 import json
 from decimal import Decimal
 from sqlalchemy import func
-from config import settings
+from sqlalchemy.orm import Session
 from database import SessionLocal
 from src.infrastructure.llm.cache import _get_redis as _get_redis_client
 
@@ -14,8 +14,6 @@ from src.domains.identity.models.user import User
 logger = logging.getLogger(__name__)
 
 REDIS_TTL = 900  # 15 minutes cache
-
-from sqlalchemy.orm import Session
 
 def aggregate_tenant_analytics(tenant_id: str, db: Session | None = None):
     """

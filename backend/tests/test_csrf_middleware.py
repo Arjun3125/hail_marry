@@ -3,7 +3,6 @@ import os
 import sys
 import unittest
 from pathlib import Path
-from unittest.mock import AsyncMock
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 if str(BACKEND_DIR) not in sys.path:

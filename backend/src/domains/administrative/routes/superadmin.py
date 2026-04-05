@@ -1,6 +1,5 @@
 """Superadmin endpoints for global operations like creating new Tenants."""
 import os
-import secrets
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session

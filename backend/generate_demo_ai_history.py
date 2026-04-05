@@ -3,8 +3,6 @@
 Generate demo AI history data for all demo students.
 Creates folders and populates AI query history with realistic timestamps.
 """
-import os
-import json
 import sqlite3
 import random
 from pathlib import Path

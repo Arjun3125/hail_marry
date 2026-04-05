@@ -1,0 +1,114 @@
+
+--- E402 ---
+alembic\env.py: 2 error(s)
+  Line 23: Module level import not at top of file
+  Line 24: Module level import not at top of file
+schemas\common.py: 2 error(s)
+  Line 6: Module level import not at top of file
+  Line 7: Module level import not at top of file
+scripts\ocr_benchmark_summary.py: 1 error(s)
+  Line 12: Module level import not at top of file
+seed_cbse_demo.py: 22 error(s)
+  Line 21: Module level import not at top of file
+  Line 24: Module level import not at top of file
+  Line 25: Module level import not at top of file
+  Line 26: Module level import not at top of file
+  Line 27: Module level import not at top of file
+  Line 28: Module level import not at top of file
+  Line 29: Module level import not at top of file
+  Line 30: Module level import not at top of file
+  Line 31: Module level import not at top of file
+  Line 32: Module level import not at top of file
+  Line 33: Module level import not at top of file
+  Line 34: Module level import not at top of file
+  Line 35: Module level import not at top of file
+  Line 36: Module level import not at top of file
+  Line 37: Module level import not at top of file
+  Line 38: Module level import not at top of file
+  Line 39: Module level import not at top of file
+  Line 40: Module level import not at top of file
+  Line 41: Module level import not at top of file
+  Line 42: Module level import not at top of file
+  Line 43: Module level import not at top of file
+  Line 44: Module level import not at top of file
+src\domains\administrative\services\analytics_aggregator.py: 1 error(s)
+  Line 17: Module level import not at top of file
+src\infrastructure\vector_store\vector_store.py: 1 error(s)
+  Line 37: Module level import not at top of file
+src\interfaces\rest_api\ai\agent_orchestrator.py: 1 error(s)
+  Line 56: Module level import not at top of file
+src\interfaces\rest_api\ai\workflows.py: 7 error(s)
+  Line 84: Module level import not at top of file
+  Line 86: Module level import not at top of file
+  Line 87: Module level import not at top of file
+  Line 88: Module level import not at top of file
+  Line 96: Module level import not at top of file
+  Line 101: Module level import not at top of file
+  Line 102: Module level import not at top of file
+
+--- E722 ---
+generate_real_ai_queries.py: 1 error(s)
+  Line 68: Do not use bare `except`
+ingest_pdfs_simple.py: 1 error(s)
+  Line 82: Do not use bare `except`
+
+--- E741 ---
+tests\evaluation\test_intent_classifier_benchmark.py: 2 error(s)
+  Line 334: Ambiguous variable name: `l`
+  Line 335: Ambiguous variable name: `l`
+
+--- F401 ---
+src\domains\academic\models\__init__.py: 14 error(s)
+  Line 1: `.core.Class` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  Line 1: `.core.Subject` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  Line 1: `.core.Enrollment` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  Line 2: `.lecture.Lecture` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  Line 3: `.timetable.Timetable` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  Line 4: `.parent_link.ParentLink` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  Line 5: `.performance.SubjectPerformance` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  Line 6: `.attendance.Attendance` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  Line 7: `.assignment.Assignment` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  Line 7: `.assignment.AssignmentSubmission` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  Line 8: `.marks.Exam` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  Line 8: `.marks.Mark` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  Line 9: `.test_series.TestSeries` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  Line 9: `.test_series.MockTestAttempt` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+src\domains\administrative\models\__init__.py: 15 error(s)
+  Line 1: `.billing.BillingPlan` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  Line 1: `.billing.TenantSubscription` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  Line 1: `.billing.PaymentRecord` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  Line 2: `.admission.AdmissionApplication` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  Line 3: `.fee.FeeStructure` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  Line 3: `.fee.FeeInvoice` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  Line 3: `.fee.FeePayment` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  Line 4: `.incident.IncidentRoute` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  Line 4: `.incident.Incident` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  Line 4: `.incident.IncidentEvent` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  Line 5: `.library.Book` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  Line 5: `.library.BookLending` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  Line 6: `.complaint.Complaint` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  Line 7: `.compliance.ComplianceExport` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  Line 7: `.compliance.DeletionRequest` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+src\domains\platform\models\__init__.py: 22 error(s)
+  Line 1: `.document.Document` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  Line 2: `.ai_job.AIJob` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  Line 2: `.ai_job.AIJobEvent` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  Line 3: `.ai.AIQuery` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  Line 4: `.notification.Notification` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  Line 5: `.audit.AuditLog` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  Line 6: `.webhook.WebhookSubscription` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  Line 6: `.webhook.WebhookDelivery` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  Line 7: `.spaced_repetition.ReviewSchedule` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  Line 8: `.engagement.LoginStreak` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  Line 9: `.observability.TraceEventRecord` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  Line 9: `.observability.ObservabilityAlertRecord` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  Line 9: `.observability.ObservabilityAlertEvent` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  Line 10: `.knowledge_graph.KGConcept` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  Line 10: `.knowledge_graph.KGRelationship` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  Line 11: `.notebook.Notebook` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  Line 12: `.generated_content.GeneratedContent` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  Line 13: `.study_session.StudySession` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  Line 14: `.topic_mastery.TopicMastery` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  Line 15: `.learner_profile.LearnerProfile` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  Line 16: `.study_path_plan.StudyPathPlan` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  Line 17: `.usage_counter.UsageCounter` imported but unused; consider removing, adding to `__all__`, or using a redundant alias

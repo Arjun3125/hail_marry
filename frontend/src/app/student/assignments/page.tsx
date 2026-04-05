@@ -142,7 +142,7 @@ export default function AssignmentsPage() {
                 ) : filteredAssignments.length === 0 ? (
                     <div className="flex flex-col items-center justify-center p-20 glass-panel border border-[var(--border-light)] rounded-3xl text-center">
                         <CheckCircle2 className="w-16 h-16 text-[var(--text-muted)] opacity-30 mb-4" />
-                        <h3 className="text-lg font-bold text-[var(--text-primary)] mb-1">You're all caught up!</h3>
+                        <h3 className="text-lg font-bold text-[var(--text-primary)] mb-1">You&apos;re all caught up!</h3>
                         <p className="text-xs font-medium text-[var(--text-muted)]">No assignments found in this category.</p>
                     </div>
                 ) : (

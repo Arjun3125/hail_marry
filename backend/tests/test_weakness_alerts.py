@@ -3,7 +3,7 @@ import os
 import sys
 import unittest
 from pathlib import Path
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock
 from uuid import uuid4
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]

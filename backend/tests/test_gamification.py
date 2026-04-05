@@ -2,9 +2,9 @@
 import os
 import sys
 import unittest
-from datetime import date, timedelta
+from datetime import date
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 from uuid import uuid4
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]

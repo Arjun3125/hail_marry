@@ -2,13 +2,16 @@
 FAISS Vector Store — tenant-namespaced vector storage and retrieval.
 Stores document chunks as vectors for semantic search.
 """
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
 import json
 import os
 import tempfile
-import numpy as np
 from pathlib import Path
 from typing import List, Dict, Optional, Tuple, Any
-from dataclasses import dataclass, asdict
+
+import numpy as np
+
 from config import settings
 
 try:
@@ -32,9 +35,6 @@ class StoredChunk:
     subject_id: Optional[str] = None
     notebook_id: Optional[str] = None
     source_file: Optional[str] = None
-
-
-from abc import ABC, abstractmethod
 
 
 class VectorStoreProvider(ABC):

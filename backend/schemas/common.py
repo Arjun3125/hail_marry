@@ -1,10 +1,11 @@
 """Common Pydantic schemas used across routes."""
 from pydantic import BaseModel, ConfigDict
+from typing import Optional, Generic, TypeVar, List
+from uuid import UUID
 
 class StrictBaseModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
-from typing import Optional, Generic, TypeVar, List
-from uuid import UUID
+
 
 T = TypeVar("T")
 

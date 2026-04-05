@@ -31,7 +31,7 @@ export function AIActionCenter({ recommendations, weakTopics }: { recommendation
         <div className="flex items-start gap-3">
             <Sparkles className="h-5 w-5 text-violet-500 mt-0.5 shrink-0" />
             <p className="text-slate-700 font-medium font-inter text-sm leading-relaxed">
-            I've analyzed your recent tests. {mainRec.replace("Recommended: ", "")}.
+            {`I've analyzed your recent tests. ${mainRec.replace("Recommended: ", "")}.`}
             </p>
         </div>
       </div>

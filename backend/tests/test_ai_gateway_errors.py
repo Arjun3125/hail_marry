@@ -14,7 +14,6 @@ from src.domains.platform.schemas.ai_runtime import InternalAIQueryRequest, Inte
 @pytest.mark.asyncio
 async def test_run_text_query_raises_when_workflow_fails():
     """Verify the AI Gateway surfaces errors from the underlying workflow."""
-    from fastapi import HTTPException
 
     mock_request = InternalAIQueryRequest(query="What is testing?", tenant_id="t-123")
 

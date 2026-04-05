@@ -807,9 +807,7 @@ def test_mascot_admin_can_fetch_release_gate_summary(client, db_session, active_
 
 def test_mascot_admin_can_fetch_onboarding_progress_summary(client, db_session, active_tenant):
     from src.domains.academic.models.core import Class
-    from src.domains.academic.models.timetable import Timetable
     from src.domains.identity.models.user import User
-    from datetime import time
 
     admin, token = _create_user_and_login(
         client,

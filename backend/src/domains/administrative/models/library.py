@@ -1,6 +1,6 @@
 """Library management models — book catalog, lending, returns."""
 import uuid
-from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String, Text, func
+from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from database import Base
 

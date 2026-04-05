@@ -3,7 +3,6 @@
 Generate real AI query logs using the actual knowledge base and Ollama.
 This creates actual AIQuery records with real LLM-generated responses.
 """
-import os
 import json
 import sqlite3
 import pickle
@@ -66,7 +65,7 @@ def get_ollama_json_response(prompt: str, model: str = "llama3.1:8b-instruct-q4_
             response_text = resp.json().get("response", "{}")
             try:
                 return json.loads(response_text)
-            except:
+            except Exception:
                 return {"response": response_text}
         else:
             return {"error": f"HTTP {resp.status_code}"}
@@ -495,7 +494,7 @@ def main():
     # Check vector store
     store_file = VECTOR_STORE_PATH / f"tenant_{DEMO_TENANT_ID}.pkl"
     if not store_file.exists():
-        print(f"❌ Vector store not found. Run ingest_standalone.py first!")
+        print("❌ Vector store not found. Run ingest_standalone.py first!")
         return
     print(f"✅ Vector store: {store_file}")
     print()

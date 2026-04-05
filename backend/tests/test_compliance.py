@@ -4,7 +4,6 @@ from unittest.mock import MagicMock
 from uuid import uuid4
 
 from src.domains.administrative.services.compliance import (
-    create_compliance_export,
     list_compliance_exports,
     create_deletion_request,
     resolve_deletion_request,
@@ -31,7 +30,7 @@ class TestCreateDeletionRequest:
         req.status = "requested"
         db.refresh = MagicMock(return_value=None)
         # Mock the constructor to just return req
-        result = create_deletion_request(
+        create_deletion_request(
             db,
             tenant_id=uuid4(),
             requested_by=uuid4(),

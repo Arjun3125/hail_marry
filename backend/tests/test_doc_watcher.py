@@ -1,10 +1,9 @@
 """Tests for document ingestion watcher."""
 import os
 import tempfile
-import pytest
 from src.domains.platform.services.doc_watcher import (
     SUPPORTED_EXTENSIONS, compute_file_hash, get_watch_status,
-    mark_processed, scan_directory, _processed_files,
+    mark_processed, scan_directory,
 )
 
 
@@ -25,41 +24,34 @@ def test_compute_file_hash():
     assert len(h) == 32  # MD5 hex digest
 
 
-def test_scan_empty_dir():
-    with tempfile.TemporaryDirectory() as tmpdir:
-        result = scan_directory(tmpdir)
-        assert result == []
+def test_scan_empty_dir(tmp_path):
+    result = scan_directory(str(tmp_path))
+    assert result == []
 
 
-def test_scan_finds_txt():
-    with tempfile.TemporaryDirectory() as tmpdir:
-        path = os.path.join(tmpdir, "notes.txt")
-        with open(path, "w") as f:
-            f.write("test")
-        result = scan_directory(tmpdir)
-        assert len(result) == 1
-        assert result[0]["name"] == "notes.txt"
+def test_scan_finds_txt(tmp_path):
+    path = tmp_path / "notes.txt"
+    path.write_text("test", encoding="utf-8")
+    result = scan_directory(str(tmp_path))
+    assert len(result) == 1
+    assert result[0]["name"] == "notes.txt"
 
 
-def test_scan_skips_unsupported():
-    with tempfile.TemporaryDirectory() as tmpdir:
-        path = os.path.join(tmpdir, "image.jpg")
-        with open(path, "w") as f:
-            f.write("fake")
-        result = scan_directory(tmpdir)
-        assert len(result) == 0
+def test_scan_skips_unsupported(tmp_path):
+    path = tmp_path / "image.jpg"
+    path.write_text("fake", encoding="utf-8")
+    result = scan_directory(str(tmp_path))
+    assert len(result) == 0
 
 
-def test_mark_processed_skips_rescan():
-    with tempfile.TemporaryDirectory() as tmpdir:
-        path = os.path.join(tmpdir, "data.txt")
-        with open(path, "w") as f:
-            f.write("content")
-        result1 = scan_directory(tmpdir)
-        assert len(result1) == 1
-        mark_processed(result1[0]["path"], result1[0]["hash"])
-        result2 = scan_directory(tmpdir)
-        assert len(result2) == 0
+def test_mark_processed_skips_rescan(tmp_path):
+    path = tmp_path / "data.txt"
+    path.write_text("content", encoding="utf-8")
+    result1 = scan_directory(str(tmp_path))
+    assert len(result1) == 1
+    mark_processed(result1[0]["path"], result1[0]["hash"])
+    result2 = scan_directory(str(tmp_path))
+    assert len(result2) == 0
 
 
 def test_watch_status():

@@ -17,8 +17,10 @@ export default function AIFallbackNotice({
     const highLoad = queueDepth >= 8;
 
     useEffect(() => {
-        const value = window.localStorage.getItem(`lite-mode:${scope}`);
-        setLightMode(value === "true");
+        queueMicrotask(() => {
+            const value = window.localStorage.getItem(`lite-mode:${scope}`);
+            setLightMode(value === "true");
+        });
     }, [scope]);
 
     const toggle = () => {

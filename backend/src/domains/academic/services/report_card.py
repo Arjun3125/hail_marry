@@ -6,12 +6,10 @@ attendance summary, subject-wise marks, and teacher comments.
 import io
 from datetime import date
 from sqlalchemy.orm import Session
-from sqlalchemy import func
 
 from constants import (
     compute_grade,
-    PDF_PRIMARY_COLOR, PDF_MUTED_COLOR, PDF_LABEL_COLOR,
-    PDF_GRID_COLOR, PDF_HIGHLIGHT_BG,
+    PDF_PRIMARY_COLOR, PDF_MUTED_COLOR,
 )
 from src.domains.identity.models.user import User
 from src.domains.academic.models.attendance import Attendance
@@ -35,7 +33,7 @@ def generate_report_card_pdf(
     from reportlab.lib import colors
     from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-    from reportlab.lib.enums import TA_CENTER, TA_LEFT
+    from reportlab.lib.enums import TA_CENTER
 
     # ── Fetch student data ──
     student = db.query(User).filter(User.id == student_id, User.tenant_id == tenant_id).first()

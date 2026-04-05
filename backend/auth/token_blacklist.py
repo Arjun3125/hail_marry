@@ -4,7 +4,6 @@ Uses an in-memory LRU cache for fast lookups with a DB table as source of truth.
 """
 import uuid
 from datetime import datetime, timezone
-from functools import lru_cache
 
 from sqlalchemy import Column, DateTime, String, func
 from sqlalchemy.dialects.postgresql import UUID

@@ -1,4 +1,3 @@
-import uuid
 
 from fastapi import HTTPException
 
@@ -29,9 +28,7 @@ def test_classify_error_key_maps_subsystems():
 
 
 def test_http_exception_response_contains_error_code(client):
-    from main import app
-
-    _install_traceability_test_routes(app)
+    _install_traceability_test_routes(client.app)
     reset_metrics_registry()
 
     response = client.get("/api/student/traceability-ocr-test")
@@ -47,12 +44,11 @@ def test_http_exception_response_contains_error_code(client):
 
 def test_unhandled_ai_exception_response_contains_error_code(client):
     from fastapi.testclient import TestClient
-    from main import app
 
-    _install_traceability_test_routes(app)
+    _install_traceability_test_routes(client.app)
     reset_metrics_registry()
 
-    with TestClient(app, raise_server_exceptions=False) as test_client:
+    with TestClient(client.app, raise_server_exceptions=False) as test_client:
         response = test_client.get("/api/ai/traceability-llm-test")
 
     assert response.status_code == 502

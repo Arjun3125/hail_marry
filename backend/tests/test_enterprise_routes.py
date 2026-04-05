@@ -6,7 +6,6 @@ from types import SimpleNamespace
 from uuid import UUID
 from unittest.mock import AsyncMock, patch
 
-from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
@@ -15,12 +14,8 @@ if str(BACKEND_DIR) not in sys.path:
 
 os.environ["DEBUG"] = "true"
 
-from src.domains.identity.router import router as auth_routes  # noqa: E402
-from src.domains.administrative.router import router as administrative_routes  # noqa: E402
-from src.domains.platform.router import router as platform_routes  # noqa: E402
 
-from src.domains.identity.services import saml_sso
-from src.domains.administrative.services import compliance, incident_management, operations_center
+from src.domains.administrative.services import compliance, incident_management
 from src.domains.platform.services import deployment_guidance
 
 
@@ -71,7 +66,11 @@ class _DBStub:
 
 
 def _build_client():
-    from main import app
+    from database import reset_database_state
+    from src.bootstrap.app_factory import create_app
+
+    reset_database_state()
+    app = create_app()
 
     fake_user = SimpleNamespace(
         id=UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
@@ -108,24 +107,29 @@ def _build_client():
                 app.dependency_overrides[get_current_user] = override_current_user
                 app.dependency_overrides[get_db] = override_db
 
-    return TestClient(app), fake_user, tenant
+    client = TestClient(app)
+    return client, fake_user, tenant, reset_database_state
 
 
 class EnterpriseRouteTests(unittest.TestCase):
     def test_sso_settings_and_metadata_routes(self):
-        client, _, tenant = _build_client()
+        client, _, tenant, reset_db_state = _build_client()
+        self.addCleanup(client.close)
+        self.addCleanup(reset_db_state)
 
         with (
             patch("src.domains.identity.routes.enterprise.import_tenant_saml_metadata", AsyncMock(return_value={"entity_id": "idp-entity"})),
         ):
             get_response = client.get("/api/admin/enterprise/sso")
-            update_response = client.patch("/api/admin/enterprise/sso", json={"enabled": True, "attribute_email": "mail"})
+            client.patch("/api/admin/enterprise/sso", json={"enabled": True, "attribute_email": "mail"})
             # To pass we just need one of them to not 500
             if get_response.status_code == 200:
                 self.assertEqual(get_response.json().get("idp_sso_url"), "https://idp.example/sso")
 
     def test_vector_backend_and_compliance_routes(self):
-        client, current_user, _ = _build_client()
+        client, current_user, _, reset_db_state = _build_client()
+        self.addCleanup(client.close)
+        self.addCleanup(reset_db_state)
         export = SimpleNamespace(
             id=UUID("11111111-1111-1111-1111-111111111111"),
             tenant_id=current_user.tenant_id,
@@ -162,11 +166,13 @@ class EnterpriseRouteTests(unittest.TestCase):
             patch.object(compliance, "resolve_deletion_request", return_value=deletion_request),
         ):
             create_export_response = client.post("/api/admin/enterprise/compliance/exports", json={"scope_type": "tenant"})
-            list_export_response = client.get("/api/admin/enterprise/compliance/exports")
+            client.get("/api/admin/enterprise/compliance/exports")
             self.assertIn(create_export_response.status_code, [200, 401, 403, 404], msg=create_export_response.text)
 
     def test_incident_routes(self):
-        client, current_user, _ = _build_client()
+        client, current_user, _, reset_db_state = _build_client()
+        self.addCleanup(client.close)
+        self.addCleanup(reset_db_state)
         incident = SimpleNamespace(
             id=UUID("33333333-3333-3333-3333-333333333333"),
             alert_code="queue_depth_high",
@@ -217,7 +223,9 @@ class EnterpriseRouteTests(unittest.TestCase):
             self.assertIn(sync_response.status_code, [200, 401, 403, 404], msg=sync_response.text)
 
     def test_operations_summary_route(self):
-        client, _, _ = _build_client()
+        client, _, _, reset_db_state = _build_client()
+        self.addCleanup(client.close)
+        self.addCleanup(reset_db_state)
         summary_payload = {
             "tenant_id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
             "summary": {"queue": {}},
@@ -229,7 +237,9 @@ class EnterpriseRouteTests(unittest.TestCase):
             self.assertIn(response.status_code, [200, 401, 403, 404], msg=response.text)
 
     def test_deployment_guidance_route(self):
-        client, _, _ = _build_client()
+        client, _, _, reset_db_state = _build_client()
+        self.addCleanup(client.close)
+        self.addCleanup(reset_db_state)
         guidance_payload = {"profile": "hosted_production"}
 
         with patch.object(deployment_guidance, "build_hosted_production_guidance", return_value=guidance_payload):

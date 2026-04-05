@@ -3,7 +3,7 @@ import os
 import sys
 import unittest
 from pathlib import Path
-from unittest.mock import patch, AsyncMock
+from unittest.mock import patch
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 if str(BACKEND_DIR) not in sys.path:
@@ -54,7 +54,7 @@ class TenantMiddlewareTests(unittest.IsolatedAsyncioTestCase):
     async def test_health_path_skips_extraction(self):
         request = _make_request(path="/health")
         with patch("middleware.tenant.decode_access_token") as mock_decode:
-            response = await self.middleware.dispatch(request, _ok_handler)
+            await self.middleware.dispatch(request, _ok_handler)
         mock_decode.assert_not_called()
 
     async def test_valid_bearer_sets_state(self):
@@ -96,8 +96,8 @@ class TenantMiddlewareTests(unittest.IsolatedAsyncioTestCase):
         request = _make_request(auth_header="bearer-token", cookie_token="cookie-token")
         # Cookie token check happens only if no bearer auth header
         # The middleware checks cookie first, then auth header — but sets state from whichever it finds
-        with patch("middleware.tenant.decode_access_token", return_value=bearer_payload) as mock:
-            response = await self.middleware.dispatch(request, _ok_handler)
+        with patch("middleware.tenant.decode_access_token", return_value=bearer_payload):
+            await self.middleware.dispatch(request, _ok_handler)
         self.assertEqual(request.state.tenant_id, "bearer-tenant")
 
 

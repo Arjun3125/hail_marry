@@ -1,6 +1,5 @@
 """Tests for library management."""
 import uuid
-import pytest
 from src.domains.administrative.services.library import DEFAULT_LENDING_DAYS, FINE_PER_DAY
 from src.domains.administrative.models.library import Book, BookLending
 

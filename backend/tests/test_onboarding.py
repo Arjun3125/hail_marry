@@ -1,7 +1,5 @@
 """Tests for self-service tenant onboarding service."""
-import uuid
 
-import pytest
 
 
 # ── Onboarding status checklist ──

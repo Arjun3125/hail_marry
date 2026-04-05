@@ -5,7 +5,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import func, desc, asc, or_, and_
+from sqlalchemy import func, desc, asc, or_
 
 from database import get_db
 from auth.dependencies import get_current_user
@@ -21,8 +21,6 @@ from src.domains.platform.schemas.ai_history import (
     AIHistoryUpdateTitle,
     AIHistoryMoveToFolder,
     AIHistoryStats,
-    AIHistorySearchResponse,
-    AIHistorySearchResult,
 )
 
 router = APIRouter(prefix="/api/student/ai-history", tags=["AI History"])

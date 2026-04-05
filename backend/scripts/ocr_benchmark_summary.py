@@ -9,8 +9,6 @@ BACKEND_DIR = Path(__file__).resolve().parents[1]
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
-from src.infrastructure.vector_store.ocr_service import extract_ocr_result_from_image_path
-
 
 FIXTURE_DIR = BACKEND_DIR / "tests" / "fixtures" / "ocr"
 IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg"}
@@ -61,6 +59,10 @@ def _category_from_name(filename: str) -> str:
 
 
 def main() -> int:
+    from src.infrastructure.vector_store.ocr_service import (
+        extract_ocr_result_from_image_path,
+    )
+
     fixtures = []
     for image_path in FIXTURE_DIR.iterdir():
         if image_path.suffix.lower() not in IMAGE_SUFFIXES:

@@ -2,14 +2,14 @@
 
 import mermaid from "mermaid";
 import { Copy, GitBranch } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useState } from "react";
 
 let mermaidInitialized = false;
 
 export function MermaidDiagram({ chart }: { chart: string }) {
     const [svg, setSvg] = useState<string>("");
     const [error, setError] = useState<string | null>(null);
-    const chartId = useMemo(() => `mermaid-${Math.random().toString(36).slice(2)}`, []);
+    const chartId = `mermaid-${useId().replace(/:/g, "")}`;
 
     useEffect(() => {
         if (!mermaidInitialized) {

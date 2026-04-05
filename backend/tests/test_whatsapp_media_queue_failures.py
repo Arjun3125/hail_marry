@@ -39,7 +39,7 @@ class WhatsAppMediaQueueFailureTests(unittest.IsolatedAsyncioTestCase):
         _restore_modules(self._previous_modules)
 
     async def test_whatsapp_media_ingest_failure_is_requeued_when_retryable(self):
-        public_job = self.queue.enqueue_job(
+        self.queue.enqueue_job(
             self.queue.JOB_TYPE_WHATSAPP_MEDIA_INGEST,
             {
                 "tenant_id": "tenant-1",

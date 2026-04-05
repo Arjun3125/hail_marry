@@ -1,10 +1,8 @@
 """Tests for Razorpay billing service and routes."""
 import hashlib
 import hmac
-import json
 import uuid
 
-import pytest
 
 from constants import BILLING_CURRENCY, BILLING_PLANS
 

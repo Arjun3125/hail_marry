@@ -44,7 +44,7 @@ async def get_current_user(request: Request, db: Session = Depends(get_db)) -> U
             if payload and payload.get("user_id"):
                 try:
                     user_uuid = uuid.UUID(payload["user_id"])
-                    user = db.query(User).filter(User.id == user_uuid, User.is_active == True).first()
+                    user = db.query(User).filter(User.id == user_uuid, User.is_active).first()
                     if user:
                         request.state.tenant_id = str(user.tenant_id)
                         request.state.user_role = user.role
@@ -60,11 +60,11 @@ async def get_current_user(request: Request, db: Session = Depends(get_db)) -> U
         if cache_key not in _demo_user_cache:
             user = None
             if role == "student":
-                user = db.query(User).filter(User.email == "demo_cbse11@modernhustlers.com", User.is_active == True).first()
+                user = db.query(User).filter(User.email == "demo_cbse11@modernhustlers.com", User.is_active).first()
             if not user:
-                user = db.query(User).filter(User.role == role, User.is_active == True).first()
+                user = db.query(User).filter(User.role == role, User.is_active).first()
             if not user:
-                user = db.query(User).filter(User.is_active == True).first()
+                user = db.query(User).filter(User.is_active).first()
             if user:
                 _demo_user_cache[cache_key] = user.id
 
@@ -122,8 +122,8 @@ async def get_current_user(request: Request, db: Session = Depends(get_db)) -> U
 
     user = db.query(User).filter(
         User.id == user_uuid,
-        User.is_active == True,
-        User.is_deleted == False,
+        User.is_active,
+        User.is_deleted.is_(False),
     ).first()
 
     if not user:

@@ -3,13 +3,8 @@
 Simple script to ingest demo PDFs using HTTP API calls.
 This avoids complex import issues and uses the actual running backend.
 """
-import os
-import sys
-import json
-import sqlite3
 import requests
 from pathlib import Path
-from uuid import UUID
 
 # Configuration
 API_BASE = "http://localhost:8000"
@@ -84,7 +79,7 @@ def check_ollama():
             embed_models = [m for m in models if "embed" in m.get("name", "").lower()]
             return len(embed_models) > 0, embed_models
         return False, []
-    except:
+    except Exception:
         return False, []
 
 

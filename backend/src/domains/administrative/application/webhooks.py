@@ -6,7 +6,6 @@ from fastapi import HTTPException
 from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
-from src.domains.identity.models.user import User
 from src.domains.platform.models.audit import AuditLog
 from src.domains.platform.models.webhook import WebhookDelivery, WebhookSubscription
 

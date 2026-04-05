@@ -2,18 +2,14 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect, HTTPException
-from sqlalchemy.orm import Session
 
 from auth.dependencies import require_role
 from auth.jwt import decode_access_token
-from database import get_db
 from src.domains.identity.models.user import User
 from src.domains.platform.services.notifications import (
-    add_notification,
     get_notifications,
     mark_read,
     subscribe,

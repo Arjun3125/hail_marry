@@ -1,7 +1,5 @@
 """Tests for rate limiting middleware."""
 import pytest
-from unittest.mock import patch, MagicMock
-import time
 
 from constants import RATE_LIMIT_WINDOW_SECONDS
 
@@ -32,7 +30,7 @@ class TestRateLimitIntegration:
             resp = client.get("/health")
             assert resp.status_code == 200
 
-    def test_ai_path_rate_limited_after_burst(self, client, db_session, active_tenant):
+    def test_ai_path_rate_limited_after_burst(self, client, db_session, active_tenant, stub_ai_query_runtime):
         """AI endpoints should return 429 after exceeding burst limit."""
         from src.domains.identity.models.user import User
         from src.domains.identity.routes.auth import pwd_context

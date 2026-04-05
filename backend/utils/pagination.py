@@ -2,7 +2,7 @@
 Shared pagination utility for list endpoints.
 """
 from sqlalchemy.orm import Query
-from typing import TypeVar, Any
+from typing import TypeVar
 
 T = TypeVar("T")
 

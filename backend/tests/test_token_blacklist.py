@@ -1,6 +1,4 @@
 """Tests for refresh token blacklisting."""
-import uuid
-import pytest
 from auth.token_blacklist import _blacklist_cache, BlacklistedToken
 
 

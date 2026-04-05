@@ -1,6 +1,6 @@
 """Fee management models — fee structures, invoices, and payments."""
 import uuid
-from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, func
+from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from database import Base
 

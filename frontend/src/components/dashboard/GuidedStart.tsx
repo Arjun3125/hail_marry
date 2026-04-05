@@ -30,11 +30,13 @@ export default function GuidedStart({
     useEffect(() => {
         const raw = window.localStorage.getItem(storageKey);
         if (!raw) return;
-        try {
-            setDoneMap(JSON.parse(raw) as Record<string, boolean>);
-        } catch {
-            setDoneMap({});
-        }
+        queueMicrotask(() => {
+            try {
+                setDoneMap(JSON.parse(raw) as Record<string, boolean>);
+            } catch {
+                setDoneMap({});
+            }
+        });
     }, [storageKey]);
 
     const completed = useMemo(

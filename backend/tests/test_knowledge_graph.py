@@ -36,7 +36,6 @@ def test_kg_relationship_model():
 
 
 def test_invalid_relation_type():
-    from src.domains.platform.services.knowledge_graph import add_relationship
     with pytest.raises(ValueError):
         # Can't call without DB, but the validation check is direct
         # so we test the allowed set

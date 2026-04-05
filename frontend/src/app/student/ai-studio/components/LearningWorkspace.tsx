@@ -4,7 +4,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
     AssistantRuntimeProvider,
     ComposerPrimitive,
-    MessagePrimitive,
     ThreadPrimitive,
     useAui,
     useAuiState,
@@ -114,7 +113,11 @@ function StarterSuggestions({ activeTool, notebookId }: { activeTool: string; no
 
     useEffect(() => {
         let cancelled = false;
-        setLoading(true);
+        queueMicrotask(() => {
+            if (!cancelled) {
+                setLoading(true);
+            }
+        });
         api.personalization.recommendations({
             active_tool: activeTool,
             notebook_id: notebookId,
@@ -423,7 +426,7 @@ function AssistantStudioThread({
                 }
             },
         }),
-        [activeTool, notebookId, requestOptions?.language, requestOptions?.responseLength, requestOptions?.expertiseLevel],
+        [activeTool, notebookId, requestOptions],
     );
 
     const runtime = useLocalRuntime(chatModel);
@@ -484,6 +487,7 @@ export function LearningWorkspace({ activeTool, notebookId, requestOptions, init
     const prevToolRef = useRef(activeTool);
 
     useEffect(() => {
+        let cancelled = false;
         const existing = listPersistedThreads(workspaceScopeKey);
         const preferredId = getActivePersistedThreadId(workspaceScopeKey);
         const selected = existing.find((thread) => thread.id === preferredId) || existing[0] || createEmptyPersistedThread();
@@ -492,9 +496,16 @@ export function LearningWorkspace({ activeTool, notebookId, requestOptions, init
             upsertPersistedThread(workspaceScopeKey, selected);
         }
 
-        setThreads(existing.length === 0 ? [selected] : existing);
-        setActiveThreadId(selected.id);
-        setHydrated(true);
+        queueMicrotask(() => {
+            if (cancelled) return;
+            setThreads(existing.length === 0 ? [selected] : existing);
+            setActiveThreadId(selected.id);
+            setHydrated(true);
+        });
+
+        return () => {
+            cancelled = true;
+        };
     }, [workspaceScopeKey]);
 
     useEffect(() => {
@@ -503,13 +514,16 @@ export function LearningWorkspace({ activeTool, notebookId, requestOptions, init
             prevToolRef.current = activeTool;
             const fresh = createEmptyPersistedThread();
             const next = upsertPersistedThread(workspaceScopeKey, fresh);
-            setThreads(next);
-            setActiveThreadId(fresh.id);
+            queueMicrotask(() => {
+                setThreads(next);
+                setActiveThreadId(fresh.id);
+            });
         }
     }, [activeTool, hydrated, workspaceScopeKey]);
 
     useEffect(() => {
         if (!hydrated || !initialExchange) return;
+        let cancelled = false;
 
         const signature = `${workspaceScopeKey}:${initialExchange.query}:${initialExchange.response.answer}`;
         if (consumedInitialExchangeRef.current === signature) return;
@@ -517,8 +531,15 @@ export function LearningWorkspace({ activeTool, notebookId, requestOptions, init
 
         const seededThread = createPersistedThreadFromExchange(initialExchange.query, initialExchange.response);
         const nextThreads = upsertPersistedThread(workspaceScopeKey, seededThread);
-        setThreads(nextThreads);
-        setActiveThreadId(seededThread.id);
+        queueMicrotask(() => {
+            if (cancelled) return;
+            setThreads(nextThreads);
+            setActiveThreadId(seededThread.id);
+        });
+
+        return () => {
+            cancelled = true;
+        };
     }, [hydrated, initialExchange, workspaceScopeKey]);
 
     useEffect(() => {

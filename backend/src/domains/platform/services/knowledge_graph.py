@@ -1,10 +1,9 @@
 """Knowledge graph service — concept extraction, relationship building, graph traversal."""
-from collections import deque
 from typing import Optional
 from uuid import UUID
 
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
+import sqlalchemy as sa
 import numpy as np
 
 from src.domains.platform.models.knowledge_graph import KGConcept, KGRelationship
@@ -115,7 +114,7 @@ def traverse_graph(
     from sqlalchemy import text
     
     # Recursive CTE to traverse graph purely in SQL
-    query = text(f"""
+    query = text("""
         WITH RECURSIVE concept_tree AS (
             -- Base case: The starting concept
             SELECT 

@@ -65,7 +65,11 @@ export function ContextPanel({ collapsed, onToggleCollapse, notebookId, activeTo
 
     useEffect(() => {
         let cancelled = false;
-        setLoadingSuggestions(true);
+        queueMicrotask(() => {
+            if (!cancelled) {
+                setLoadingSuggestions(true);
+            }
+        });
         api.personalization.recommendations({
             active_tool: activeTool,
             notebook_id: notebookId,

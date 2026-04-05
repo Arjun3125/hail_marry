@@ -1,7 +1,4 @@
 """Tests for report card PDF generation — grading integration."""
-import pytest
-from unittest.mock import MagicMock
-from uuid import uuid4
 
 from constants import compute_grade
 

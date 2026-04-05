@@ -215,7 +215,7 @@ def resolve_phone_to_user(db: Session, phone: str):
     from src.domains.platform.models.whatsapp_models import PhoneUserLink
     link = db.query(PhoneUserLink).filter(
         PhoneUserLink.phone == phone,
-        PhoneUserLink.verified == True,
+        PhoneUserLink.verified,
     ).first()
 
     if link and redis:
@@ -648,155 +648,6 @@ async def _send_whatsapp_payload(phone: str, payload: dict, *, transport: str) -
             failure.get("error"),
         )
         return failure
-
-
-async def send_text_message(phone: str, text: str) -> dict:
-    """Send a plain-text WhatsApp message via Meta Cloud API."""
-    if not WHATSAPP_TOKEN or not WHATSAPP_PHONE_ID:
-        logger.warning("WhatsApp credentials not configured. Message not sent.")
-        return {"success": False, "error": "WhatsApp not configured"}
-
-    url = f"{WHATSAPP_API_URL}/{WHATSAPP_PHONE_ID}/messages"
-    headers = {
-        "Authorization": f"Bearer {WHATSAPP_TOKEN}",
-        "Content-Type": "application/json",
-    }
-    payload = {
-        "messaging_product": "whatsapp",
-        "to": phone,
-        "type": "text",
-        "text": {"body": text[:4096]},  # WhatsApp text limit
-    }
-
-    try:
-        async with httpx.AsyncClient(timeout=15) as client:
-            resp = await client.post(url, json=payload, headers=headers)
-            resp.raise_for_status()
-            return {"success": True, "data": resp.json()}
-    except httpx.HTTPStatusError as e:
-        logger.error("WhatsApp API error: %s — %s", e.response.status_code, e.response.text)
-        return {"success": False, "error": str(e)}
-    except Exception as e:
-        logger.error("WhatsApp send failed: %s", str(e))
-        return {"success": False, "error": str(e)}
-
-
-async def send_interactive_list(phone: str, header: str, body: str, button_text: str, rows: list[dict]) -> dict:
-    """Send an interactive list message for multi-option selection.
-
-    Args:
-        phone: Recipient phone.
-        header: Header text.
-        body: Body text.
-        button_text: CTA button label.
-        rows: List of dicts with 'id', 'title', and optional 'description'.
-    """
-    if not WHATSAPP_TOKEN or not WHATSAPP_PHONE_ID:
-        return {"success": False, "error": "WhatsApp not configured"}
-
-    url = f"{WHATSAPP_API_URL}/{WHATSAPP_PHONE_ID}/messages"
-    headers = {
-        "Authorization": f"Bearer {WHATSAPP_TOKEN}",
-        "Content-Type": "application/json",
-    }
-    payload = {
-        "messaging_product": "whatsapp",
-        "to": phone,
-        "type": "interactive",
-        "interactive": {
-            "type": "list",
-            "header": {"type": "text", "text": header},
-            "body": {"text": body},
-            "action": {
-                "button": button_text,
-                "sections": [{"title": "Options", "rows": rows[:10]}],
-            },
-        },
-    }
-
-    try:
-        async with httpx.AsyncClient(timeout=15) as client:
-            resp = await client.post(url, json=payload, headers=headers)
-            resp.raise_for_status()
-            return {"success": True, "data": resp.json()}
-    except Exception as e:
-        logger.error("WhatsApp list send failed: %s", str(e))
-        return {"success": False, "error": str(e)}
-
-
-async def send_buttons(phone: str, body: str, buttons: list[dict]) -> dict:
-    """Send a quick-reply button message.
-
-    Args:
-        phone: Recipient phone.
-        body: Message body text.
-        buttons: List of dicts with 'id' and 'title' (max 3).
-    """
-    if not WHATSAPP_TOKEN or not WHATSAPP_PHONE_ID:
-        return {"success": False, "error": "WhatsApp not configured"}
-
-    url = f"{WHATSAPP_API_URL}/{WHATSAPP_PHONE_ID}/messages"
-    headers = {
-        "Authorization": f"Bearer {WHATSAPP_TOKEN}",
-        "Content-Type": "application/json",
-    }
-
-    btn_list = [
-        {"type": "reply", "reply": {"id": b["id"], "title": b["title"][:20]}}
-        for b in buttons[:3]
-    ]
-
-    payload = {
-        "messaging_product": "whatsapp",
-        "to": phone,
-        "type": "interactive",
-        "interactive": {
-            "type": "button",
-            "body": {"text": body},
-            "action": {"buttons": btn_list},
-        },
-    }
-
-    try:
-        async with httpx.AsyncClient(timeout=15) as client:
-            resp = await client.post(url, json=payload, headers=headers)
-            resp.raise_for_status()
-            return {"success": True, "data": resp.json()}
-    except Exception as e:
-        logger.error("WhatsApp buttons send failed: %s", str(e))
-        return {"success": False, "error": str(e)}
-
-
-async def send_document_message(phone: str, link: str, filename: str, caption: str | None = None) -> dict:
-    """Send a WhatsApp document message via Meta Cloud API."""
-    if not WHATSAPP_TOKEN or not WHATSAPP_PHONE_ID:
-        return {"success": False, "error": "WhatsApp not configured"}
-
-    url = f"{WHATSAPP_API_URL}/{WHATSAPP_PHONE_ID}/messages"
-    headers = {
-        "Authorization": f"Bearer {WHATSAPP_TOKEN}",
-        "Content-Type": "application/json",
-    }
-    payload = {
-        "messaging_product": "whatsapp",
-        "to": phone,
-        "type": "document",
-        "document": {
-            "link": link,
-            "filename": filename[:240],
-        },
-    }
-    if caption:
-        payload["document"]["caption"] = caption[:1024]
-
-    try:
-        async with httpx.AsyncClient(timeout=15) as client:
-            resp = await client.post(url, json=payload, headers=headers)
-            resp.raise_for_status()
-            return {"success": True, "data": resp.json()}
-    except Exception as e:
-        logger.error("WhatsApp document send failed: %s", str(e))
-        return {"success": False, "error": str(e)}
 
 
 # ─── Message Logging ─────────────────────────────────────────
@@ -1687,7 +1538,7 @@ async def send_ai_job_status_notification(job: dict) -> bool:
         link = db.query(PhoneUserLink).filter(
             PhoneUserLink.user_id == user_id,
             PhoneUserLink.tenant_id == tenant_id,
-            PhoneUserLink.verified == True,
+            PhoneUserLink.verified,
         ).order_by(PhoneUserLink.verified_at.desc()).first()
         if not link:
             return False

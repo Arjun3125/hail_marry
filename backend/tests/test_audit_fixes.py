@@ -35,7 +35,7 @@ class TestAuditFixes(unittest.TestCase):
         import numpy as np
         
         # Mock VECTOR_DIR to avoid writing to real disk
-        with patch('src.infrastructure.vector_store.vector_store.VECTOR_DIR') as mock_dir:
+        with patch('src.infrastructure.vector_store.vector_store.VECTOR_DIR'):
             store = TenantVectorStore("test_tenant")
             store.index = MagicMock()
             store.index.ntotal = 10

@@ -20,7 +20,7 @@ router = APIRouter(prefix="/api/whatsapp", tags=["WhatsApp"])
 
 def get_or_create_whatsapp_user(phone: str, db: Session) -> User:
     """Get an existing linked user or auto-create a WhatsApp-first student shell."""
-    user = db.query(User).filter(User.phone_number == phone, User.whatsapp_linked == True).first()
+    user = db.query(User).filter(User.phone_number == phone, User.whatsapp_linked).first()
     if user:
         return user
 

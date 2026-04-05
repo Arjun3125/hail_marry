@@ -11,7 +11,7 @@ Endpoints:
 - GET  /whatsapp/analytics — Usage metrics
 """
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Literal, Optional
 
 try:
@@ -474,7 +474,7 @@ async def initiate_phone_linking(
     existing = db.query(PhoneUserLink).filter(
         PhoneUserLink.phone == data.phone,
         PhoneUserLink.tenant_id == user.tenant_id,
-        PhoneUserLink.verified == True,
+        PhoneUserLink.verified,
     ).first()
     if existing:
         raise HTTPException(status_code=400, detail="This phone is already linked to an account")

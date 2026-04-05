@@ -1,6 +1,5 @@
 """Tests for fee management module."""
 import uuid
-import pytest
 from constants import FEE_TYPES, FEE_FREQUENCIES, FEE_INVOICE_STATUSES
 
 

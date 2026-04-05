@@ -1,5 +1,5 @@
 """Fee management service — structures, invoicing, payments, reports."""
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Optional
 from uuid import UUID
 
@@ -68,7 +68,7 @@ def generate_invoices(
     else:
         # School-wide fee — apply to all students
         students = db.query(User).filter(
-            User.tenant_id == tenant_id, User.role == "student", User.is_active == True
+            User.tenant_id == tenant_id, User.role == "student", User.is_active
         ).all()
         student_ids = [s.id for s in students]
 

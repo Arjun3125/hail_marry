@@ -313,7 +313,7 @@ class AdminRouteRegressionTests(unittest.IsolatedAsyncioTestCase):
         admin_routes = importlib.import_module("src.domains.administrative.routes.admin")
         current_user = SimpleNamespace(tenant_id=uuid4(), id=uuid4())
         db = _DBStub({})
-        notebook_id = uuid4()
+        uuid4()
 
         with self.assertRaises(HTTPException) as ctx:
             await admin_routes.create_webhook(

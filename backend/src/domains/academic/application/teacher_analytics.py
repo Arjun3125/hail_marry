@@ -162,7 +162,7 @@ def build_teacher_dashboard_response(
         .filter(
             assignment_model.tenant_id == current_user.tenant_id,
             assignment_model.created_by == current_user.id,
-            assignment_submission_model.grade == None,
+            assignment_submission_model.grade is None,
         )
         .count()
     )

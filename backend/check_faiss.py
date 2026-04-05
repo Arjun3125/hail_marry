@@ -1,4 +1,6 @@
-import sqlite3, os, json
+import sqlite3
+import os
+import json
 
 conn = sqlite3.connect('vidyaos_demo.db')
 c = conn.cursor()

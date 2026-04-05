@@ -3,7 +3,6 @@
 Transforms plain-text citations like "[notes.pdf, p.3]" into clickable
 structured objects with document IDs and viewer URLs.
 """
-from typing import Optional
 from uuid import UUID
 
 from sqlalchemy.orm import Session

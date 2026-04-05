@@ -5,8 +5,6 @@ ideal answer, embed it, then search FAISS with that embedding. This dramatically
 improves retrieval for complex, multi-hop, or abstract questions.
 """
 import os
-import re
-from typing import Optional
 from src.infrastructure.llm.providers import get_llm_provider
 
 # Whether HyDE is enabled (can be toggled via env var)

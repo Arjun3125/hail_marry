@@ -1,6 +1,4 @@
-import pytest
 import io
-from fastapi.testclient import TestClient
 
 def test_admin_onboard_teachers_rejects_empty_csv(client, db_session, active_tenant):
     from src.domains.identity.models.user import User

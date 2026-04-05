@@ -2,7 +2,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-from typing import Optional
 from uuid import UUID
 
 from auth.dependencies import require_role

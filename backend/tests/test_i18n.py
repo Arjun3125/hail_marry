@@ -1,6 +1,4 @@
 """Tests for i18n service — locale loading, translation, interpolation."""
-import json
-import os
 import pytest
 
 from src.domains.platform.services.i18n import clear_cache, get_supported_locales, get_translations, translate

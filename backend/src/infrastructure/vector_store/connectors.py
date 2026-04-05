@@ -3,8 +3,6 @@
 Each connector returns a standardized format:
     {"text": str, "metadata": dict, "chunks": list[str]}
 """
-import io
-import os
 import re
 from typing import Any, Optional
 

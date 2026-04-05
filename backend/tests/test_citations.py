@@ -1,5 +1,4 @@
 """Tests for clickable citation linker."""
-import pytest
 from src.infrastructure.vector_store.citation_linker import _parse_citation_string, _format_citation_text
 
 

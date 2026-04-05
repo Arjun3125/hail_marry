@@ -1,7 +1,6 @@
 """WhatsApp-specific ERP and AI tools for the LangGraph agent."""
 import asyncio
 import concurrent.futures
-import json
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone

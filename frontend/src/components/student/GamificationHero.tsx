@@ -24,7 +24,7 @@ export function GamificationHero({ streak, attendance, marks }: { streak: number
               <span className="text-4xl font-extrabold text-slate-800 font-manrope">{streak}</span>
               <span className="text-lg font-medium text-slate-500 font-inter">Days</span>
             </div>
-            <p className="text-sm text-indigo-600 font-medium mt-1">You're unstoppable! 🔥</p>
+            <p className="text-sm text-indigo-600 font-medium mt-1">You&apos;re unstoppable! 🔥</p>
           </div>
         </div>
 

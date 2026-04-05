@@ -351,14 +351,17 @@ class TestRAGEvaluation:
 
 
 class TestRAGASIntegration:
-    """Optional: Run full RAGAS evaluation if the package is available."""
+    """Verify either the optional RAGAS dependency or the built-in fallback path."""
 
-    def test_ragas_available(self):
+    def test_ragas_dependency_or_fallback_available(self):
         try:
             import ragas
 
             print(f"\nRAGAS {ragas.__version__} is installed")
         except ImportError:
-            print("\nRAGAS is not installed. Install with: pip install ragas")
-            print("   Falling back to lightweight token-overlap metrics.")
-            pytest.skip("RAGAS not installed - lightweight metrics used instead")
+            print("\nRAGAS is not installed. Verifying lightweight token-overlap fallback instead.")
+            sample = RAG_GOLDEN_DATASET[0]
+            assert faithfulness_score(sample["answer"], sample["contexts"]) > 0.0
+            assert answer_relevancy_score(sample["answer"], sample["question"]) > 0.0
+            assert context_precision_score(sample["contexts"], sample["question"]) > 0.0
+            assert context_recall_score(sample["contexts"], sample["ground_truth"]) > 0.0

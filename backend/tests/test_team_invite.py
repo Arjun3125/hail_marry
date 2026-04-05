@@ -1,6 +1,5 @@
 """Tests for self-service team invitation."""
 import uuid
-import pytest
 from src.domains.identity.services.team_invite import (
     INVITE_EXPIRY_HOURS, accept_invitation, create_invitation,
     list_invitations, revoke_invitation, validate_invitation,

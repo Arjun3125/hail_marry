@@ -1,5 +1,4 @@
 import sqlite3
-import pprint
 
 def check_motive_accomplished():
     print("==================================================")

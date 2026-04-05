@@ -62,16 +62,18 @@ function AIStudioContent() {
     const searchKey = searchParams.toString();
     const requestedTool = useMemo(
         () => normalizeTool(searchParams.get("tool") || searchParams.get("mode")),
-        [searchKey, searchParams],
+        [searchParams],
     );
-    const seedPrompt = useMemo(() => searchParams.get("prompt"), [searchKey, searchParams]);
+    const seedPrompt = useMemo(() => searchParams.get("prompt"), [searchParams]);
 
     // Load active notebook from localStorage on mount
     useEffect(() => {
-        const saved = localStorage.getItem("activeNotebookId");
-        if (saved) {
-            setActiveNotebookId(saved);
-        }
+        queueMicrotask(() => {
+            const saved = localStorage.getItem("activeNotebookId");
+            if (saved) {
+                setActiveNotebookId(saved);
+            }
+        });
     }, []);
 
     // Save active notebook to localStorage when it changes
@@ -84,26 +86,30 @@ function AIStudioContent() {
     }, [activeNotebookId]);
 
     useEffect(() => {
-        if (requestedTool) {
-            setActiveTool(requestedTool);
-        }
+        queueMicrotask(() => {
+            if (requestedTool) {
+                setActiveTool(requestedTool);
+            }
 
-        const notebookId = searchParams.get("notebook_id");
-        if (notebookId) {
-            setActiveNotebookId(notebookId);
-        }
+            const notebookId = searchParams.get("notebook_id");
+            if (notebookId) {
+                setActiveNotebookId(notebookId);
+            }
 
-        setRequestOptions((prev) => ({
-            language: searchParams.get("language") || prev.language,
-            responseLength: searchParams.get("response_length") || prev.responseLength,
-            expertiseLevel: searchParams.get("expertise_level") || prev.expertiseLevel,
-        }));
+            setRequestOptions((prev) => ({
+                language: searchParams.get("language") || prev.language,
+                responseLength: searchParams.get("response_length") || prev.responseLength,
+                expertiseLevel: searchParams.get("expertise_level") || prev.expertiseLevel,
+            }));
+        });
     }, [requestedTool, searchKey, searchParams]);
 
     useEffect(() => {
         const historyId = searchParams.get("history");
         if (!historyId) {
-            setInitialExchange(null);
+            queueMicrotask(() => {
+                setInitialExchange(null);
+            });
             return;
         }
 
@@ -161,6 +167,7 @@ function AIStudioContent() {
             {/* Center Learning Workspace */}
             <main className="learning-workspace">
                 <LearningWorkspace 
+                    key={`${activeTool}:${activeNotebookId ?? "none"}`}
                     activeTool={activeTool} 
                     notebookId={activeNotebookId}
                     requestOptions={requestOptions}

@@ -1,5 +1,4 @@
 """Tests for module plugin architecture."""
-import pytest
 from src.domains.platform.services.plugin_registry import (
     HOOK_NAMES, PluginHook, PluginMeta, disable_plugin, enable_plugin,
     execute_hook, list_hooks, list_plugins, register_plugin,

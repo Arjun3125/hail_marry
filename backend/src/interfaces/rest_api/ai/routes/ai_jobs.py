@@ -83,18 +83,19 @@ async def enqueue_text_query_job(
         max_completion_tokens=governance.max_completion_tokens,
     )
     if settings.app.demo_mode:
-        db = SessionLocal()
         try:
-            try:
-                demo_log = db.query(AIQuery).filter(
-                    AIQuery.tenant_id == current_user.tenant_id,
-                    AIQuery.mode == request.mode
-                ).first()
-            except Exception:
-                demo_log = None
-            response_text = demo_log.response_text if demo_log else f"This is a mocked response for {request.mode} mode generated in Demo Mode."
-        finally:
-            db.close()
+            demo_log = db.query(AIQuery).filter(
+                AIQuery.tenant_id == current_user.tenant_id,
+                AIQuery.mode == request.mode,
+            ).first()
+        except Exception:
+            demo_log = None
+
+        response_text = (
+            demo_log.response_text
+            if demo_log
+            else f"This is a mocked response for {request.mode} mode generated in Demo Mode."
+        )
             
         now_str = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
         mock_job = {

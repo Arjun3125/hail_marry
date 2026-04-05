@@ -16,6 +16,7 @@ _SQLALCHEMY_INSTRUMENTED_ENGINES: set[int] = set()
 _OTEL_CACHE = None
 _OTEL_CHECKED = False
 
+
 def _load_otel():
     global _OTEL_CACHE, _OTEL_CHECKED
     if _OTEL_CHECKED:
@@ -48,6 +49,16 @@ def _load_otel():
     except Exception as exc:
         logger.debug("OpenTelemetry not installed (optional): %s", exc)
         return None
+
+
+def _resolve_sqlalchemy_engine(engine: Any) -> Any:
+    get_instance = getattr(engine, "_get_instance", None)
+    if callable(get_instance):
+        try:
+            return get_instance()
+        except Exception as exc:
+            logger.debug("Failed to resolve SQLAlchemy engine proxy: %s", exc)
+    return engine
 
 
 def configure_telemetry(service_name: str, app: Any | None = None) -> None:
@@ -94,11 +105,12 @@ def instrument_sqlalchemy_engine(engine: Any) -> None:
     if not otel:
         return
 
-    engine_id = id(engine)
+    resolved_engine = _resolve_sqlalchemy_engine(engine)
+    engine_id = id(resolved_engine)
     if engine_id in _SQLALCHEMY_INSTRUMENTED_ENGINES:
         return
 
-    otel["SQLAlchemyInstrumentor"]().instrument(engine=engine)
+    otel["SQLAlchemyInstrumentor"]().instrument(engine=resolved_engine)
     _SQLALCHEMY_INSTRUMENTED_ENGINES.add(engine_id)
 
 

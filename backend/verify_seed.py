@@ -1,5 +1,7 @@
 """Verify all 20 models are populated for the CBSE demo."""
-import sqlite3, json, sys
+import sqlite3
+import json
+import sys
 from pathlib import Path
 
 DB_PATH = "vidyaos_demo.db"

@@ -153,7 +153,7 @@ async def test_teacher_upload_document_converts_image_to_ocr_pdf_and_ingests():
         notebook_id="",
         source_file="notes.png",
     )
-    embedding_provider = SimpleNamespace(embed_batch=AsyncMock(return_value=[[0.1, 0.2]]))
+    SimpleNamespace(embed_batch=AsyncMock(return_value=[[0.1, 0.2]]))
     vector_store = SimpleNamespace(add_chunks=MagicMock())
 
     with patch("builtins.open", mock_open()), \

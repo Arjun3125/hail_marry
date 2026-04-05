@@ -1,4 +1,3 @@
-import pytest
 from unittest.mock import patch, MagicMock
 
 def test_job_not_claimed_while_paused():

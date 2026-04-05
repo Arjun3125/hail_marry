@@ -17,7 +17,6 @@ import sys
 from collections import defaultdict
 from typing import List, Dict, Optional, Tuple
 
-import pytest
 
 # Ensure backend imports resolve
 backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -332,9 +331,9 @@ class TestIntentClassifierBenchmark:
         print("\n📊 CONFUSION MATRIX (rows=actual, cols=predicted)")
         labels = sorted(confusion.keys())
         print(f"  {'':>30s}", end="")
-        short_labels = {l: l[:15] for l in labels}
-        for l in labels:
-            print(f" {short_labels[l]:>15s}", end="")
+        short_labels = {lbl: lbl[:15] for lbl in labels}
+        for lbl in labels:
+            print(f" {short_labels[lbl]:>15s}", end="")
         print()
         for actual in labels:
             print(f"  {short_labels[actual]:>30s}", end="")

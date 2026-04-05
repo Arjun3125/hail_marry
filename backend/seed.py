@@ -19,7 +19,6 @@ try:
     from src.domains.academic.models.attendance import Attendance
     from src.domains.academic.models.marks import Exam, Mark
     from src.domains.academic.models.timetable import Timetable
-    from src.domains.academic.models.lecture import Lecture
     from datetime import date, time
 
     # ─── Tenant ──────────────────────────────────
@@ -189,10 +188,10 @@ try:
     db.commit()
     print("Demo data seeded successfully!")
     print(f"   Tenant: Demo School ({tenant_id})")
-    print(f"   Admin:  admin@demo.school")
-    print(f"   Teacher: teacher@demo.school")
-    print(f"   Parent:  parent@demo.school")
-    print(f"   Students: student1@gmail.com, student2@gmail.com, student3@gmail.com")
+    print("   Admin:  admin@demo.school")
+    print("   Teacher: teacher@demo.school")
+    print("   Parent:  parent@demo.school")
+    print("   Students: student1@gmail.com, student2@gmail.com, student3@gmail.com")
 
 except Exception as e:
     db.rollback()

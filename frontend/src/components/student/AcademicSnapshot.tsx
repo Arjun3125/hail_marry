@@ -123,7 +123,7 @@ export function AcademicSnapshot({
             <div className="grid lg:grid-cols-3 gap-6">
                 {/* Schedule Card */}
                 <div className="lg:col-span-2 relative overflow-hidden rounded-2xl bg-white/5 backdrop-blur-md border-0 p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)]">
-                    <h2 className="text-base font-bold text-foreground mb-4">Today's Schedule</h2>
+                    <h2 className="text-base font-bold text-foreground mb-4">Today&apos;s Schedule</h2>
                     {loading ? (
                         <div className="animate-pulse space-y-4">
                             {[1, 2, 3].map((i) => (

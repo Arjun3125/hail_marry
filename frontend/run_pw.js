@@ -1,9 +1,7 @@
-const { chromium } = require('playwright');
-const path = require('path');
-
 const ARTIFACTS = 'C:\\Users\\naren\\.gemini\\antigravity\\brain\\a7854384-4629-493e-b912-1389b94dd8bf';
 const BASE = 'http://localhost:7125';
 const API = 'http://localhost:8080';
+let joinPath = (...segments) => segments.join('\\');
 
 async function loginAs(page, role) {
   // Hit demo login API directly
@@ -29,16 +27,21 @@ async function screenshotPage(page, urlPath, filename, waitMs = 3000) {
   try {
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 15000 });
     await page.waitForTimeout(waitMs);
-    await page.screenshot({ path: path.join(ARTIFACTS, filename), fullPage: true });
+    await page.screenshot({ path: joinPath(ARTIFACTS, filename), fullPage: true });
     return 'OK';
   } catch (e) {
     console.log(`    WARN: ${e.message.slice(0, 80)}`);
-    try { await page.screenshot({ path: path.join(ARTIFACTS, filename), fullPage: true }); } catch {}
+    try { await page.screenshot({ path: joinPath(ARTIFACTS, filename), fullPage: true }); } catch {}
     return 'WARN';
   }
 }
 
-(async () => {
+async function main() {
+  const [{ chromium }, pathModule] = await Promise.all([
+    import('playwright'),
+    import('node:path'),
+  ]);
+  joinPath = pathModule.join;
   console.log('Starting comprehensive VidyaOS demo verification...\n');
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
@@ -129,4 +132,6 @@ async function screenshotPage(page, urlPath, filename, waitMs = 3000) {
 
   await browser.close();
   console.log('\nDone. Screenshots saved to artifacts.');
-})();
+}
+
+void main();

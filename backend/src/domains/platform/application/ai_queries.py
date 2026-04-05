@@ -51,9 +51,9 @@ def build_demo_ai_result(request: AIQueryRequest) -> dict:
                         "q": f"What is the main idea behind {topic}?",
                         "options": [
                             f"It explains a core principle of {topic}.",
-                            f"It describes an unrelated historical event.",
-                            f"It is only a mathematical formula.",
-                            f"It has no practical meaning.",
+                            "It describes an unrelated historical event.",
+                            "It is only a mathematical formula.",
+                            "It has no practical meaning.",
                         ],
                         "answer": 0,
                     },
@@ -219,7 +219,7 @@ def validate_notebook_access(db: Session, current_user: User, notebook_id: UUID 
         Notebook.id == notebook_id,
         Notebook.tenant_id == current_user.tenant_id,
         Notebook.user_id == current_user.id,
-        Notebook.is_active == True,
+        Notebook.is_active,
     ).first()
     if not notebook:
         raise HTTPException(status_code=404, detail="Notebook not found")

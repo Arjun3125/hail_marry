@@ -1,7 +1,6 @@
 """Test every endpoint the student overview page calls."""
 import urllib.request
 import json
-import sys
 
 # Login
 req = urllib.request.Request(

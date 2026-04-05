@@ -20,6 +20,10 @@ type StudentPreviewRow = {
     password: string;
 };
 
+type QrTokensPayload = {
+    tokens?: Array<{ student_id: string; student_name: string; login_token: string }>;
+};
+
 export default function TeacherClassesPage() {
     const [classes, setClasses] = useState<TeacherClass[]>([]);
     const [loading, setLoading] = useState(true);
@@ -163,10 +167,10 @@ export default function TeacherClassesPage() {
         setQrModalOpen(true);
         try {
             setLoadingQr(true);
-            const payload = await api.teacher.getQrTokens(classId);
-            setQrTokens((payload as any).tokens || []);
+            const payload = await api.teacher.getQrTokens(classId) as QrTokensPayload;
+            setQrTokens(payload.tokens || []);
         } catch (err) {
-            console.error("Failed to fetch QR tokens");
+            console.error("Failed to fetch QR tokens", err);
         } finally {
             setLoadingQr(false);
         }

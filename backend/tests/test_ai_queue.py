@@ -318,19 +318,19 @@ class AIQueueTests(unittest.IsolatedAsyncioTestCase):
     async def test_claim_next_job_rotates_between_tenants_fairly(self):
         self.queue.enqueue_job(
             self.queue.JOB_TYPE_QUERY,
-            {"tenant_id": "tenant-a", "query": "One", "mode": "qa", "language": "english", "tenant_id": "tenant-a"},
+            {"tenant_id": "tenant-a", "query": "One", "mode": "qa", "language": "english"},
             tenant_id="tenant-a",
             user_id="11111111-1111-1111-1111-111111111111",
         )
         self.queue.enqueue_job(
             self.queue.JOB_TYPE_QUERY,
-            {"tenant_id": "tenant-a", "query": "Two", "mode": "qa", "language": "english", "tenant_id": "tenant-a"},
+            {"tenant_id": "tenant-a", "query": "Two", "mode": "qa", "language": "english"},
             tenant_id="tenant-a",
             user_id="11111111-1111-1111-1111-111111111111",
         )
         self.queue.enqueue_job(
             self.queue.JOB_TYPE_QUERY,
-            {"tenant_id": "tenant-b", "query": "Three", "mode": "qa", "language": "english", "tenant_id": "tenant-b"},
+            {"tenant_id": "tenant-b", "query": "Three", "mode": "qa", "language": "english"},
             tenant_id="tenant-b",
             user_id="22222222-2222-2222-2222-222222222222",
         )
@@ -344,7 +344,7 @@ class AIQueueTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(third["tenant_id"], "tenant-a")
 
     async def test_process_job_uses_ai_service_path_for_generation_jobs(self):
-        job = self.queue.enqueue_job(
+        self.queue.enqueue_job(
             self.queue.JOB_TYPE_AUDIO,
             {"tenant_id": "tenant-1", "topic": "Atoms", "format": "brief", "language": "english"},
             tenant_id="tenant-1",
@@ -370,7 +370,7 @@ class AIQueueTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(any(event["stage"] == "ai_service.completed" for event in updated["events"]))
 
     async def test_process_job_uses_ai_service_path_for_teacher_assessment_jobs(self):
-        job = self.queue.enqueue_job(
+        self.queue.enqueue_job(
             self.queue.JOB_TYPE_TEACHER_ASSESSMENT,
             {
                 "tenant_id": "tenant-1",
@@ -397,7 +397,7 @@ class AIQueueTests(unittest.IsolatedAsyncioTestCase):
         assessment_mock.assert_awaited_once()
 
     async def test_process_job_uses_ai_service_path_for_whatsapp_media_ingest_jobs(self):
-        job = self.queue.enqueue_job(
+        self.queue.enqueue_job(
             self.queue.JOB_TYPE_WHATSAPP_MEDIA_INGEST,
             {
                 "tenant_id": "tenant-1",

@@ -2,7 +2,7 @@
 
 import { useFloating, offset, flip, shift, autoUpdate, useHover, useInteractions, FloatingPortal } from "@floating-ui/react";
 import { BookText } from "lucide-react";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 
 type Citation = {
     source?: string;
@@ -21,12 +21,18 @@ export function CitationPopover({ citation }: { citation: Citation }) {
     });
     const hover = useHover(context, { move: false });
     const { getReferenceProps, getFloatingProps } = useInteractions([hover]);
+    const setReference = useCallback((node: HTMLButtonElement | null) => {
+        refs.setReference(node);
+    }, [refs]);
+    const setFloating = useCallback((node: HTMLDivElement | null) => {
+        refs.setFloating(node);
+    }, [refs]);
     const label = citation.text || `${citation.source || "Document"}${citation.page ? ` p.${citation.page}` : ""}`;
 
     return (
         <>
             <button
-                ref={refs.setReference}
+                ref={setReference}
                 type="button"
                 className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--bg-page)] px-2.5 py-1 text-[10px] text-[var(--text-secondary)] transition hover:border-[var(--primary)]/40 hover:text-[var(--text-primary)]"
                 {...getReferenceProps()}
@@ -37,7 +43,7 @@ export function CitationPopover({ citation }: { citation: Citation }) {
             {open ? (
                 <FloatingPortal>
                     <div
-                        ref={refs.setFloating}
+                        ref={setFloating}
                         style={floatingStyles}
                         className="z-50 max-w-64 rounded-xl border border-[var(--border)] bg-[var(--bg-card)] p-3 text-xs shadow-2xl"
                         {...getFloatingProps()}

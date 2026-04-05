@@ -31,7 +31,6 @@ def test_qr_login_route_is_registered_once(client):
 
 
 def test_qr_login_redirect_sets_cookies_and_invalidates_token(client, db_session, active_tenant):
-    from src.domains.identity.models.user import User
 
     student = _create_student_with_qr_token(
         db_session,

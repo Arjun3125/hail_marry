@@ -1,5 +1,4 @@
 from colorthief import ColorThief
-from PIL import Image
 import io
 
 def rgb_to_hex(rgb: tuple[int, int, int]) -> str:

@@ -51,7 +51,7 @@ async def demo_status():
 async def demo_profiles(db: Session = Depends(get_db)):
     """Return demo personas plus role-specific walkthrough steps."""
     role_order = ["student", "teacher", "admin", "parent"]
-    users = db.query(User).filter(User.role.in_(role_order), User.is_active == True).all()
+    users = db.query(User).filter(User.role.in_(role_order), User.is_active).all()
     user_by_role = {u.role: u for u in users}
 
     profile_templates = [

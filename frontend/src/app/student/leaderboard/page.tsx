@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Trophy, Medal, Clock, TrendingUp, ChevronDown, CheckCircle2, ChevronRight, Crown } from "lucide-react";
+import { Trophy, Medal, Clock, TrendingUp, ChevronDown, CheckCircle2, Crown } from "lucide-react";
 import { api } from "@/lib/api";
 
 type TestSeries = {
@@ -135,7 +135,7 @@ export default function LeaderboardPage() {
                     </div>
                     <h3 className="text-xl font-bold text-[var(--text-primary)] mb-2">No Challenges Active</h3>
                     <p className="text-sm text-[var(--text-secondary)] max-w-sm">
-                        You're currently not enrolled in any competitive test series. New challenges will appear here.
+                        You&apos;re currently not enrolled in any competitive test series. New challenges will appear here.
                     </p>
                 </div>
             ) : (
@@ -215,7 +215,7 @@ export default function LeaderboardPage() {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {leaderboard.leaderboard.map((entry, idx) => {
+                                        {leaderboard.leaderboard.map((entry) => {
                                             const style = getRankStyle(entry.rank);
                                             const isTop3 = entry.rank <= 3;
                                             

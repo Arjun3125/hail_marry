@@ -21,8 +21,8 @@ def build_admin_dashboard_response(
     load_queue_metrics_fn,
     list_active_alerts_fn,
 ) -> dict:
-    total_students = db.query(User).filter(User.tenant_id == tenant_id, User.role == "student", User.is_active == True).count()
-    total_teachers = db.query(User).filter(User.tenant_id == tenant_id, User.role == "teacher", User.is_active == True).count()
+    total_students = db.query(User).filter(User.tenant_id == tenant_id, User.role == "student", User.is_active).count()
+    total_teachers = db.query(User).filter(User.tenant_id == tenant_id, User.role == "teacher", User.is_active).count()
     active_today = max(1, total_students // 5)
     ai_today = db.query(AIQuery).filter(AIQuery.tenant_id == tenant_id, func.date(AIQuery.created_at) == date.today()).count()
     total_att = db.query(Attendance).filter(Attendance.tenant_id == tenant_id).count()

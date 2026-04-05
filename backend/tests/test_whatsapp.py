@@ -1,7 +1,6 @@
 """Tests for the WhatsApp notification service."""
 import asyncio
 import inspect
-import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 
 from src.domains.academic.services.whatsapp import (

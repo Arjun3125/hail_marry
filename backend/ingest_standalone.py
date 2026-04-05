@@ -4,13 +4,11 @@ Standalone ingestion script for demo PDFs.
 Directly uses Ollama for embeddings and FAISS for vector storage.
 No complex backend dependencies required.
 """
-import os
-import json
 import sqlite3
 import pickle
 import requests
 from pathlib import Path
-from uuid import uuid4, UUID
+from uuid import uuid4
 from datetime import datetime
 
 # Paths
@@ -84,7 +82,6 @@ def extract_text_from_pdf(file_path: Path) -> str:
         with open(file_path, "rb") as f:
             content = f.read()
             # Try to extract text between stream/endstream
-            text_parts = []
             content_str = content.decode("latin-1", errors="ignore")
             return content_str
     except Exception as e:
@@ -172,10 +169,10 @@ def process_pdf(file_path: Path, subject_id: str = None):
     with open(dest_path, "wb") as dst:
         dst.write(content)
 
-    print(f"   📁 Saved to uploads")
+    print("   📁 Saved to uploads")
 
     # 2. Extract text
-    print(f"   📖 Extracting text...")
+    print("   📖 Extracting text...")
     text = extract_text_from_pdf(file_path)
 
     if not text or len(text) < 100:
@@ -187,7 +184,7 @@ The document contains important concepts and information for student learning.
 Key topics covered include theoretical foundations, practical applications,
 and exercises for assessment. Students should review this material carefully.
 """
-        print(f"   📝 Using synthetic content")
+        print("   📝 Using synthetic content")
 
     print(f"   ✅ Extracted {len(text)} characters")
 
@@ -196,7 +193,7 @@ and exercises for assessment. Students should review this material carefully.
     print(f"   ✂️  Created {len(chunks)} chunks")
 
     # 4. Generate embeddings
-    print(f"   🧠 Generating embeddings via Ollama...")
+    print("   🧠 Generating embeddings via Ollama...")
     embeddings = []
     valid_chunks = []
 
@@ -209,7 +206,7 @@ and exercises for assessment. Students should review this material carefully.
             print(f"      Progress: {i+1}/{len(chunks)}")
 
     if not embeddings:
-        print(f"   ❌ Failed to generate any embeddings")
+        print("   ❌ Failed to generate any embeddings")
         return None
 
     print(f"   ✅ Generated {len(embeddings)} embeddings")
@@ -251,9 +248,9 @@ def main():
             models = resp.json().get("models", [])
             embed_models = [m for m in models if "embed" in m.get("name", "").lower()]
             if embed_models:
-                print(f"✅ Ollama ready with embedding models")
+                print("✅ Ollama ready with embedding models")
             else:
-                print(f"⚠️  No embedding models found. Run: ollama pull nomic-embed-text")
+                print("⚠️  No embedding models found. Run: ollama pull nomic-embed-text")
                 return
         else:
             print(f"❌ Ollama returned status {resp.status_code}")
@@ -285,7 +282,7 @@ def main():
 
     pdf_files = list(pdf_dir.glob("*.pdf"))
     if not pdf_files:
-        print(f"❌ No PDF files found")
+        print("❌ No PDF files found")
         return
 
     print(f"📚 Found {len(pdf_files)} PDF files to ingest")
