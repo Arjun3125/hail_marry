@@ -1,4 +1,5 @@
-# Frontend Dockerfile for Demo deployment
+# Compatibility frontend demo Dockerfile.
+# Canonical file: deploy/docker/frontend.demo.Dockerfile
 # Accepts NEXT_PUBLIC_API_URL as build arg (default: empty = same origin via nginx)
 
 FROM node:20-alpine AS deps

@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from auth.dependencies import _demo_user_cache
 from database import get_db, Base, engine
 from config import settings
-from demo_seed import seed_demo_data
+from seed_cbse_demo import seed_demo_data
 from src.domains.identity.models.user import User
 
 router = APIRouter(prefix="/api/demo", tags=["Demo"])
@@ -263,7 +263,7 @@ async def reset_demo(db: Session = Depends(get_db)):
         Base.metadata.create_all(bind=engine)
 
         # Re-run seed logic
-        seed_demo_data(db)
+        seed_demo_data(skip_embeddings=True)
 
         # Clear user cache
         _demo_user_cache.clear()

@@ -1,5 +1,7 @@
 # Compatibility demo compose entrypoint.
 # Canonical file: deploy/compose/demo.yml
+# Canonical dataset: Class 11 CBSE showcase tenant with 6 months of synthetic
+# history across student, parent, teacher, and admin personas.
 # Usage: docker compose -f docker-compose.demo.yml up --build
 #
 # Runs a lightweight demo stack with:
@@ -13,7 +15,7 @@ services:
   api:
     build:
       context: .
-      dockerfile: Dockerfile.demo
+      dockerfile: deploy/docker/demo.Dockerfile
     container_name: vidyaos-demo-api
     restart: unless-stopped
     environment:
@@ -35,8 +37,8 @@ services:
 
   frontend:
     build:
-      context: ./frontend
-      dockerfile: Dockerfile.demo
+      context: .
+      dockerfile: deploy/docker/frontend.demo.Dockerfile
       args:
         NEXT_PUBLIC_API_URL: ""
         NEXT_PUBLIC_DEMO_MODE: "true"

@@ -15,7 +15,6 @@ os.environ["APP_ENV"] = "local"
 os.environ["DATABASE_URL"] = "sqlite:///./demo.db"
 os.environ["VECTOR_STORE_PATH"] = "./vector_store"
 
-import uuid
 from pathlib import Path
 
 
@@ -25,31 +24,31 @@ def setup_demo_environment():
     from src.domains.identity.models.tenant import Tenant
     from src.domains.identity.models.user import User
     from src.domains.academic.models.core import Class, Subject
+    from seed_cbse_demo import DEMO_TEACHER_EMAIL, TENANT_NAME
 
     db = SessionLocal()
 
-    # Demo tenant ID from demo_seed.py
-    tenant_id = uuid.UUID("00000000-0000-0000-0000-000000000001")
-    teacher_id = uuid.UUID("00000000-0000-0000-0000-000000000020")
-
     # Check if demo data exists
-    tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
+    tenant = db.query(Tenant).filter(Tenant.name == TENANT_NAME).first()
     if not tenant:
-        print("❌ Demo tenant not found. Please run demo_seed.py first!")
-        print("   Run: python demo_seed.py or start the demo with demo.bat")
+        print("❌ Demo tenant not found. Please run the canonical CBSE demo seeder first.")
+        print("   Run: python seed_cbse_demo.py or start the demo stack from deploy/compose/demo.yml")
         db.close()
         return None, None, None
 
     # Get teacher user
-    teacher = db.query(User).filter(User.id == teacher_id).first()
+    teacher = db.query(User).filter(
+        User.tenant_id == tenant.id,
+        User.email == DEMO_TEACHER_EMAIL,
+    ).first()
     if not teacher:
         print("❌ Demo teacher not found!")
         db.close()
         return None, None, None
 
     # Get first class and subject for association
-    db.query(Class).filter(Class.tenant_id == tenant_id).first()
-    subject = db.query(Subject).filter(Subject.tenant_id == tenant_id).first()
+    db.query(Class).filter(Class.tenant_id == tenant.id).first()
+    subject = db.query(Subject).filter(Subject.tenant_id == tenant.id).first()
 
     db.close()
 

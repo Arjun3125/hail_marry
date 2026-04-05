@@ -1,4 +1,5 @@
-# Canonical production backend image definition.
+# Compatibility backend image definition.
+# Canonical file: /backend/Dockerfile
 # Legacy compatibility copy remains at /Dockerfile.production.
 
 FROM python:3.12-slim AS builder

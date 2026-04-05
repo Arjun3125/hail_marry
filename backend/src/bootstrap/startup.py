@@ -23,8 +23,8 @@ def create_lifespan(container):
             db_session.close()
 
         if not os.environ.get("TESTING"):
-            # Note: Database migrations and seeding are handled externally via
-            # start-all.sh to avoid concurrent execution between API and Worker.
+            # Database migrations and seeding are handled by the service entrypoint
+            # before the API process boots so the API and worker do not race.
             pass
 
             try:
@@ -124,16 +124,13 @@ def initialize_demo_mode(container) -> None:
     _apply_demo_schema_compatibility_fixes(container.engine)
     try:
         db_session = container.session_local()
-        init_feature_flags(db_session)
-        if db_session.query(User).count() == 0:
-            # Prefer rich CBSE seeder; fall back to lightweight demo_seed
-            try:
-                from seed_cbse_demo import seed as seed_cbse
-                seed_cbse(skip_embeddings=True)  # skip NVIDIA API during auto-start
-            except Exception as cbse_exc:
-                print(f"CBSE seeder failed ({cbse_exc}), falling back to lightweight demo_seed.")
-                from demo_seed import seed_demo_data
-                seed_demo_data(db_session)
-        db_session.close()
+        try:
+            init_feature_flags(db_session)
+            if db_session.query(User).count() == 0:
+                from seed_cbse_demo import seed_demo_data
+
+                seed_demo_data(skip_embeddings=True)  # skip external embeddings during auto-start
+        finally:
+            db_session.close()
     except Exception as exc:  # pragma: no cover - demo-only compatibility path
         print(f"Warning: demo seed check failed: {exc}")

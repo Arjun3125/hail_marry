@@ -1,3 +1,5 @@
+# Canonical demo stack for the Class 11 CBSE showcase tenant.
+
 services:
   api:
     build:

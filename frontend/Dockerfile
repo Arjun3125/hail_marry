@@ -1,3 +1,6 @@
+# Canonical frontend runtime image.
+# Build context: frontend/
+
 FROM node:20-alpine AS deps
 
 WORKDIR /app

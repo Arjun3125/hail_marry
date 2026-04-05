@@ -1,10 +1,13 @@
 """
-Seed script - CBSE Class 11 Demo with Live NVIDIA NIM RAG Embeddings.
-Seeds ALL 20 data models for a complete, impressive demo experience.
+Canonical Class 11 CBSE showcase seeder.
 
-Run: python seed_cbse_demo.py
-Env vars required:
-  EMBEDDING_API_KEY  — NVIDIA NIM key for nv-embedqa-e5-v5
+This is the single supported demo dataset for VidyaOS. It provisions one
+Class 11 Science (CBSE) tenant with six months of synthetic history for the
+student, parent, teacher, and admin personas used in the product walkthrough.
+
+Run: ``python seed_cbse_demo.py``
+Optional env var:
+  ``EMBEDDING_API_KEY`` for live NVIDIA NIM embeddings
 """
 import os
 import uuid
@@ -49,6 +52,10 @@ EMBED_DIM = 1024
 EMBED_API_KEY = os.getenv("EMBEDDING_API_KEY", "")
 EMBED_BASE_URL = "https://integrate.api.nvidia.com/v1"
 TENANT_NAME = "Modern Hustlers Academy"
+DEMO_STUDENT_EMAIL = "demo_cbse11@modernhustlers.com"
+DEMO_TEACHER_EMAIL = "teacher@modernhustlers.com"
+DEMO_ADMIN_EMAIL = "admin@modernhustlers.com"
+DEMO_PARENT_EMAIL = "parent@modernhustlers.com"
 
 # ── CBSE 11 Study Material ────────────────────────────────────
 NOTEBOOKS = {
@@ -209,22 +216,22 @@ def seed(skip_embeddings: bool = False):
         # ── 2. Users ─────────────────────────────────────────────
         student_id = uuid.uuid4()
         db.add(User(id=student_id, tenant_id=tenant_id,
-                     email="demo_cbse11@modernhustlers.com",
+                     email=DEMO_STUDENT_EMAIL,
                      full_name="Naren (Demo)", role="student"))
 
         teacher_id = uuid.uuid4()
         db.add(User(id=teacher_id, tenant_id=tenant_id,
-                     email="teacher@modernhustlers.com",
+                     email=DEMO_TEACHER_EMAIL,
                      full_name="Mr. Sharma", role="teacher"))
 
         admin_id = uuid.uuid4()
         db.add(User(id=admin_id, tenant_id=tenant_id,
-                     email="admin@modernhustlers.com",
+                     email=DEMO_ADMIN_EMAIL,
                      full_name="Admin", role="admin"))
 
         parent_id = uuid.uuid4()
         db.add(User(id=parent_id, tenant_id=tenant_id,
-                     email="parent@modernhustlers.com",
+                     email=DEMO_PARENT_EMAIL,
                      full_name="Mrs. Sharma (Parent)", role="parent"))
         db.flush()
         logger.info("✓ Users created (student + teacher + admin + parent)")
@@ -679,10 +686,10 @@ def seed(skip_embeddings: bool = False):
         db.commit()
         logger.info("═" * 60)
         logger.info("  🎉 FULL 20-MODEL SEEDING COMPLETE!")
-        logger.info("  Student login: demo_cbse11@modernhustlers.com")
-        logger.info("  Teacher login: teacher@modernhustlers.com")
-        logger.info("  Admin login:   admin@modernhustlers.com")
-        logger.info("  Parent login:  parent@modernhustlers.com")
+        logger.info("  Student login: %s", DEMO_STUDENT_EMAIL)
+        logger.info("  Teacher login: %s", DEMO_TEACHER_EMAIL)
+        logger.info("  Admin login:   %s", DEMO_ADMIN_EMAIL)
+        logger.info("  Parent login:  %s", DEMO_PARENT_EMAIL)
         logger.info(f"  Tenant ID:     {tenant_id}")
         logger.info(f"  FAISS chunks:  {total_chunks}")
         logger.info("═" * 60)
@@ -695,6 +702,12 @@ def seed(skip_embeddings: bool = False):
         raise
     finally:
         db.close()
+
+
+def seed_demo_data(*, skip_embeddings: bool = True) -> bool:
+    """Canonical programmatic entrypoint for the demo showcase dataset."""
+    seed(skip_embeddings=skip_embeddings)
+    return True
 
 
 if __name__ == "__main__":

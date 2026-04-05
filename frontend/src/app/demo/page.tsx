@@ -46,7 +46,7 @@ const roles: RoleCard[] = [
         desc: "Assessment generator, doubt heatmap, source discovery, class insights",
         gradient: "from-emerald-500 to-teal-600",
         path: "/teacher/dashboard",
-        persona: "Ms. Ananya Sharma - Science Teacher",
+        persona: "Mr. Sharma - Class 11 Science Teacher",
     },
     {
         id: "admin",
@@ -55,7 +55,7 @@ const roles: RoleCard[] = [
         desc: "User management, analytics, billing, security, reports",
         gradient: "from-violet-500 to-purple-600",
         path: "/admin/dashboard",
-        persona: "Dr. Rajesh Kumar - Principal",
+        persona: "Admin - School Operations",
     },
     {
         id: "parent",

@@ -1,5 +1,5 @@
 # Compatibility production Dockerfile.
-# Canonical file: deploy/docker/backend.Dockerfile
+# Canonical file: backend/Dockerfile
 
 # ── Stage 1: Build dependencies ──────────────────────────────
 FROM python:3.12-slim AS builder

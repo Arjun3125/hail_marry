@@ -1,5 +1,5 @@
-# Canonical worker image definition.
-# Legacy compatibility copy remains at /backend/Dockerfile.worker.
+# Compatibility worker image definition.
+# Canonical file: /backend/Dockerfile.worker
 
 FROM python:3.11-slim as builder
 

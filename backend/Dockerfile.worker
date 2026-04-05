@@ -1,3 +1,6 @@
+# Canonical worker runtime image.
+# Build context: repo root
+
 FROM python:3.11-slim as builder
 
 WORKDIR /build

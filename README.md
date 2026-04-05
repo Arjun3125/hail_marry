@@ -152,6 +152,33 @@ Current checked-in Railway config reflects that split:
 Production backend deploys should not rely on `start-all.sh`, `Dockerfile.demo`,
 or custom start-command overrides.
 
+## Canonical Runtime Packaging
+
+VidyaOS now has four canonical runtime definitions:
+
+- `backend/Dockerfile`: API service, built from repo-root context
+- `backend/Dockerfile.worker`: queue worker, built from repo-root context
+- `frontend/Dockerfile`: frontend service, built from `frontend/`
+- `deploy/docker/demo.Dockerfile` plus `deploy/docker/frontend.demo.Dockerfile`:
+  Class 11 CBSE showcase demo, launched through `deploy/compose/demo.yml`
+
+Legacy Dockerfiles and compose files remain only as compatibility shims during
+the transition. New CI, Railway, and compose wiring should always point back to
+the canonical files above.
+
+## Demo Contract
+
+The supported demo experience is a single Class 11 Science (CBSE) tenant with
+six months of synthetic activity for:
+
+- student
+- parent
+- teacher
+- admin
+
+The canonical programmatic seeder is `backend/seed_cbse_demo.py`. The older
+`backend/demo_seed.py` file remains only as a compatibility forwarder.
+
 ## Request Flows
 
 ### Synchronous public AI request

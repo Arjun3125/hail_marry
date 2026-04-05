@@ -1,27 +1,31 @@
 # Docker Assets
 
-Canonical Docker image definitions now live here.
+The canonical runtime contract is:
 
-- `backend.Dockerfile`: production backend image
-- `worker.Dockerfile`: background worker image
-- `frontend.Dockerfile`: production frontend image
-- `demo.Dockerfile`: demo backend image
-- `frontend.demo.Dockerfile`: demo frontend image
+- API: `/backend/Dockerfile` with repo-root build context
+- Worker: `/backend/Dockerfile.worker` with repo-root build context
+- Frontend: `/frontend/Dockerfile` with `frontend/` build context
+- Demo backend: `/deploy/docker/demo.Dockerfile` with repo-root build context
+- Demo frontend: `/deploy/docker/frontend.demo.Dockerfile` with repo-root build context
 
-Railway production backend services should use explicit Dockerfile builds:
+Railway production backend services should use config-as-code:
 
-- `backend-api`: repo root context with `backend/Dockerfile`
-- `backend-worker`: repo root context with `backend/Dockerfile.worker`
+- API service -> `/railway.toml` -> `backend/Dockerfile`
+- Worker service -> `/backend/railway.toml` -> `backend/Dockerfile.worker`
 
-Do not rely on auto-detected demo Dockerfiles or custom start commands for the
-production backend path.
+Do not rely on:
 
-Legacy compatibility copies still remain at the repo root and in feature folders:
+- Dockerfile auto-detection
+- custom Railway start commands
+- demo Dockerfiles for production services
+
+Legacy compatibility shims remain temporarily at:
 
 - `/Dockerfile.production`
 - `/Dockerfile.demo`
-- `/backend/Dockerfile.worker`
-- `/frontend/Dockerfile`
 - `/frontend/Dockerfile.demo`
+- `/deploy/docker/backend.Dockerfile`
+- `/deploy/docker/worker.Dockerfile`
+- `/deploy/docker/frontend.Dockerfile`
 
-Prefer the files in `deploy/docker/` for new deployment work.
+Use the canonical files listed at the top for all new production and demo work.

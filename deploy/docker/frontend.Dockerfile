@@ -1,5 +1,5 @@
-# Canonical production frontend image definition.
-# Legacy compatibility copy remains at /frontend/Dockerfile.
+# Compatibility frontend image definition.
+# Canonical file: /frontend/Dockerfile
 
 FROM node:20-alpine AS deps
 

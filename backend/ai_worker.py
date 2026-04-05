@@ -70,7 +70,7 @@ async def _run_periodic_aggregation() -> None:
 
 
 async def worker_loop() -> None:
-    # ── 1. Bypass db migrations (handled by start-all.sh) ──
+    # ── 1. DB bootstrap is handled by the worker entrypoint before this loop starts ──
     logger.info("Worker starting...")
 
     # ── 2. Startup dependency checks ──

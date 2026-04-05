@@ -77,14 +77,14 @@ docker compose up -d postgres redis
 ```bash
 cd backend
 pip install -r requirements.txt
-python start-api.sh
+sh start-api.sh
 ```
 
 ### 5) Start worker
 
 ```bash
 cd backend
-python start-worker.sh
+sh start-worker.sh
 ```
 
 ### 6) Start frontend
@@ -111,4 +111,6 @@ cd frontend && npm run lint && npm run build
 
 ## Demo mode
 
-Set `DEMO_MODE=true` to enable demo-mode helpers and seed/demo flows used by the local walkthrough experience.
+Set `DEMO_MODE=true` to enable demo-mode helpers and the canonical Class 11
+CBSE showcase dataset used by the local walkthrough experience. For the
+containerized demo stack, use `deploy/compose/demo.yml`.
