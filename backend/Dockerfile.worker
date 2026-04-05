@@ -1,12 +1,12 @@
 FROM python:3.11-slim as builder
 
-WORKDIR /app
+WORKDIR /build
 ENV PATH="/opt/venv/bin:$PATH"
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc libpq-dev && python -m venv /opt/venv && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.runtime.txt .
+COPY backend/requirements.runtime.txt .
 RUN pip install --no-cache-dir -r requirements.runtime.txt
 
 
@@ -16,17 +16,17 @@ FROM python:3.11-slim
 RUN groupadd -r vidyaos && useradd -r -g vidyaos -d /app -s /sbin/nologin -c "Docker image user" vidyaos \
     && apt-get update && apt-get install -y --no-install-recommends libpq-dev curl && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /app
+WORKDIR /app/backend
 ENV PATH="/opt/venv/bin:$PATH"
 
 COPY --from=builder /opt/venv /opt/venv
 
-COPY . .
+COPY backend/ .
 
 # Ensure scripts are executable and set ownership
-RUN chmod +x /app/start-api.sh /app/start-worker.sh /app/start-railway-api.sh /app/start-railway-worker.sh && \
+RUN chmod +x /app/backend/start-api.sh /app/backend/start-worker.sh /app/backend/start-railway-api.sh /app/backend/start-railway-worker.sh && \
     chown -R vidyaos:vidyaos /app
 
 USER vidyaos
 
-CMD ["sh", "/app/start-worker.sh"]
+CMD ["sh", "/app/backend/start-worker.sh"]
