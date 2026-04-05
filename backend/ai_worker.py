@@ -70,13 +70,8 @@ async def _run_periodic_aggregation() -> None:
 
 
 async def worker_loop() -> None:
-    # ── 1. Run database migrations before anything else ──
-    logger.info("Worker starting — ensuring database is ready...")
-    try:
-        from db_migrate import ensure_db_ready
-        await asyncio.to_thread(ensure_db_ready)
-    except Exception as exc:
-        logger.error("Worker DB migration failed (continuing anyway): %s", exc)
+    # ── 1. Bypass db migrations (handled by start-all.sh) ──
+    logger.info("Worker starting...")
 
     # ── 2. Startup dependency checks ──
     dependency_status = enforce_startup_dependencies("worker")

@@ -23,11 +23,9 @@ def create_lifespan(container):
             db_session.close()
 
         if not os.environ.get("TESTING"):
-            try:
-                from db_migrate import ensure_db_ready
-                await asyncio.to_thread(ensure_db_ready)
-            except Exception as exc:
-                logger.error("Failed to auto-migrate/seed database on boot: %s", exc)
+            # Note: Database migrations and seeding are handled externally via
+            # start-all.sh to avoid concurrent execution between API and Worker.
+            pass
 
             try:
                 enforce_startup_dependencies("api")
