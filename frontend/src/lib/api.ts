@@ -1,4 +1,8 @@
-const RAW_API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? "").replace(/\s+/g, "").replace(/\/+$/, "");
+const RAW_API_BASE = (
+    process.env.API_ORIGIN ??
+    process.env.NEXT_PUBLIC_API_URL ??
+    ""
+).replace(/\s+/g, "").replace(/\/+$/, "");
 const ACCESS_TOKEN_KEY = "vidyaos_access_token";
 
 export type APIErrorType = "auth" | "rate_limit" | "validation" | "service_unavailable" | "unknown";
@@ -22,26 +26,10 @@ function resolveAPIBase(): string {
         return RAW_API_BASE || "http://127.0.0.1:8000";
     }
 
-    // Client-side: ALWAYS use relative paths so requests go through
-    // the Next.js proxy rewrites configured in next.config.ts.
-    // This completely avoids CORS issues in local development.
-    if (!RAW_API_BASE) {
-        return "";
-    }
-
-    try {
-        const currentOrigin = new URL(window.location.origin);
-        const configuredOrigin = new URL(RAW_API_BASE, currentOrigin.origin);
-
-        // If both are local/private, always proxy through Next.js
-        if (isLoopbackHost(configuredOrigin.hostname) || isLoopbackHost(currentOrigin.hostname)) {
-            return "";
-        }
-
-        return configuredOrigin.origin === currentOrigin.origin ? "" : configuredOrigin.origin;
-    } catch {
-        return "";
-    }
+    // Client-side: always use relative paths so every request flows through
+    // the Next.js rewrite layer instead of hard-binding the browser to a
+    // separately managed backend hostname.
+    return "";
 }
 
 function buildApiUrl(base: string, path: string): string {

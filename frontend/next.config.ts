@@ -1,5 +1,7 @@
 import type { NextConfig } from "next";
 
+const RAW_API_ORIGIN = process.env.API_ORIGIN ?? process.env.NEXT_PUBLIC_API_URL;
+
 function normalizeApiBaseUrl(value: string | undefined): string | null {
     const raw = value?.trim();
     if (!raw) {
@@ -17,9 +19,9 @@ function normalizeApiBaseUrl(value: string | undefined): string | null {
 
 const nextConfig: NextConfig = {
     async rewrites() {
-        const apiBaseUrl = normalizeApiBaseUrl(process.env.NEXT_PUBLIC_API_URL);
+        const apiBaseUrl = normalizeApiBaseUrl(RAW_API_ORIGIN);
         if (!apiBaseUrl) {
-            console.warn("Skipping /api rewrite because NEXT_PUBLIC_API_URL is invalid.");
+            console.warn("Skipping /api rewrite because API_ORIGIN/NEXT_PUBLIC_API_URL is invalid.");
             return [];
         }
 

@@ -55,14 +55,10 @@ ENV PYTHONUNBUFFERED=1 \
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD curl -f http://localhost:${PORT}/api/health || exit 1
+    CMD curl -f http://localhost:${PORT}/health || exit 1
 
 EXPOSE ${PORT}
 
-# Use gunicorn for production (uvicorn workers)
-CMD ["gunicorn", "main:app", \
-     "--worker-class", "uvicorn.workers.UvicornWorker", \
-     "--workers", "4", \
-     "--bind", "0.0.0.0:8000", \
-     "--timeout", "120", \
-     "--access-logfile", "-"]
+# Use the unified API runner for production so server logs share the same
+# stdout-first structured logging path as the primary backend image.
+CMD ["python", "run_api.py", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
