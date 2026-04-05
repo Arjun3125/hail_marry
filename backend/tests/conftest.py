@@ -15,7 +15,6 @@ if backend_dir not in sys.path:
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-import uuid
 
 try:
     from sqlalchemy import create_engine
@@ -123,7 +122,7 @@ def _lightweight_test_mode() -> bool:
 
 
 def pytest_ignore_collect(collection_path, config):
-    missing_modules = _missing_core_test_dependencies()
+    _missing_core_test_dependencies()
     if not _lightweight_test_mode():
         return False
 
@@ -151,6 +150,7 @@ def pytest_report_header(config):
         "backend tests: lightweight mode active "
         f"(LIGHTWEIGHT_TEST_MODE={mode}; missing dependencies skipped during collection: {', '.join(missing_modules)})"
     )
+
 
 
 @pytest.fixture(autouse=True)
@@ -193,36 +193,82 @@ def tmp_path():
     finally:
         shutil.rmtree(path, ignore_errors=True)
 
-if create_engine and sessionmaker:
-    import models  # noqa: F401  # Ensure SQLAlchemy model modules are imported before create_all
+_test_engine = None
+_TestingSessionLocal = None
+
+
+def get_test_engine():
+    """Lazily create and return the test engine."""
+    global _test_engine
+    if _test_engine is None:
+        if create_engine is None:
+            return None
+        import models  # noqa: F401  # Ensure all models are loaded
+        from database import Base  # noqa: F401
+
+        _test_engine = create_engine(
+            os.getenv("DATABASE_URL"), connect_args={"check_same_thread": False}
+        )
+        _test_engine.dialect.insert_returning = False
+        _test_engine.dialect.update_returning = False
+    return _test_engine
+
+
+def get_testing_session_local():
+    """Lazily create and return the testing session local factory."""
+    global _TestingSessionLocal
+    if _TestingSessionLocal is None:
+        if sessionmaker is None:
+            return None
+        _TestingSessionLocal = sessionmaker(
+            autocommit=False, autoflush=False, bind=get_test_engine()
+        )
+    return _TestingSessionLocal
+
+
+class _ConftestLazyProxy:
+    """A minimal proxy to defer engine/session initialization."""
+
+    def __init__(self, factory):
+        object.__setattr__(self, "_factory", factory)
+        object.__setattr__(self, "_instance", None)
+
+    def _get_instance(self):
+        if object.__getattribute__(self, "_instance") is None:
+            object.__setattr__(
+                self, "_instance", object.__getattribute__(self, "_factory")()
+            )
+        return object.__getattribute__(self, "_instance")
+
+    def __getattr__(self, name):
+        return getattr(self._get_instance(), name)
+
+    def __call__(self, *args, **kwargs):
+        return self._get_instance()(*args, **kwargs)
+
+
+engine = _ConftestLazyProxy(get_test_engine)
+TestingSessionLocal = _ConftestLazyProxy(get_testing_session_local)
+
+try:
     from database import Base
-
-    engine = create_engine(
-        os.getenv("DATABASE_URL"),
-        connect_args={"check_same_thread": False}
-    )
-    engine.dialect.insert_returning = False
-    engine.dialect.update_returning = False
-
-    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-else:
+except ImportError:
     Base = None
-    engine = None
-    TestingSessionLocal = None
+
 
 @pytest.fixture(scope="session")
 def setup_database():
-    if Base is None or engine is None:
+    if Base is None or get_test_engine() is None:
         pytest.skip("SQLAlchemy is unavailable in this environment")
-    Base.metadata.create_all(bind=engine)
+    Base.metadata.create_all(bind=get_test_engine())
     yield
-    Base.metadata.drop_all(bind=engine)
+    Base.metadata.drop_all(bind=get_test_engine())
 
 @pytest.fixture
 def db_session(setup_database):
-    connection = engine.connect()
+    connection = get_test_engine().connect()
     transaction = connection.begin()
-    session = TestingSessionLocal(bind=connection)
+    session = get_testing_session_local()(bind=connection)
 
     yield session
 
