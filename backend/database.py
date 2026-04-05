@@ -7,6 +7,7 @@ import sqlite3
 import uuid
 from typing import AsyncGenerator
 
+from sqlalchemy.inspection import _inspects, inspect as sa_inspect
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import DeclarativeBase
 
@@ -239,6 +240,12 @@ class _LazyProxy:
 
     def __repr__(self):
         return f"<LazyProxy for {object.__getattribute__(self, '_factory').__name__}>"
+
+
+@_inspects(_LazyProxy)
+def _inspect_lazy_proxy(subject: _LazyProxy):
+    """Delegate SQLAlchemy inspection APIs to the resolved proxied object."""
+    return sa_inspect(subject._get_instance())
 
 
 engine = _LazyProxy(get_engine)

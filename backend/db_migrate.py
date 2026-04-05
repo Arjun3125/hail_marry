@@ -20,9 +20,9 @@ logger = logging.getLogger("db-migrate")
 def _is_fresh_database() -> bool:
     """Check if the database has no application tables at all."""
     from sqlalchemy import inspect
-    from database import engine
+    from database import get_engine
 
-    inspector = inspect(engine)
+    inspector = inspect(get_engine())
     tables = inspector.get_table_names()
     # If core tables don't exist, it's a fresh database
     core_tables = {"users", "tenants", "classes", "subjects"}
@@ -32,10 +32,10 @@ def _is_fresh_database() -> bool:
 def _create_schema_from_models() -> None:
     """Create all tables from ORM models (for fresh databases)."""
     import models  # noqa: F401 — register all ORM models
-    from database import engine, Base
+    from database import Base, get_engine
 
     logger.info("Fresh database detected — creating full schema from ORM models...")
-    Base.metadata.create_all(bind=engine)
+    Base.metadata.create_all(bind=get_engine())
     logger.info("Schema created successfully from ORM models.")
 
 
@@ -70,7 +70,9 @@ def _fix_postgresql_boolean_columns() -> None:
     otherwise 'column = true' queries fail. This function auto-converts them.
     """
     from sqlalchemy import text
-    from database import engine
+    from database import get_engine
+
+    engine = get_engine()
 
     if "postgresql" not in str(engine.url):
         return
