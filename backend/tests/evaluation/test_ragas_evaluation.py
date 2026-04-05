@@ -17,8 +17,6 @@ import re
 import sys
 from typing import Dict, List, Set
 
-import pytest
-
 # Ensure backend imports resolve
 backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 if backend_dir not in sys.path:

@@ -3,7 +3,6 @@ True Integration Suite for WhatsApp Webhooks.
 Bypasses SQLite and Mock Redis to test against a Genuine PostgreSQL + Redis instance.
 Proves Concurrent Database Lock safety via asyncio load spikes.
 """
-import os
 import asyncio
 import pytest
 import uuid

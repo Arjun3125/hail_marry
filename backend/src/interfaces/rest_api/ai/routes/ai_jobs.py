@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from auth.dependencies import get_current_user
 from src.infrastructure.vector_store.citation_linker import make_citations_clickable
-from database import SessionLocal, get_db
+from database import get_db
 from src.domains.identity.models.user import User
 from src.domains.platform.models.ai import AIQuery
 from src.domains.platform.schemas.ai_runtime import (
