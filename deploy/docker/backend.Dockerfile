@@ -34,12 +34,11 @@ USER vidyaos
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    APP_ENV=production \
-    PORT=8000
+    APP_ENV=production
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD curl -f http://localhost:${PORT}/health || exit 1
 
 EXPOSE ${PORT}
 
-CMD ["python", "run_api.py", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
+CMD ["python", "run_api.py", "--host", "0.0.0.0"]

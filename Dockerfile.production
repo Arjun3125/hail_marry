@@ -50,8 +50,7 @@ USER vidyaos
 # Environment defaults
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    APP_ENV=production \
-    PORT=8000
+    APP_ENV=production
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
@@ -61,4 +60,4 @@ EXPOSE ${PORT}
 
 # Use the unified API runner for production so server logs share the same
 # stdout-first structured logging path as the primary backend image.
-CMD ["python", "run_api.py", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
+CMD ["python", "run_api.py", "--host", "0.0.0.0"]
