@@ -138,7 +138,9 @@ jobs:
             -e DEMO_MODE=true \
             -e APP_ENV=demo \
             -e DATABASE_URL=sqlite:///./ci_demo.db \
+            -e REDIS_URL=redis://127.0.0.1:65535/0 \
             -e STARTUP_CHECKS_STRICT=false \
+            -e STARTUP_CHECKS_TIMEOUT_SECONDS=2 \
             -e JWT_SECRET=ci-demo-secret-ci-demo-secret-ci-demo-secret \
             -e APP_CORS_ORIGINS=http://127.0.0.1:3000 \
             vidyaos-backend-smoke

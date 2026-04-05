@@ -26,7 +26,13 @@ def _check_redis() -> tuple[bool, str]:
     try:
         import redis as redis_lib
 
-        client = redis_lib.from_url(settings.redis.url, decode_responses=True)
+        timeout = max(1, settings.startup_checks.timeout_seconds)
+        client = redis_lib.from_url(
+            settings.redis.url,
+            decode_responses=True,
+            socket_connect_timeout=timeout,
+            socket_timeout=timeout,
+        )
         client.ping()
         return True, "ok"
     except Exception as exc:
