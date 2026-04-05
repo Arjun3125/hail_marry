@@ -146,8 +146,8 @@ the repo root:
 - `backend-worker`: `backend/Dockerfile.worker`
 
 Current checked-in Railway config reflects that split:
-- `/railway.toml` selects the API Dockerfile and keeps `/health`
-- `/backend/railway.toml` selects the worker Dockerfile
+- `/railway.toml` selects the API Dockerfile, forces `sh /app/backend/start-api.sh`, and keeps `/health`
+- `/backend/railway.toml` selects the worker Dockerfile and forces `sh /app/backend/start-worker.sh`
 
 Production backend deploys should not rely on `start-all.sh`, `Dockerfile.demo`,
 or custom start-command overrides.

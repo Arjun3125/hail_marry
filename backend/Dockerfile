@@ -1,7 +1,7 @@
 # Canonical API runtime image.
 # Build context: repo root
 
-FROM python:3.11-slim as builder
+FROM python:3.11-slim AS builder
 
 WORKDIR /build
 ENV PATH="/opt/venv/bin:$PATH"

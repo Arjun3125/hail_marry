@@ -10,8 +10,8 @@ The canonical runtime contract is:
 
 Railway production backend services should use config-as-code:
 
-- API service -> `/railway.toml` -> `backend/Dockerfile`
-- Worker service -> `/backend/railway.toml` -> `backend/Dockerfile.worker`
+- API service -> `/railway.toml` -> `backend/Dockerfile` -> `sh /app/backend/start-api.sh`
+- Worker service -> `/backend/railway.toml` -> `backend/Dockerfile.worker` -> `sh /app/backend/start-worker.sh`
 
 Do not rely on:
 
