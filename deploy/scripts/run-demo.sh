@@ -22,7 +22,7 @@ trap cleanup INT TERM EXIT
 
 echo "[1/3] Starting backend..."
 cd "$ROOT_DIR/backend"
-DEMO_MODE=true python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload &
+DEMO_MODE=true python run_api.py --host 0.0.0.0 --port 8000 --reload &
 
 echo "[2/3] Waiting for backend..."
 sleep 3

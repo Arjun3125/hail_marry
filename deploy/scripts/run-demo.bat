@@ -13,7 +13,7 @@ if not exist "%PYTHON%" (
 
 echo Starting VidyaOS demo on localhost...
 
-start "VidyaOS Backend" cmd /k "cd /d "%ROOT%backend" && set DEMO_MODE=true && set APP_ENV=local && set DATABASE_URL=sqlite:///./vidyaos_demo.db && "%PYTHON%" -m uvicorn main:app --host 0.0.0.0 --port 7125 --reload"
+start "VidyaOS Backend" cmd /k "cd /d "%ROOT%backend" && set DEMO_MODE=true && set APP_ENV=local && set DATABASE_URL=sqlite:///./vidyaos_demo.db && "%PYTHON%" run_api.py --host 0.0.0.0 --port 7125 --reload"
 start "VidyaOS Frontend" cmd /k "cd /d "%ROOT%frontend" && set NEXT_PUBLIC_DEMO_MODE=true && set NEXT_PUBLIC_ENABLE_DEMO_LOGIN=true && set NEXT_PUBLIC_API_URL=http://localhost:7125 && npm run dev"
 
 echo.

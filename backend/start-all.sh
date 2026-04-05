@@ -14,4 +14,4 @@ WORKER_HEALTH_ENABLED=false python ai_worker.py &
 WORKER_PID=$!
 
 echo "Starting Web API..."
-exec uvicorn main:app --host 0.0.0.0 --port "$PORT_VALUE"
+exec python run_api.py --host 0.0.0.0 --port "$PORT_VALUE"
