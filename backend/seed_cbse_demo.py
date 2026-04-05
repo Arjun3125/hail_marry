@@ -16,7 +16,6 @@ from datetime import datetime, timedelta, date, time, UTC
 from pathlib import Path
 
 from loguru import logger
-from openai import OpenAI
 from dotenv import load_dotenv
 
 load_dotenv("../.env")
@@ -145,6 +144,11 @@ AI_HISTORY = [
 
 def get_nvidia_embeddings(texts: list[str]) -> list[list[float]]:
     """Call NVIDIA NIM embedding API directly via the openai SDK."""
+    try:
+        from openai import OpenAI
+    except ModuleNotFoundError as exc:
+        raise RuntimeError("openai package is required for live embedding generation") from exc
+
     client = OpenAI(base_url=EMBED_BASE_URL, api_key=EMBED_API_KEY)
     response = client.embeddings.create(
         input=texts, model=EMBED_MODEL, encoding_format="float",
@@ -686,10 +690,10 @@ def seed(skip_embeddings: bool = False):
         db.commit()
         logger.info("═" * 60)
         logger.info("  🎉 FULL 20-MODEL SEEDING COMPLETE!")
-        logger.info("  Student login: %s", DEMO_STUDENT_EMAIL)
-        logger.info("  Teacher login: %s", DEMO_TEACHER_EMAIL)
-        logger.info("  Admin login:   %s", DEMO_ADMIN_EMAIL)
-        logger.info("  Parent login:  %s", DEMO_PARENT_EMAIL)
+        logger.info("  Student login: {}", DEMO_STUDENT_EMAIL)
+        logger.info("  Teacher login: {}", DEMO_TEACHER_EMAIL)
+        logger.info("  Admin login:   {}", DEMO_ADMIN_EMAIL)
+        logger.info("  Parent login:  {}", DEMO_PARENT_EMAIL)
         logger.info(f"  Tenant ID:     {tenant_id}")
         logger.info(f"  FAISS chunks:  {total_chunks}")
         logger.info("═" * 60)

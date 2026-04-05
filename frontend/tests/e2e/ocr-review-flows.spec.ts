@@ -66,24 +66,24 @@ test("admin setup wizard supports OCR preview, edit, and confirm import for teac
     await page.goto("/admin/setup-wizard");
 
     await expect(page.getByRole("heading", { name: /School Setup Wizard/i })).toBeVisible();
-    await page.getByRole("button", { name: /Next Step/i }).click();
-    await page.getByRole("button", { name: /Next Step/i }).click();
+    await page.getByRole("button", { name: /Advance Pipeline/i }).click();
+    await page.getByRole("button", { name: /Advance Pipeline/i }).click();
 
-    await expect(page.getByRole("heading", { name: "Add Teachers" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Onboard Educators/i })).toBeVisible();
     await page.locator('input[type="file"]').setInputFiles({
         name: "teacher-roster.jpg",
         mimeType: "image/jpeg",
         buffer: Buffer.from("fake-image-binary"),
     });
 
-    await expect(page.getByText(/Review extracted teachers/i)).toBeVisible();
+    await expect(page.getByText(/Extracted Dataset/i)).toBeVisible();
     await expect(page.getByText(/OCR confidence 78%/i)).toBeVisible();
     await expect(page.getByText(/Review recommended before final import/i)).toBeVisible();
     await expect(page.getByText(/One row needed manual OCR cleanup/i)).toBeVisible();
     await expect(page.locator('input[value="Priya Sharma"]').first()).toBeVisible();
 
     await page.locator('input[value="priya@school.com"]').first().fill("priya.sharma@school.com");
-    await page.getByRole("button", { name: /Confirm Import/i }).click();
+    await page.getByRole("button", { name: /Execute Import/i }).click();
 
     await expect(page.getByText(/Imported 1 records successfully/i)).toBeVisible();
 });
@@ -135,7 +135,7 @@ test("student assignments page surfaces OCR review warnings after image submissi
 
     await page.goto("/student/assignments");
 
-    await expect(page.getByRole("heading", { name: "Assignments" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Assignments Explorer/i })).toBeVisible();
     await expect(page.getByText("Photosynthesis Worksheet")).toBeVisible();
 
     await page.locator('input[type="file"]').setInputFiles({
@@ -145,8 +145,8 @@ test("student assignments page surfaces OCR review warnings after image submissi
     });
 
     const assignmentCard = page.locator("div").filter({ hasText: "Photosynthesis Worksheet" }).first();
-    await expect(page.getByText(/OCR confidence 74%/i)).toBeVisible();
-    await expect(page.getByText(/OCR review recommended/i)).toBeVisible();
+    await expect(page.getByText(/Clarity at 74%/i)).toBeVisible();
+    await expect(page.getByText(/Please review your image/i)).toBeVisible();
     await expect(page.getByText(/Handwriting was unclear in two answer lines/i)).toBeVisible();
     await expect(assignmentCard.getByText("submitted", { exact: true })).toBeVisible();
 });
