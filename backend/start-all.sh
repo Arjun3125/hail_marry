@@ -4,7 +4,7 @@ set -eu
 SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 cd "$SCRIPT_DIR"
 
-PORT_VALUE="${PORT:-8000}"
+PORT_VALUE="${PORT:-8080}"
 
 echo "Running database bootstrap (combined)..."
 python -c "from db_migrate import ensure_db_ready; ensure_db_ready()" || echo "Warning: DB bootstrap failed, will retry in-process."
