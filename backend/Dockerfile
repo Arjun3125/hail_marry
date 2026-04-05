@@ -24,7 +24,7 @@ COPY --from=builder /opt/venv /opt/venv
 COPY . .
 
 # Ensure scripts are executable and set ownership
-RUN chmod +x /app/start-api.sh /app/start-all.sh /app/start-worker.sh && \
+RUN chmod +x /app/start-api.sh /app/start-all.sh /app/start-worker.sh /app/start-railway-api.sh /app/start-railway-worker.sh && \
     chown -R vidyaos:vidyaos /app
 
 USER vidyaos
@@ -34,4 +34,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 
 EXPOSE 8000
 
-CMD ["sh", "/app/start-all.sh"]
+CMD ["sh", "/app/start-api.sh"]

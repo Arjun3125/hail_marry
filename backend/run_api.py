@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import sys
 
 import uvicorn
 
@@ -18,15 +19,23 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    uvicorn.run(
-        "main:app",
-        host=args.host,
-        port=args.port,
-        workers=args.workers,
-        reload=args.reload,
-        log_config=None,
-        access_log=True,
+    print(
+        f"[backend-api] Starting uvicorn host={args.host} port={args.port} workers={args.workers} reload={args.reload}",
+        flush=True,
     )
+    try:
+        uvicorn.run(
+            "main:app",
+            host=args.host,
+            port=args.port,
+            workers=args.workers,
+            reload=args.reload,
+            log_config=None,
+            access_log=True,
+        )
+    except Exception as exc:
+        print(f"[backend-api] Fatal startup error before port bind: {exc}", file=sys.stderr, flush=True)
+        raise
 
 
 if __name__ == "__main__":

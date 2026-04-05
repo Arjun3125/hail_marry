@@ -2,6 +2,7 @@
 
 import { AlertTriangle, RefreshCw } from "lucide-react";
 
+import { APIError } from "@/lib/api";
 import { classifyError, supportIds } from "@/lib/errorRemediation";
 
 function extractErrorCode(error: string): string | null {
@@ -15,22 +16,25 @@ export default function ErrorRemediation({
     onRetry,
     simplifiedModeHref,
 }: {
-    error: string;
+    error: string | Error;
     scope: string;
     onRetry?: () => void;
     simplifiedModeHref?: string;
 }) {
-    const meta = classifyError(error);
-    const ids = supportIds(scope, error);
-    const errorCode = extractErrorCode(error);
+    const message = error instanceof Error ? error.message : error;
+    const apiError = error instanceof APIError ? error : null;
+    const meta = classifyError(message, apiError?.status);
+    const ids = supportIds(scope, message);
+    const errorCode = apiError?.errorCode || extractErrorCode(message);
+    const traceId = apiError?.traceId || null;
 
     const contactAdmin = async () => {
-        const message = `Support needed for ${scope}. Error Code: ${errorCode || "N/A"}, Trace ID: ${ids.traceId}, Ref ID: ${ids.refId}. Error: ${error}`;
+        const supportMessage = `Support needed for ${scope}. Error Code: ${errorCode || "N/A"}, Trace ID: ${traceId || "N/A"}, Ref ID: ${ids.refId}. Error: ${message}`;
         try {
-            await navigator.clipboard.writeText(message);
+            await navigator.clipboard.writeText(supportMessage);
             alert("Support details copied. Share this with your admin.");
         } catch {
-            alert(message);
+            alert(supportMessage);
         }
     };
 
@@ -40,14 +44,14 @@ export default function ErrorRemediation({
                 <AlertTriangle className="mt-0.5 h-4 w-4 text-[var(--error)]" />
                 <div className="flex-1">
                     <p className="text-sm font-semibold text-[var(--error)]">{meta.title}</p>
-                    <p className="mt-1 text-sm text-[var(--error)]/90">{error}</p>
+                    <p className="mt-1 text-sm text-[var(--error)]/90">{message}</p>
                     <p className="mt-2 text-xs text-[var(--text-secondary)]">{meta.helpText}</p>
 
                     <div className="mt-3 text-[11px] text-[var(--text-secondary)]">
                         {errorCode ? <span className="font-mono">Error Code: {errorCode}</span> : null}
-                        {errorCode ? <span className="mx-2">•</span> : null}
-                        <span className="font-mono">Trace ID: {ids.traceId}</span>
-                        <span className="mx-2">•</span>
+                        {errorCode ? <span className="mx-2">&bull;</span> : null}
+                        {traceId ? <span className="font-mono">Trace ID: {traceId}</span> : null}
+                        {traceId ? <span className="mx-2">&bull;</span> : null}
                         <span className="font-mono">Ref ID: {ids.refId}</span>
                     </div>
 

@@ -37,7 +37,7 @@ const remediationByKind: Record<ErrorKind, Omit<ErrorRemediationMeta, "kind">> =
 
 const normalize = (error: string) => error.toLowerCase();
 
-export function classifyError(error: string): ErrorRemediationMeta {
+export function classifyError(error: string, status?: number): ErrorRemediationMeta {
     const message = normalize(error);
 
     const kind: ErrorKind =
@@ -47,7 +47,8 @@ export function classifyError(error: string): ErrorRemediationMeta {
                 ? "auth"
                 : message.includes("invalid") || message.includes("missing") || message.includes("required")
                     ? "validation"
-                    : message.includes("500") || message.includes("503") || message.includes("server")
+                    : status === 500 || status === 502 || status === 503 || status === 504 ||
+                        message.includes("500") || message.includes("502") || message.includes("503") || message.includes("504") || message.includes("server")
                         ? "server"
                         : "unknown";
 

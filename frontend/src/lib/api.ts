@@ -63,16 +63,22 @@ type APIErrorPayload = {
     error_code?: string;
     trace_id?: string;
     subsystem?: string;
+    status_code?: number;
 };
 
 function formatAPIErrorMessage(detail: string, errorCode?: string): string {
     return errorCode ? `${detail} Error Code: ${errorCode}` : detail;
 }
 
-function classifyAPIError(status: number, payload: string | APIErrorPayload): APIError {
+function classifyAPIError(
+    status: number,
+    payload: string | APIErrorPayload,
+    headerErrorCode?: string | null,
+    headerTraceId?: string | null,
+): APIError {
     const detail = typeof payload === "string" ? payload : payload.detail || `HTTP ${status}`;
-    const errorCode = typeof payload === "string" ? undefined : payload.error_code;
-    const traceId = typeof payload === "string" ? undefined : payload.trace_id;
+    const errorCode = typeof payload === "string" ? (headerErrorCode || undefined) : payload.error_code || headerErrorCode || undefined;
+    const traceId = typeof payload === "string" ? (headerTraceId || undefined) : payload.trace_id || headerTraceId || undefined;
     const subsystem = typeof payload === "string" ? undefined : payload.subsystem;
     const message = formatAPIErrorMessage(detail || `HTTP ${status}`, errorCode);
     if (status === 401 || status === 403) {
@@ -189,8 +195,18 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
     });
 
     if (!res.ok) {
-        const error = await res.json().catch(() => ({ detail: "Request failed" })) as APIErrorPayload;
-        throw classifyAPIError(res.status, error);
+        const errorCodeHeader = res.headers.get("x-error-code");
+        const traceIdHeader = res.headers.get("x-trace-id");
+        const error = await res.json().catch(async () => {
+            const text = await res.text().catch(() => "");
+            const detail = text.trim()
+                ? text.trim().slice(0, 240)
+                : res.status >= 500
+                    ? `Upstream service unavailable (HTTP ${res.status}).`
+                    : `HTTP ${res.status}`;
+            return { detail } as APIErrorPayload;
+        }) as APIErrorPayload;
+        throw classifyAPIError(res.status, error, errorCodeHeader, traceIdHeader);
     }
 
     if (res.status === 204) {
@@ -221,7 +237,12 @@ async function apiFormFetch(path: string, formData: FormData) {
 
     const payload = await res.json().catch(() => ({}));
     if (!res.ok) {
-        throw classifyAPIError(res.status, (payload || {}) as APIErrorPayload);
+        throw classifyAPIError(
+            res.status,
+            (payload || {}) as APIErrorPayload,
+            res.headers.get("x-error-code"),
+            res.headers.get("x-trace-id"),
+        );
     }
 
     return payload;

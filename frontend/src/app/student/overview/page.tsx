@@ -25,7 +25,7 @@ import {
     CartesianGrid,
 } from "recharts";
 
-import { api } from "@/lib/api";
+import { APIError, api } from "@/lib/api";
 import { SkeletonCard } from "@/components/Skeleton";
 import ErrorRemediation from "@/components/ui/ErrorRemediation";
 import { AnimatedCounter } from "@/components/ui/SharedUI";
@@ -132,7 +132,7 @@ export default function StudentOverview() {
     const [studyPath, setStudyPath] = useState<StudyPathPlan | null>(null);
     const [streak, setStreak] = useState<StreakInfo | null>(null);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const [error, setError] = useState<Error | null>(null);
     const [chartsReady, setChartsReady] = useState(false);
 
     const load = useCallback(async () => {
@@ -162,7 +162,7 @@ export default function StudentOverview() {
                 ((studyPathPayload as { plan?: StudyPathPlan | null } | null)?.plan || null) as StudyPathPlan | null,
             );
         } catch (err) {
-            setError(err instanceof Error ? err.message : "Failed to load dashboard");
+            setError(err instanceof Error ? err : new APIError("Failed to load dashboard", 0, "unknown", "Retry now"));
         } finally {
             setLoading(false);
         }
