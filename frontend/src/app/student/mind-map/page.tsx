@@ -1,5 +1,4 @@
 "use client";
-/* eslint-disable no-alert */
 console.log("[MindMap MODULE v2] mind-map/page.tsx LOADED at", new Date().toISOString());
 
 import { useRef, useState, useEffect, useCallback } from "react";

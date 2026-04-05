@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 /* ─── Skeleton Loader ─── */
 
@@ -58,10 +58,11 @@ export function AnimatedCounter({
     className?: string;
 }) {
     const [display, setDisplay] = useState(0);
+    const displayRef = useRef(0);
 
     useEffect(() => {
         const step = Math.max(1, Math.ceil(value / (duration / 16)));
-        let current = display;
+        let current = displayRef.current;
         
         if (current === value) return;
         
@@ -70,6 +71,7 @@ export function AnimatedCounter({
                 ? Math.min(current + step, value)
                 : Math.max(current - step, value);
                 
+            displayRef.current = current;
             setDisplay(current);
             if (current === value) {
                 clearInterval(timer);
@@ -77,7 +79,7 @@ export function AnimatedCounter({
         }, 16);
         
         return () => clearInterval(timer);
-    }, [value, duration]); // Removed 'display' from dependencies since we track it in the closure
+    }, [value, duration]);
 
     return (
         <span className={`tabular-nums ${className}`}>

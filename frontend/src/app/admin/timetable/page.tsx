@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Clock, Trash2, Plus } from "lucide-react";
 
 import { api } from "@/lib/api";
@@ -96,7 +96,7 @@ export default function AdminTimetablePage() {
         [users],
     );
 
-    const buildGeneratorTemplate = () => {
+    const buildGeneratorTemplate = useCallback(() => {
         const teacherIds = teachers.map((teacher) => teacher.id);
         return {
             time_grid: {
@@ -127,7 +127,7 @@ export default function AdminTimetablePage() {
             },
             apply_to_db: false,
         };
-    };
+    }, [classes, teachers]);
 
     const loadTimetable = async (classId: string) => {
         if (!classId) {
@@ -168,7 +168,7 @@ export default function AdminTimetablePage() {
             setGeneratorJson(JSON.stringify(buildGeneratorTemplate(), null, 2));
             setGeneratorInitialized(true);
         }
-    }, [classes, teachers, generatorInitialized]);
+    }, [buildGeneratorTemplate, classes, teachers, generatorInitialized]);
 
     useEffect(() => {
         if (!selectedClassId) return;

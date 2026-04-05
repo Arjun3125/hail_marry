@@ -167,6 +167,8 @@ export function MascotShell({
     const [suggestions, setSuggestions] = useState<string[]>([]);
     const [sessionId, setSessionId] = useState<string | null>(null);
     const [attachment, setAttachment] = useState<File | null>(null);
+    const [notebookId, setNotebookId] = useState<string | null>(null);
+    const [pageContext, setPageContext] = useState<ReturnType<typeof readMascotPageContext>>(null);
     const [activeNotebookLabel, setActiveNotebookLabel] = useState<string | null>(null);
     const seededPromptRef = useRef<string | null>(null);
 
@@ -185,8 +187,11 @@ export function MascotShell({
         setDraft(prompt);
     }, [searchParams]);
 
-    const notebookId = useMemo(() => readActiveNotebookId(), [pathname, messages.length]);
-    const pageContext = useMemo(() => readMascotPageContext(pathname), [pathname, messages.length, attachment?.name]);
+    useEffect(() => {
+        setNotebookId(readActiveNotebookId());
+        setPageContext(readMascotPageContext(pathname));
+    }, [pathname, messages.length]);
+
     const pageContextLabel = useMemo(() => buildPageContextLabel(pathname, pageContext), [pathname, pageContext]);
     const pageContextHint = useMemo(() => buildPageContextHint(pathname, pageContext), [pathname, pageContext]);
     const attachmentMeta = useMemo(() => describeAttachment(attachment), [attachment]);
@@ -214,7 +219,7 @@ export function MascotShell({
         return () => {
             cancelled = true;
         };
-    }, [pathname, notebookId]);
+    }, [pathname, notebookId, pageContext?.current_page_entity]);
 
     const applyResponse = (response: MascotResponse) => {
         writeActiveNotebookId(response.notebook_id);

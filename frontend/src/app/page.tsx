@@ -13,7 +13,6 @@ import {
   School,
   Building,
   Library,
-  Network,
   CheckCircle2,
   Sparkles
 } from "lucide-react";
@@ -158,7 +157,7 @@ export default function LandingPage() {
             </p>
           </div>
           <div className="grid md:grid-cols-3 gap-6">
-            {audiences.map((tier, idx) => (
+            {audiences.map((tier) => (
               <div
                 key={tier.title}
                 className="glass-panel p-8 rounded-3xl transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl hover:shadow-[var(--primary)]/5 relative overflow-hidden group"

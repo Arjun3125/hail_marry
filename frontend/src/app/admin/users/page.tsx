@@ -246,7 +246,7 @@ export default function UsersPage() {
                                                 No identities match the query parameters.
                                             </td>
                                         </tr>
-                                    ) : filtered.map((user, idx) => (
+                                    ) : filtered.map((user) => (
                                         <tr key={user.id} className={`border-b border-[var(--border-light)]/50 transition-colors duration-300 hover:bg-[var(--bg-page)] ${actionUserId === user.id ? 'opacity-50 pointer-events-none' : ''}`}>
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-4">

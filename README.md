@@ -137,6 +137,21 @@ Optional observability stack:
 - Grafana
 - DCGM exporter
 
+## Railway Production Backend
+
+For Railway production, run the backend as two explicit Dockerfile services from
+the repo root:
+
+- `backend-api`: `backend/Dockerfile`
+- `backend-worker`: `backend/Dockerfile.worker`
+
+Current checked-in Railway config reflects that split:
+- `/railway.toml` selects the API Dockerfile and keeps `/health`
+- `/backend/railway.toml` selects the worker Dockerfile
+
+Production backend deploys should not rely on `start-all.sh`, `Dockerfile.demo`,
+or custom start-command overrides.
+
 ## Request Flows
 
 ### Synchronous public AI request

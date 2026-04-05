@@ -10,8 +10,6 @@ import {
     Calendar,
     BookOpen,
     Upload,
-    Bot,
-    Sparkles,
     RotateCcw,
     MessageSquare,
     User,

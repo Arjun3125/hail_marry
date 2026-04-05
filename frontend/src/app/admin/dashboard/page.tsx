@@ -30,7 +30,6 @@ import {
 
 import { api } from "@/lib/api";
 import { SkeletonCard } from "@/components/Skeleton";
-import ErrorRemediation from "@/components/ui/ErrorRemediation";
 import { AnimatedCounter, ProgressRing } from "@/components/ui/SharedUI";
 import { RoleStartPanel } from "@/components/RoleStartPanel";
 
@@ -253,18 +252,6 @@ export default function AdminDashboard() {
         { label: "Avg Attendance", value: dashboard?.avg_attendance ?? 0, icon: CalendarCheck, color: "var(--success)", suffix: "%" },
         { label: "Avg Performance", value: dashboard?.avg_performance ?? 0, icon: Award, color: "var(--warning)", suffix: "%" },
         { label: "Open Complaints", value: dashboard?.open_complaints ?? 0, icon: MessageSquare, color: "var(--error)", suffix: "" },
-    ];
-
-    const onboardingChecklist = [
-        { id: "setup", label: "Complete setup wizard" },
-        { id: "users", label: "Verify classes and users" },
-        { id: "health", label: "Review security and queue health" },
-    ];
-
-    const taskFirstLinks = [
-        { label: "Continue setup wizard", href: "/admin/setup-wizard", priority: "high" as const },
-        { label: "Manage users", href: "/admin/users", priority: "medium" as const },
-        { label: "Check queue dashboard", href: "/admin/queue", priority: "low" as const },
     ];
 
     // Queue health pie chart

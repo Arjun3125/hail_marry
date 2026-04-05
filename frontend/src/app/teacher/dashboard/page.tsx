@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { FileText, Bot, TrendingUp, Users, CalendarCheck, ClipboardCheck, LayoutDashboard, Sparkles, AlertCircle, ArrowRight } from "lucide-react";
+import { Bot, TrendingUp, Users, CalendarCheck, ClipboardCheck, LayoutDashboard, Sparkles, AlertCircle, ArrowRight } from "lucide-react";
 import {
     ResponsiveContainer,
     BarChart,
@@ -13,7 +13,6 @@ import {
 } from "recharts";
 
 import { api } from "@/lib/api";
-import { SkeletonCard } from "@/components/Skeleton";
 import { AnimatedCounter, ProgressRing } from "@/components/ui/SharedUI";
 import { RoleStartPanel } from "@/components/RoleStartPanel";
 
@@ -23,14 +22,6 @@ type TeacherClass = {
     students: number;
     avg_attendance: number;
     avg_marks: number;
-};
-
-type TeacherAssignment = {
-    id: string;
-    title: string;
-    subject: string;
-    due_date: string | null;
-    submissions: number;
 };
 
 type TodayClass = {
@@ -43,7 +34,6 @@ type TodayClass = {
 
 export default function TeacherDashboard() {
     const [classes, setClasses] = useState<TeacherClass[]>([]);
-    const [assignments, setAssignments] = useState<TeacherAssignment[]>([]);
     const [todayClasses, setTodayClasses] = useState<TodayClass[]>([]);
     const [pendingReviews, setPendingReviews] = useState(0);
     const [openAssignments, setOpenAssignments] = useState(0);
@@ -55,15 +45,11 @@ export default function TeacherDashboard() {
         try {
             setLoading(true);
             setError(null);
-            const [dashboardData, assignmentData] = await Promise.all([
-                api.teacher.dashboard(),
-                api.teacher.assignments(),
-            ]);
+            const dashboardData = await api.teacher.dashboard();
             setClasses((dashboardData?.classes || []) as TeacherClass[]);
             setTodayClasses((dashboardData?.today_classes || []) as TodayClass[]);
             setPendingReviews(Number(dashboardData?.pending_reviews || 0));
             setOpenAssignments(Number(dashboardData?.open_assignments || 0));
-            setAssignments((assignmentData || []) as TeacherAssignment[]);
         } catch (err) {
             setError(err instanceof Error ? err.message : "Failed to load dashboard");
         } finally {

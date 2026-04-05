@@ -7,19 +7,6 @@ const ACCESS_TOKEN_KEY = "vidyaos_access_token";
 
 export type APIErrorType = "auth" | "rate_limit" | "validation" | "service_unavailable" | "unknown";
 
-function isLoopbackHost(hostname: string): boolean {
-    return (
-        hostname === "localhost" ||
-        hostname === "127.0.0.1" ||
-        hostname === "::1" ||
-        hostname === "[::1]" ||
-        hostname.startsWith("192.168.") ||
-        hostname.startsWith("10.") ||
-        hostname.startsWith("172.") ||
-        hostname.startsWith("169.254.")
-    );
-}
-
 function resolveAPIBase(): string {
     // Server-side (SSR): use configured URL or default for server-to-server calls
     if (typeof window === "undefined") {

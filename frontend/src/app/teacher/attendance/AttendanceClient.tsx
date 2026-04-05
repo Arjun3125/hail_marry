@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Check, X, Clock, Save, Upload } from "lucide-react";
 
@@ -50,13 +50,13 @@ export default function TeacherAttendanceClient() {
         [classes, selectedClassId],
     );
 
-    const initializeEntries = (students: StudentItem[]) => {
+    const initializeEntries = useCallback((students: StudentItem[]) => {
         const initial: Record<string, "present" | "absent" | "late"> = {};
         for (const student of students) initial[student.id] = "present";
         setEntries(initial);
-    };
+    }, []);
 
-    const loadAttendanceRecords = async (classItem: TeacherClass | null, dateValue: string) => {
+    const loadAttendanceRecords = useCallback(async (classItem: TeacherClass | null, dateValue: string) => {
         if (!classItem) return;
         initializeEntries(classItem.students || []);
         try {
@@ -74,7 +74,7 @@ export default function TeacherAttendanceClient() {
         } catch {
             // keep defaults
         }
-    };
+    }, [initializeEntries]);
 
     const formatImportNotice = (payload: AttendanceImportResponse) => {
         const imported = Number(payload.imported || 0);
@@ -120,7 +120,7 @@ export default function TeacherAttendanceClient() {
             }
         };
         void loadClasses();
-    }, [searchParams]);
+    }, [initializeEntries, searchParams]);
 
     useEffect(() => {
         const loadExisting = async () => {
@@ -129,7 +129,7 @@ export default function TeacherAttendanceClient() {
             await loadAttendanceRecords(selectedClass, selectedDate);
         };
         void loadExisting();
-    }, [selectedClass, selectedDate]);
+    }, [initializeEntries, loadAttendanceRecords, selectedClass, selectedDate]);
 
     useEffect(() => {
         if (typeof window === "undefined") return;

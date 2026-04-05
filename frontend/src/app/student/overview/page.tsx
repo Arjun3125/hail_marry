@@ -2,28 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-    AlertTriangle,
     Award,
     Bot,
-    CalendarCheck,
-    Clock,
     FileText,
     TrendingDown,
     TrendingUp,
     Upload,
     Zap,
 } from "lucide-react";
-import {
-    ResponsiveContainer,
-    AreaChart,
-    Area,
-    XAxis,
-    YAxis,
-    Tooltip,
-    BarChart,
-    Bar,
-    CartesianGrid,
-} from "recharts";
 
 import { APIError, api } from "@/lib/api";
 import { SkeletonCard } from "@/components/Skeleton";

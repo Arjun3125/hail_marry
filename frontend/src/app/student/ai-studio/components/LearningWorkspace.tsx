@@ -646,7 +646,7 @@ export function LearningWorkspace({ activeTool, notebookId, requestOptions, init
     );
 }
 
-function getSuggestions(tool: string): string[] {
+export function getSuggestions(tool: string): string[] {
     const suggestions: Record<string, string[]> = {
         qa: ["Explain photosynthesis", "What is mitosis?", "Newton's laws"],
         study_guide: ["Cell biology", "World War II", "Organic chemistry"],
