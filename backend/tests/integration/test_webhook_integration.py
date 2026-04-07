@@ -4,6 +4,8 @@ Bypasses SQLite and Mock Redis to test against a Genuine PostgreSQL + Redis inst
 Proves Concurrent Database Lock safety via asyncio load spikes.
 """
 import asyncio
+import os
+import socket
 import pytest
 import uuid
 import time
@@ -16,6 +18,23 @@ pytest.importorskip("fastapi")
 pytest.importorskip("sqlalchemy")
 
 from httpx import AsyncClient, ASGITransport
+
+RUN_REAL_WEBHOOK_INTEGRATION = (
+    os.getenv("RUN_REAL_WEBHOOK_INTEGRATION", "").strip().lower() in {"1", "true", "yes", "on"}
+)
+
+pytestmark = pytest.mark.skipif(
+    not RUN_REAL_WEBHOOK_INTEGRATION,
+    reason="Requires opt-in real PostgreSQL/Redis webhook integration environment.",
+)
+
+
+def _require_local_service(host: str, port: int, service_name: str) -> None:
+    try:
+        with socket.create_connection((host, port), timeout=1):
+            return
+    except OSError:
+        pytest.skip(f"{service_name} is unavailable at {host}:{port}")
 
 def generate_meta_signature(payload: bytes, secret: str = "test_app_secret") -> str:
     signature = hmac.new(secret.encode('utf-8'), payload, hashlib.sha256).hexdigest()
@@ -31,6 +50,9 @@ async def test_concurrent_webhook_deduplication(monkeypatch):
     from database import reset_database_state
     from src.bootstrap.app_factory import create_app
     from src.domains.platform.services import whatsapp_gateway
+
+    _require_local_service("localhost", 5432, "PostgreSQL")
+    _require_local_service("localhost", 6379, "Redis")
 
     monkeypatch.setenv("TESTING", "false")
     monkeypatch.setenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/vidyaos")

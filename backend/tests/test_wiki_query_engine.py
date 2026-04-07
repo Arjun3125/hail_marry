@@ -9,17 +9,11 @@ Covers:
   · retrieve_with_wiki convenience function
 """
 
-import os
-import shutil
-import tempfile
-from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
-_test_wiki_root = Path(tempfile.mkdtemp(prefix="vidyaos_wiki_query_test_"))
-os.environ["WIKI_ROOT"] = str(_test_wiki_root)
-
+from src.infrastructure.knowledge import wiki_manager as wiki_manager_module
 from src.infrastructure.knowledge.wiki_manager import WikiManager
 from src.infrastructure.knowledge.wiki_query_engine import (
     WikiQueryEngine,
@@ -29,11 +23,9 @@ from src.infrastructure.knowledge.wiki_query_engine import (
 
 
 @pytest.fixture(autouse=True)
-def clean_wiki():
+def clean_wiki(tmp_path, monkeypatch):
+    monkeypatch.setattr(wiki_manager_module, "WIKI_ROOT", tmp_path)
     yield
-    for child in _test_wiki_root.iterdir():
-        if child.is_dir():
-            shutil.rmtree(child, ignore_errors=True)
 
 
 def _seed_wiki(tenant: str, nb: str, pages: dict[str, str]):

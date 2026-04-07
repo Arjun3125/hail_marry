@@ -146,8 +146,14 @@ the repo root:
 - `backend-worker`: `backend/Dockerfile.worker`
 
 Current checked-in Railway config reflects that split:
-- `/railway.toml` selects the API Dockerfile, forces `sh /app/backend/start-api.sh`, and keeps `/health`
+- `/railway.toml` selects the API Dockerfile, forces `sh /app/backend/start-api.sh`, and healthchecks `/ready`
 - `/backend/railway.toml` selects the worker Dockerfile and forces `sh /app/backend/start-worker.sh`
+
+Deployment guardrails:
+- set both `JWT_SECRET` and `REFRESH_SECRET_KEY` to strong 32+ character values
+- use `DATABASE_URL` and `REDIS_URL` from Railway services, not `localhost`
+- for hosted demo deployments, use `APP_ENV=development`, `DEMO_MODE=true`, and `AUTO_SEED_DEMO_DATA=true` on the API service
+- the worker health server now binds to Railway's assigned `PORT` by default
 
 Production backend deploys should not rely on `start-all.sh`, `Dockerfile.demo`,
 or custom start-command overrides.

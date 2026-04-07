@@ -44,6 +44,7 @@ Core variables for the current runtime:
 DATABASE_URL=postgresql://user:pass@localhost:5432/vidyaos
 REDIS_URL=redis://localhost:6379
 JWT_SECRET=<strong-secret>
+REFRESH_SECRET_KEY=<different-strong-secret>
 GOOGLE_CLIENT_ID=<google-client-id>
 GOOGLE_CLIENT_SECRET=<google-client-secret>
 OLLAMA_URL=http://localhost:11434
@@ -56,6 +57,7 @@ QDRANT_URL=http://localhost:6333
 QDRANT_API_KEY=
 OBSERVABILITY_OTLP_ENDPOINT=http://localhost:4318/v1/traces
 OBSERVABILITY_LOG_PATH=<service log file path>
+AI_QUEUE_ENABLED=true
 WORKER_HEALTH_PORT=8010
 ```
 
@@ -118,8 +120,17 @@ Tracked under `ops/observability/`:
 ### Production-like deployment
 - deploy API and worker as separate processes
 - run both against the same Redis and storage paths
-- provide a strong `JWT_SECRET`
+- provide strong and different `JWT_SECRET` and `REFRESH_SECRET_KEY` values
 - configure `APP_CORS_ORIGINS`, `NEXT_PUBLIC_API_URL`, and observability env vars
+- use `/ready` for Railway/API healthchecks instead of `/health`
+- on Railway, the worker health server now defaults to the service `PORT`; override `WORKER_HEALTH_PORT` only if your platform supports a second exposed port
+
+### Hosted demo deployment
+- use `APP_ENV=development`
+- set `DEMO_MODE=true`
+- set `AUTO_SEED_DEMO_DATA=true` on the API service only
+- keep `DATABASE_URL` and `REDIS_URL` pointed at real managed services, not `localhost`
+- if you intentionally disable async queue flows for the demo with `AI_QUEUE_ENABLED=false`, API readiness will no longer require Redis
 
 ## 7. Known Gaps
 

@@ -11,8 +11,8 @@
 Older docs in this repo used hardcoded "passing test" totals that drifted over time.
 
 Current static inventory in the repository:
-- backend: 53 `test_*.py` files under `backend/tests`
-- frontend: 3 Playwright specs under `frontend/tests/e2e`
+- backend: 105 `test_*.py` files under `backend/tests`
+- frontend: 28 Playwright specs under `frontend/tests/e2e`
 
 Treat those as file inventory only, not proof that the suite is passing on your machine.
 
@@ -95,6 +95,8 @@ DEBUG=true
 DEMO_MODE=false
 DATABASE_URL=sqlite:///:memory:
 TESTING=true
+JWT_SECRET=test-jwt-secret-with-at-least-32chars
+REFRESH_SECRET_KEY=test-refresh-secret-with-at-least-32chars
 ```
 
 ## 6. Lightweight Backend Test Mode

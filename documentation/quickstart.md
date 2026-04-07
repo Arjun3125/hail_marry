@@ -53,6 +53,8 @@ Update at minimum:
 - `DATABASE_URL`
 - `REDIS_URL`
 - `JWT_SECRET`
+- `REFRESH_SECRET_KEY`
+- `APP_ENV`
 - `OLLAMA_URL`
 - `NEXT_PUBLIC_API_URL`
 
@@ -60,6 +62,7 @@ Optional for alternate vector backends and observability:
 - `VECTOR_BACKEND_PROVIDER`
 - `QDRANT_URL`
 - `OBSERVABILITY_OTLP_ENDPOINT`
+- `AI_QUEUE_ENABLED`
 
 Present in config but not required for the current core runtime:
 - `AI_SERVICE_URL`
@@ -99,6 +102,7 @@ npm run dev
 
 - App: `http://localhost:3000`
 - API health: `GET http://localhost:8000/health`
+- API readiness: `GET http://localhost:8000/ready`
 - OpenAPI: `GET http://localhost:8000/openapi.json`
 - Docs when enabled: `http://localhost:8000/docs`
 
@@ -111,6 +115,12 @@ cd frontend && npm run lint && npm run build
 
 ## Demo mode
 
-Set `DEMO_MODE=true` to enable demo-mode helpers and the canonical Class 11
-CBSE showcase dataset used by the local walkthrough experience. For the
-containerized demo stack, use `deploy/compose/demo.yml`.
+Set `APP_ENV=development` and `DEMO_MODE=true` to enable demo-mode helpers.
+On a fresh demo database, also set `AUTO_SEED_DEMO_DATA=true` on the API
+service so the canonical Class 11 CBSE showcase dataset is bootstrapped once.
+For the containerized demo stack, use `deploy/compose/demo.yml`.
+
+Hosted demo checklist:
+- use real `DATABASE_URL` and `REDIS_URL` values instead of `localhost`
+- keep `JWT_SECRET` and `REFRESH_SECRET_KEY` set to different strong values
+- set `AI_QUEUE_ENABLED=false` only if you intentionally want to run without Redis-backed heavy jobs

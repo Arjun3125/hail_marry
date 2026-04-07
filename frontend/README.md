@@ -64,6 +64,10 @@ All components use **CSS Custom Properties** (`var(--primary)`, `var(--bg-card)`
 NEXT_PUBLIC_API_URL=http://localhost:8000     # Backend API base URL
 ```
 
+Typography note:
+- declaring a tenant font family in branding only changes CSS variables
+- custom fonts must still be loaded through `next/font` or explicit `@font-face` assets to avoid fallback-font regressions
+
 ## Key Features
 
 - **Role-based routing** — 4 portals (student, teacher, admin, parent) with 51+ total routes

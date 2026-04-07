@@ -343,7 +343,7 @@ This is a **new service** that acts as the central coordinator for all inbound W
 | Responsibility | Description |
 |---|---|
 | **Webhook Reception** | Receive and acknowledge Meta webhook payloads within 5 seconds |
-| **Signature Verification** | Validate `X-Hub-Signature-256` header using `APP_SECRET` |
+| **Signature Verification** | Validate `X-Hub-Signature-256` using the WhatsApp app secret and reject the request if the secret or signature is missing |
 | **Phone → User Mapping** | Resolve WhatsApp phone to VidyaOS `User` via `phone_user_link` |
 | **Session Management** | Create, load, update, and expire Redis-backed conversation sessions |
 | **Auth Orchestration** | Drive the OTP linking flow for new users |
@@ -502,11 +502,11 @@ erDiagram
 POST /api/v1/whatsapp/webhook
 ```
 
-Receives inbound messages from Meta. Must respond with `200 OK` within 5 seconds.
+Receives inbound messages from Meta. Must respond with `200 OK` within 5 seconds for valid requests.
 
 | Field | Source | Description |
 |---|---|---|
-| `X-Hub-Signature-256` | Header | HMAC-SHA256 signature |
+| `X-Hub-Signature-256` | Header | HMAC-SHA256 signature. Missing or invalid values must return `403`. |
 | `entry[].changes[].value.messages[]` | Body | Inbound message array |
 
 ```

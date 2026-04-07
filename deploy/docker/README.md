@@ -10,8 +10,26 @@ The canonical runtime contract is:
 
 Railway production backend services should use config-as-code:
 
-- API service -> `/railway.toml` -> `backend/Dockerfile` -> `sh /app/backend/start-api.sh`
-- Worker service -> `/backend/railway.toml` -> `backend/Dockerfile.worker` -> `sh /app/backend/start-worker.sh`
+- API service -> `/railway.toml` -> `backend/Dockerfile` -> `sh /app/backend/start-api.sh` -> healthcheck `/ready`
+- Worker service -> `/backend/railway.toml` -> `backend/Dockerfile.worker` -> `sh /app/backend/start-worker.sh` -> healthcheck `/ready`
+
+Required backend envs for non-local deploys:
+
+- `DATABASE_URL`
+- `REDIS_URL`
+- `JWT_SECRET`
+- `REFRESH_SECRET_KEY`
+
+Hosted demo backend envs:
+
+- `APP_ENV=development`
+- `DEMO_MODE=true`
+- `AUTO_SEED_DEMO_DATA=true` on the API service
+- `AUTO_SEED_DEMO_DATA=false` on the worker service
+
+Worker note:
+
+- the worker health app now binds to Railway's assigned `PORT` by default
 
 Do not rely on:
 

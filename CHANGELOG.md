@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 - Wire doc watch scheduler and weekly digest pipeline.
+- Hardened webhook authentication so WhatsApp webhook requests fail closed when the app secret or signature is missing.
+- Removed the predictable refresh-token secret fallback; startup now requires valid JWT secret configuration.
+- Updated Railway readiness guidance for split API and worker services, including worker health binding to the assigned `PORT`.
+- Documented hosted demo deployment requirements: `APP_ENV=development`, `DEMO_MODE=true`, and explicit `REFRESH_SECRET_KEY`.
 
 ## [0.2.0] - 2026-03-25
 ### Added

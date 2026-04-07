@@ -10,28 +10,17 @@ Covers:
   · Slug sanitization edge cases
 """
 
-import os
-import shutil
-import tempfile
-from pathlib import Path
-
 import pytest
 
-# Patch WIKI_ROOT before importing so tests use a temp directory
-_test_wiki_root = Path(tempfile.mkdtemp(prefix="vidyaos_wiki_test_"))
-os.environ["WIKI_ROOT"] = str(_test_wiki_root)
-
+from src.infrastructure.knowledge import wiki_manager as wiki_manager_module
 from src.infrastructure.knowledge.wiki_manager import WikiManager, _sanitize_page_name
 
 
 @pytest.fixture(autouse=True)
-def clean_wiki_root():
-    """Ensure a clean wiki root for each test."""
+def clean_wiki_root(tmp_path, monkeypatch):
+    """Use an isolated wiki root per test to avoid shared temp-dir state."""
+    monkeypatch.setattr(wiki_manager_module, "WIKI_ROOT", tmp_path)
     yield
-    # Clean up after each test
-    for child in _test_wiki_root.iterdir():
-        if child.is_dir():
-            shutil.rmtree(child, ignore_errors=True)
 
 
 class TestScaffold:
