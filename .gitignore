@@ -52,6 +52,17 @@ compliance_exports/
 production_readiness_report.md
 *_suite_report.json
 
+# Local analysis / generated repo artifacts
+tmp/
+research_papers/
+backend/live_routes.json
+backend_endpoints.json
+frontend_pages.txt
+audit_routes.py
+catch_import.py
+static_audit.py
+backend/dump_live_routes.py
+
 # Logs
 *.log
 
