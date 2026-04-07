@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import base64
+import ipaddress
 import json
+import socket
 from typing import Any
 from urllib.parse import urlparse
 from uuid import UUID
@@ -21,6 +23,15 @@ from src.domains.identity.models.user import User
 NS = {
     "md": "urn:oasis:names:tc:SAML:2.0:metadata",
     "ds": "http://www.w3.org/2000/09/xmldsig#",
+}
+
+_BLOCKED_METADATA_HOSTS = {
+    "localhost",
+    "metadata",
+    "metadata.google.internal",
+    "metadata.google.internal.",
+    "metadata.azure.internal",
+    "169.254.169.254",
 }
 
 
@@ -66,9 +77,61 @@ def parse_idp_metadata(metadata_xml: str) -> dict[str, str | None]:
     }
 
 
+def _resolve_public_ips(hostname: str, scheme: str) -> set[ipaddress._BaseAddress]:
+    try:
+        return {ipaddress.ip_address(hostname)}
+    except ValueError:
+        pass
+
+    try:
+        addrinfo = socket.getaddrinfo(
+            hostname,
+            443 if scheme == "https" else 80,
+            type=socket.SOCK_STREAM,
+        )
+    except socket.gaierror as exc:
+        raise HTTPException(status_code=400, detail="SAML metadata URL could not be resolved.") from exc
+
+    resolved: set[ipaddress._BaseAddress] = set()
+    for _family, _socktype, _proto, _canonname, sockaddr in addrinfo:
+        try:
+            resolved.add(ipaddress.ip_address(sockaddr[0]))
+        except ValueError:
+            continue
+    if not resolved:
+        raise HTTPException(status_code=400, detail="SAML metadata URL did not resolve to a valid IP address.")
+    return resolved
+
+
+def _validate_metadata_url(metadata_url: str) -> str:
+    parsed = urlparse((metadata_url or "").strip())
+    if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+        raise HTTPException(status_code=400, detail="SAML metadata URL must be a valid http(s) URL.")
+    if parsed.username or parsed.password:
+        raise HTTPException(status_code=400, detail="SAML metadata URL must not contain embedded credentials.")
+
+    hostname = parsed.hostname.strip().lower()
+    if hostname in _BLOCKED_METADATA_HOSTS:
+        raise HTTPException(status_code=400, detail="SAML metadata URL points to a restricted host.")
+
+    for address in _resolve_public_ips(hostname, parsed.scheme):
+        if (
+            address.is_private
+            or address.is_loopback
+            or address.is_link_local
+            or address.is_multicast
+            or address.is_reserved
+            or address.is_unspecified
+        ):
+            raise HTTPException(status_code=400, detail="SAML metadata URL points to a restricted network address.")
+
+    return parsed.geturl()
+
+
 async def import_tenant_saml_metadata(tenant: Tenant, *, metadata_url: str | None = None, metadata_xml: str | None = None) -> dict[str, str | None]:
     xml = (metadata_xml or "").strip()
     if not xml and metadata_url:
+        metadata_url = _validate_metadata_url(metadata_url)
         async with httpx.AsyncClient(timeout=15) as client:
             response = await client.get(metadata_url)
             response.raise_for_status()

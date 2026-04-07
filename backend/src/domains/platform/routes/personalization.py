@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from auth.dependencies import get_current_user, require_role
+from auth.dependencies import require_role
 from database import get_db
 from src.domains.identity.models.user import User
 from src.domains.platform.application.personalization_queries import (

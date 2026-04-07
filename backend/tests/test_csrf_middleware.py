@@ -17,6 +17,7 @@ from middleware.csrf import CSRFMiddleware
 
 def _make_request(method="POST", path="/api/student/upload", origin=None, referer=None):
     headers = []
+    headers.append((b"host", b"localhost:8000"))
     if origin:
         headers.append((b"origin", origin.encode()))
     if referer:
@@ -115,21 +116,10 @@ class CSRFMiddlewareTests(unittest.IsolatedAsyncioTestCase):
         response = await self.middleware.dispatch(request, _ok_handler)
         self.assertEqual(response.status_code, 200)
 
-    async def test_vercel_preview_allowed_in_debug(self):
+    async def test_vercel_preview_blocked_in_debug(self):
         from middleware.csrf import settings
         original = settings.app.debug
         settings.app.debug = True
-        try:
-            request = _make_request(origin="https://my-app-abc123.vercel.app")
-            response = await self.middleware.dispatch(request, _ok_handler)
-            self.assertEqual(response.status_code, 200)
-        finally:
-            settings.app.debug = original
-
-    async def test_vercel_preview_blocked_in_non_debug(self):
-        from middleware.csrf import settings
-        original = settings.app.debug
-        settings.app.debug = False
         try:
             request = _make_request(origin="https://my-app-abc123.vercel.app")
             response = await self.middleware.dispatch(request, _ok_handler)

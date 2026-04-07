@@ -10,6 +10,7 @@ from src.domains.identity.models.user import User
 from src.domains.identity.schemas.auth import TokenResponse
 
 router = APIRouter(prefix="/api/auth", tags=["Demo Auth"])
+_NON_PRODUCTION_ENVS = {"local", "development", "dev", "test"}
 
 
 def _cookie_policy() -> tuple[bool, str]:
@@ -29,7 +30,9 @@ async def demo_login(
     Demo login: pick a role and login as a demo user.
     For development/demo only — disabled in production.
     """
-    if not (settings.app.debug or is_demo_mode()):
+    app_env = (settings.app.env or "").strip().lower()
+    allow_debug_demo = settings.app.debug and app_env in _NON_PRODUCTION_ENVS
+    if not (allow_debug_demo or is_demo_mode()):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
 
     role = data.get("role", "student")

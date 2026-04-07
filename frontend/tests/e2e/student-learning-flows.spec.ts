@@ -104,7 +104,9 @@ test("student upload flow shows OCR review metadata for image uploads @smoke", a
         buffer: Buffer.from("fake-image-binary"),
     });
 
-    await expect(page.getByText("photosynthesis-note.jpg")).toBeVisible();
+    await expect(
+        page.locator("p, span, td").filter({ hasText: /^photosynthesis-note\.jpg$/ }).first(),
+    ).toBeVisible();
     await expect(page.getByText(/OCR completed/i)).toBeVisible();
     await expect(page.getByText(/OCR review recommended/i)).toBeVisible();
     await expect(page.getByText(/OCR confidence 82%/i)).toBeVisible();
@@ -259,7 +261,7 @@ test("student study tools page surfaces a grounded failure message when generati
     await page.goto("/student/tools");
 
     await page.getByRole("button", { name: /Quiz/i }).click();
-    await page.getByPlaceholder(/Enter a topic for your Quiz/i).fill("Photosynthesis");
+    await page.locator("textarea").fill("Photosynthesis");
     await page.getByRole("button", { name: /Generate/i }).click();
 
     await expect(page.getByText("Upload matching study materials before generating a quiz.")).toBeVisible();

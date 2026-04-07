@@ -1,4 +1,3 @@
-import asyncio
 import importlib
 import os
 import sys
@@ -145,7 +144,7 @@ class AIQueueDraftNotificationTests(unittest.IsolatedAsyncioTestCase):
         _restore_modules(self._previous_modules)
 
     async def test_process_job_notifies_teacher_when_ai_grading_draft_is_ready(self):
-        job = self.queue.enqueue_job(
+        self.queue.enqueue_job(
             self.queue.JOB_TYPE_AI_GRADE,
             {
                 "tenant_id": "tenant-1",

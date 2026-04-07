@@ -8,7 +8,6 @@ Covers:
 """
 
 import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
 
 from src.domains.platform.routes.whatsapp_bridge import (
     BridgeInboundPayload,

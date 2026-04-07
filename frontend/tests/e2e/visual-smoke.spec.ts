@@ -46,7 +46,7 @@ test.describe("Prism representative visual smoke", () => {
         await page.goto("/demo");
 
         await expect(page.getByRole("heading", { name: /Walk the product through four role-specific realities/i })).toBeVisible();
-        await expect(page.getByText(/Mrs\. Sharma, Parent/i)).toBeVisible();
+        await expect(page.getByRole("button", { name: /Parent Mrs\. Sharma, Parent/i })).toBeVisible();
 
         await capture(page, testInfo, "demo-prism");
     });

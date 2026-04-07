@@ -251,7 +251,7 @@ async def _deliver_whatsapp(notif: Notification) -> dict[str, Any]:
             # Look up the user's linked WhatsApp phone number
             link = db.query(PhoneUserLink).filter(
                 PhoneUserLink.user_id == notif.user_id,
-                PhoneUserLink.verified == True,
+                PhoneUserLink.verified,
             ).first()
 
             if not link:
@@ -286,10 +286,6 @@ async def _deliver_whatsapp(notif: Notification) -> dict[str, Any]:
 async def _deliver_sms(notif: Notification) -> dict[str, Any]:
     """Send notification via SMS (placeholder — integrate with MSG91/Twilio)."""
     try:
-        from src.domains.platform.services.sms import send_sms
-
-        # SMS body is shorter — title + truncated body
-        sms_body = f"{notif.title}: {notif.body[:140]}"
         # TODO: look up phone from user profile
         return {"status": "skipped", "channel": "sms", "reason": "phone_lookup_pending"}
 
@@ -300,8 +296,6 @@ async def _deliver_sms(notif: Notification) -> dict[str, Any]:
 async def _deliver_email(notif: Notification) -> dict[str, Any]:
     """Send notification via email using the existing emailer."""
     try:
-        from src.domains.platform.services.emailer import send_email
-
         # TODO: look up email from user profile and render HTML template
         return {"status": "skipped", "channel": "email", "reason": "email_template_pending"}
 

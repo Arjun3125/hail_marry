@@ -1,5 +1,4 @@
 from uuid import uuid4
-import pytest
 
 
 def _create_user(db_session, tenant_id, *, email: str, role: str, password: str = "pass123!"):

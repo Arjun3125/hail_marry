@@ -13,6 +13,7 @@ from database import get_db
 from src.domains.platform.models.document import Document
 from src.domains.identity.models.user import User
 from sqlalchemy.orm import Session
+from utils.upload_security import STORAGE_ROOT
 
 router = APIRouter(prefix="/api/documents", tags=["Documents"])
 
@@ -22,6 +23,15 @@ def _parse_uuid(value: str, field_name: str) -> UUID:
         return UUID(str(value))
     except (TypeError, ValueError):
         raise HTTPException(status_code=400, detail=f"Invalid {field_name}")
+
+
+def _resolve_document_storage_path(storage_path: str) -> Path:
+    resolved = Path(storage_path).expanduser().resolve()
+    try:
+        resolved.relative_to(STORAGE_ROOT)
+    except ValueError as exc:
+        raise HTTPException(status_code=403, detail="Document path is outside the allowed storage root.") from exc
+    return resolved
 
 
 @router.get("/{document_id}/view")
@@ -39,7 +49,7 @@ async def view_document(
     if not doc or not doc.storage_path:
         raise HTTPException(status_code=404, detail="Document not found.")
 
-    file_path = Path(doc.storage_path)
+    file_path = _resolve_document_storage_path(doc.storage_path)
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="Document file is missing.")
 

@@ -98,6 +98,15 @@ _yaml_config = load_yaml_config()
 _default_cors_origins = _yaml_config.get("app", {}).get("cors_origins", ["http://localhost:3000"])
 
 
+def _env_flag(*names: str, default: bool = False) -> bool:
+    """Return the first matching boolean env flag or the provided default."""
+    for name in names:
+        value = os.getenv(name)
+        if value is not None:
+            return value.strip().lower() in ("true", "1", "yes", "on")
+    return default
+
+
 def _normalize_origin(origin: str) -> str:
     """Normalize a single origin entry from env/config input."""
     return origin.strip().strip('"').strip("'")
@@ -202,6 +211,12 @@ class AuthSettings(BaseSettings):
         default=os.getenv(
             "JWT_SECRET",
             _yaml_config.get("auth", {}).get("jwt_secret", ""),
+        )
+    )
+    refresh_secret: str = Field(
+        default=os.getenv(
+            "REFRESH_SECRET_KEY",
+            _yaml_config.get("auth", {}).get("refresh_secret", ""),
         )
     )
     jwt_algorithm: str = Field(default="HS256")
@@ -996,10 +1011,14 @@ class AppSettings(BaseSettings):
     version: str = "0.1.0"
     env: str = Field(default=os.getenv("APP_ENV", "local"))
     debug: bool = Field(
-        default=_yaml_config.get("app", {}).get("debug", True)
+        default=_env_flag(
+            "DEBUG",
+            "APP_DEBUG",
+            default=_yaml_config.get("app", {}).get("debug", False),
+        )
     )
     demo_mode: bool = Field(
-        default=os.getenv("DEMO_MODE", "false").strip().lower() in ("true", "1", "yes")
+        default=_env_flag("DEMO_MODE", default=False)
     )
     cors_origins: Annotated[
         list[str],
@@ -1051,14 +1070,23 @@ class Settings:
 
     def _validate_security_defaults(self):
         """Enforce safe auth secret behavior by environment."""
-        if self.app.debug and not self.auth.jwt_secret:
+        local_debug = self.app.debug and (self.app.env or "local").strip().lower() in {"local", "development", "dev", "test"}
+        if local_debug and not self.auth.jwt_secret:
             # Local/dev convenience only: ephemeral secret avoids hardcoded defaults.
             self.auth.jwt_secret = secrets.token_urlsafe(48)
+        if local_debug and not self.auth.refresh_secret:
+            self.auth.refresh_secret = secrets.token_urlsafe(48)
 
-        if (not self.app.debug) and (
+        if (not local_debug) and (
             (not self.auth.jwt_secret) or len(self.auth.jwt_secret) < 32
         ):
             raise ValueError("JWT_SECRET must be set to a strong value (at least 32 chars) in non-debug environments.")
+        if (not local_debug) and (
+            (not self.auth.refresh_secret) or len(self.auth.refresh_secret) < 32
+        ):
+            raise ValueError(
+                "REFRESH_SECRET_KEY must be set to a strong value (at least 32 chars) in non-debug environments."
+            )
 
 
 settings = Settings()

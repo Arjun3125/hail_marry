@@ -13,7 +13,6 @@ from uuid import UUID
 from database import SessionLocal
 from src.domains.platform.services import (
     mastery_tracking_service,
-    telemetry,
 )
 from src.domains.platform.services.telemetry import _load_otel
 

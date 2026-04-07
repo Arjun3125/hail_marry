@@ -125,14 +125,6 @@ async def notify_parents_on_absence(
             templates = ABSENCE_TEMPLATES
             category = "attendance"
 
-        template = templates.get(locale, templates["en"])
-        body = template.format(
-            child_name=child_name,
-            date=date_str,
-            class_name=class_name,
-            streak_days=consecutive_absent_days,
-        )
-
         title = {
             "attendance": "Attendance Alert",
             "behavior_alert": "Attendance Concern",

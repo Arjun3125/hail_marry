@@ -25,7 +25,6 @@ from src.infrastructure.knowledge.wiki_query_engine import (
     WikiQueryEngine,
     retrieve_with_wiki,
     WIKI_CONFIDENCE_THRESHOLD,
-    WIKI_SCORE_THRESHOLD,
 )
 
 

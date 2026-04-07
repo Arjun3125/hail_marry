@@ -14,10 +14,13 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
+from config import settings
+
 RECAPTCHA_SECRET = os.getenv("RECAPTCHA_SECRET_KEY", "")
 RECAPTCHA_VERIFY_URL = "https://www.google.com/recaptcha/api/siteverify"
 RECAPTCHA_SCORE_THRESHOLD = float(os.getenv("RECAPTCHA_THRESHOLD", "0.5"))
 RECAPTCHA_HEADER = "x-recaptcha-token"
+_NON_PRODUCTION_ENVS = {"local", "development", "dev", "test"}
 
 # Endpoints that require captcha validation
 PROTECTED_ENDPOINTS = {
@@ -27,18 +30,28 @@ PROTECTED_ENDPOINTS = {
 }
 
 
+def _get_recaptcha_secret() -> str:
+    return os.getenv("RECAPTCHA_SECRET_KEY", RECAPTCHA_SECRET).strip()
+
+
+def _allow_recaptcha_bypass() -> bool:
+    return settings.app.debug and (settings.app.env or "local").strip().lower() in _NON_PRODUCTION_ENVS
+
+
 async def verify_recaptcha(token: str, remote_ip: Optional[str] = None) -> dict:
     """Verify a reCAPTCHA token with Google's API.
 
     Returns:
         {"success": bool, "score": float, "action": str, "error_codes": list}
     """
-    if not RECAPTCHA_SECRET:
-        # reCAPTCHA not configured — pass through (dev mode)
-        return {"success": True, "score": 1.0, "action": "bypass", "error_codes": []}
+    secret = _get_recaptcha_secret()
+    if not secret:
+        if _allow_recaptcha_bypass():
+            return {"success": True, "score": 1.0, "action": "bypass", "error_codes": []}
+        return {"success": False, "score": 0.0, "action": "misconfigured", "error_codes": ["recaptcha_not_configured"]}
 
     payload = {
-        "secret": RECAPTCHA_SECRET,
+        "secret": secret,
         "response": token,
     }
     if remote_ip:
@@ -49,8 +62,8 @@ async def verify_recaptcha(token: str, remote_ip: Optional[str] = None) -> dict:
             resp = await client.post(RECAPTCHA_VERIFY_URL, data=payload)
             resp.raise_for_status()
             data = resp.json()
-    except Exception as e:
-        return {"success": False, "score": 0.0, "action": "error", "error_codes": [str(e)]}
+    except Exception as exc:
+        return {"success": False, "score": 0.0, "action": "error", "error_codes": [str(exc)]}
 
     return {
         "success": data.get("success", False),
@@ -89,8 +102,10 @@ class CaptchaMiddleware(BaseHTTPMiddleware):
         if not is_protected_endpoint(request.url.path):
             return await call_next(request)
 
-        if not RECAPTCHA_SECRET:
-            return await call_next(request)
+        if not _get_recaptcha_secret():
+            if _allow_recaptcha_bypass():
+                return await call_next(request)
+            return JSONResponse(status_code=503, content={"detail": "reCAPTCHA is not configured"})
 
         token = request.headers.get(RECAPTCHA_HEADER) or request.headers.get(RECAPTCHA_HEADER.upper())
 

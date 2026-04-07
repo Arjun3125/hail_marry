@@ -23,7 +23,6 @@ import unittest
 from types import SimpleNamespace
 from uuid import uuid4
 from unittest.mock import AsyncMock, MagicMock, patch
-from datetime import date, timedelta
 
 from fastapi import HTTPException, UploadFile
 

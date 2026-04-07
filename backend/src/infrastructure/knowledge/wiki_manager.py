@@ -13,7 +13,6 @@ no database, no vector store, no embedding.  The index is enough for the LLM
 to navigate at moderate scale (~hundreds of pages).
 """
 
-import json
 import logging
 import os
 import re

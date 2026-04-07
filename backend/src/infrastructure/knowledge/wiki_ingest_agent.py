@@ -12,7 +12,6 @@ rather than overwriting them, so the wiki compounds over time.
 
 import json
 import logging
-from typing import Optional
 
 from src.infrastructure.knowledge.wiki_manager import WikiManager
 
@@ -142,7 +141,7 @@ class WikiIngestAgent:
             for fact in key_facts:
                 source_page_content += f"- {fact}\n"
 
-        source_slug = self.wiki.write_page(
+        self.wiki.write_page(
             f"source_{source_name}",
             source_page_content,
             summary=summary[:120],

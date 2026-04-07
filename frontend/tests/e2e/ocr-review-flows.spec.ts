@@ -135,7 +135,7 @@ test("student assignments page surfaces OCR review warnings after image submissi
 
     await page.goto("/student/assignments");
 
-    await expect(page.getByRole("heading", { name: /Assignments Explorer/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /clear assignment ledger/i })).toBeVisible();
     await expect(page.getByText("Photosynthesis Worksheet")).toBeVisible();
 
     await page.locator('input[type="file"]').setInputFiles({

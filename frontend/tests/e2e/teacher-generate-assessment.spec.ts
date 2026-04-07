@@ -85,7 +85,7 @@ test("teacher assessment generator queues a job and renders the completed draft"
     await page.getByPlaceholder(/Photosynthesis, Quadratic Equations/i).fill("Photosynthesis");
     await page.getByRole("button", { name: /Generate Assessment/i }).click();
 
-    await expect(page.getByText(/Generating assessment/i)).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Generated Assessment/i })).toBeVisible();
     await expect(page.getByText("1. Define photosynthesis.")).toBeVisible();
     await expect(page.getByText("2. Explain the role of chlorophyll.")).toBeVisible();
     expect(jobPolls).toBeGreaterThanOrEqual(2);

@@ -735,7 +735,7 @@ async def submit_mock_test(
 # ─── Personal Mastery Map ──────────────────────────────────
 
 @router.get("/mastery-map")
-async def student_mastery_map(
+async def student_mastery_map_v2(
     current_user: User = Depends(require_role("student")),
     db: Session = Depends(get_db),
 ):

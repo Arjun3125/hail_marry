@@ -2,7 +2,7 @@
 # Override per environment via settings-{env}.yaml
 
 app:
-  debug: true
+  debug: false
   cors_origins:
     - "http://localhost:3000"
 
@@ -15,6 +15,7 @@ redis:
 
 auth:
   jwt_secret: ""
+  refresh_secret: ""
   jwt_expiry_minutes: 60
   google_client_id: ""
   saml_sp_base_url: "http://localhost:8000"

@@ -7,6 +7,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 import time
 import os
+from collections import OrderedDict
 from constants import RATE_LIMIT_WINDOW_SECONDS
 
 
@@ -39,7 +40,8 @@ def _get_redis():
 
 
 # ─── In-memory fallback ──────────────────────
-_memory_store: dict = {}
+_MEMORY_STORE_MAX_KEYS = int(os.getenv("RATE_LIMIT_FALLBACK_MAX_KEYS", "10000"))
+_memory_store: OrderedDict[str, list[float]] = OrderedDict()
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
@@ -81,14 +83,16 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         return True, 0
 
     def _check_in_memory(self, key: str, limit: int, now: float):
-        if key not in _memory_store:
-            _memory_store[key] = []
-        _memory_store[key] = [t for t in _memory_store[key] if t > now - self.WINDOW_SECONDS]
-        if len(_memory_store[key]) >= limit:
-            oldest = min(_memory_store[key])
+        timestamps = [t for t in _memory_store.pop(key, []) if t > now - self.WINDOW_SECONDS]
+        if len(timestamps) >= limit:
+            oldest = min(timestamps)
+            _memory_store[key] = timestamps
             retry_after = int(self.WINDOW_SECONDS - (now - oldest)) + 1
             return False, retry_after
-        _memory_store[key].append(now)
+        if key not in _memory_store and len(_memory_store) >= _MEMORY_STORE_MAX_KEYS:
+            _memory_store.popitem(last=False)
+        timestamps.append(now)
+        _memory_store[key] = timestamps
         return True, 0
 
     async def dispatch(self, request: Request, call_next):

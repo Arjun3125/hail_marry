@@ -81,6 +81,8 @@ class SecurityDefaultTests(unittest.TestCase):
         os.environ["DEBUG"] = "true"
         s = Settings()
         self.assertTrue(len(s.auth.jwt_secret) >= 32)
+        self.assertTrue(len(s.auth.refresh_secret) >= 32)
+        self.assertNotEqual(s.auth.jwt_secret, s.auth.refresh_secret)
 
     def test_non_debug_rejects_empty_secret(self):
         from config import Settings
@@ -103,6 +105,24 @@ class SecurityDefaultTests(unittest.TestCase):
         s = Settings()
         s.app.debug = False
         s.auth.jwt_secret = "tooshort"
+        with self.assertRaises(ValueError):
+            s._validate_security_defaults()
+
+    def test_non_debug_rejects_missing_refresh_secret(self):
+        from config import Settings
+        s = Settings()
+        s.app.debug = False
+        s.auth.jwt_secret = "a" * 48
+        s.auth.refresh_secret = ""
+        with self.assertRaises(ValueError):
+            s._validate_security_defaults()
+
+    def test_non_debug_rejects_short_refresh_secret(self):
+        from config import Settings
+        s = Settings()
+        s.app.debug = False
+        s.auth.jwt_secret = "a" * 48
+        s.auth.refresh_secret = "short"
         with self.assertRaises(ValueError):
             s._validate_security_defaults()
 

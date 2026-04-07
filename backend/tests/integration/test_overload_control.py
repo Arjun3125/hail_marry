@@ -19,9 +19,7 @@ import asyncio
 import importlib
 import os
 import sys
-import time
 import unittest
-from types import SimpleNamespace
 from uuid import uuid4
 
 from starlette.requests import Request

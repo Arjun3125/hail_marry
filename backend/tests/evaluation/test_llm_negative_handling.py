@@ -22,9 +22,8 @@ import json
 import os
 import sys
 import unittest
-from types import SimpleNamespace
 from uuid import uuid4
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 # Ensure backend modules resolve
 BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -401,7 +400,7 @@ class TestAIQueueResilience(unittest.TestCase):
     def test_grading_queue_module_importable(self):
         """The grading queue service must be importable."""
         try:
-            gq = importlib.import_module("src.domains.platform.services.grading_queue")
+            importlib.import_module("src.domains.platform.services.grading_queue")
             self.assertTrue(True, "Grading queue imported successfully")
         except ImportError:
             self.skipTest("grading_queue not importable")

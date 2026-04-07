@@ -10,15 +10,19 @@ from config import settings
 from database import get_db
 from src.domains.identity.models.user import User
 
+
+_NON_PRODUCTION_ENVS = {"local", "development", "dev", "test"}
+
+
 def is_demo_mode() -> bool:
     """Resolve demo mode dynamically so tests/runtime env changes are honored."""
-    app_env = os.getenv("APP_ENV", settings.app.env or "development").lower()
+    app_env = os.getenv("APP_ENV", settings.app.env or "local").strip().lower()
     env_demo_mode = os.getenv("DEMO_MODE")
     if env_demo_mode is None:
         configured_demo_mode = settings.app.demo_mode
     else:
         configured_demo_mode = env_demo_mode.strip().lower() in ("true", "1", "yes")
-    return configured_demo_mode and app_env != "production"
+    return configured_demo_mode and app_env in _NON_PRODUCTION_ENVS
 
 
 # Backward-compatible module constant for legacy imports/tests.
@@ -55,8 +59,9 @@ async def get_current_user(request: Request, db: Session = Depends(get_db)) -> U
                 except (ValueError, Exception):
                     pass  # fall through to role-based lookup
 
-        # 2. Fallback: role-based lookup via header/cookie
-        role = request.headers.get("X-Demo-Role") or request.cookies.get("demo_role") or "student"
+        # 2. Fallback: role-based lookup via demo cookie only.
+        # The role cookie is set by demo-management surfaces in local/dev demo mode.
+        role = request.cookies.get("demo_role") or "student"
         cache_key = role
 
         if cache_key not in _demo_user_cache:
@@ -195,9 +200,6 @@ async def get_tenant_id_optional(
 def require_role(*roles: str):
     """Dependency factory: require user to have one of the specified roles."""
     async def role_checker(current_user: User = Depends(get_current_user)) -> User:
-        # In DEMO_MODE, skip role enforcement
-        if is_demo_mode():
-            return current_user
         if current_user.role not in roles:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,

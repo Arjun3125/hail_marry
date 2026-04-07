@@ -25,7 +25,7 @@ def create_refresh_token(data: dict) -> str:
     }
     expire = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
     to_encode.update({"exp": expire, "iat": datetime.now(timezone.utc)})
-    return jwt.encode(to_encode, settings.auth.jwt_secret + "_refresh", algorithm=settings.auth.jwt_algorithm)
+    return jwt.encode(to_encode, settings.auth.refresh_secret, algorithm=settings.auth.jwt_algorithm)
 
 
 def decode_access_token(token: str) -> dict | None:
@@ -48,7 +48,7 @@ def decode_refresh_token(token: str) -> dict | None:
     try:
         payload = jwt.decode(
             token,
-            settings.auth.jwt_secret + "_refresh",
+            settings.auth.refresh_secret,
             algorithms=[settings.auth.jwt_algorithm],
         )
         if payload.get("type") != "refresh":

@@ -1,8 +1,6 @@
 import pytest
 from unittest.mock import patch, AsyncMock, MagicMock
 from uuid import uuid4
-from fastapi.testclient import TestClient
-from src.domains.identity.models.user import User
 from src.domains.identity.models.tenant import Tenant
 
 def _setup_whatsapp_environment(db_session):
@@ -46,7 +44,7 @@ def mock_whatsapp_payload():
 @patch("src.interfaces.rest_api.whatsapp.agent.run_text_query", new_callable=AsyncMock)
 @patch("src.interfaces.rest_api.whatsapp.agent.get_fast_llm")
 def test_whatsapp_webhook_text_query(mock_get_llm, mock_run_query, mock_send, client, db_session):
-    tenant = _setup_whatsapp_environment(db_session)
+    _setup_whatsapp_environment(db_session)
     
     # Mock LLM and Chain
     mock_chain = MagicMock()
@@ -102,7 +100,7 @@ def test_whatsapp_webhook_text_query(mock_get_llm, mock_run_query, mock_send, cl
 @patch("src.interfaces.rest_api.whatsapp.agent.run_study_tool", new_callable=AsyncMock)
 @patch("src.interfaces.rest_api.whatsapp.agent.get_fast_llm")
 def test_whatsapp_webhook_study_tool(mock_get_llm, mock_run_tool, mock_send, client, db_session):
-    tenant = _setup_whatsapp_environment(db_session)
+    _setup_whatsapp_environment(db_session)
     
     from src.interfaces.rest_api.whatsapp.agent import WhatsAppIntent
     mock_chain = MagicMock()

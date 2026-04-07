@@ -14,7 +14,6 @@ directly and get the wiki-first benefit transparently.
 """
 
 import logging
-from typing import Optional
 
 from src.infrastructure.knowledge.wiki_manager import WikiManager
 

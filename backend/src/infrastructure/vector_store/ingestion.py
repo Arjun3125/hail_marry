@@ -403,6 +403,7 @@ def _get_whisper_pipeline():
 def extract_media_transcript(file_path: str) -> str:
     """Extract transcript from an audio or video file using Whisper."""
     pipeline = _get_whisper_pipeline()
+    resolved_input = str(Path(file_path).resolve(strict=True))
     with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
         wav_path = tmp.name
 
@@ -412,7 +413,7 @@ def extract_media_transcript(file_path: str) -> str:
                 "ffmpeg",
                 "-y",
                 "-i",
-                file_path,
+                resolved_input,
                 "-ac",
                 "1",
                 "-ar",

@@ -36,5 +36,4 @@ def get_allowed_origins() -> list[str]:
 
 
 def get_vercel_origin_regex() -> str | None:
-    return r"^https://.*\.vercel\.app$" if settings.app.debug else None
-
+    return None

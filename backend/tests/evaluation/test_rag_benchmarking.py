@@ -21,7 +21,7 @@ import os
 import re
 import sys
 import unittest
-from typing import Dict, List, Set
+from typing import List, Set
 
 # Ensure backend imports resolve
 BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -378,7 +378,6 @@ class TestDiversityVsQualityTradeoff(unittest.TestCase):
 
     def test_diverse_contexts_improve_recall(self):
         """Adding diverse contexts should improve coverage of the ground truth."""
-        question = "How does photosynthesis relate to the food chain?"
         ground_truth = (
             "Photosynthesis produces glucose which is consumed by herbivores. "
             "Herbivores are eaten by carnivores, forming the food chain."
