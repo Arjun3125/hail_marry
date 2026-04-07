@@ -16,7 +16,9 @@ _NON_PRODUCTION_ENVS = {"local", "development", "dev", "test"}
 
 def is_demo_mode() -> bool:
     """Resolve demo mode dynamically so tests/runtime env changes are honored."""
-    app_env = os.getenv("APP_ENV", settings.app.env or "local").strip().lower()
+    app_env = os.getenv("APP_ENV", settings.app.env or "production").strip().lower()
+    if app_env == "production":
+        return False
     env_demo_mode = os.getenv("DEMO_MODE")
     if env_demo_mode is None:
         configured_demo_mode = settings.app.demo_mode

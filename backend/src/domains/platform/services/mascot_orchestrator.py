@@ -18,6 +18,7 @@ from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from database import SessionLocal
 from constants import STUDENT_ALLOWED_EXTENSIONS, STUDENT_MAX_FILE_SIZE, TEACHER_ALLOWED_EXTENSIONS, TEACHER_MAX_FILE_SIZE
 from src.domains.academic.models.attendance import Attendance
 from src.domains.academic.models.assignment import Assignment
@@ -157,6 +158,31 @@ def _safe_uuid(value: str | None) -> UUID | None:
         return UUID(str(value)) if value else None
     except Exception:
         return None
+
+
+def _build_adaptive_quiz_profile_for_request(
+    request: MascotMessageRequest,
+    *,
+    topic: str,
+) -> dict[str, Any] | None:
+    tenant_id = _safe_uuid(request.tenant_id)
+    user_id = _safe_uuid(request.user_id)
+    if tenant_id is None or user_id is None:
+        return None
+
+    db = SessionLocal()
+    try:
+        return mastery_tracking_service.build_adaptive_quiz_profile(
+            db,
+            tenant_id=tenant_id,
+            user_id=user_id,
+            topic=topic,
+        )
+    except Exception:
+        logger.exception("Failed to build adaptive quiz profile for mascot request")
+        return None
+    finally:
+        db.close()
 
 
 def _clean(text: str) -> str:
@@ -1350,11 +1376,9 @@ async def _execute_actions(
             next_prompt = str(next_action.get("prompt") or plan.get("focus_topic") or translated_message).strip()
             if next_tool in _TOOLS:
                 # Get mastery aware prompt padding
-                profile = mastery_tracking_service.build_adaptive_quiz_profile(
-                    session,
-                    _safe_uuid(request.tenant_id),
-                    _safe_uuid(request.user_id),
-                    next_prompt
+                profile = _build_adaptive_quiz_profile_for_request(
+                    request,
+                    topic=next_prompt,
                 )
                 if profile and profile.get("prompt_suffix"):
                     next_prompt = f"{next_prompt}\n\n[Pedagogy Instruction: {profile['prompt_suffix']}]"
@@ -1575,11 +1599,9 @@ async def _execute_actions(
                 continue
             tool = action["tool"]
             # Inject mastery context
-            profile = mastery_tracking_service.build_adaptive_quiz_profile(
-                session,
-                _safe_uuid(request.tenant_id),
-                _safe_uuid(request.user_id),
-                topic
+            profile = _build_adaptive_quiz_profile_for_request(
+                request,
+                topic=topic,
             )
             final_prompt = topic
             if profile and profile.get("prompt_suffix"):

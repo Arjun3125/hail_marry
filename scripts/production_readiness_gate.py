@@ -44,6 +44,12 @@ def _powershell() -> str:
     return r"C:\WINDOWS\System32\WindowsPowerShell\v1.0\powershell.exe"
 
 
+def _npm_build_command() -> list[str]:
+    if os.name == "nt":
+        return ["npm.cmd", "run", "build"]
+    return ["npm", "run", "build"]
+
+
 def _format_command(argv: list[str]) -> str:
     return subprocess.list2cmdline(argv) if os.name == "nt" else " ".join(argv)
 
@@ -93,9 +99,7 @@ def build_gate_commands() -> list[GateCommand]:
         ),
         GateCommand(
             name="Frontend build",
-            argv=[_powershell(), "-Command", "npm run build"]
-            if os.name == "nt"
-            else ["npm", "run", "build"],
+            argv=_npm_build_command(),
             workdir=FRONTEND,
         ),
     ]

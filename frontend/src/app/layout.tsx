@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
-import { Manrope, Space_Grotesk } from "next/font/google";
 import { existsSync, readFileSync } from "fs";
 import { join } from "path";
 import "./globals.css";
@@ -34,20 +33,6 @@ try {
   // Registry not yet built, skeletons will auto-generate or use fallbacks
 }
 
-const manrope = Manrope({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
-  display: "swap",
-  variable: "--font-body",
-});
-
-const spaceGrotesk = Space_Grotesk({
-  subsets: ["latin"],
-  weight: ["400", "500", "700"],
-  display: "swap",
-  variable: "--font-display",
-});
-
 export const metadata: Metadata = {
   title: "ModernHustlers — AI-Powered Learning Infrastructure",
   description:
@@ -65,7 +50,14 @@ export default async function RootLayout({
   const initialLang = resolveLanguage(cookieStore.get(LANGUAGE_COOKIE_KEY)?.value);
 
   return (
-    <html lang={initialLang} className={`${manrope.variable} ${spaceGrotesk.variable}`} suppressHydrationWarning>
+    <html
+      lang={initialLang}
+      style={{
+        ["--font-body" as string]: '"Manrope", "Segoe UI", sans-serif',
+        ["--font-display" as string]: '"Space Grotesk", "Manrope", sans-serif',
+      }}
+      suppressHydrationWarning
+    >
       <head>
         <meta name="theme-color" content="#0f172a" />
         <script

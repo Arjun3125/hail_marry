@@ -4,7 +4,17 @@ from uuid import uuid4
 from jose import JWTError, jwt
 from config import settings
 
+import hashlib
+
 REFRESH_TOKEN_EXPIRE_DAYS = 7
+
+
+def _get_refresh_secret() -> str:
+    if settings.auth.refresh_secret:
+        return settings.auth.refresh_secret
+    if settings.auth.jwt_secret:
+        return hashlib.sha256(f"{settings.auth.jwt_secret}_refresh_salt_v1".encode()).hexdigest()
+    return hashlib.sha256(b"insecure_failsafe_do_not_use_in_prod").hexdigest()
 
 
 def create_access_token(data: dict) -> str:
@@ -25,7 +35,7 @@ def create_refresh_token(data: dict) -> str:
     }
     expire = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
     to_encode.update({"exp": expire, "iat": datetime.now(timezone.utc)})
-    return jwt.encode(to_encode, settings.auth.refresh_secret, algorithm=settings.auth.jwt_algorithm)
+    return jwt.encode(to_encode, _get_refresh_secret(), algorithm=settings.auth.jwt_algorithm)
 
 
 def decode_access_token(token: str) -> dict | None:
@@ -48,7 +58,7 @@ def decode_refresh_token(token: str) -> dict | None:
     try:
         payload = jwt.decode(
             token,
-            settings.auth.refresh_secret,
+            _get_refresh_secret(),
             algorithms=[settings.auth.jwt_algorithm],
         )
         if payload.get("type") != "refresh":
@@ -56,4 +66,3 @@ def decode_refresh_token(token: str) -> dict | None:
         return payload
     except JWTError:
         return None
-

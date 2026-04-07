@@ -9,7 +9,14 @@ from starlette.responses import JSONResponse
 from config import settings
 
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
-EXEMPT_PATHS = {"/api/auth/google", "/api/auth/demo-login", "/docs", "/openapi.json", "/health"}
+EXEMPT_PATHS = {
+    "/api/auth/google",
+    "/api/auth/demo-login",
+    "/api/whatsapp/webhook",
+    "/docs",
+    "/openapi.json",
+    "/health",
+}
 
 
 class CSRFMiddleware(BaseHTTPMiddleware):
