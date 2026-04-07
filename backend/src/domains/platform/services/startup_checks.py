@@ -54,12 +54,15 @@ def _service_checks(service_name: str) -> dict[str, tuple[bool, str]]:
     timeout = settings.startup_checks.timeout_seconds
     checks: dict[str, tuple[bool, str]] = {
         "database": _check_database(),
-        "redis": _check_redis(),
     }
-    
+
+    redis_required = service_name == "worker" or settings.ai_queue.enabled
+    if redis_required:
+        checks["redis"] = _check_redis()
+
     if service_name == "ai-service":
         checks["ollama"] = _check_http_health(f"{settings.llm.url.rstrip('/')}/api/tags", timeout_seconds=timeout)
-    
+
     return checks
 
 

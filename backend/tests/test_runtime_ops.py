@@ -47,6 +47,21 @@ def test_enforce_startup_dependencies_raises_when_strict(monkeypatch):
         startup_checks.settings.startup_checks.strict = original_strict
 
 
+def test_api_dependency_checks_skip_redis_when_queue_disabled(monkeypatch):
+    monkeypatch.setattr(startup_checks, "_check_database", lambda: (True, "ok"))
+    monkeypatch.setattr(startup_checks, "_check_redis", lambda: (False, "unavailable"))
+    original_queue_enabled = startup_checks.settings.ai_queue.enabled
+    startup_checks.settings.ai_queue.enabled = False
+
+    try:
+        status = startup_checks.collect_dependency_status("api")
+    finally:
+        startup_checks.settings.ai_queue.enabled = original_queue_enabled
+
+    assert status["ready"] is True
+    assert status["checks"] == {"database": {"ok": True, "detail": "ok"}}
+
+
 def test_worker_health_endpoints_surface_readiness():
     mark_worker_started("test-worker", {"ready": True, "checks": {}})
     mark_worker_heartbeat(status="idle")

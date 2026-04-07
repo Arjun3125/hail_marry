@@ -397,10 +397,9 @@ class WorkerHealthSettings(BaseSettings):
     )
     port: int = Field(
         default=int(
-            os.getenv(
-                "WORKER_HEALTH_PORT",
-                _yaml_config.get("worker_health", {}).get("port", 8010),
-            )
+            os.getenv("WORKER_HEALTH_PORT")
+            or os.getenv("PORT")
+            or _yaml_config.get("worker_health", {}).get("port", 8010)
         )
     )
     heartbeat_stale_seconds: int = Field(

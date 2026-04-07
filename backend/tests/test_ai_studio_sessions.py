@@ -75,5 +75,5 @@ def test_get_suggestions(auth_client, db_session, test_user):
     data = response.json()
     assert isinstance(data, list)
     assert len(data) > 0
-    # Should get deep_dive as default if no data
-    assert data[0]["type"] == "deep_dive"
+    # Default AI Studio recommendation now starts with a practice step.
+    assert data[0]["type"] == "quiz"

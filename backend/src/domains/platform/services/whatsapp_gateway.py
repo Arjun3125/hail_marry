@@ -172,7 +172,11 @@ def verify_webhook_signature(payload: bytes, signature: str) -> bool:
     """
     if not WHATSAPP_APP_SECRET:
         logger.warning("WHATSAPP_APP_SECRET not configured — skipping signature verification")
-        return True  # Allow in dev mode
+        logger.error("WHATSAPP_APP_SECRET not configured; rejecting webhook signature verification")
+        return False
+
+    if not signature or not signature.startswith("sha256="):
+        return False
 
     expected = "sha256=" + hmac.new(
         WHATSAPP_APP_SECRET.encode("utf-8"),

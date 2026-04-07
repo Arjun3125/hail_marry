@@ -14,7 +14,9 @@ def _get_refresh_secret() -> str:
         return settings.auth.refresh_secret
     if settings.auth.jwt_secret:
         return hashlib.sha256(f"{settings.auth.jwt_secret}_refresh_salt_v1".encode()).hexdigest()
-    return hashlib.sha256(b"insecure_failsafe_do_not_use_in_prod").hexdigest()
+    raise ValueError(
+        "No JWT secret configured. Set AUTH_REFRESH_SECRET or AUTH_JWT_SECRET."
+    )
 
 
 def create_access_token(data: dict) -> str:

@@ -5,5 +5,7 @@ dockerfilePath = "backend/Dockerfile.worker"
 [deploy]
 preDeployCommand = "true"
 startCommand = "sh /app/backend/start-worker.sh"
+healthcheckPath = "/ready"
+healthcheckTimeout = 120
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 10

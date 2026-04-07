@@ -1,4 +1,8 @@
 """Tests for refresh token blacklisting."""
+from unittest.mock import patch
+
+import pytest
+
 from auth.token_blacklist import _blacklist_cache, BlacklistedToken
 
 
@@ -37,3 +41,13 @@ def test_blacklist_functions_exist():
     assert callable(blacklist_token)
     assert callable(is_blacklisted)
     assert callable(cleanup_expired)
+
+
+def test_refresh_secret_requires_configured_secret():
+    from auth import jwt as jwt_module
+
+    with patch.object(jwt_module.settings.auth, "refresh_secret", ""), patch.object(
+        jwt_module.settings.auth, "jwt_secret", ""
+    ):
+        with pytest.raises(ValueError, match="No JWT secret configured"):
+            jwt_module._get_refresh_secret()

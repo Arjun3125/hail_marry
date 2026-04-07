@@ -165,11 +165,18 @@ class TestSignatureVerification:
         whatsapp_gateway.WHATSAPP_APP_SECRET = "test-secret-key"
         assert verify_webhook_signature(payload, "sha256=invalid") is False
 
-    def test_missing_secret_allows_in_dev(self):
-        """When APP_SECRET is empty, verification should pass (dev mode)."""
+    def test_missing_signature_header_fails(self):
+        """Webhook requests without the Meta signature header must be rejected."""
+        payload = b'{"test": "data"}'
+        from src.domains.platform.services import whatsapp_gateway
+        whatsapp_gateway.WHATSAPP_APP_SECRET = "test-secret-key"
+        assert verify_webhook_signature(payload, "") is False
+
+    def test_missing_secret_rejects_signature(self):
+        """When APP_SECRET is empty, webhook verification must fail closed."""
         from src.domains.platform.services import whatsapp_gateway
         whatsapp_gateway.WHATSAPP_APP_SECRET = ""
-        assert verify_webhook_signature(b"anything", "sha256=whatever") is True
+        assert verify_webhook_signature(b"anything", "sha256=whatever") is False
 
 
 @pytest.mark.asyncio
