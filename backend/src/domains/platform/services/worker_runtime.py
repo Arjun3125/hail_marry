@@ -45,6 +45,11 @@ def mark_worker_heartbeat(status: str = "idle", job_id: str | None = None) -> No
             _state["last_job_id"] = job_id
 
 
+def refresh_worker_heartbeat() -> None:
+    with _lock:
+        _state["last_heartbeat"] = _now_iso()
+
+
 def mark_worker_success(job_id: str) -> None:
     with _lock:
         _state["status"] = "idle"

@@ -18,6 +18,7 @@ from src.domains.platform.services.worker_runtime import (
     mark_worker_failure,
     mark_worker_heartbeat,
     mark_worker_started,
+    refresh_worker_heartbeat,
     mark_worker_success,
     update_dependency_status,
 )
@@ -69,6 +70,26 @@ async def _run_periodic_aggregation() -> None:
             await asyncio.sleep(60)
 
 
+async def _heartbeat_loop() -> None:
+    interval = max(5, min(settings.worker_health.heartbeat_stale_seconds // 3, 20))
+    while True:
+        await asyncio.sleep(interval)
+        refresh_worker_heartbeat()
+
+
+def _raise_if_task_failed(task: asyncio.Task[None], name: str) -> None:
+    if not task.done():
+        return
+
+    try:
+        exc = task.exception()
+    except asyncio.CancelledError as exc:
+        raise RuntimeError(f"{name} task was cancelled unexpectedly") from exc
+
+    if exc is not None:
+        raise RuntimeError(f"{name} task crashed") from exc
+
+
 async def worker_loop() -> None:
     # ── 1. DB bootstrap is handled by the worker entrypoint before this loop starts ──
     logger.info("Worker starting...")
@@ -80,6 +101,7 @@ async def worker_loop() -> None:
 
     # ── 3. Background tasks ──
     health_task = asyncio.create_task(_serve_worker_health())
+    heartbeat_task = asyncio.create_task(_heartbeat_loop())
     aggregation_task = asyncio.create_task(_run_periodic_aggregation())
 
     # ── 4. Recover any stale jobs ──
@@ -99,6 +121,8 @@ async def worker_loop() -> None:
 
     try:
         while True:
+            _raise_if_task_failed(health_task, "worker health server")
+            _raise_if_task_failed(heartbeat_task, "worker heartbeat")
             update_dependency_status(collect_dependency_status("worker"))
             mark_worker_heartbeat(status="idle")
             try:
@@ -162,9 +186,11 @@ async def worker_loop() -> None:
                 raise
     finally:
         health_task.cancel()
+        heartbeat_task.cancel()
         aggregation_task.cancel()
         with contextlib.suppress(asyncio.CancelledError):
             await health_task
+            await heartbeat_task
             await aggregation_task
 
 
