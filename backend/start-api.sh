@@ -7,7 +7,12 @@ cd "$SCRIPT_DIR"
 PORT_VALUE="${PORT:-8080}"
 
 echo "[backend-api] Running database bootstrap..."
-python -c "from db_migrate import ensure_db_ready; ensure_db_ready()"
+python - <<'PY'
+import sys
+from db_migrate import ensure_db_ready
+
+sys.exit(0 if ensure_db_ready() else 1)
+PY
 echo "[backend-api] Database bootstrap succeeded."
 
 echo "[backend-api] Launching FastAPI on port ${PORT_VALUE}."

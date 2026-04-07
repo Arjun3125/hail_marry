@@ -26,6 +26,7 @@ def test_phase1_ensure_db_ready_seeds_unified_student_profile(tmp_path, monkeypa
     monkeypatch.delenv("TEST_DATABASE_URL", raising=False)
     monkeypatch.setenv("TESTING", "false")
     monkeypatch.setenv("DEMO_MODE", "false")
+    monkeypatch.setenv("AUTO_SEED_DEMO_DATA", "true")
 
     try:
         database._setup_compilers()
@@ -67,6 +68,36 @@ def test_phase1_ensure_db_ready_seeds_unified_student_profile(tmp_path, monkeypa
             assert profile.weakest_subject is not None
             assert profile.subject_mastery_map
             assert profile.last_computed_at is not None
+        finally:
+            db.close()
+    finally:
+        database.reset_database_state()
+
+
+def test_phase1_ensure_db_ready_skips_demo_seed_without_explicit_opt_in(tmp_path, monkeypatch):
+    db_path = tmp_path / "phase1-fresh-no-seed.sqlite3"
+    db_url = f"sqlite:///{db_path.as_posix()}"
+
+    monkeypatch.chdir(BACKEND_DIR)
+    monkeypatch.setenv("DATABASE_URL", db_url)
+    monkeypatch.delenv("TEST_DATABASE_URL", raising=False)
+    monkeypatch.setenv("TESTING", "false")
+    monkeypatch.setenv("DEMO_MODE", "false")
+    monkeypatch.delenv("AUTO_SEED_DEMO_DATA", raising=False)
+
+    try:
+        database._setup_compilers()
+        database.reset_database_state()
+
+        from database import SessionLocal
+        from src.domains.identity.models.tenant import Tenant
+
+        assert db_migrate.ensure_db_ready() is True
+        database.reset_database_state()
+
+        db = SessionLocal()
+        try:
+            assert db.query(Tenant).count() == 0
         finally:
             db.close()
     finally:

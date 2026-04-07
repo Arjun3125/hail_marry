@@ -24,17 +24,16 @@ def _is_fresh_database() -> bool:
 
     inspector = inspect(get_engine())
     tables = inspector.get_table_names()
-    # If core tables don't exist, it's a fresh database
     core_tables = {"users", "tenants", "classes", "subjects"}
     return not core_tables.intersection(set(tables))
 
 
 def _create_schema_from_models() -> None:
     """Create all tables from ORM models (for fresh databases)."""
-    import models  # noqa: F401 — register all ORM models
+    import models  # noqa: F401 - register all ORM models
     from database import Base, get_engine
 
-    logger.info("Fresh database detected — creating full schema from ORM models...")
+    logger.info("Fresh database detected - creating full schema from ORM models...")
     Base.metadata.create_all(bind=get_engine())
     logger.info("Schema created successfully from ORM models.")
 
@@ -88,47 +87,47 @@ def _fix_postgresql_boolean_columns() -> None:
         for table, columns in tables_to_fix.items():
             for col in columns:
                 try:
-                    # Check if column is integer
-                    res = conn.execute(text(
-                        f"SELECT data_type FROM information_schema.columns "
-                        f"WHERE table_name = '{table}' AND column_name = '{col}'"
-                    )).scalar()
-                    
+                    res = conn.execute(
+                        text(
+                            f"SELECT data_type FROM information_schema.columns "
+                            f"WHERE table_name = '{table}' AND column_name = '{col}'"
+                        )
+                    ).scalar()
+
                     if res == "integer":
-                        logger.info(f"Converting {table}.{col} from INTEGER to BOOLEAN...")
-                        # PostgreSQL requires explicit conversion: USING (col::boolean)
-                        conn.execute(text(
-                            f"ALTER TABLE {table} ALTER COLUMN {col} TYPE BOOLEAN "
-                            f"USING ({col}::boolean)"
-                        ))
-                        # Also fix default if it was '1'
-                        conn.execute(text(
-                            f"ALTER TABLE {table} ALTER COLUMN {col} SET DEFAULT true"
-                        ))
+                        logger.info("Converting %s.%s from INTEGER to BOOLEAN...", table, col)
+                        conn.execute(
+                            text(
+                                f"ALTER TABLE {table} ALTER COLUMN {col} TYPE BOOLEAN "
+                                f"USING ({col}::boolean)"
+                            )
+                        )
+                        conn.execute(
+                            text(
+                                f"ALTER TABLE {table} ALTER COLUMN {col} SET DEFAULT true"
+                            )
+                        )
                         conn.commit()
-                        logger.info(f"Successfully converted {table}.{col}.")
-                except Exception as e:
-                    logger.warning(f"Could not fix column {table}.{col}: {e}")
+                        logger.info("Successfully converted %s.%s.", table, col)
+                except Exception as exc:  # pragma: no cover - defensive repair path
+                    logger.warning("Could not fix column %s.%s: %s", table, col, exc)
 
 
 def run_migrations() -> bool:
     """Run database migrations. Returns True on success."""
     try:
         if _is_fresh_database():
-            # Fresh DB: create everything from ORM, then stamp alembic
             _create_schema_from_models()
             _stamp_alembic_head()
         else:
-            # Existing DB: run incremental alembic migrations
             from alembic import command
+
             alembic_cfg = _get_alembic_config()
             logger.info("Running database migrations (alembic upgrade head)...")
             command.upgrade(alembic_cfg, "head")
             logger.info("Database migrations completed successfully.")
-        
-        # After migrations/creation, ensure PostgreSQL types are correct
+
         _fix_postgresql_boolean_columns()
-        
         return True
     except Exception as exc:
         logger.error("Database migration failed: %s", exc)
@@ -152,11 +151,17 @@ def seed_if_empty() -> bool:
             logger.info("Database already has %d tenant(s), skipping seed.", tenant_count)
             return True
 
-        logger.info("Database is empty — running canonical Class 11 CBSE demo seeder...")
+        demo_mode = os.getenv("DEMO_MODE", "").lower() in ("true", "1", "yes")
+        auto_seed_demo = os.getenv("AUTO_SEED_DEMO_DATA", "").lower() in ("true", "1", "yes")
+        if not (demo_mode or auto_seed_demo):
+            logger.info("Database is empty - skipping demo seed outside demo/explicit auto-seed mode.")
+            return True
+
+        logger.info("Database is empty - running canonical Class 11 CBSE demo seeder...")
         try:
             from seed_cbse_demo import seed_demo_data
 
-            seed_demo_data(skip_embeddings=False)
+            seed_demo_data(skip_embeddings=True)
             logger.info("CBSE demo seeding completed successfully.")
             return True
         except Exception as seed_exc:

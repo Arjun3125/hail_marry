@@ -27,6 +27,7 @@ def test_demo_seed_populates_six_month_persona_history(tmp_path, monkeypatch):
     monkeypatch.delenv("TEST_DATABASE_URL", raising=False)
     monkeypatch.setenv("TESTING", "false")
     monkeypatch.setenv("DEMO_MODE", "false")
+    monkeypatch.setenv("AUTO_SEED_DEMO_DATA", "true")
 
     try:
         database._setup_compilers()

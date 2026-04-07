@@ -7,7 +7,12 @@ cd "$SCRIPT_DIR"
 PORT_VALUE="${PORT:-8080}"
 
 echo "Running database bootstrap (combined)..."
-python -c "from db_migrate import ensure_db_ready; ensure_db_ready()" || echo "Warning: DB bootstrap failed, will retry in-process."
+python - <<'PY'
+import sys
+from db_migrate import ensure_db_ready
+
+sys.exit(0 if ensure_db_ready() else 1)
+PY
 
 echo "Starting AI Worker in the background..."
 # Explicitly force the queue on, just in case Railway holds a stale variable
