@@ -32,6 +32,7 @@ import { api } from "@/lib/api";
 import { SkeletonCard } from "@/components/Skeleton";
 import { AnimatedCounter, ProgressRing } from "@/components/ui/SharedUI";
 import { RoleStartPanel } from "@/components/RoleStartPanel";
+import { PrismHeroKicker, PrismPage, PrismPanel } from "@/components/prism/PrismPage";
 
 type DashboardData = {
     total_students: number;
@@ -49,6 +50,23 @@ type DashboardData = {
         code: string;
         severity: string;
         message: string;
+    }>;
+    student_risk_summary: {
+        high_risk_students: number;
+        medium_risk_students: number;
+        academic_high_risk: number;
+        fee_high_risk: number;
+        dropout_high_risk: number;
+    };
+    student_risk_alerts: Array<{
+        student_id: string;
+        student_name: string;
+        class_name: string;
+        dropout_risk: string;
+        academic_risk: string;
+        fee_risk: string;
+        attendance_pct: number;
+        overall_score_pct: number | null;
     }>;
 };
 
@@ -260,13 +278,23 @@ export default function AdminDashboard() {
         { name: "Processing", value: dashboard?.queue_processing_depth ?? 0, color: "#3b82f6" },
         { name: "Stuck", value: dashboard?.queue_stuck_jobs ?? 0, color: "#ef4444" },
     ].filter(d => d.value > 0);
+    const riskSummary = dashboard?.student_risk_summary;
+    const riskAlerts = dashboard?.student_risk_alerts || [];
 
     return (
-        <div>
-            <div className="mb-6">
-                <h1 className="text-2xl font-bold text-[var(--text-primary)]">Admin Dashboard</h1>
-                <p className="text-sm text-[var(--text-secondary)]">Institutional overview</p>
-            </div>
+        <PrismPage className="space-y-6">
+            <PrismPanel className="mb-6 p-6">
+                <PrismHeroKicker>Admin command view</PrismHeroKicker>
+                <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                    <div>
+                        <h1 className="prism-title text-4xl font-black text-[var(--text-primary)]">Admin Dashboard</h1>
+                        <p className="mt-2 text-sm text-[var(--text-secondary)]">Institutional visibility across adoption, queue health, compliance, and live operational alerts.</p>
+                    </div>
+                    <div className="rounded-[var(--radius-sm)] border border-[var(--border)] bg-[rgba(148,163,184,0.05)] px-4 py-3 text-sm text-[var(--text-secondary)]">
+                        Review live queue depth, alerts, and release-gate evidence from one command surface.
+                    </div>
+                </div>
+            </PrismPanel>
 
             <RoleStartPanel role="admin" />
 
@@ -551,7 +579,99 @@ export default function AdminDashboard() {
                         ) : null}
                     </div>
 
-                    <div className="grid lg:grid-cols-2 gap-6">
+                    <div className="grid xl:grid-cols-3 gap-6">
+                        {/* Student Risk Alerts */}
+                        <div className="bg-[var(--bg-card)] rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)] xl:col-span-2">
+                            <div className="flex items-center justify-between gap-3 mb-4">
+                                <div className="flex items-center gap-2">
+                                    <AlertTriangle className="w-4 h-4 text-[var(--error)]" />
+                                    <div>
+                                        <h2 className="text-sm font-semibold text-[var(--text-primary)]">Student Risk Radar</h2>
+                                        <p className="text-xs text-[var(--text-muted)]">
+                                            Students with live academic, attendance, or fee risk signals from unified profiles.
+                                        </p>
+                                    </div>
+                                </div>
+                                <Link href="/admin/reports" className="text-xs text-[var(--primary)] hover:underline">
+                                    Open reports →
+                                </Link>
+                            </div>
+                            <div className="grid gap-3 md:grid-cols-4 mb-4">
+                                <div className="rounded-lg border border-red-200/60 bg-red-50/70 px-3 py-3">
+                                    <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">High risk students</p>
+                                    <p className="mt-1 text-xl font-semibold text-[var(--text-primary)]">{riskSummary?.high_risk_students ?? 0}</p>
+                                </div>
+                                <div className="rounded-lg border border-amber-200/60 bg-amber-50/70 px-3 py-3">
+                                    <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">Medium risk students</p>
+                                    <p className="mt-1 text-xl font-semibold text-[var(--text-primary)]">{riskSummary?.medium_risk_students ?? 0}</p>
+                                </div>
+                                <div className="rounded-lg border border-fuchsia-200/60 bg-fuchsia-50/70 px-3 py-3">
+                                    <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">Academic high risk</p>
+                                    <p className="mt-1 text-xl font-semibold text-[var(--text-primary)]">{riskSummary?.academic_high_risk ?? 0}</p>
+                                </div>
+                                <div className="rounded-lg border border-sky-200/60 bg-sky-50/70 px-3 py-3">
+                                    <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">Fee high risk</p>
+                                    <p className="mt-1 text-xl font-semibold text-[var(--text-primary)]">{riskSummary?.fee_high_risk ?? 0}</p>
+                                </div>
+                            </div>
+                            <div className="space-y-3">
+                                {riskAlerts.map((alert) => (
+                                    <div key={alert.student_id} className="rounded-lg border border-[var(--border)] bg-[var(--bg-page)] p-4">
+                                        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                                            <div>
+                                                <p className="text-sm font-semibold text-[var(--text-primary)]">{alert.student_name}</p>
+                                                <p className="text-xs text-[var(--text-muted)]">{alert.class_name}</p>
+                                            </div>
+                                            <div className="flex flex-wrap gap-2">
+                                                {[
+                                                    { label: "Dropout", value: alert.dropout_risk },
+                                                    { label: "Academic", value: alert.academic_risk },
+                                                    { label: "Fee", value: alert.fee_risk },
+                                                ].map((pill) => (
+                                                    <span
+                                                        key={`${alert.student_id}-${pill.label}`}
+                                                        className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${
+                                                            pill.value === "high"
+                                                                ? "bg-error-badge text-status-red"
+                                                                : pill.value === "medium"
+                                                                    ? "bg-warning-badge text-status-amber"
+                                                                    : "bg-success-badge text-status-green"
+                                                        }`}
+                                                    >
+                                                        {pill.label} {pill.value}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </div>
+                                        <div className="mt-3 grid gap-2 sm:grid-cols-3 text-xs">
+                                            <div className="rounded-md bg-[rgba(15,23,42,0.04)] px-3 py-2">
+                                                <p className="text-[var(--text-muted)]">Attendance</p>
+                                                <p className="font-semibold text-[var(--text-primary)]">{alert.attendance_pct}%</p>
+                                            </div>
+                                            <div className="rounded-md bg-[rgba(15,23,42,0.04)] px-3 py-2">
+                                                <p className="text-[var(--text-muted)]">Performance</p>
+                                                <p className="font-semibold text-[var(--text-primary)]">
+                                                    {alert.overall_score_pct !== null ? `${alert.overall_score_pct}%` : "Not enough data"}
+                                                </p>
+                                            </div>
+                                            <div className="rounded-md bg-[rgba(15,23,42,0.04)] px-3 py-2">
+                                                <p className="text-[var(--text-muted)]">Response focus</p>
+                                                <p className="font-semibold text-[var(--text-primary)]">
+                                                    {alert.fee_risk === "high" ? "Fee recovery" : alert.academic_risk === "high" ? "Academic intervention" : "Attendance follow-up"}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                                {riskAlerts.length === 0 && (
+                                    <div className="py-8 text-center">
+                                        <AlertTriangle className="w-8 h-8 mx-auto text-[var(--text-muted)] mb-2 opacity-30" />
+                                        <p className="text-xs text-[var(--text-muted)]">No student risk alerts are active right now.</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
                         {/* Active Alerts */}
                         <div className="bg-[var(--bg-card)] rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)]">
                             <div className="flex items-center justify-between mb-4">
@@ -635,6 +755,6 @@ export default function AdminDashboard() {
                     </div>
                 </>
             )}
-        </div>
+        </PrismPage>
     );
 }

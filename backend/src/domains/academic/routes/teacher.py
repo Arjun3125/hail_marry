@@ -1,7 +1,7 @@
 """Teacher-facing API routes — dashboard, attendance, marks, assignments, upload, insights."""
 import logging
 from datetime import datetime
-from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
+from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import List, Optional
@@ -814,13 +814,23 @@ async def export_marks_csv(
 @router.post("/ai-grade")
 async def ai_grade_answer_sheet(
     file: UploadFile = File(...),
+    exam_id: str | None = Form(None),
+    student_id: str | None = Form(None),
+    student_name: str | None = Form(None),
+    answer_key: str | None = Form(None),
+    rubric: str | None = Form(None),
     current_user: User = Depends(require_role("teacher", "admin")),
+    teacher_class_ids: list = Depends(get_teacher_class_ids),
     db: Session = Depends(get_db),
 ):
     """Upload a student answer sheet image for AI-assisted grading.
     Returns a job ID that can be polled for results.
     """
     content = await file.read()
+    exam = None
+    if exam_id:
+        allowed_class_ids = set(teacher_class_ids)
+        exam, _subject = _get_exam_with_subject_in_scope(db, current_user, exam_id, allowed_class_ids)
     try:
         return _queue_teacher_ai_grade_job_impl(
             file_name=file.filename or "",
@@ -829,6 +839,13 @@ async def ai_grade_answer_sheet(
             max_file_size=MAX_FILE_SIZE,
             upload_dir=UPLOAD_DIR,
             enqueue_job_fn=enqueue_job,
+            exam_id=str(exam.id) if exam is not None else None,
+            exam_name=exam.name if exam is not None else None,
+            exam_max_marks=exam.max_marks if exam is not None else None,
+            student_id=student_id or None,
+            student_name=student_name or None,
+            answer_key=answer_key or None,
+            rubric=rubric or None,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
@@ -852,17 +869,22 @@ async def create_test_series(
     db: Session = Depends(get_db),
 ):
     """Create a new test series / mock test."""
-    return _build_created_test_series_response_impl(
-        db=db,
-        current_user=current_user,
-        name=data.name,
-        description=data.description,
-        total_marks=data.total_marks,
-        duration_minutes=data.duration_minutes,
-        class_id=data.class_id,
-        subject_id=data.subject_id,
-        test_series_model=TestSeries,
-    )
+    try:
+        return _build_created_test_series_response_impl(
+            db=db,
+            current_user=current_user,
+            name=data.name,
+            description=data.description,
+            total_marks=data.total_marks,
+            duration_minutes=data.duration_minutes,
+            class_id=data.class_id,
+            subject_id=data.subject_id,
+            test_series_model=TestSeries,
+            class_model=Class,
+            subject_model=Subject,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 
 @router.get("/test-series")

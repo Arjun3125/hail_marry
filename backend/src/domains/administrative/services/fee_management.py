@@ -7,7 +7,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from constants import FEE_INVOICE_STATUSES
-from src.domains.academic.models.core import Enrollment
+from src.domains.academic.models.core import Class, Enrollment
 from src.domains.administrative.models.fee import FeeInvoice, FeePayment, FeeStructure
 from src.domains.identity.models.user import User
 
@@ -21,8 +21,17 @@ def create_fee_structure(
     class_id: Optional[UUID] = None,
     academic_year: str = "2025-26",
     description: Optional[str] = None,
+    class_model=Class,
 ) -> FeeStructure:
     """Create a new fee structure for a class or school-wide."""
+    if class_id:
+        school_class = db.query(class_model).filter(
+            class_model.id == class_id,
+            class_model.tenant_id == tenant_id,
+        ).first()
+        if school_class is None:
+            raise ValueError("Class not found")
+
     structure = FeeStructure(
         tenant_id=tenant_id,
         class_id=class_id,

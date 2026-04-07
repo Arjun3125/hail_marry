@@ -92,15 +92,15 @@ export function RoleStartPanel({ role }: { role: RoleKey }) {
     const config = useMemo(() => roleConfig[role], [role]);
 
     return (
-        <section className="mb-6 rounded-2xl border border-[var(--border)]/60 bg-[var(--bg-card)] p-4 shadow-[var(--shadow-card)]">
+        <section className="glass-panel mb-6 rounded-[calc(var(--radius)*1.05)] p-4">
             <div className="flex items-start justify-between gap-4">
                 <div>
-                    <p className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">Getting started</p>
+                    <p className="text-xs font-bold uppercase tracking-[0.24em] text-[var(--text-muted)]">Getting started</p>
                     <h2 className="text-lg font-semibold text-[var(--text-primary)]">{config.title}</h2>
                 </div>
                 <button
                     onClick={() => setShowHelp((v) => !v)}
-                    className="inline-flex items-center gap-1 rounded-lg border border-[var(--border)] px-2 py-1 text-xs text-[var(--text-secondary)] hover:border-[var(--primary)]"
+                    className="inline-flex items-center gap-1 rounded-xl border border-[var(--border)] bg-[rgba(148,163,184,0.06)] px-3 py-1 text-xs text-[var(--text-secondary)] hover:border-[var(--primary)]"
                 >
                     {showHelp ? <X className="h-3.5 w-3.5" /> : <HelpCircle className="h-3.5 w-3.5" />} Help
                 </button>
@@ -134,7 +134,7 @@ export function RoleStartPanel({ role }: { role: RoleKey }) {
             </div>
 
             {showHelp && (
-                <div className="mt-4 rounded-xl border border-[var(--primary)]/20 bg-[var(--bg-page)] p-3">
+                <div className="mt-4 rounded-xl border border-[var(--primary)]/20 bg-[rgba(148,163,184,0.06)] p-3">
                     <p className="mb-2 text-xs font-semibold text-[var(--text-secondary)]">Quick help overlays</p>
                     <div className="space-y-2">
                         {config.help.map((h) => (

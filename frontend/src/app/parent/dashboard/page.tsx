@@ -1,10 +1,23 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Volume2, Loader2, VolumeX, GraduationCap, CalendarCheck, Award, Clock, FileText, Activity, ShieldCheck, Sparkles } from "lucide-react";
+import {
+    Activity,
+    CalendarCheck,
+    Clock,
+    FileText,
+    GraduationCap,
+    Loader2,
+    ShieldCheck,
+    Sparkles,
+    Volume2,
+    VolumeX,
+} from "lucide-react";
 
 import { api } from "@/lib/api";
 import { RoleStartPanel } from "@/components/RoleStartPanel";
+import { PrismHeroKicker, PrismPage, PrismPanel, PrismSection } from "@/components/prism/PrismPage";
+import ErrorRemediation from "@/components/ui/ErrorRemediation";
 
 type ParentDashboard = {
     child: {
@@ -32,6 +45,12 @@ type ParentDashboard = {
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
+function formatDate(value: string | null) {
+    if (!value) return "No recent date";
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleDateString();
+}
+
 export default function ParentDashboardPage() {
     const [data, setData] = useState<ParentDashboard | null>(null);
     const [loading, setLoading] = useState(true);
@@ -45,8 +64,8 @@ export default function ParentDashboardPage() {
             setError(null);
             const payload = await api.parent.dashboard();
             setData(payload as ParentDashboard);
-        } catch (err) {
-            setError(err instanceof Error ? err.message : "Failed to load dashboard");
+        } catch (loadError) {
+            setError(loadError instanceof Error ? loadError.message : "Failed to load dashboard");
         } finally {
             setLoading(false);
         }
@@ -64,6 +83,7 @@ export default function ParentDashboardPage() {
         }
         try {
             setAudioLoading(true);
+            setError(null);
             const report = (await api.parent.audioReport()) as { text: string };
             const utterance = new SpeechSynthesisUtterance(report.text);
             utterance.rate = 0.9;
@@ -79,187 +99,211 @@ export default function ParentDashboardPage() {
     };
 
     return (
-        <div className="max-w-4xl mx-auto space-y-6">
-            <RoleStartPanel role="parent" />
-
-            {error && (
-                <div className="rounded-xl border border-[var(--error)]/30 bg-error-subtle px-4 py-3 text-sm text-[var(--error)]">
-                    {error}
-                </div>
-            )}
-
-            {loading ? (
-                <div className="flex flex-col items-center justify-center p-20 min-h-[50vh]">
-                    <Loader2 className="w-10 h-10 animate-spin text-[var(--accent-indigo)] mb-4" />
-                    <p className="text-sm font-medium text-[var(--text-muted)] animate-pulse">Syncing child&apos;s records...</p>
-                </div>
-            ) : data ? (
-                <>
-                    {/* ─── Hero Banner ─── */}
-                    <div className="relative overflow-hidden rounded-[var(--radius)] glass-panel border border-[var(--border-light)] shadow-2xl p-8 mb-8 isolate min-h-[220px] flex flex-col justify-end stagger-1">
-                        {/* Background Gradients */}
-                        <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 via-purple-500/5 to-transparent z-[-1]" />
-                        <div className="absolute top-0 right-0 w-96 h-96 bg-purple-500/20 blur-[100px] rounded-full translate-x-1/3 -translate-y-1/3 z-[-1]" />
-                        
-                        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <PrismPage className="space-y-6">
+            <PrismSection className="space-y-6">
+                <div className="grid gap-4 xl:grid-cols-[1.08fr_0.92fr]">
+                    <div className="space-y-4">
+                        <PrismHeroKicker>
+                            <ShieldCheck className="h-3.5 w-3.5" />
+                            Parent Support Surface
+                        </PrismHeroKicker>
+                        <div className="space-y-3">
+                            <h1 className="prism-title text-4xl font-black text-[var(--text-primary)] md:text-5xl">
+                                Parent Dashboard
+                            </h1>
+                            <p className="max-w-3xl text-base leading-7 text-[var(--text-secondary)] md:text-lg">
+                                A calmer, more supportive view of attendance, recent marks, upcoming classes, and the next actions that matter this week.
+                            </p>
+                        </div>
+                    </div>
+                    <PrismPanel className="p-5">
+                        <div className="flex items-start gap-4">
+                            <button
+                                type="button"
+                                onClick={() => void playAudioReport()}
+                                disabled={audioLoading}
+                                className={`inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-white shadow-[0_16px_30px_rgba(15,23,42,0.16)] transition-all ${
+                                    speaking
+                                        ? "bg-[linear-gradient(135deg,rgba(244,114,182,0.95),rgba(225,29,72,0.92))]"
+                                        : "bg-[linear-gradient(135deg,rgba(245,158,11,0.95),rgba(249,115,22,0.92))] hover:-translate-y-0.5"
+                                } disabled:opacity-60`}
+                                aria-label={speaking ? "Stop audio update" : "Play audio update"}
+                            >
+                                {audioLoading ? <Loader2 className="h-6 w-6 animate-spin" /> : speaking ? <VolumeX className="h-6 w-6" /> : <Volume2 className="h-6 w-6" />}
+                            </button>
                             <div>
-                                <div className="flex items-center gap-2 mb-3">
-                                    <div className="px-3 py-1 rounded-full bg-[var(--accent-purple)]/10 border border-[var(--accent-purple)]/20 text-[10px] uppercase tracking-widest font-bold text-[var(--accent-purple)] flex items-center gap-1.5 w-fit">
-                                        <ShieldCheck className="w-3 h-3" />
-                                        Guardian View Active
-                                    </div>
-                                </div>
-                                <h1 className="text-4xl md:text-5xl font-black text-[var(--text-primary)] tracking-tight mb-2">
-                                    {`${data.child.name}'s Dashboard`}
-                                </h1>
-                                <p className="text-sm text-[var(--text-muted)] flex items-center gap-2">
-                                    <GraduationCap className="w-4 h-4 text-[var(--accent-purple)]" />
-                                    {data.child.class ? `Class ${data.child.class}` : "Student Profile"} • {data.child.email}
-                                </p>
-                            </div>
-                            
-                            {/* Audio Report Action Card */}
-                            <div className="bg-[var(--bg-card)]/80 backdrop-blur-md rounded-2xl p-4 border border-[var(--border-light)] shadow-lg max-w-sm flex gap-4 items-center shrink-0">
-                                <button
-                                    onClick={() => void playAudioReport()}
-                                    disabled={audioLoading}
-                                    className={`relative flex items-center justify-center w-14 h-14 rounded-full transition-all duration-300 shadow-md shrink-0 ${speaking
-                                            ? "bg-gradient-to-tr from-rose-500 to-pink-600 text-white animate-pulse"
-                                            : "bg-gradient-to-tr from-indigo-500 to-purple-600 text-white hover:scale-105 hover:shadow-indigo-500/20 hover:shadow-xl"
-                                        } disabled:opacity-50`}
-                                >
-                                    {audioLoading ? (
-                                        <Loader2 className="w-6 h-6 animate-spin" />
-                                    ) : speaking ? (
-                                        <VolumeX className="w-6 h-6" />
-                                    ) : (
-                                        <Volume2 className="w-6 h-6 ml-0.5" />
-                                    )}
-                                    {speaking && (
-                                        <span className="absolute -inset-2 rounded-full border-2 border-rose-500 animate-ping opacity-20" />
-                                    )}
-                                </button>
-                                <div>
-                                    <h3 className="text-sm font-bold text-[var(--text-primary)]">Listen to Update</h3>
-                                    <p className="text-xs text-[var(--text-muted)] leading-tight mt-0.5">
-                                        {speaking ? "Playing AI summary..." : "Hear an AI-generated audio report of recent performance."}
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* ─── Metrics Grid ─── */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 stagger-2">
-                        {/* Attendance */}
-                        <div className="bg-[var(--bg-card)] rounded-[var(--radius)] p-6 shadow-[var(--shadow-card)] card-hover relative overflow-hidden group">
-                            <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
-                                <CalendarCheck className="w-24 h-24 text-[var(--status-blue)] -mr-4 -mt-4 transform rotate-12" />
-                            </div>
-                            <div className="flex items-center gap-3 mb-4">
-                                <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
-                                    <CalendarCheck className="w-4 h-4 text-blue-500" />
-                                </div>
-                                <h2 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest">Attendance</h2>
-                            </div>
-                            <div className="relative">
-                                <span className={`text-4xl font-black tracking-tighter ${data.attendance_pct >= 75 ? "text-emerald-500" : "text-rose-500"}`}>
-                                    {data.attendance_pct}%
-                                </span>
-                                {data.attendance_pct < 75 && (
-                                    <p className="text-xs text-rose-500 font-medium mt-2 flex items-center gap-1">
-                                        <ShieldCheck className="w-3 h-3" />
-                                        Attention Required
-                                    </p>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Average/Latest Marks */}
-                        <div className="bg-[var(--bg-card)] rounded-[var(--radius)] p-6 shadow-[var(--shadow-card)] card-hover relative overflow-hidden group">
-                            <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
-                                <Award className="w-24 h-24 text-[var(--accent-purple)] -mr-4 -mt-4 transform rotate-12" />
-                            </div>
-                            <div className="flex items-center gap-3 mb-4">
-                                <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center">
-                                    <Activity className="w-4 h-4 text-purple-500" />
-                                </div>
-                                <h2 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest">Latest Score</h2>
-                            </div>
-                            {data.latest_mark ? (
-                                <div className="relative">
-                                    <span className="text-4xl font-black tracking-tighter text-[var(--text-primary)]">
-                                        {data.latest_mark.percentage}%
-                                    </span>
-                                    <p className="text-xs text-[var(--text-muted)] mt-2 font-medium bg-[var(--bg-page)] w-fit px-2 py-1 rounded border border-[var(--border-light)]">
-                                        {data.latest_mark.subject} <span className="opacity-50 mx-1">•</span> {data.latest_mark.exam}
-                                    </p>
-                                </div>
-                            ) : (
-                                <p className="text-sm text-[var(--text-muted)] mt-4">No recent marks</p>
-                            )}
-                        </div>
-
-                        {/* Assignments / Tasks */}
-                        <div className="bg-[var(--bg-card)] rounded-[var(--radius)] p-6 shadow-[var(--shadow-card)] card-hover relative overflow-hidden group">
-                            <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
-                                <FileText className="w-24 h-24 text-[var(--status-amber)] -mr-4 -mt-4 transform rotate-12" />
-                            </div>
-                            <div className="flex items-center gap-3 mb-4">
-                                <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center">
-                                    <Sparkles className="w-4 h-4 text-amber-500" />
-                                </div>
-                                <h2 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest">Pending Work</h2>
-                            </div>
-                            <div className="relative">
-                                <span className={`text-4xl font-black tracking-tighter ${data.pending_assignments > 0 ? "text-amber-500" : "text-emerald-500"}`}>
-                                    {data.pending_assignments}
-                                </span>
-                                <p className="text-xs text-[var(--text-muted)] mt-2 font-medium">
-                                    assignments due this week
+                                <h2 className="text-base font-semibold text-[var(--text-primary)]">Listen to update</h2>
+                                <p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">
+                                    {speaking ? "Playing an AI-generated progress summary now." : "Hear a short AI summary of recent attendance, marks, and upcoming schedule changes."}
                                 </p>
                             </div>
                         </div>
-                    </div>
+                    </PrismPanel>
+                </div>
 
-                    {/* ─── Schedule Insight ─── */}
-                    <div className="bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] border border-[var(--border)] overflow-hidden stagger-3">
-                        <div className="p-5 border-b border-[var(--border-light)] bg-[var(--bg-page)]/50 backdrop-blur-sm">
-                            <h2 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
-                                <Clock className="w-4 h-4 text-[var(--accent-indigo)]" />
-                                Immediate Schedule Insight
-                            </h2>
-                        </div>
-                        <div className="p-6">
-                            {data.next_class ? (
-                                <div className="flex items-center gap-4">
-                                    <div className="hidden sm:flex flex-col items-center justify-center w-20 h-20 bg-gradient-to-b from-indigo-500/10 to-indigo-600/5 rounded-2xl border border-indigo-500/10 shrink-0">
-                                        <span className="text-xs font-bold text-indigo-500 uppercase tracking-wide">{DAYS[data.next_class.day] || "Day"}</span>
-                                        <span className="text-xl font-black text-[var(--text-primary)]">{data.next_class.start_time.split(':')[0]}</span>
-                                    </div>
-                                    <div className="flex-1">
-                                        <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-500/10 text-indigo-600 mb-2">
-                                            <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
-                                            UP NEXT
+                <RoleStartPanel role="parent" />
+
+                {error ? (
+                    <ErrorRemediation
+                        error={error}
+                        scope="parent-dashboard"
+                        onRetry={() => {
+                            void load();
+                        }}
+                    />
+                ) : null}
+
+                {loading ? (
+                    <PrismPanel className="flex min-h-[260px] flex-col items-center justify-center gap-3 p-10 text-[var(--text-secondary)]">
+                        <Loader2 className="h-8 w-8 animate-spin" />
+                        <p className="text-sm">Syncing child progress...</p>
+                    </PrismPanel>
+                ) : data ? (
+                    <>
+                        <div className="grid gap-4 lg:grid-cols-[1.08fr_0.92fr]">
+                            <PrismPanel className="p-6">
+                                <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                                    <div>
+                                        <div className="inline-flex items-center gap-2 rounded-full border border-[rgba(245,158,11,0.22)] bg-[rgba(245,158,11,0.08)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-status-amber">
+                                            <GraduationCap className="h-3.5 w-3.5" />
+                                            {data.child.class ? `Class ${data.child.class}` : "Student profile"}
                                         </div>
-                                        <h3 className="text-xl font-bold text-[var(--text-primary)] mb-1">{data.next_class.subject}</h3>
-                                        <p className="text-sm text-[var(--text-muted)]">
-                                            {data.next_class.start_time} - {data.next_class.end_time}
-                                        </p>
+                                        <h2 className="mt-4 text-3xl font-black text-[var(--text-primary)]">
+                                            {data.child.name}
+                                        </h2>
+                                        <p className="mt-2 text-sm text-[var(--text-secondary)]">{data.child.email}</p>
+                                    </div>
+                                    <div className="rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.03)] px-4 py-3 text-sm text-[var(--text-secondary)]">
+                                        Weekly snapshot focused on reassurance, not admin density.
                                     </div>
                                 </div>
-                            ) : (
-                                <div className="flex flex-col items-center justify-center py-6">
-                                    <div className="w-12 h-12 bg-[var(--bg-page)] rounded-full flex items-center justify-center mb-3">
-                                        <CalendarCheck className="w-5 h-5 text-[var(--text-muted)] opacity-50" />
+                            </PrismPanel>
+
+                            <PrismPanel className="p-6">
+                                <h2 className="text-base font-semibold text-[var(--text-primary)]">Next class</h2>
+                                {data.next_class ? (
+                                    <div className="mt-4 flex items-center gap-4">
+                                        <div className="flex h-20 w-20 shrink-0 flex-col items-center justify-center rounded-[24px] border border-[rgba(96,165,250,0.16)] bg-[rgba(96,165,250,0.08)]">
+                                            <span className="text-xs font-semibold uppercase tracking-[0.16em] text-status-blue">{DAYS[data.next_class.day] || "Day"}</span>
+                                            <span className="mt-1 text-xl font-black text-[var(--text-primary)]">{data.next_class.start_time.split(":")[0]}</span>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Up next</p>
+                                            <h3 className="mt-2 text-xl font-bold text-[var(--text-primary)]">{data.next_class.subject}</h3>
+                                            <p className="mt-1 text-sm text-[var(--text-secondary)]">
+                                                {data.next_class.start_time} - {data.next_class.end_time}
+                                            </p>
+                                        </div>
                                     </div>
-                                    <p className="text-sm text-[var(--text-muted)] font-medium">No upcoming classes scheduled.</p>
-                                </div>
-                            )}
+                                ) : (
+                                    <p className="mt-4 text-sm text-[var(--text-secondary)]">No upcoming classes are scheduled right now.</p>
+                                )}
+                            </PrismPanel>
                         </div>
-                    </div>
-                </>
-            ) : null}
+
+                        <div className="grid gap-4 md:grid-cols-3">
+                            <MetricCard
+                                icon={CalendarCheck}
+                                title="Attendance"
+                                value={`${data.attendance_pct}%`}
+                                summary={data.attendance_pct >= 75 ? "Attendance is in a healthy range." : "Attendance needs attention this week."}
+                                tone={data.attendance_pct >= 75 ? "emerald" : "amber"}
+                            />
+                            <MetricCard
+                                icon={Activity}
+                                title="Latest score"
+                                value={data.latest_mark ? `${data.latest_mark.percentage}%` : "No marks"}
+                                summary={data.latest_mark ? `${data.latest_mark.subject} · ${data.latest_mark.exam}` : "No recent marks have been recorded."}
+                                tone="blue"
+                            />
+                            <MetricCard
+                                icon={FileText}
+                                title="Pending work"
+                                value={`${data.pending_assignments}`}
+                                summary={data.pending_assignments > 0 ? "Assignments still need attention this week." : "No assignments are currently pending."}
+                                tone={data.pending_assignments > 0 ? "amber" : "emerald"}
+                            />
+                        </div>
+
+                        <div className="grid gap-4 lg:grid-cols-[1.04fr_0.96fr]">
+                            <PrismPanel className="p-5">
+                                <div className="flex items-center gap-2">
+                                    <Sparkles className="h-4 w-4 text-status-amber" />
+                                    <h2 className="text-base font-semibold text-[var(--text-primary)]">Progress story</h2>
+                                </div>
+                                <div className="mt-4 space-y-4 text-sm leading-6 text-[var(--text-secondary)]">
+                                    <p>
+                                        Attendance is currently <span className="font-semibold text-[var(--text-primary)]">{data.attendance_pct}%</span>, and the latest academic result is{" "}
+                                        <span className="font-semibold text-[var(--text-primary)]">{data.latest_mark ? `${data.latest_mark.percentage}% in ${data.latest_mark.subject}` : "not yet available"}</span>.
+                                    </p>
+                                    <p>
+                                        {data.pending_assignments > 0
+                                            ? `${data.pending_assignments} assignment${data.pending_assignments === 1 ? "" : "s"} still need attention, so this week should stay focused on completion and follow-through.`
+                                            : "There are no pending assignments right now, which creates room to focus on consistency and revision."}
+                                    </p>
+                                </div>
+                            </PrismPanel>
+
+                            <PrismPanel className="p-5">
+                                <div className="flex items-center gap-2">
+                                    <Clock className="h-4 w-4 text-status-blue" />
+                                    <h2 className="text-base font-semibold text-[var(--text-primary)]">Recent academic detail</h2>
+                                </div>
+                                {data.latest_mark ? (
+                                    <div className="mt-4 space-y-3">
+                                        <DetailRow label="Subject" value={data.latest_mark.subject} />
+                                        <DetailRow label="Assessment" value={data.latest_mark.exam} />
+                                        <DetailRow label="Recorded" value={formatDate(data.latest_mark.date)} />
+                                        <DetailRow label="Average marks" value={`${data.avg_marks}%`} />
+                                    </div>
+                                ) : (
+                                    <p className="mt-4 text-sm text-[var(--text-secondary)]">Recent mark details will appear here once the next graded result is available.</p>
+                                )}
+                            </PrismPanel>
+                        </div>
+                    </>
+                ) : null}
+            </PrismSection>
+        </PrismPage>
+    );
+}
+
+function MetricCard({
+    icon: Icon,
+    title,
+    value,
+    summary,
+    tone,
+}: {
+    icon: typeof CalendarCheck;
+    title: string;
+    value: string;
+    summary: string;
+    tone: "blue" | "emerald" | "amber";
+}) {
+    const toneClasses = {
+        blue: "bg-[linear-gradient(135deg,rgba(96,165,250,0.22),rgba(59,130,246,0.08))] text-status-blue",
+        emerald: "bg-[linear-gradient(135deg,rgba(45,212,191,0.2),rgba(16,185,129,0.08))] text-status-emerald",
+        amber: "bg-[linear-gradient(135deg,rgba(251,191,36,0.2),rgba(245,158,11,0.08))] text-status-amber",
+    } as const;
+
+    return (
+        <PrismPanel className="p-5">
+            <div className={`mb-4 flex h-11 w-11 items-center justify-center rounded-2xl ${toneClasses[tone]}`}>
+                <Icon className="h-5 w-5" />
+            </div>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-muted)]">{title}</p>
+            <p className="mt-2 text-3xl font-black text-[var(--text-primary)]">{value}</p>
+            <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">{summary}</p>
+        </PrismPanel>
+    );
+}
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+    return (
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.03)] px-4 py-3">
+            <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">{label}</span>
+            <span className="text-sm font-medium text-[var(--text-primary)]">{value}</span>
         </div>
     );
 }

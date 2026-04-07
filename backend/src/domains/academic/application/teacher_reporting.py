@@ -4,9 +4,19 @@ from __future__ import annotations
 
 import csv
 import io
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-from uuid import uuid4
+from uuid import UUID, uuid4
+
+
+def _parse_uuid(value: str | None, field_name: str) -> UUID | None:
+    if value is None:
+        return None
+    try:
+        return UUID(str(value))
+    except (TypeError, ValueError):
+        raise ValueError(f"Invalid {field_name}")
 
 
 def build_attendance_csv_payload(
@@ -98,6 +108,13 @@ def queue_teacher_ai_grade_job(
     max_file_size: int,
     upload_dir,
     enqueue_job_fn,
+    exam_id: str | None = None,
+    exam_name: str | None = None,
+    exam_max_marks: int | None = None,
+    student_id: str | None = None,
+    student_name: str | None = None,
+    answer_key: str | None = None,
+    rubric: str | None = None,
 ) -> dict[str, Any]:
     safe_filename = Path(file_name or "").name
     if not safe_filename:
@@ -120,15 +137,24 @@ def queue_teacher_ai_grade_job(
             "file_path": str(file_path),
             "file_name": safe_filename,
             "teacher_id": str(current_user.id),
+            "exam_id": exam_id,
+            "exam_name": exam_name,
+            "exam_max_marks": exam_max_marks,
+            "student_id": student_id,
+            "student_name": student_name,
+            "answer_key": answer_key,
+            "rubric": rubric,
         },
         tenant_id=str(current_user.tenant_id),
         user_id=str(current_user.id),
     )
 
+    job_id = job.get("job_id") if isinstance(job, dict) else str(job)
+
     return {
         "success": True,
         "message": "Answer sheet queued for AI grading.",
-        "job_id": job.get("job_id"),
+        "job_id": job_id,
         "file_name": safe_filename,
     }
 
@@ -144,21 +170,56 @@ def build_created_test_series_response(
     class_id: str | None,
     subject_id: str | None,
     test_series_model,
+    class_model,
+    subject_model,
 ) -> dict[str, Any]:
+    class_uuid = _parse_uuid(class_id, "class_id")
+    subject_uuid = _parse_uuid(subject_id, "subject_id")
+
+    if class_uuid is not None:
+        school_class = db.query(class_model).filter(
+            class_model.id == class_uuid,
+            class_model.tenant_id == current_user.tenant_id,
+        ).first()
+        if school_class is None:
+            raise ValueError("Class not found")
+
+    if subject_uuid is not None:
+        subject = db.query(subject_model).filter(
+            subject_model.id == subject_uuid,
+            subject_model.tenant_id == current_user.tenant_id,
+        ).first()
+        if subject is None:
+            raise ValueError("Subject not found")
+        if class_uuid is not None and subject.class_id != class_uuid:
+            raise ValueError("Subject does not belong to the selected class")
+        if class_uuid is None:
+            class_uuid = subject.class_id
+
     series = test_series_model(
         tenant_id=current_user.tenant_id,
         name=name,
         description=description,
         total_marks=total_marks,
         duration_minutes=duration_minutes,
-        class_id=class_id,
-        subject_id=subject_id,
+        class_id=class_uuid,
+        subject_id=subject_uuid,
+        assessment_kind="mock_test",
+        grading_mode="manual_review",
+        status="published",
+        published_at=datetime.now(timezone.utc),
         created_by=current_user.id,
     )
     db.add(series)
     db.commit()
     db.refresh(series)
-    return {"success": True, "series_id": str(series.id), "name": series.name}
+    return {
+        "success": True,
+        "series_id": str(series.id),
+        "name": series.name,
+        "status": series.status,
+        "published_at": series.published_at.isoformat() if series.published_at else None,
+    }
 
 
 def list_teacher_test_series_response(

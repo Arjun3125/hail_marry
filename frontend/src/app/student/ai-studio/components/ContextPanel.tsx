@@ -3,17 +3,18 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-    FileText,
-    StickyNote,
-    Lightbulb,
-    History,
-    Settings2,
-    ChevronRight,
     ChevronLeft,
+    ChevronRight,
+    FileText,
     Globe,
+    History,
+    Lightbulb,
     Loader2,
+    Settings2,
     Sparkles,
+    StickyNote,
 } from "lucide-react";
+
 import { api } from "@/lib/api";
 
 interface ContextPanelProps {
@@ -61,7 +62,7 @@ export function ContextPanel({ collapsed, onToggleCollapse, notebookId, activeTo
         { id: "notes", label: "Notes", icon: StickyNote },
         { id: "suggestions", label: "Hints", icon: Lightbulb },
         { id: "history", label: "Recent", icon: History },
-    ];
+    ] as const;
 
     useEffect(() => {
         let cancelled = false;
@@ -70,25 +71,30 @@ export function ContextPanel({ collapsed, onToggleCollapse, notebookId, activeTo
                 setLoadingSuggestions(true);
             }
         });
-        api.personalization.recommendations({
-            active_tool: activeTool,
-            notebook_id: notebookId,
-            current_surface: "ai_studio_context_panel",
-        }).then((payload) => {
-            if (cancelled) return;
-            const items = Array.isArray((payload as { items?: PersonalizedSuggestion[] }).items)
-                ? ((payload as { items: PersonalizedSuggestion[] }).items || [])
-                : [];
-            setSuggestions(items.slice(0, 3));
-        }).catch(() => {
-            if (!cancelled) {
-                setSuggestions([]);
-            }
-        }).finally(() => {
-            if (!cancelled) {
-                setLoadingSuggestions(false);
-            }
-        });
+
+        api.personalization
+            .recommendations({
+                active_tool: activeTool,
+                notebook_id: notebookId,
+                current_surface: "ai_studio_context_panel",
+            })
+            .then((payload) => {
+                if (cancelled) return;
+                const items = Array.isArray((payload as { items?: PersonalizedSuggestion[] }).items)
+                    ? ((payload as { items: PersonalizedSuggestion[] }).items || [])
+                    : [];
+                setSuggestions(items.slice(0, 3));
+            })
+            .catch(() => {
+                if (!cancelled) {
+                    setSuggestions([]);
+                }
+            })
+            .finally(() => {
+                if (!cancelled) {
+                    setLoadingSuggestions(false);
+                }
+            });
 
         return () => {
             cancelled = true;
@@ -110,90 +116,112 @@ export function ContextPanel({ collapsed, onToggleCollapse, notebookId, activeTo
 
     if (collapsed) {
         return (
-            <aside className="w-12 flex flex-col items-center py-4 border-l border-[var(--border)] bg-[var(--bg-card)]">
+            <aside className="flex h-full w-full flex-col items-center py-4">
                 <button
                     onClick={onToggleCollapse}
-                    className="p-2 rounded-lg hover:bg-[var(--surface-hover)] text-[var(--text-muted)] mb-4"
+                    className="mb-4 rounded-xl border border-[var(--border)] bg-[rgba(148,163,184,0.06)] p-2 text-[var(--text-muted)] transition hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
                 >
-                    <ChevronLeft className="w-4 h-4" />
+                    <ChevronLeft className="h-4 w-4" />
                 </button>
-                {tabs.map((tab) => (
-                    <button
-                        key={tab.id}
-                        onClick={() => {
-                            setActiveTab(tab.id as typeof activeTab);
-                            onToggleCollapse();
-                        }}
-                        className={`p-2 rounded-lg mb-2 transition-colors ${
-                            activeTab === tab.id ? "bg-[var(--primary-light)] text-[var(--primary)]" : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
-                        }`}
-                        title={tab.label}
-                    >
-                        <tab.icon className="w-4 h-4" />
-                    </button>
-                ))}
+                {tabs.map((tab) => {
+                    const Icon = tab.icon;
+
+                    return (
+                        <button
+                            key={tab.id}
+                            onClick={() => {
+                                setActiveTab(tab.id);
+                                onToggleCollapse();
+                            }}
+                            className={`mb-2 rounded-2xl border p-2.5 transition ${
+                                activeTab === tab.id
+                                    ? "border-white/12 bg-[rgba(96,165,250,0.12)] text-[var(--text-primary)]"
+                                    : "border-transparent text-[var(--text-muted)] hover:border-[var(--border)] hover:text-[var(--text-primary)]"
+                            }`}
+                            title={tab.label}
+                        >
+                            <Icon className="h-4 w-4" />
+                        </button>
+                    );
+                })}
             </aside>
         );
     }
 
     return (
-        <aside className="w-80 flex flex-col border-l border-[var(--border)] bg-[var(--bg-card)]">
-            {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b border-[var(--border)]">
-                <span className="font-semibold text-[var(--text-primary)]">Context</span>
-                <button
-                    onClick={onToggleCollapse}
-                    className="p-1.5 rounded-lg hover:bg-[var(--surface-hover)] text-[var(--text-muted)]"
-                >
-                    <ChevronRight className="w-4 h-4" />
-                </button>
-            </div>
-
-            {/* Tabs */}
-            <div className="flex border-b border-[var(--border)]">
-                {tabs.map((tab) => (
+        <aside className="flex h-full flex-col">
+            <div className="border-b border-[var(--border)]/80 px-4 py-4">
+                <div className="flex items-start justify-between gap-3">
+                    <div>
+                        <p className="text-sm font-semibold text-[var(--text-primary)]">Context Lab</p>
+                        <p className="mt-1 text-xs leading-5 text-[var(--text-muted)]">
+                            Keep sources, notes, and next-step prompts in sight while you study.
+                        </p>
+                    </div>
                     <button
-                        key={tab.id}
-                        onClick={() => setActiveTab(tab.id as typeof activeTab)}
-                        className={`flex-1 flex flex-col items-center py-3 text-xs transition-colors ${
-                            activeTab === tab.id
-                                ? "text-[var(--primary)] border-b-2 border-[var(--primary)]"
-                                : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
-                        }`}
+                        onClick={onToggleCollapse}
+                        className="rounded-xl border border-[var(--border)] bg-[rgba(148,163,184,0.06)] p-2 text-[var(--text-muted)] transition hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
                     >
-                        <tab.icon className="w-4 h-4 mb-1" />
-                        {tab.label}
+                        <ChevronRight className="h-4 w-4" />
                     </button>
-                ))}
+                </div>
             </div>
 
-            {/* Tab Content */}
+            <div className="border-b border-[var(--border)]/80 px-3 py-3">
+                <div className="grid grid-cols-4 gap-2">
+                    {tabs.map((tab) => {
+                        const Icon = tab.icon;
+                        const isActive = activeTab === tab.id;
+
+                        return (
+                            <button
+                                key={tab.id}
+                                onClick={() => setActiveTab(tab.id)}
+                                className={`rounded-2xl border px-2 py-2.5 text-center transition ${
+                                    isActive
+                                        ? "border-white/12 bg-[rgba(96,165,250,0.12)] text-[var(--text-primary)]"
+                                        : "border-transparent text-[var(--text-muted)] hover:border-[var(--border)] hover:bg-[rgba(148,163,184,0.05)] hover:text-[var(--text-primary)]"
+                                }`}
+                            >
+                                <Icon className="mx-auto mb-1 h-4 w-4" />
+                                <span className="text-[10px]">{tab.label}</span>
+                            </button>
+                        );
+                    })}
+                </div>
+            </div>
+
             <div className="flex-1 overflow-y-auto p-4">
-                {activeTab === "citations" && (
+                {activeTab === "citations" ? (
                     <div className="space-y-3">
-                        <p className="text-xs text-[var(--text-muted)]">Sources from your materials will appear here</p>
-                        <div className="p-3 rounded-lg bg-[var(--bg-page)] border border-[var(--border)]/50">
-                            <div className="flex items-start gap-2">
-                                <FileText className="w-4 h-4 text-[var(--text-muted)] mt-0.5" />
+                        <p className="text-xs text-[var(--text-muted)]">
+                            Sources and citations from the active response will appear here.
+                        </p>
+                        <div className="rounded-2xl border border-[var(--border)] bg-[rgba(148,163,184,0.05)] p-3">
+                            <div className="flex items-start gap-3">
+                                <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--border)] bg-[rgba(255,255,255,0.03)]">
+                                    <FileText className="h-4 w-4 text-[var(--text-muted)]" />
+                                </div>
                                 <div>
-                                    <p className="text-xs font-medium text-[var(--text-primary)]">Biology Textbook</p>
-                                    <p className="text-[10px] text-[var(--text-muted)]">Page 42 • Chapter 3</p>
+                                    <p className="text-sm font-medium text-[var(--text-primary)]">Biology Textbook</p>
+                                    <p className="text-[11px] leading-5 text-[var(--text-muted)]">Page 42 • Chapter 3</p>
                                 </div>
                             </div>
                         </div>
                     </div>
-                )}
+                ) : null}
 
-                {activeTab === "notes" && (
+                {activeTab === "notes" ? (
                     <div className="space-y-3">
+                        <p className="text-xs text-[var(--text-muted)]">Keep scratch notes beside the active thread.</p>
                         <textarea
                             placeholder="Type quick notes here..."
-                            className="w-full h-32 p-3 text-sm bg-[var(--bg-page)] border border-[var(--border)] rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/50"
+                            className="h-40 w-full resize-none rounded-2xl border border-[var(--border)] bg-[rgba(148,163,184,0.05)] p-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--primary)]/50"
                         />
                     </div>
-                )}
+                ) : null}
 
-                {activeTab === "suggestions" && (
+                {activeTab === "suggestions" ? (
                     <div className="space-y-3">
                         <div className="flex items-center justify-between gap-2">
                             <p className="text-xs text-[var(--text-muted)]">Personalized next steps for this tool.</p>
@@ -206,101 +234,99 @@ export function ContextPanel({ collapsed, onToggleCollapse, notebookId, activeTo
                                         key={item.id}
                                         type="button"
                                         onClick={() => router.push(recommendationHref(item))}
-                                        className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-page)] p-3 text-left transition-colors hover:border-[var(--primary)]/40 hover:bg-[var(--surface-hover)]"
+                                        className="w-full rounded-2xl border border-[var(--border)] bg-[rgba(148,163,184,0.05)] p-3 text-left transition hover:border-[var(--primary)]/40 hover:bg-[rgba(148,163,184,0.08)]"
                                     >
                                         <div className="mb-2 flex items-center justify-between gap-2">
-                                            <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-widest text-[var(--text-muted)]">
+                                            <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-[0.22em] text-[var(--text-muted)]">
                                                 <Sparkles className="h-3 w-3 text-[var(--primary)]" />
                                                 {item.priority || "recommended"}
                                             </span>
-                                            <span className="rounded-full border border-[var(--border)] bg-[var(--bg-card)] px-2 py-0.5 text-[10px] text-[var(--text-secondary)]">
+                                            <span className="rounded-full border border-[var(--border)] bg-[rgba(255,255,255,0.04)] px-2 py-0.5 text-[10px] text-[var(--text-secondary)]">
                                                 {(item.target_tool || activeTool).replace("_", " ")}
                                             </span>
                                         </div>
                                         <p className="text-sm font-medium text-[var(--text-primary)]">{item.label}</p>
-                                        <p className="mt-1 text-[11px] leading-relaxed text-[var(--text-muted)]">{item.description}</p>
+                                        <p className="mt-1 text-[11px] leading-5 text-[var(--text-muted)]">{item.description}</p>
                                     </button>
                                 ))}
                             </div>
                         ) : (
-                            <div className="rounded-lg border border-dashed border-[var(--border)] bg-[var(--bg-page)] p-3">
-                                <p className="text-xs text-[var(--text-muted)]">
+                            <div className="rounded-2xl border border-dashed border-[var(--border)] bg-[rgba(148,163,184,0.04)] p-3">
+                                <p className="text-xs leading-6 text-[var(--text-muted)]">
                                     Personalized suggestions will appear after more study activity on this topic or notebook.
                                 </p>
                             </div>
                         )}
                     </div>
-                )}
+                ) : null}
 
-                {activeTab === "history" && (
+                {activeTab === "history" ? (
                     <div className="space-y-2">
-                        <p className="text-xs text-[var(--text-muted)]">Recent activity</p>
+                        <p className="text-xs text-[var(--text-muted)]">Recent activity and thread jumps will appear here.</p>
                     </div>
-                )}
+                ) : null}
             </div>
 
-            {/* Settings Section */}
-            <div className="border-t border-[var(--border)] p-4 space-y-4">
-                <div className="flex items-center gap-2 text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
-                    <Settings2 className="w-3.5 h-3.5" />
+            <div className="border-t border-[var(--border)]/80 p-4">
+                <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-secondary)]">
+                    <Settings2 className="h-3.5 w-3.5" />
                     Preferences
                 </div>
 
-                {/* Language */}
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
-                        <Globe className="w-3.5 h-3.5" />
-                        Language
+                <div className="space-y-4">
+                    <div className="flex items-center justify-between gap-3 rounded-2xl border border-[var(--border)] bg-[rgba(148,163,184,0.05)] px-3 py-2.5">
+                        <div className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
+                            <Globe className="h-3.5 w-3.5" />
+                            Language
+                        </div>
+                        <select
+                            value={language}
+                            onChange={(event) => setLanguage(event.target.value)}
+                            className="rounded-lg border border-[var(--border)] bg-[rgba(8,15,30,0.72)] px-2 py-1 text-xs text-[var(--text-primary)] outline-none"
+                        >
+                            <option value="english">English</option>
+                            <option value="hindi">Hindi</option>
+                            <option value="tamil">Tamil</option>
+                            <option value="telugu">Telugu</option>
+                        </select>
                     </div>
-                    <select
-                        value={language}
-                        onChange={(e) => setLanguage(e.target.value)}
-                        className="text-xs bg-[var(--bg-page)] border border-[var(--border)] rounded px-2 py-1"
-                    >
-                        <option value="english">English</option>
-                        <option value="hindi">Hindi</option>
-                        <option value="tamil">Tamil</option>
-                        <option value="telugu">Telugu</option>
-                    </select>
-                </div>
 
-                {/* Response Length */}
-                <div className="space-y-2">
-                    <label className="text-xs text-[var(--text-muted)]">Response Length</label>
-                    <div className="flex gap-1">
-                        {["brief", "default", "detailed"].map((opt) => (
-                            <button
-                                key={opt}
-                                onClick={() => setResponseLength(opt)}
-                                className={`flex-1 px-2 py-1.5 text-[10px] rounded capitalize transition-colors ${
-                                    responseLength === opt
-                                        ? "bg-[var(--primary)] text-white"
-                                        : "bg-[var(--bg-page)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
-                                }`}
-                            >
-                                {opt}
-                            </button>
-                        ))}
+                    <div className="space-y-2">
+                        <label className="text-xs text-[var(--text-muted)]">Response Length</label>
+                        <div className="grid grid-cols-3 gap-1.5">
+                            {["brief", "default", "detailed"].map((option) => (
+                                <button
+                                    key={option}
+                                    onClick={() => setResponseLength(option)}
+                                    className={`rounded-xl px-2 py-2 text-[10px] capitalize transition ${
+                                        responseLength === option
+                                            ? "bg-[linear-gradient(135deg,rgba(96,165,250,0.96),rgba(129,140,248,0.92))] text-[#06101e]"
+                                            : "border border-[var(--border)] bg-[rgba(148,163,184,0.05)] text-[var(--text-secondary)] hover:bg-[rgba(148,163,184,0.08)]"
+                                    }`}
+                                >
+                                    {option}
+                                </button>
+                            ))}
+                        </div>
                     </div>
-                </div>
 
-                {/* Expertise */}
-                <div className="space-y-2">
-                    <label className="text-xs text-[var(--text-muted)]">Level</label>
-                    <div className="flex gap-1">
-                        {["simple", "standard", "advanced"].map((opt) => (
-                            <button
-                                key={opt}
-                                onClick={() => setExpertiseLevel(opt)}
-                                className={`flex-1 px-2 py-1.5 text-[10px] rounded capitalize transition-colors ${
-                                    expertiseLevel === opt
-                                        ? "bg-[var(--primary)] text-white"
-                                        : "bg-[var(--bg-page)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
-                                }`}
-                            >
-                                {opt}
-                            </button>
-                        ))}
+                    <div className="space-y-2">
+                        <label className="text-xs text-[var(--text-muted)]">Level</label>
+                        <div className="grid grid-cols-3 gap-1.5">
+                            {["simple", "standard", "advanced"].map((option) => (
+                                <button
+                                    key={option}
+                                    onClick={() => setExpertiseLevel(option)}
+                                    className={`rounded-xl px-2 py-2 text-[10px] capitalize transition ${
+                                        expertiseLevel === option
+                                            ? "bg-[linear-gradient(135deg,rgba(96,165,250,0.96),rgba(129,140,248,0.92))] text-[#06101e]"
+                                            : "border border-[var(--border)] bg-[rgba(148,163,184,0.05)] text-[var(--text-secondary)] hover:bg-[rgba(148,163,184,0.08)]"
+                                    }`}
+                                >
+                                    {option}
+                                </button>
+                            ))}
+                        </div>
                     </div>
                 </div>
             </div>

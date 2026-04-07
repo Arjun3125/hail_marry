@@ -50,6 +50,7 @@ from src.domains.platform.services.ai_gateway import (
 )
 from src.domains.platform.services.ai_grading import run_ai_grade
 from src.domains.platform.services.metrics_registry import observe_stage_latency
+from src.domains.platform.services.notifications import add_notification
 from src.domains.platform.services.telemetry import extract_context_from_traceparent, get_current_traceparent, get_tracer
 
 _redis = None
@@ -272,6 +273,51 @@ def _record_audit_event(job: dict[str, Any], action: str, actor_user_id: str | N
         db.close()
 
 
+def _notify_user_about_job(job: dict[str, Any]) -> None:
+    user_id = job.get("user_id")
+    if not user_id:
+        return
+
+    if job.get("job_type") == JOB_TYPE_AI_GRADE:
+        result = job.get("result") or {}
+        review = result.get("teacher_review") or {}
+        status = review.get("status")
+        student_name = review.get("student_name") or result.get("file_name") or "answer sheet"
+        proposed_mark = review.get("proposed_mark")
+        max_marks = review.get("max_marks")
+        if job.get("status") == STATUS_COMPLETED:
+            summary = "Draft grading proposal ready for teacher review."
+            if proposed_mark is not None and max_marks is not None:
+                summary = f"Draft grading proposal ready: {proposed_mark}/{max_marks} for {student_name}."
+            add_notification(
+                user_id,
+                title="AI Grading Draft Ready",
+                body=summary,
+                category="grading",
+                data={
+                    "job_id": job.get("job_id"),
+                    "review_required": True,
+                    "review_status": status,
+                    "exam_id": review.get("exam_id"),
+                    "student_id": review.get("student_id"),
+                },
+            )
+            return
+
+        if job.get("status") == STATUS_FAILED:
+            add_notification(
+                user_id,
+                title="AI Grading Failed",
+                body=f"Could not prepare a grading draft for {student_name}. Review and retry from the teacher workspace.",
+                category="grading",
+                data={
+                    "job_id": job.get("job_id"),
+                    "review_required": True,
+                    "error": job.get("error"),
+                },
+            )
+
+
 def _persist_job_state(job: dict[str, Any]) -> None:
     job_uuid = _job_uuid(job.get("job_id"))
     tenant_uuid = _maybe_uuid(job.get("tenant_id"))
@@ -330,6 +376,13 @@ def _persist_job_state(job: dict[str, Any]) -> None:
         raise
     finally:
         db.close()
+
+
+def save_job(job: dict[str, Any]) -> None:
+    _persist_job_state(job)
+    client = _get_redis_client()
+    if client:
+        client.setex(_job_key(job["job_id"]), settings.ai_queue.result_ttl_seconds, _serialize_job(job))
 
 
 def _db_job_to_summary(row: AIJob) -> dict[str, Any]:
@@ -456,7 +509,7 @@ def _current_jobs_from_index(client, tenant_id: str, limit: int | None = None) -
     job_ids = client.zrevrange(index_key, 0, end)
     _cleanup_missing_index_entries(client, index_key, job_ids)
     jobs = []
-    for job_id in client.zrevrange(index_key, 0, end):
+    for job_id in job_ids:
         job = _deserialize_job(client.get(_job_key(job_id)))
         if job:
             jobs.append(job)
@@ -615,43 +668,43 @@ def get_queue_metrics(tenant_id: str) -> dict[str, Any]:
             "pending_depth": 0, "processing_depth": 0, "tracked_jobs": 0,
             "completed_last_window": 0, "failed_last_window": 0, "failure_rate_pct": 0.0,
             "retry_count": 0, "stuck_jobs": 0, "stuck_job_ids": [],
-            "max_pending_jobs_per_tenant": settings.ai_queue.max_pending_jobs,
+            "dead_letter_count": 0,
+            "metrics_window_seconds": settings.ai_queue.metrics_window_seconds,
+            "stuck_after_seconds": settings.ai_queue.stuck_after_seconds,
+            "max_pending_jobs": settings.ai_queue.max_pending_jobs,
+            "max_pending_jobs_per_tenant": settings.ai_queue.max_pending_jobs_per_tenant,
             "by_status": {}, "by_type": {}
         }
     _prune_recent_metrics(client, tenant_id)
     jobs = _current_jobs_from_index(client, tenant_id, limit=None)
     status_counts = Counter(job.get("status", "unknown") for job in jobs)
     type_counts = Counter(job.get("job_type", "unknown") for job in jobs)
+    now = _utcnow()
+    stuck_threshold = settings.ai_queue.stuck_after_seconds
+    stuck_job_ids: list[str] = []
+    for job in jobs:
+        if job.get("status") != STATUS_RUNNING:
+            continue
+        started_at = _parse_iso(job.get("started_at"))
+        if started_at and (now - started_at).total_seconds() >= stuck_threshold:
+            stuck_job_ids.append(job["job_id"])
+
+    completed_count = int(client.zcard(_tenant_recent_completed_key(tenant_id)) or 0)
+    failed_count = int(client.zcard(_tenant_recent_failed_key(tenant_id)) or 0)
+    recent_total = completed_count + failed_count
+    failure_rate_pct = round((failed_count / recent_total) * 100, 1) if recent_total else 0.0
 
     return {
         "pending_depth": _metric_getint(client, _tenant_metrics_key(tenant_id), "pending_depth"),
         "processing_depth": _metric_getint(client, _tenant_metrics_key(tenant_id), "processing_depth"),
-        "tracked_jobs": client.zcard(_tenant_index_key(tenant_id)),
-        "completed_last_window": client.zcard(_tenant_recent_completed_key(tenant_id)),
-        "failed_last_window": client.zcard(_tenant_recent_failed_key(tenant_id)),
-        "failure_rate_pct": round(
-            (
-                client.zcard(_tenant_recent_failed_key(tenant_id)) /
-                max(client.zcard(_tenant_recent_completed_key(tenant_id)) + client.zcard(_tenant_recent_failed_key(tenant_id)), 1)
-            ) * 100,
-            1,
-        ),
+        "tracked_jobs": len(jobs),
+        "completed_last_window": completed_count,
+        "failed_last_window": failed_count,
+        "failure_rate_pct": failure_rate_pct,
         "retry_count": _metric_getint(client, _tenant_metrics_key(tenant_id), "retry_total"),
-        "stuck_jobs": len([
-            job["job_id"]
-            for job in jobs
-            if job.get("status") == STATUS_RUNNING
-            and _parse_iso(job.get("started_at"))
-            and (_utcnow() - _parse_iso(job.get("started_at"))).total_seconds() >= settings.ai_queue.stuck_after_seconds
-        ]),
-        "stuck_job_ids": [
-            job["job_id"]
-            for job in jobs
-            if job.get("status") == STATUS_RUNNING
-            and _parse_iso(job.get("started_at"))
-            and (_utcnow() - _parse_iso(job.get("started_at"))).total_seconds() >= settings.ai_queue.stuck_after_seconds
-        ][:10],
-        "dead_letter_count": client.zcard(_tenant_dead_letter_key(tenant_id)),
+        "stuck_jobs": len(stuck_job_ids),
+        "stuck_job_ids": stuck_job_ids,
+        "dead_letter_count": int(client.zcard(_tenant_dead_letter_key(tenant_id)) or 0),
         "metrics_window_seconds": settings.ai_queue.metrics_window_seconds,
         "stuck_after_seconds": settings.ai_queue.stuck_after_seconds,
         "max_pending_jobs": settings.ai_queue.max_pending_jobs,
@@ -661,19 +714,10 @@ def get_queue_metrics(tenant_id: str) -> dict[str, Any]:
     }
 
 
-def save_job(job: dict[str, Any]) -> None:
-    client = _require_queue_client()
-    _persist_job_state(job)
-    client.setex(
-        _job_key(job["job_id"]),
-        settings.ai_queue.result_ttl_seconds,
-        _serialize_job(job),
-    )
-
-
 def enqueue_job(
     job_type: str,
     payload: dict[str, Any],
+    *,
     tenant_id: str,
     user_id: str,
     trace_id: str | None = None,
@@ -867,26 +911,21 @@ async def _execute_job(job: dict[str, Any]) -> dict[str, Any]:
     payload = job["request"]
     trace_id = job.get("trace_id")
 
-    if job_type == JOB_TYPE_QUERY:
-        return await run_text_query(InternalAIQueryRequest(**payload), trace_id=trace_id)
-    if job_type == JOB_TYPE_AUDIO:
-        return await run_audio_overview(InternalAudioOverviewRequest(**payload), trace_id=trace_id)
-    if job_type == JOB_TYPE_VIDEO:
-        return await run_video_overview(InternalVideoOverviewRequest(**payload), trace_id=trace_id)
-    if job_type == JOB_TYPE_STUDY_TOOL:
-        return await run_study_tool(InternalStudyToolGenerateRequest(**payload), trace_id=trace_id)
-    if job_type == JOB_TYPE_TEACHER_ASSESSMENT:
-        return await run_teacher_assessment(InternalTeacherAssessmentRequest(**payload), trace_id=trace_id)
-    if job_type == JOB_TYPE_URL_INGEST:
-        return await run_url_ingestion(InternalIngestURLRequest(**payload), trace_id=trace_id)
-    if job_type == JOB_TYPE_TEACHER_DOCUMENT_INGEST:
-        return await run_teacher_document_ingestion(InternalTeacherDocumentIngestRequest(**payload), trace_id=trace_id)
-    if job_type == JOB_TYPE_TEACHER_YOUTUBE_INGEST:
-        return await run_teacher_youtube_ingestion(InternalTeacherYoutubeIngestRequest(**payload), trace_id=trace_id)
-    if job_type == JOB_TYPE_AI_GRADE:
-        return await run_ai_grade(payload, trace_id=trace_id, tenant_id=job.get("tenant_id"))
-    if job_type == JOB_TYPE_WHATSAPP_MEDIA_INGEST:
-        return await run_whatsapp_media_ingestion(InternalWhatsAppMediaIngestRequest(**payload), trace_id=trace_id)
+    handlers = {
+        JOB_TYPE_QUERY: lambda: run_text_query(InternalAIQueryRequest(**payload), trace_id=trace_id),
+        JOB_TYPE_AUDIO: lambda: run_audio_overview(InternalAudioOverviewRequest(**payload), trace_id=trace_id),
+        JOB_TYPE_VIDEO: lambda: run_video_overview(InternalVideoOverviewRequest(**payload), trace_id=trace_id),
+        JOB_TYPE_STUDY_TOOL: lambda: run_study_tool(InternalStudyToolGenerateRequest(**payload), trace_id=trace_id),
+        JOB_TYPE_TEACHER_ASSESSMENT: lambda: run_teacher_assessment(InternalTeacherAssessmentRequest(**payload), trace_id=trace_id),
+        JOB_TYPE_URL_INGEST: lambda: run_url_ingestion(InternalIngestURLRequest(**payload), trace_id=trace_id),
+        JOB_TYPE_TEACHER_DOCUMENT_INGEST: lambda: run_teacher_document_ingestion(InternalTeacherDocumentIngestRequest(**payload), trace_id=trace_id),
+        JOB_TYPE_TEACHER_YOUTUBE_INGEST: lambda: run_teacher_youtube_ingestion(InternalTeacherYoutubeIngestRequest(**payload), trace_id=trace_id),
+        JOB_TYPE_AI_GRADE: lambda: run_ai_grade(payload, trace_id=trace_id, tenant_id=job.get("tenant_id")),
+        JOB_TYPE_WHATSAPP_MEDIA_INGEST: lambda: run_whatsapp_media_ingestion(InternalWhatsAppMediaIngestRequest(**payload), trace_id=trace_id),
+    }
+    handler = handlers.get(job_type)
+    if handler:
+        return await handler()
 
     raise HTTPException(status_code=400, detail=f"Unsupported AI job type: {job_type}")
 
@@ -972,6 +1011,7 @@ async def process_job(job_id: str, worker_id: str | None = None) -> dict[str, An
                 client.zadd(_tenant_recent_failed_key(job["tenant_id"]), {job_id: time.time()})
                 _prune_recent_metrics(client, job["tenant_id"])
                 _record_audit_event(job, "ai_job.failed", detail=job["error"])
+                _notify_user_about_job(job)
                 try:
                     from src.domains.platform.services.whatsapp_gateway import send_ai_job_status_notification
                     await send_ai_job_status_notification(job)
@@ -997,6 +1037,7 @@ async def process_job(job_id: str, worker_id: str | None = None) -> dict[str, An
         client.zadd(_tenant_recent_completed_key(job["tenant_id"]), {job_id: time.time()})
         _prune_recent_metrics(client, job["tenant_id"])
         _record_audit_event(job, "ai_job.completed")
+        _notify_user_about_job(job)
         try:
             from src.domains.platform.services.whatsapp_gateway import send_ai_job_status_notification
             await send_ai_job_status_notification(job)

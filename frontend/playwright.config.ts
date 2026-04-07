@@ -12,7 +12,7 @@ export default defineConfig({
     webServer: {
         command: "npm run start -- --hostname 127.0.0.1 --port 9000",
         url: "http://127.0.0.1:9000",
-        reuseExistingServer: false,
+        reuseExistingServer: true,
         timeout: 120_000,
     },
     projects: [

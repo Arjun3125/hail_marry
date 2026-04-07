@@ -1,5 +1,5 @@
 import React from "react";
-import { Sparkles, ArrowRight, Target, BrainCircuit } from "lucide-react";
+import { Sparkles, ArrowRight, Target, BrainCircuit, Mic2, Video } from "lucide-react";
 
 export function AIActionCenter({ recommendations, weakTopics }: { recommendations: string[], weakTopics: string[] }) {
   const mainRec = recommendations.length > 0 ? recommendations[0] : "Explore new study paths";
@@ -50,6 +50,17 @@ export function AIActionCenter({ recommendations, weakTopics }: { recommendation
           ))}
           {topics.length === 0 && <span className="text-sm text-slate-400">All caught up!</span>}
         </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 mb-4">
+        <a href="/student/audio-overview" className="flex items-center justify-center gap-2 rounded-xl bg-slate-50 py-3 text-xs font-bold text-slate-700 border border-slate-200 hover:bg-slate-100 transition-colors shadow-sm">
+          <Mic2 className="h-3.5 w-3.5 text-rose-500" />
+          Audio Hub
+        </a>
+        <a href="/student/video-overview" className="flex items-center justify-center gap-2 rounded-xl bg-slate-50 py-3 text-xs font-bold text-slate-700 border border-slate-200 hover:bg-slate-100 transition-colors shadow-sm">
+          <Video className="h-3.5 w-3.5 text-blue-500" />
+          Video Hub
+        </a>
       </div>
 
       <button className="flex w-full items-center justify-between rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-6 py-3.5 text-sm font-semibold text-white shadow-md shadow-violet-500/20 transition-all duration-300 hover:shadow-lg hover:shadow-violet-500/40 hover:-translate-y-0.5">

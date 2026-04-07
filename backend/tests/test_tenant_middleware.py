@@ -13,7 +13,7 @@ os.environ["DEBUG"] = "true"
 
 from starlette.requests import Request
 from starlette.responses import JSONResponse
-from middleware.tenant import TenantMiddleware
+from middleware.tenant import TenantMiddleware, _jwt_cache
 
 
 def _make_request(path="/api/student/dashboard", auth_header=None, cookie_token=None):
@@ -42,7 +42,11 @@ async def _ok_handler(request):
 
 class TenantMiddlewareTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
+        _jwt_cache.clear()
         self.middleware = TenantMiddleware(app=None)
+
+    def tearDown(self):
+        _jwt_cache.clear()
 
     async def test_exempt_path_skips_extraction(self):
         request = _make_request(path="/api/auth/login")

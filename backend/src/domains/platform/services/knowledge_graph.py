@@ -224,23 +224,24 @@ async def get_concept_context(
         return []
     q_vec = q_vec / q_norm
 
-    scores = []
-    for c in concepts:
-        c_vec = np.array(_concept_embeddings[str(c.id)], dtype=np.float32)
-        c_norm = np.linalg.norm(c_vec)
-        if c_norm > 0:
-            c_vec = c_vec / c_norm
-            score = float(np.dot(q_vec, c_vec))
-            scores.append((score, c))
+    concept_vectors = np.array([_concept_embeddings[str(c.id)] for c in concepts], dtype=np.float32)
+    norms = np.linalg.norm(concept_vectors, axis=1)
+    valid_mask = norms > 0
+    if not np.any(valid_mask):
+        return []
 
-    # Sort descending
-    scores.sort(key=lambda x: x[0], reverse=True)
+    normalized_vectors = concept_vectors[valid_mask] / norms[valid_mask][:, None]
+    valid_concepts = [concept for concept, is_valid in zip(concepts, valid_mask) if is_valid]
+    scores = np.dot(normalized_vectors, q_vec)
+    ranked_indices = np.argsort(scores)[::-1]
 
     results = []
     # Arbitrary threshold to ensure semantic relevance
     threshold = 0.6
-    for score, c in scores[:max_concepts]:
+    for index in ranked_indices[:max_concepts]:
+        score = float(scores[index])
         if score >= threshold:
+            c = valid_concepts[int(index)]
             related = traverse_graph(db, tenant_id, c.name, depth=1)
             results.append({
                 "concept": c.name,

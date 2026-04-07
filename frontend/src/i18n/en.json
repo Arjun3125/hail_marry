@@ -86,5 +86,40 @@
         "qr_login": "QR Code Login",
         "google_login": "Sign in with Google",
         "forgot_password": "Forgot Password?"
+    },
+    "ai_studio": {
+        "title": "AI Studio",
+        "description": "Your personal AI study assistant",
+        "new_thread": "New Thread",
+        "delete_thread": "Delete Thread",
+        "thinking": "AI is thinking...",
+        "ai_assistant": "AI Assistant",
+        "tools": {
+            "qa": { "title": "Q&A", "desc": "Get answers with citations from your notes" },
+            "study_guide": { "title": "Study Guide", "desc": "Generate structured topic summaries" },
+            "socratic": { "title": "Socratic Tutor", "desc": "Learn through guided discovery" },
+            "quiz": { "title": "Quiz", "desc": "Test your knowledge with MCQs" },
+            "flashcards": { "title": "Flashcards", "desc": "Spaced repetition study cards" },
+            "perturbation": { "title": "Exam Prep", "desc": "Practice with question variations" },
+            "mindmap": { "title": "Mind Map", "desc": "Visual topic hierarchy" }
+        },
+        "quiz": {
+            "question": "Question",
+            "score": "Your Score",
+            "accuracy": "Accuracy",
+            "next": "Next Question",
+            "results": "Quiz Results",
+            "retake": "Retake Quiz",
+            "explanation": "Explanation"
+        },
+        "flashcards": {
+            "know_it": "I Know This",
+            "still_learning": "Still Learning",
+            "mastery": "Mastery",
+            "progress": "Reviewing {current} of {total}",
+            "completed": "Deck Completed!",
+            "reset": "Reset Deck",
+            "flip": "Click to flip"
+        }
     }
-}
+}

@@ -7,6 +7,7 @@ from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
 from src.domains.academic.models.core import Class, Enrollment, Subject
+from src.domains.academic.services.student_profile_sync import sync_student_profile_context
 from src.domains.identity.models.tenant import Tenant
 from src.domains.identity.models.user import User
 
@@ -102,7 +103,12 @@ def setup_subjects(db: Session, tenant_id, subjects_data: list[dict]) -> list[di
     return created
 
 
-def import_students_from_csv(db: Session, tenant_id, csv_content: str) -> dict:
+def import_students_from_csv(
+    db: Session,
+    tenant_id,
+    csv_content: str,
+    sync_student_profile_fn=sync_student_profile_context,
+) -> dict:
     """Import students from CSV content.
 
     Expected CSV columns: full_name, email, class_name
@@ -151,6 +157,12 @@ def import_students_from_csv(db: Session, tenant_id, csv_content: str) -> dict:
                     tenant_id=tenant_id,
                 )
                 db.add(enrollment)
+
+        sync_student_profile_fn(
+            db=db,
+            tenant_id=tenant_id,
+            student_id=student.id,
+        )
 
         imported += 1
 

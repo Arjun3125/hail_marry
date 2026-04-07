@@ -1,132 +1,54 @@
-/* AI Study Studio Layout System */
-
-/* Main container - full height minus header */
 .ai-studio-container {
     display: flex;
-    height: calc(100vh - 64px);
+    min-height: clamp(42rem, 74vh, 56rem);
+    height: min(74vh, calc(100vh - 16rem));
     overflow: hidden;
-    background: var(--bg-page);
+    background:
+        radial-gradient(circle at top left, rgba(96, 165, 250, 0.12), transparent 30%),
+        radial-gradient(circle at top right, rgba(167, 139, 250, 0.12), transparent 32%),
+        linear-gradient(180deg, rgba(8, 14, 28, 0.88), rgba(5, 10, 20, 0.96));
 }
 
-/* Tool Rail - Left Sidebar */
-.tool-rail {
+.tool-rail,
+.context-panel {
     flex-shrink: 0;
-    width: var(--rail-width, 256px);
     height: 100%;
-    background: var(--bg-card);
-    border-right: 1px solid var(--border);
     display: flex;
     flex-direction: column;
-    transition: width 0.3s ease;
     overflow: hidden;
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    background: linear-gradient(180deg, rgba(8, 15, 30, 0.82), rgba(5, 10, 20, 0.88));
+}
+
+.tool-rail {
+    width: var(--rail-width, 18rem);
+    border-right: 1px solid rgba(148, 163, 184, 0.14);
+    transition: width 0.28s ease;
 }
 
 .tool-rail.collapsed {
-    width: var(--rail-collapsed-width, 64px);
+    width: var(--rail-collapsed-width, 4.75rem);
 }
 
-/* Context Panel - Right Sidebar */
+.learning-workspace {
+    min-width: 0;
+    flex: 1;
+    background:
+        radial-gradient(circle at top center, rgba(96, 165, 250, 0.08), transparent 28%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.015), rgba(255, 255, 255, 0.01));
+}
+
 .context-panel {
-    flex-shrink: 0;
-    width: var(--panel-width, 320px);
-    height: 100%;
-    background: var(--bg-card);
-    border-left: 1px solid var(--border);
-    display: flex;
-    flex-direction: column;
-    transition: width 0.3s ease;
-    overflow: hidden;
+    width: var(--panel-width, 22rem);
+    border-left: 1px solid rgba(148, 163, 184, 0.14);
+    transition: width 0.28s ease;
 }
 
 .context-panel.collapsed {
-    width: var(--panel-collapsed-width, 48px);
+    width: var(--panel-collapsed-width, 4rem);
 }
 
-/* Responsive Breakpoints */
-@media (max-width: 1024px) {
-    .tool-rail {
-        width: var(--rail-collapsed-width, 64px);
-    }
-    
-    .tool-rail.expanded {
-        width: var(--rail-width, 256px);
-        position: absolute;
-        z-index: 50;
-        box-shadow: var(--shadow-md);
-    }
-    
-    .context-panel {
-        width: var(--panel-width, 320px);
-    }
-}
-
-@media (max-width: 768px) {
-    .ai-studio-container {
-        flex-direction: column;
-    }
-    
-    .tool-rail {
-        width: 100% !important;
-        height: auto;
-        max-height: 180px;
-        border-right: none;
-        border-bottom: 1px solid var(--border);
-    }
-    
-    .context-panel {
-        width: 100% !important;
-        height: auto;
-        max-height: 200px;
-        border-left: none;
-        border-top: 1px solid var(--border);
-    }
-    
-    .learning-workspace {
-        flex: 1;
-        height: auto;
-        min-height: 0;
-    }
-}
-
-@media (max-width: 640px) {
-    .ai-studio-container {
-        height: calc(100vh - 56px);
-    }
-    
-    .tool-rail {
-        max-height: 140px;
-    }
-    
-    .context-panel {
-        max-height: 160px;
-    }
-}
-
-/* Tool Group Colors */
-.tool-group-learning { --group-color: var(--learning-primary, #6366f1); }
-.tool-group-practice { --group-color: var(--practice-primary, #10b981); }
-.tool-group-thinking { --group-color: var(--thinking-primary, #f59e0b); }
-.tool-group-visual { --group-color: var(--visual-primary, #06b6d4); }
-
-/* Collapse Toggle Button */
-.collapse-toggle {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px;
-    height: 28px;
-    border-radius: var(--radius-sm, 6px);
-    background: var(--bg-hover);
-    border: 1px solid var(--border);
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.collapse-toggle:hover {
-    background: var(--border-light);
-}
-
-/* Scrollbar Styling */
 .tool-rail::-webkit-scrollbar,
 .context-panel::-webkit-scrollbar,
 .learning-workspace::-webkit-scrollbar {
@@ -143,40 +65,27 @@
 .tool-rail::-webkit-scrollbar-thumb,
 .context-panel::-webkit-scrollbar-thumb,
 .learning-workspace::-webkit-scrollbar-thumb {
-    background: var(--border);
-    border-radius: 3px;
+    background: rgba(148, 163, 184, 0.4);
+    border-radius: 999px;
 }
 
 .tool-rail::-webkit-scrollbar-thumb:hover,
 .context-panel::-webkit-scrollbar-thumb:hover,
 .learning-workspace::-webkit-scrollbar-thumb:hover {
-    background: var(--text-muted);
+    background: rgba(148, 163, 184, 0.7);
 }
 
-/* Focus Mode Overlay */
 .focus-mode-overlay {
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: var(--bg-page);
+    inset: 0;
     z-index: 100;
     display: flex;
     flex-direction: column;
-    padding: 2rem;
     overflow-y: auto;
-}
-
-/* Animation Utilities */
-@keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-}
-
-@keyframes slideIn {
-    from { transform: translateX(-10px); opacity: 0; }
-    to { transform: translateX(0); opacity: 1; }
+    padding: 2rem;
+    background:
+        radial-gradient(circle at top left, rgba(96, 165, 250, 0.12), transparent 32%),
+        linear-gradient(180deg, rgba(4, 8, 18, 0.98), rgba(3, 6, 14, 0.98));
 }
 
 .animate-fade-in {
@@ -184,5 +93,91 @@
 }
 
 .animate-slide-in {
-    animation: slideIn 0.3s ease-out;
+    animation: slideIn 0.28s ease-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateX(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@media (max-width: 1180px) {
+    .tool-rail {
+        width: var(--rail-width, 16rem);
+    }
+
+    .context-panel {
+        width: var(--panel-width, 20rem);
+    }
+}
+
+@media (max-width: 1024px) {
+    .tool-rail {
+        width: var(--rail-collapsed-width, 4.75rem);
+    }
+
+    .tool-rail.expanded {
+        position: absolute;
+        z-index: 20;
+        width: var(--rail-width, 18rem);
+        box-shadow: 0 30px 60px rgba(2, 6, 23, 0.35);
+    }
+}
+
+@media (max-width: 768px) {
+    .ai-studio-container {
+        height: auto;
+        min-height: 0;
+        flex-direction: column;
+    }
+
+    .tool-rail,
+    .context-panel {
+        width: 100% !important;
+        height: auto;
+        max-height: none;
+    }
+
+    .tool-rail {
+        border-right: none;
+        border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+    }
+
+    .context-panel {
+        border-left: none;
+        border-top: 1px solid rgba(148, 163, 184, 0.14);
+    }
+
+    .learning-workspace {
+        min-height: 36rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .tool-rail,
+    .context-panel {
+        transition: none;
+    }
+
+    .animate-fade-in,
+    .animate-slide-in {
+        animation: none;
+    }
 }

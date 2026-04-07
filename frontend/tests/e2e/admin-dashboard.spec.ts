@@ -211,6 +211,25 @@ test("admin dashboard shows alerts and dispatches them", async ({ page }) => {
                     queue_processing_depth: 2,
                     queue_failure_rate_pct: 12,
                     queue_stuck_jobs: 1,
+                    student_risk_summary: {
+                        high_risk_students: 2,
+                        medium_risk_students: 3,
+                        academic_high_risk: 1,
+                        fee_high_risk: 1,
+                        dropout_high_risk: 1,
+                    },
+                    student_risk_alerts: [
+                        {
+                            student_id: "student-1",
+                            student_name: "Aarav Kumar",
+                            class_name: "Class 10",
+                            dropout_risk: "high",
+                            academic_risk: "high",
+                            fee_risk: "medium",
+                            attendance_pct: 58,
+                            overall_score_pct: 39,
+                        },
+                    ],
                     observability_alerts: [
                         {
                             code: "queue_depth_high",
@@ -277,8 +296,11 @@ test("admin dashboard shows alerts and dispatches them", async ({ page }) => {
     await expect(page.getByRole("heading", { name: "Queue Health" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "WhatsApp Release Gate" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Mascot Release Gate" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Student Risk Radar" })).toBeVisible();
     await expect(page.getByText("Routing failure")).toBeVisible();
     await expect(page.getByText("Overall failure")).toBeVisible();
+    await expect(page.getByText("Aarav Kumar")).toBeVisible();
+    await expect(page.getByText("Academic high risk")).toBeVisible();
     await expect(page.getByText("126")).toBeVisible();
     await expect(page.getByText("84", { exact: true })).toBeVisible();
     await expect(page.getByText("Queue depth is 5 / 200 for this tenant.")).toBeVisible();

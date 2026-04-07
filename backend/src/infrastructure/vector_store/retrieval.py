@@ -5,6 +5,13 @@ from typing import List, Dict, Optional
 import re
 from config import settings
 from src.infrastructure.llm.providers import get_embedding_provider, get_vector_store_provider
+import logging
+import os
+
+logger = logging.getLogger(__name__)
+
+# Feature flag — set WIKI_ENABLED=1 to activate wiki-first retrieval
+WIKI_ENABLED = os.getenv("WIKI_ENABLED", "0") == "1"
 
 
 # ─── Cross-Encoder Reranker ──────────────────────────────────
@@ -150,6 +157,7 @@ async def retrieve_context(
     top_k: int = 8,
     subject_id: Optional[str] = None,
     notebook_id: Optional[str] = None,
+    enable_wiki: Optional[bool] = None,
 ) -> List[Dict]:
     """
     Full retrieval pipeline:
@@ -159,6 +167,23 @@ async def retrieve_context(
     4. Deduplicate (Jaccard similarity)
     5. Return context chunks with citations
     """
+    # Step 0 (wiki-first): Try the LLM-Wiki before vector search
+    wiki_active = enable_wiki if enable_wiki is not None else WIKI_ENABLED
+    if wiki_active:
+        try:
+            from src.infrastructure.knowledge.wiki_query_engine import WikiQueryEngine
+            engine = WikiQueryEngine(tenant_id, notebook_id)
+            wiki_result = await engine.query(query, top_k=top_k, subject_id=subject_id)
+            if wiki_result["source"] == "wiki":
+                logger.info("Wiki-only retrieval for tenant=%s (%d chunks)", tenant_id, len(wiki_result["context_chunks"]))
+                return wiki_result["context_chunks"]
+            if wiki_result["source"] == "hybrid":
+                logger.info("Hybrid wiki+RAG retrieval for tenant=%s", tenant_id)
+                return wiki_result["context_chunks"]
+            # source == "rag" — wiki had nothing, continue to vector pipeline below
+        except Exception as exc:
+            logger.warning("Wiki retrieval failed, falling through to RAG: %s", exc)
+
     # Step 1: Embed query
     try:
         query_embedding = await get_embedding_provider().embed(query)

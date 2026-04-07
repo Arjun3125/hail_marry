@@ -14,6 +14,7 @@ MascotActionKind = Literal[
     "study_tool",
     "notebook_create",
     "notebook_update",
+    "teacher_workflow",
     "content_ingest",
     "ocr_ingest",
     "structured_import",

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Trophy, Medal, Clock, TrendingUp, ChevronDown, CheckCircle2, Crown } from "lucide-react";
 import { api } from "@/lib/api";
+import { useNetworkAware } from "@/hooks/useNetworkAware";
 
 type TestSeries = {
     id: string;
@@ -32,6 +33,8 @@ type LeaderboardData = {
 };
 
 export default function LeaderboardPage() {
+    const { isSlowConnection, saveData } = useNetworkAware();
+    const reducedVisualMode = isSlowConnection || saveData;
     const [seriesList, setSeriesList] = useState<TestSeries[]>([]);
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [leaderboard, setLeaderboard] = useState<LeaderboardData | null>(null);
@@ -75,19 +78,19 @@ export default function LeaderboardPage() {
     }, [selectedId]);
 
     const getRankStyle = (rank: number) => {
-        if (rank === 1) return { color: "text-amber-500", bg: "bg-amber-500/10", border: "border-amber-500/50", icon: <Crown className="w-6 h-6 text-amber-500 drop-shadow-md" /> };
-        if (rank === 2) return { color: "text-slate-300", bg: "bg-slate-300/10", border: "border-slate-400/50", icon: <Medal className="w-5 h-5 text-slate-300 drop-shadow-md" /> };
-        if (rank === 3) return { color: "text-orange-400", bg: "bg-orange-400/10", border: "border-orange-500/50", icon: <Medal className="w-5 h-5 text-orange-400 drop-shadow-md" /> };
+        if (rank === 1) return { color: "text-amber-500", bg: "bg-amber-500/10", border: "border-amber-500/50", icon: <Crown className={`w-6 h-6 text-amber-500 ${reducedVisualMode ? "" : "drop-shadow-md"}`} /> };
+        if (rank === 2) return { color: "text-slate-300", bg: "bg-slate-300/10", border: "border-slate-400/50", icon: <Medal className={`w-5 h-5 text-slate-300 ${reducedVisualMode ? "" : "drop-shadow-md"}`} /> };
+        if (rank === 3) return { color: "text-orange-400", bg: "bg-orange-400/10", border: "border-orange-500/50", icon: <Medal className={`w-5 h-5 text-orange-400 ${reducedVisualMode ? "" : "drop-shadow-md"}`} /> };
         return { color: "text-[var(--text-primary)]", bg: "bg-[var(--bg-card)]", border: "border-transparent", icon: null };
     };
 
     return (
-        <div className="max-w-5xl mx-auto space-y-6 animate-in slide-in-from-bottom-4 duration-500 fade-in pb-12">
+        <div className="max-w-5xl mx-auto space-y-6 pb-12">
             
             {/* Header Area */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
                 <div>
-                    <h1 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-amber-500 to-orange-500 flex items-center gap-3 drop-shadow-sm">
+                    <h1 className={`flex items-center gap-3 text-3xl font-black ${reducedVisualMode ? "text-[var(--text-primary)]" : "bg-gradient-to-r from-yellow-400 via-amber-500 to-orange-500 bg-clip-text text-transparent drop-shadow-sm"}`}>
                         <Trophy className="w-8 h-8 text-yellow-500" />
                         Global Rankings
                     </h1>
@@ -102,7 +105,7 @@ export default function LeaderboardPage() {
                         <select
                             value={selectedId || ""}
                             onChange={(e) => setSelectedId(e.target.value)}
-                            className="appearance-none pl-5 pr-12 py-3 text-sm font-bold border border-[var(--border-light)] rounded-2xl bg-[var(--bg-card)]/80 backdrop-blur-md text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-amber-500/50 shadow-sm cursor-pointer hover:bg-[var(--bg-card)] transition-colors w-full md:w-auto min-w-[200px]"
+                            className={`appearance-none pl-5 pr-12 py-3 text-sm font-bold border border-[var(--border-light)] rounded-2xl bg-[var(--bg-card)] text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-amber-500/50 cursor-pointer hover:bg-[var(--bg-card)] transition-colors w-full md:w-auto min-w-[200px] ${reducedVisualMode ? "" : "shadow-sm"}`}
                         >
                             {seriesList.map((s) => (
                                 <option key={s.id} value={s.id}>
@@ -125,7 +128,7 @@ export default function LeaderboardPage() {
 
             {loading ? (
                 <div className="flex flex-col items-center justify-center p-20 glass-panel border border-[var(--border-light)] rounded-3xl opacity-70">
-                    <Trophy className="w-12 h-12 text-[var(--text-muted)] mb-4 animate-bounce" />
+                    <Trophy className={`w-12 h-12 text-[var(--text-muted)] mb-4 ${reducedVisualMode ? "" : "animate-bounce"}`} />
                     <p className="text-sm font-medium text-[var(--text-muted)]">Calculating percentiles...</p>
                 </div>
             ) : seriesList.length === 0 ? (
@@ -149,8 +152,8 @@ export default function LeaderboardPage() {
                             </h2>
                             
                             {/* Primary Rank Card */}
-                            <div className="relative overflow-hidden bg-gradient-to-br from-amber-500/20 via-orange-500/10 to-transparent dark:from-amber-900/30 border border-amber-500/30 rounded-3xl p-6 shadow-lg shadow-amber-500/5 group hover:shadow-amber-500/10 transition-all duration-300">
-                                <div className="absolute -right-6 -top-6 w-32 h-32 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full blur-[60px] opacity-20 pointer-events-none group-hover:scale-110 transition-transform"></div>
+                            <div className={`relative overflow-hidden border border-amber-500/30 rounded-3xl p-6 group transition-colors ${reducedVisualMode ? "bg-[var(--bg-card)]" : "bg-gradient-to-br from-amber-500/20 via-orange-500/10 to-transparent dark:from-amber-900/30 shadow-lg shadow-amber-500/5 hover:shadow-amber-500/10"}`}>
+                                {/* GPU-heavy blur-[60px] removed for budget device performance */}
                                 
                                 <div className="flex items-center justify-between mb-4">
                                     <div className="flex bg-amber-500/20 rounded-full p-2 items-center justify-center">
@@ -160,7 +163,7 @@ export default function LeaderboardPage() {
                                 </div>
                                 
                                 <div className="mt-2 flex items-baseline gap-1">
-                                    <span className="text-5xl font-black text-amber-600 dark:text-amber-400 drop-shadow-sm">#{myRank.rank}</span>
+                                    <span className={`text-5xl font-black text-amber-600 dark:text-amber-400 ${reducedVisualMode ? "" : "drop-shadow-sm"}`}>#{myRank.rank}</span>
                                 </div>
                                 <p className="text-xs font-medium text-amber-700/70 dark:text-amber-400/70 mt-2">
                                     Out of {leaderboard?.total_attempts || 0} competitors
@@ -190,7 +193,7 @@ export default function LeaderboardPage() {
                         <div className="lg:col-span-8 glass-panel border border-[var(--border-light)] rounded-3xl shadow-lg relative overflow-hidden flex flex-col">
                             
                             {/* Subtle background glow */}
-                            <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 rounded-full blur-[80px] pointer-events-none -z-10"></div>
+                            {/* GPU-heavy blur-[80px] removed for budget device performance */}
 
                             {/* Table Header */}
                             <div className="px-6 py-5 border-b border-[var(--border-light)] bg-gradient-to-r from-[var(--bg-card)]/50 to-transparent">

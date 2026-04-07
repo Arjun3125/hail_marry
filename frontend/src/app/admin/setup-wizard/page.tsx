@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 
 import { API_BASE, getStoredAccessToken } from "@/lib/api";
+import { PrismHeroKicker, PrismPage, PrismPanel, PrismSection } from "@/components/prism/PrismPage";
 
 /* ─── Step definitions ────────────────────────────────────── */
 const STEPS = [
@@ -214,49 +215,94 @@ export default function SetupWizard() {
         resetPreview();
     };
 
+    const currentStep = STEPS[step];
+    const progressPercent = (step / (STEPS.length - 1)) * 100;
+    const stepSummary = [
+        "Capture institution identity and curriculum defaults.",
+        "Define the class structure before importing people.",
+        "Preview and import teacher rosters with OCR correction.",
+        "Review learner records before cohort assignment goes live.",
+        "Hand off complex schedule mapping to the timetable utility.",
+        "Verify activation and move into the admin workspace.",
+    ][step];
+
     return (
-        <div className="max-w-5xl mx-auto py-4 sm:py-8 relative">
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[80%] h-[400px] bg-gradient-to-b from-[var(--primary)]/5 to-transparent blur-[100px] -z-10 rounded-full pointer-events-none" />
-            
-            <div className="mb-12 text-center stagger-1">
-                <div className="inline-flex items-center gap-2 px-3 py-1 mb-4 rounded-full glass-panel border-[var(--border)] text-[var(--primary)] text-sm font-medium shadow-[0_0_20px_rgba(var(--primary-rgb),0.1)]">
-                    <Sparkles className="w-4 h-4" />
-                    Interactive Setup
+        <PrismPage className="mx-auto max-w-7xl space-y-6 pb-8">
+            <PrismSection className="space-y-4">
+                <PrismHeroKicker>
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Admin Setup Control Surface
+                </PrismHeroKicker>
+                <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+                    <div className="space-y-3">
+                        <h1 className="prism-title text-4xl font-black leading-[0.98] text-[var(--text-primary)] md:text-5xl">
+                            School Setup Wizard
+                        </h1>
+                        <p className="max-w-3xl text-base leading-7 text-[var(--text-secondary)] md:text-lg">
+                            Initialize the institution graph in a controlled sequence: school identity, cohorts, onboarding, and the final timetable handoff.
+                        </p>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
+                        <PrismPanel className="p-4">
+                            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">Current step</p>
+                            <p className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">{step + 1} / {STEPS.length}</p>
+                            <p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">{currentStep.label}</p>
+                        </PrismPanel>
+                        <PrismPanel className="p-4">
+                            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">Preview state</p>
+                            <p className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">{previewMode ? "Open" : "Idle"}</p>
+                            <p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">{previewRows.length} editable rows loaded</p>
+                        </PrismPanel>
+                        <PrismPanel className="p-4">
+                            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">Pipeline health</p>
+                            <p className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">{busy || previewBusy ? "Running" : "Ready"}</p>
+                            <p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">{ocrNotice ? "OCR review present" : "No blocking import notice"}</p>
+                        </PrismPanel>
+                    </div>
                 </div>
-                <h1 className="text-3xl md:text-5xl font-extrabold text-[var(--text-primary)] tracking-tight">
-                    School <span className="premium-gradient">Setup Wizard</span>
-                </h1>
-                <p className="text-base text-[var(--text-secondary)] mt-4 max-w-lg mx-auto font-light">
-                    Activate your digital infrastructure. Complete the core modules below to initialize the system.
-                </p>
-            </div>
+            </PrismSection>
 
             {/* ─── Glowing Progress Bar ─── */}
-            <div className="flex items-center justify-between mb-16 relative stagger-2 px-4 sm:px-10">
-                <div className="absolute top-5 left-10 right-10 h-1 bg-[var(--border)] -translate-y-1/2 rounded-full -z-10" />
-                <div 
-                    className="absolute top-5 left-10 h-1 bg-gradient-to-r from-indigo-500 to-cyan-500 -translate-y-1/2 rounded-full -z-10 transition-all duration-700 ease-out shadow-[0_0_15px_rgba(99,102,241,0.6)]" 
-                    style={{ width: `calc(${(step / (STEPS.length - 1)) * 100}% - 2.5rem)` }}
-                />
-                
-                {STEPS.map((s, i) => {
-                    const isActive = i === step;
-                    const isPast = i < step;
-                    return (
-                        <div key={s.id} className="flex flex-col items-center gap-3 cursor-pointer group relative" onClick={() => i <= step && setStep(i)}>
-                            {isActive && (
-                                <div className="absolute top-0 w-12 h-12 bg-[var(--primary)] blur-xl opacity-40 rounded-full animate-pulse z-0" />
-                            )}
-                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center relative z-10 transition-all duration-300 ${isActive ? 'bg-gradient-to-br from-indigo-500 to-cyan-500 text-white shadow-xl shadow-indigo-500/40 scale-110' : isPast ? 'bg-[var(--success)] text-white shadow-md' : 'glass-panel text-[var(--text-muted)] group-hover:border-[var(--text-secondary)] group-hover:scale-105'}`}>
-                                <s.icon className="w-5 h-5" />
-                            </div>
-                            <span className={`hidden sm:block text-[10px] sm:text-xs font-bold tracking-wider uppercase transition-colors ${isActive ? 'premium-text' : isPast ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}`}>
-                                {s.label}
-                            </span>
+            <PrismPanel className="p-5">
+                <div className="space-y-5">
+                    <div className="flex items-center justify-between gap-3">
+                        <div>
+                            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">Setup progress</p>
+                            <p className="mt-1 text-sm text-[var(--text-secondary)]">{stepSummary}</p>
                         </div>
-                    );
-                })}
-            </div>
+                        <div className="rounded-full border border-[var(--border)] bg-[rgba(148,163,184,0.05)] px-3 py-1.5 text-xs font-semibold text-[var(--text-secondary)]">
+                            {Math.round(progressPercent)}% complete
+                        </div>
+                    </div>
+                    <div className="relative h-2 overflow-hidden rounded-full bg-[rgba(148,163,184,0.12)]">
+                        <div className="absolute inset-y-0 left-0 rounded-full bg-[linear-gradient(90deg,rgba(96,165,250,0.96),rgba(129,140,248,0.94))]" style={{ width: `${progressPercent}%` }} />
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-6">
+                        {STEPS.map((s, i) => {
+                            const isActive = i === step;
+                            const isPast = i < step;
+                            return (
+                                <button
+                                    key={s.id}
+                                    type="button"
+                                    onClick={() => i <= step && setStep(i)}
+                                    className={`rounded-2xl border px-3 py-3 text-left transition ${isActive ? "border-[rgba(96,165,250,0.24)] bg-[linear-gradient(135deg,rgba(96,165,250,0.16),rgba(129,140,248,0.12))] shadow-[0_18px_34px_rgba(96,165,250,0.12)]" : isPast ? "border-[rgba(16,185,129,0.2)] bg-[rgba(16,185,129,0.08)]" : "border-[var(--border)] bg-[rgba(255,255,255,0.02)]"} ${i > step ? "cursor-default opacity-80" : "hover:-translate-y-0.5"}`}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className={`flex h-9 w-9 items-center justify-center rounded-xl ${isActive ? "bg-[rgba(96,165,250,0.2)] text-status-blue" : isPast ? "bg-[rgba(16,185,129,0.2)] text-status-emerald" : "bg-[rgba(148,163,184,0.08)] text-[var(--text-muted)]"}`}>
+                                            <s.icon className="h-4 w-4" />
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Step {i + 1}</p>
+                                            <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{s.label}</p>
+                                        </div>
+                                    </div>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+            </PrismPanel>
 
             {/* ─── Feedback ─── */}
             <div className="stagger-3 mb-6">
@@ -281,7 +327,7 @@ export default function SetupWizard() {
             </div>
 
             {/* ─── Step content ─── */}
-            <div className="glass-panel rounded-3xl p-6 sm:p-12 shadow-2xl min-h-[400px] relative overflow-hidden stagger-4">
+            <PrismPanel className="min-h-[400px] overflow-hidden p-6 sm:p-12">
                 {/* Decorative background glow for active card */}
                 <div className="absolute -top-32 -right-32 w-64 h-64 bg-indigo-500/10 blur-[80px] rounded-full pointer-events-none" />
 
@@ -670,28 +716,28 @@ export default function SetupWizard() {
                         </div>
                     </div>
                 )}
-            </div>
+            </PrismPanel>
 
             {/* ─── Navigation buttons ─── */}
             {step < 5 && (
-                <div className="flex justify-between mt-10 stagger-5 px-2">
+                <div className="flex justify-between gap-3 px-1">
                     <button
                         onClick={prev}
                         disabled={step === 0}
-                        className="flex items-center gap-2 px-8 py-3.5 text-sm font-bold text-[var(--text-secondary)] rounded-full glass-panel border-[var(--border-strong)] hover:border-[var(--text-primary)] hover:text-[var(--text-primary)] transition-all disabled:opacity-30 disabled:pointer-events-none shadow-md"
+                        className="inline-flex items-center gap-2 rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.03)] px-5 py-3 text-sm font-semibold text-[var(--text-secondary)] transition hover:border-[var(--text-primary)] hover:text-[var(--text-primary)] disabled:pointer-events-none disabled:opacity-30"
                     >
                         <ArrowLeft className="w-5 h-5" />
                         Retreat
                     </button>
                     <button
                         onClick={next}
-                        className="flex items-center gap-2 px-8 py-3.5 text-sm font-bold bg-[var(--text-primary)] text-[var(--bg-page)] rounded-full hover:scale-105 transition-transform shadow-xl shadow-[var(--text-primary)]/10"
+                        className="inline-flex items-center gap-2 rounded-2xl bg-[linear-gradient(135deg,rgba(96,165,250,0.96),rgba(129,140,248,0.94))] px-5 py-3 text-sm font-semibold text-[#06101e] shadow-[0_18px_34px_rgba(96,165,250,0.22)] transition-all hover:-translate-y-0.5"
                     >
                         {step === 4 ? "Finalize Submittal" : "Advance Pipeline"}
                         <ArrowRight className="w-5 h-5" />
                     </button>
                 </div>
             )}
-        </div>
+        </PrismPage>
     );
 }

@@ -2,8 +2,21 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Check, X, Clock, Save, Upload } from "lucide-react";
+import {
+    CalendarCheck,
+    Check,
+    CheckCheck,
+    Clock,
+    Save,
+    Upload,
+    Users,
+    X,
+} from "lucide-react";
 
+import EmptyState from "@/components/EmptyState";
+import { PrismTableShell } from "@/components/prism/PrismControls";
+import { PrismHeroKicker, PrismPage, PrismPanel, PrismSection } from "@/components/prism/PrismPage";
+import ErrorRemediation from "@/components/ui/ErrorRemediation";
 import { api } from "@/lib/api";
 
 type StudentItem = {
@@ -33,11 +46,50 @@ type AttendanceImportResponse = {
     ocr_unmatched_lines?: number;
 };
 
+type AttendanceStatus = "present" | "absent" | "late";
+
+const statusConfig: Record<
+    AttendanceStatus,
+    {
+        icon: typeof Check;
+        color: string;
+        bg: string;
+        ring: string;
+        label: string;
+        summary: string;
+    }
+> = {
+    present: {
+        icon: Check,
+        color: "text-[var(--success)]",
+        bg: "bg-success-subtle",
+        ring: "border-[var(--success)]/25",
+        label: "Present",
+        summary: "On track for the session",
+    },
+    absent: {
+        icon: X,
+        color: "text-[var(--error)]",
+        bg: "bg-error-subtle",
+        ring: "border-[var(--error)]/25",
+        label: "Absent",
+        summary: "Needs follow-up",
+    },
+    late: {
+        icon: Clock,
+        color: "text-[var(--warning)]",
+        bg: "bg-warning-subtle",
+        ring: "border-[var(--warning)]/25",
+        label: "Late",
+        summary: "Present with delay",
+    },
+};
+
 export default function TeacherAttendanceClient() {
     const searchParams = useSearchParams();
     const [classes, setClasses] = useState<TeacherClass[]>([]);
     const [selectedClassId, setSelectedClassId] = useState("");
-    const [entries, setEntries] = useState<Record<string, "present" | "absent" | "late">>({});
+    const [entries, setEntries] = useState<Record<string, AttendanceStatus>>({});
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -50,8 +102,19 @@ export default function TeacherAttendanceClient() {
         [classes, selectedClassId],
     );
 
+    const studentCount = selectedClass?.students.length || 0;
+
+    const attendanceCounts = useMemo(() => {
+        const tally = { present: 0, absent: 0, late: 0 };
+        if (!selectedClass) return tally;
+        for (const student of selectedClass.students) {
+            tally[entries[student.id] || "present"] += 1;
+        }
+        return tally;
+    }, [entries, selectedClass]);
+
     const initializeEntries = useCallback((students: StudentItem[]) => {
-        const initial: Record<string, "present" | "absent" | "late"> = {};
+        const initial: Record<string, AttendanceStatus> = {};
         for (const student of students) initial[student.id] = "present";
         setEntries(initial);
     }, []);
@@ -62,7 +125,7 @@ export default function TeacherAttendanceClient() {
         try {
             const payload = await api.teacher.classAttendance(classItem.id);
             const records = (payload || []) as AttendanceRow[];
-            const mapByStudent: Record<string, "present" | "absent" | "late"> = {};
+            const mapByStudent: Record<string, AttendanceStatus> = {};
             for (const record of records) {
                 if (record.date === dateValue) {
                     mapByStudent[record.student_id] = record.status;
@@ -72,7 +135,7 @@ export default function TeacherAttendanceClient() {
                 setEntries((prev) => ({ ...prev, ...mapByStudent }));
             }
         } catch {
-            // keep defaults
+            // Keep default all-present entries when no historical data is available.
         }
     }, [initializeEntries]);
 
@@ -166,6 +229,7 @@ export default function TeacherAttendanceClient() {
                     status: entries[student.id] || "present",
                 })),
             });
+            setSuccess(`Attendance saved for ${selectedClass.name} on ${selectedDate}.`);
         } catch (err) {
             setError(err instanceof Error ? err.message : "Failed to save attendance");
         } finally {
@@ -194,118 +258,318 @@ export default function TeacherAttendanceClient() {
         }
     };
 
-    const statusConfig = {
-        present: { icon: Check, color: "text-[var(--success)]", bg: "bg-success-subtle" },
-        absent: { icon: X, color: "text-[var(--error)]", bg: "bg-error-subtle" },
-        late: { icon: Clock, color: "text-[var(--warning)]", bg: "bg-warning-subtle" },
-    };
+    return (
+        <PrismPage className="space-y-6 pb-8">
+            <PrismSection className="space-y-6">
+                <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
+                    <div className="space-y-4">
+                        <PrismHeroKicker>
+                            <CalendarCheck className="h-3.5 w-3.5" />
+                            Teacher Attendance Workflow
+                        </PrismHeroKicker>
+                        <div className="space-y-3">
+                            <h1 className="prism-title text-4xl font-black leading-[0.98] text-[var(--text-primary)] md:text-5xl">
+                                Attendance Entry
+                            </h1>
+                            <p className="max-w-3xl text-base leading-7 text-[var(--text-secondary)] md:text-lg">
+                                Mark the room quickly, import OCR-led registers when needed, and keep exceptions visible without slowing down the classroom workflow.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
+                        <MetricCard
+                            icon={Users}
+                            title="Class size"
+                            value={studentCount.toString()}
+                            accent="blue"
+                            summary={selectedClass ? `${selectedClass.name} roster loaded` : "Choose a class to load the roster"}
+                        />
+                        <MetricCard
+                            icon={CheckCheck}
+                            title="Marked present"
+                            value={attendanceCounts.present.toString()}
+                            accent="emerald"
+                            summary={studentCount > 0 ? "Default-ready for rapid confirmation" : "Waiting for roster"}
+                        />
+                        <MetricCard
+                            icon={Clock}
+                            title="Needs attention"
+                            value={(attendanceCounts.absent + attendanceCounts.late).toString()}
+                            accent="amber"
+                            summary="Absent and late students grouped for follow-up"
+                        />
+                    </div>
+                </div>
+
+                <PrismPanel className="overflow-hidden p-0">
+                    <div className="border-b border-[var(--border)]/80 bg-[rgba(255,255,255,0.02)] px-5 py-4">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">Operations Bar</p>
+                                <p className="mt-1 text-sm text-[var(--text-secondary)]">
+                                    Choose a class, set the register date, then import or mark manually before saving.
+                                </p>
+                            </div>
+                            <button
+                                className="inline-flex items-center gap-2 rounded-2xl bg-[linear-gradient(135deg,rgba(96,165,250,0.96),rgba(129,140,248,0.94))] px-4 py-2.5 text-sm font-semibold text-[#06101e] shadow-[0_18px_34px_rgba(96,165,250,0.22)] transition-all hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+                                onClick={() => void saveAttendance()}
+                                disabled={saving || importing || !selectedClass}
+                            >
+                                <Save className="h-4 w-4" />
+                                {saving ? "Saving..." : "Save Attendance"}
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="grid gap-6 p-5 xl:grid-cols-[1.6fr_0.9fr]">
+                        <div className="space-y-4">
+                            <div className="grid gap-3 md:grid-cols-[1.2fr_1fr_auto]">
+                                <label className="space-y-2">
+                                    <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Class roster</span>
+                                    <select
+                                        value={selectedClassId}
+                                        onChange={(e) => setSelectedClassId(e.target.value)}
+                                        className="w-full rounded-2xl border border-[var(--border)] bg-[rgba(8,15,30,0.72)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--primary)]/50"
+                                    >
+                                        {classes.map((c) => (
+                                            <option key={c.id} value={c.id}>
+                                                {c.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </label>
+
+                                <label className="space-y-2">
+                                    <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Register date</span>
+                                    <input
+                                        type="date"
+                                        value={selectedDate}
+                                        onChange={(e) => setSelectedDate(e.target.value)}
+                                        className="w-full rounded-2xl border border-[var(--border)] bg-[rgba(8,15,30,0.72)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--primary)]/50"
+                                    />
+                                </label>
+
+                                <label className="space-y-2">
+                                    <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">OCR import</span>
+                                    <span className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-2xl border border-[var(--primary)]/20 bg-[var(--primary-light)] px-4 py-3 text-sm font-medium text-[var(--primary)] transition-colors hover:bg-[var(--primary)] hover:text-white">
+                                        <Upload className="h-4 w-4" />
+                                        {importing ? "Importing..." : "Import OCR / CSV"}
+                                        <input
+                                            type="file"
+                                            accept=".csv,.txt,.jpg,.jpeg,.png"
+                                            className="hidden"
+                                            disabled={importing}
+                                            onChange={(e) => {
+                                                const file = e.target.files?.[0];
+                                                e.currentTarget.value = "";
+                                                if (file) {
+                                                    void handleAttendanceImport(file);
+                                                }
+                                            }}
+                                        />
+                                    </span>
+                                </label>
+                            </div>
+
+                            {error ? (
+                                <ErrorRemediation
+                                    error={error}
+                                    scope="teacher-attendance"
+                                    onRetry={() => {
+                                        if (selectedClass) {
+                                            void loadAttendanceRecords(selectedClass, selectedDate);
+                                        }
+                                    }}
+                                />
+                            ) : null}
+
+                            {success ? (
+                                <div className="rounded-[var(--radius)] border border-[var(--success)]/30 bg-success-subtle px-4 py-3 text-sm text-[var(--success)]">
+                                    {success}
+                                </div>
+                            ) : null}
+
+                            <PrismPanel className="overflow-hidden p-0">
+                                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)]/80 bg-[rgba(255,255,255,0.02)] px-5 py-4">
+                                    <div>
+                                        <p className="text-sm font-semibold text-[var(--text-primary)]">Live roster register</p>
+                                        <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                                            Click a status pill to cycle Present, Absent, and Late for each student.
+                                        </p>
+                                    </div>
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        {(["present", "absent", "late"] as AttendanceStatus[]).map((status) => (
+                                            <LegendPill
+                                                key={status}
+                                                status={status}
+                                                count={attendanceCounts[status]}
+                                            />
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {loading ? (
+                                    <div className="grid gap-3 p-5">
+                                        {Array.from({ length: 6 }).map((_, index) => (
+                                            <div key={index} className="h-16 animate-pulse rounded-2xl bg-[rgba(148,163,184,0.08)]" />
+                                        ))}
+                                    </div>
+                                ) : !selectedClass?.students.length ? (
+                                    <div className="p-5">
+                                        <EmptyState
+                                            icon={Users}
+                                            title="No students in this class"
+                                            description="Choose a different class or add students before taking attendance."
+                                        />
+                                    </div>
+                                ) : (
+                                    <PrismTableShell>
+                                        <table className="prism-table w-full min-w-[720px]">
+                                            <thead>
+                                                <tr>
+                                                    <th>Roll</th>
+                                                    <th>Student</th>
+                                                    <th>Current signal</th>
+                                                    <th className="text-center">Cycle status</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {selectedClass.students.map((student) => {
+                                                    const status = entries[student.id] || "present";
+                                                    const cfg = statusConfig[status];
+                                                    const Icon = cfg.icon;
+                                                    return (
+                                                        <tr key={student.id} className="border-b border-[var(--border-light)]/80">
+                                                            <td className="text-sm text-[var(--text-secondary)]">{student.roll_number || "-"}</td>
+                                                            <td>
+                                                                <div>
+                                                                    <p className="text-sm font-semibold text-[var(--text-primary)]">{student.name}</p>
+                                                                    <p className="mt-1 text-xs text-[var(--text-muted)]">Ready for today&apos;s register</p>
+                                                                </div>
+                                                            </td>
+                                                            <td>
+                                                                <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium ${cfg.bg} ${cfg.color} ${cfg.ring}`}>
+                                                                    <Icon className="h-3.5 w-3.5" />
+                                                                    <span>{cfg.label}</span>
+                                                                </div>
+                                                                <p className="mt-2 text-xs text-[var(--text-muted)]">{cfg.summary}</p>
+                                                            </td>
+                                                            <td className="text-center">
+                                                                <button
+                                                                    onClick={() => toggleStatus(student.id)}
+                                                                    className={`inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-xs font-medium transition hover:-translate-y-0.5 ${cfg.bg} ${cfg.color} ${cfg.ring}`}
+                                                                >
+                                                                    <Icon className="h-3.5 w-3.5" />
+                                                                    {status}
+                                                                </button>
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </PrismTableShell>
+                                )}
+                            </PrismPanel>
+                        </div>
+
+                        <div className="space-y-4">
+                            <PrismPanel className="p-5">
+                                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">Operational summary</p>
+                                <div className="mt-4 space-y-4">
+                                    <SummaryRow label="Active class" value={selectedClass?.name || "None selected"} />
+                                    <SummaryRow label="Register date" value={selectedDate} />
+                                    <SummaryRow label="Roster loaded" value={`${studentCount} students`} />
+                                    <SummaryRow label="Follow-up list" value={`${attendanceCounts.absent + attendanceCounts.late} students`} />
+                                </div>
+                            </PrismPanel>
+
+                            <PrismPanel className="p-5">
+                                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">Workflow notes</p>
+                                <div className="mt-4 space-y-3 text-sm leading-6 text-[var(--text-secondary)]">
+                                    <p>Start with OCR import if you have a handwritten or printed register, then sweep the roster for late and absent exceptions.</p>
+                                    <p>Saving sends the same attendance payload already used by the existing workflow, so this redesign stays presentation-only.</p>
+                                </div>
+                            </PrismPanel>
+
+                            <PrismPanel className="p-5">
+                                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">Status guide</p>
+                                <div className="mt-4 space-y-3">
+                                    {(["present", "absent", "late"] as AttendanceStatus[]).map((status) => {
+                                        const cfg = statusConfig[status];
+                                        const Icon = cfg.icon;
+                                        return (
+                                            <div key={status} className="flex items-start gap-3">
+                                                <div className={`mt-0.5 flex h-9 w-9 items-center justify-center rounded-xl ${cfg.bg} ${cfg.color}`}>
+                                                    <Icon className="h-4 w-4" />
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-semibold text-[var(--text-primary)]">{cfg.label}</p>
+                                                    <p className="text-xs leading-5 text-[var(--text-muted)]">{cfg.summary}</p>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </PrismPanel>
+                        </div>
+                    </div>
+                </PrismPanel>
+            </PrismSection>
+        </PrismPage>
+    );
+}
+
+function MetricCard({
+    icon: Icon,
+    title,
+    value,
+    summary,
+    accent,
+}: {
+    icon: typeof Users;
+    title: string;
+    value: string;
+    summary: string;
+    accent: "blue" | "emerald" | "amber";
+}) {
+    const accentClasses = {
+        blue: "bg-[linear-gradient(135deg,rgba(96,165,250,0.22),rgba(59,130,246,0.08))] text-status-blue",
+        emerald: "bg-[linear-gradient(135deg,rgba(45,212,191,0.2),rgba(16,185,129,0.08))] text-status-emerald",
+        amber: "bg-[linear-gradient(135deg,rgba(251,191,36,0.2),rgba(245,158,11,0.08))] text-status-amber",
+    } as const;
 
     return (
-        <div>
-            <div className="flex items-center justify-between mb-6">
-                <div>
-                    <h1 className="text-2xl font-bold text-[var(--text-primary)]">Attendance Entry</h1>
-                    <p className="text-sm text-[var(--text-secondary)]">Mark attendance for your class</p>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                    <select
-                        value={selectedClassId}
-                        onChange={(e) => setSelectedClassId(e.target.value)}
-                        className="px-4 py-2 text-sm border border-[var(--border)] rounded-[var(--radius-sm)]"
-                    >
-                        {classes.map((c) => (
-                            <option key={c.id} value={c.id}>{c.name}</option>
-                        ))}
-                    </select>
-                    <input
-                        type="date"
-                        value={selectedDate}
-                        onChange={(e) => setSelectedDate(e.target.value)}
-                        className="px-4 py-2 text-sm border border-[var(--border)] rounded-[var(--radius-sm)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
-                    />
-                    <label className="inline-flex cursor-pointer items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--primary)]/20 bg-[var(--primary-light)] px-4 py-2 text-sm font-medium text-[var(--primary)] transition-colors hover:bg-[var(--primary)] hover:text-white">
-                        <Upload className="h-4 w-4" />
-                        {importing ? "Importing..." : "Import OCR / CSV"}
-                        <input
-                            type="file"
-                            accept=".csv,.txt,.jpg,.jpeg,.png"
-                            className="hidden"
-                            disabled={importing}
-                            onChange={(e) => {
-                                const file = e.target.files?.[0];
-                                e.currentTarget.value = "";
-                                if (file) {
-                                    void handleAttendanceImport(file);
-                                }
-                            }}
-                        />
-                    </label>
-                </div>
+        <PrismPanel className="p-4">
+            <div className={`mb-3 flex h-11 w-11 items-center justify-center rounded-2xl ${accentClasses[accent]}`}>
+                <Icon className="h-5 w-5" />
             </div>
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">{title}</p>
+            <p className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">{value}</p>
+            <p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">{summary}</p>
+        </PrismPanel>
+    );
+}
 
-            {error ? (
-                <div className="rounded-[var(--radius)] border border-[var(--error)]/30 bg-error-subtle px-4 py-3 text-sm text-[var(--error)] mb-4">
-                    {error}
-                </div>
-            ) : null}
-            {success ? (
-                <div className="rounded-[var(--radius)] border border-[var(--success)]/30 bg-success-subtle px-4 py-3 text-sm text-[var(--success)] mb-4">
-                    {success}
-                </div>
-            ) : null}
+function LegendPill({ status, count }: { status: AttendanceStatus; count: number }) {
+    const cfg = statusConfig[status];
+    const Icon = cfg.icon;
 
-            <div className="bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="w-full min-w-[600px]">
-                        <thead>
-                            <tr className="border-b border-[var(--border)] bg-[var(--bg-page)]">
-                                <th className="px-5 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase">Roll</th>
-                                <th className="px-5 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase">Name</th>
-                                <th className="px-5 py-3 text-center text-xs font-medium text-[var(--text-muted)] uppercase">Status</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {loading ? (
-                                <tr>
-                                    <td className="px-5 py-4 text-sm text-[var(--text-muted)]" colSpan={3}>Loading students...</td>
-                                </tr>
-                            ) : !(selectedClass?.students.length) ? (
-                                <tr>
-                                    <td className="px-5 py-4 text-sm text-[var(--text-muted)]" colSpan={3}>No students in this class.</td>
-                                </tr>
-                            ) : selectedClass.students.map((student) => {
-                                const status = entries[student.id] || "present";
-                                const cfg = statusConfig[status];
-                                const Icon = cfg.icon;
-                                return (
-                                    <tr key={student.id} className="border-b border-[var(--border-light)]">
-                                        <td className="px-5 py-3 text-sm text-[var(--text-secondary)]">{student.roll_number || "-"}</td>
-                                        <td className="px-5 py-3 text-sm font-medium text-[var(--text-primary)]">{student.name}</td>
-                                        <td className="px-5 py-3 text-center">
-                                            <button
-                                                onClick={() => toggleStatus(student.id)}
-                                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ${cfg.bg} ${cfg.color}`}
-                                            >
-                                                <Icon className="w-3.5 h-3.5" /> {status}
-                                            </button>
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+    return (
+        <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium ${cfg.bg} ${cfg.color} ${cfg.ring}`}>
+            <Icon className="h-3.5 w-3.5" />
+            <span>{cfg.label}</span>
+            <span className="rounded-full bg-black/5 px-2 py-0.5 text-[10px]">{count}</span>
+        </div>
+    );
+}
 
-            <div className="mt-4 flex justify-end">
-                <button
-                    className="px-6 py-2.5 bg-[var(--primary)] text-white text-sm font-medium rounded-[var(--radius-sm)] hover:bg-[var(--primary-hover)] transition-colors flex items-center gap-2 disabled:opacity-60"
-                    onClick={() => void saveAttendance()}
-                    disabled={saving || importing || !selectedClass}
-                >
-                    <Save className="w-4 h-4" /> {saving ? "Saving..." : "Save Attendance"}
-                </button>
-            </div>
+function SummaryRow({ label, value }: { label: string; value: string }) {
+    return (
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-[var(--border)] bg-[rgba(148,163,184,0.05)] px-4 py-3">
+            <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">{label}</span>
+            <span className="text-sm font-medium text-[var(--text-primary)]">{value}</span>
         </div>
     );
 }

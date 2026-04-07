@@ -5,6 +5,7 @@ attendance summary, subject-wise marks, and teacher comments.
 """
 import io
 from datetime import date
+from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
 from constants import (
@@ -53,37 +54,41 @@ def generate_report_card_pdf(
             class_name = cls.name
 
     # Attendance stats
-    total_att = db.query(Attendance).filter(
+    attendance_counts = db.query(
+        func.count(Attendance.student_id),
+        func.sum(case((Attendance.status == "present", 1), else_=0)),
+    ).filter(
         Attendance.tenant_id == tenant_id,
         Attendance.student_id == student.id,
-    ).count()
-    present_att = db.query(Attendance).filter(
-        Attendance.tenant_id == tenant_id,
-        Attendance.student_id == student.id,
-        Attendance.status == "present",
-    ).count()
+    ).first()
+    total_att = int((attendance_counts[0] if attendance_counts else 0) or 0)
+    present_att = int((attendance_counts[1] if attendance_counts else 0) or 0)
     att_pct = round(present_att / total_att * 100) if total_att > 0 else 0
 
     # Subject-wise marks
     marks_data = []
-    exams = db.query(Exam).filter(Exam.tenant_id == tenant_id).all()
     subject_scores: dict[str, list] = {}
-    for exam in exams:
-        mark = db.query(Mark).filter(
+    rows = (
+        db.query(Exam, Mark, Subject.name)
+        .join(Mark, Mark.exam_id == Exam.id)
+        .join(Subject, Subject.id == Exam.subject_id)
+        .filter(
+            Exam.tenant_id == tenant_id,
             Mark.tenant_id == tenant_id,
-            Mark.exam_id == exam.id,
             Mark.student_id == student.id,
-        ).first()
-        if mark:
-            subj = db.query(Subject).filter(Subject.id == exam.subject_id).first()
-            subj_name = subj.name if subj else "Unknown"
-            if subj_name not in subject_scores:
-                subject_scores[subj_name] = []
-            subject_scores[subj_name].append({
-                "exam": exam.name,
-                "obtained": mark.marks_obtained,
-                "max": exam.max_marks,
-            })
+        )
+        .order_by(Exam.id.asc())
+        .all()
+    )
+    for exam, mark, subject_name in rows:
+        subj_name = subject_name or "Unknown"
+        if subj_name not in subject_scores:
+            subject_scores[subj_name] = []
+        subject_scores[subj_name].append({
+            "exam": exam.name,
+            "obtained": mark.marks_obtained,
+            "max": exam.max_marks,
+        })
 
     for subj_name, scores in subject_scores.items():
         total_obtained = sum(s["obtained"] for s in scores)

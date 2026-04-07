@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { Users, BookOpen, CheckSquare, BarChart3, QrCode, Megaphone, X, Download, Upload } from "lucide-react";
 import QRCode from "react-qr-code";
 
+import { PrismInput, PrismTableShell, PrismTextarea } from "@/components/prism/PrismControls";
+import { PrismDialog, PrismDialogFooter, PrismDialogHeader, PrismOverlay } from "@/components/prism/PrismOverlays";
 import { api } from "@/lib/api";
 
 type TeacherClass = {
@@ -323,9 +325,9 @@ export default function TeacherClassesPage() {
             </div>
 
             {rosterModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                    <div className="flex max-h-[90vh] w-full max-w-4xl flex-col rounded-[var(--radius)] bg-[var(--bg-card)] shadow-xl">
-                        <div className="flex items-center justify-between border-b border-[var(--border)] p-4">
+                <PrismOverlay className="z-50">
+                    <PrismDialog className="flex max-h-[90vh] w-full max-w-4xl flex-col">
+                        <PrismDialogHeader>
                             <div>
                                 <h2 className="text-lg font-bold text-[var(--text-primary)]">Review Extracted Students</h2>
                                 <p className="text-sm text-[var(--text-secondary)]">
@@ -338,7 +340,7 @@ export default function TeacherClassesPage() {
                             >
                                 <X className="h-5 w-5" />
                             </button>
-                        </div>
+                        </PrismDialogHeader>
                         <div className="flex-1 overflow-auto p-4">
                             {rosterNotice ? (
                                 <div className="mb-4 rounded-[var(--radius-sm)] border border-[var(--warning)]/30 bg-warning-subtle px-4 py-3 text-sm text-[var(--warning)]">
@@ -350,51 +352,51 @@ export default function TeacherClassesPage() {
                                     {rosterErrors.join(" ")}
                                 </div>
                             ) : null}
-                            <div className="overflow-x-auto">
-                                <table className="w-full min-w-[720px]">
+                            <PrismTableShell>
+                                <table className="prism-table w-full min-w-[720px]">
                                     <thead>
-                                        <tr className="border-b border-[var(--border)] bg-[var(--bg-page)]">
-                                            <th className="px-4 py-3 text-left text-xs font-medium uppercase text-[var(--text-muted)]">Name</th>
-                                            <th className="px-4 py-3 text-left text-xs font-medium uppercase text-[var(--text-muted)]">Email</th>
-                                            <th className="px-4 py-3 text-left text-xs font-medium uppercase text-[var(--text-muted)]">Password</th>
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>Email</th>
+                                            <th>Password</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {rosterRows.map((row, index) => (
                                             <tr key={`${row.email}-${index}`} className="border-b border-[var(--border-light)]">
-                                                <td className="px-4 py-3">
-                                                    <input
+                                                <td>
+                                                    <PrismInput
                                                         value={row.name}
                                                         onChange={(e) => updateRosterRow(index, "name", e.target.value)}
-                                                        className="w-full rounded-[var(--radius-sm)] border border-[var(--border)] px-3 py-2 text-sm"
+                                                        className="text-sm"
                                                     />
                                                 </td>
-                                                <td className="px-4 py-3">
-                                                    <input
+                                                <td>
+                                                    <PrismInput
                                                         value={row.email}
                                                         onChange={(e) => updateRosterRow(index, "email", e.target.value)}
-                                                        className="w-full rounded-[var(--radius-sm)] border border-[var(--border)] px-3 py-2 text-sm"
+                                                        className="text-sm"
                                                     />
                                                 </td>
-                                                <td className="px-4 py-3">
-                                                    <input
+                                                <td>
+                                                    <PrismInput
                                                         value={row.password}
                                                         onChange={(e) => updateRosterRow(index, "password", e.target.value)}
-                                                        className="w-full rounded-[var(--radius-sm)] border border-[var(--border)] px-3 py-2 text-sm"
+                                                        className="text-sm"
                                                     />
                                                 </td>
                                             </tr>
                                         ))}
                                     </tbody>
                                 </table>
-                            </div>
+                            </PrismTableShell>
                             {rosterImportedCount !== null ? (
                                 <p className="mt-4 text-sm font-medium text-[var(--success)]">
                                     Imported {rosterImportedCount} student{rosterImportedCount === 1 ? "" : "s"}.
                                 </p>
                             ) : null}
                         </div>
-                        <div className="flex items-center justify-between gap-3 border-t border-[var(--border)] p-4">
+                        <PrismDialogFooter>
                             <p className="text-xs text-[var(--text-muted)]">
                                 Explicit confirmation is required before OCR-derived student rows are saved.
                             </p>
@@ -413,21 +415,21 @@ export default function TeacherClassesPage() {
                                     {rosterBusy ? "Importing..." : "Confirm Import"}
                                 </button>
                             </div>
-                        </div>
-                    </div>
-                </div>
+                        </PrismDialogFooter>
+                    </PrismDialog>
+                </PrismOverlay>
             )}
 
             {/* QR Modal */}
             {qrModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                    <div className="bg-[var(--bg-card)] rounded-[var(--radius)] shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
-                        <div className="flex items-center justify-between p-4 border-b border-[var(--border)]">
+                <PrismOverlay className="z-50">
+                    <PrismDialog className="w-full max-w-4xl max-h-[90vh] flex flex-col">
+                        <PrismDialogHeader>
                             <h2 className="text-lg font-bold text-[var(--text-primary)]">Print Magic QR Badges - {selectedClassName}</h2>
                             <button onClick={() => setQrModalOpen(false)} className="text-[var(--text-muted)] hover:text-[var(--text-primary)]">
                                 <X className="w-5 h-5" />
                             </button>
-                        </div>
+                        </PrismDialogHeader>
                         <div className="p-4 overflow-auto flex-1 bg-[var(--bg-page)]">
                             {loadingQr ? (
                                 <p className="text-center text-[var(--text-muted)] py-10">Generating magic tokens...</p>
@@ -447,7 +449,7 @@ export default function TeacherClassesPage() {
                                 </div>
                             )}
                         </div>
-                        <div className="p-4 border-t border-[var(--border)] flex justify-end gap-3">
+                        <PrismDialogFooter className="justify-end">
                             <button onClick={() => setQrModalOpen(false)} className="px-4 py-2 bg-[var(--bg-page)] border border-[var(--border)] rounded hover:bg-[var(--bg-hover)] text-sm font-medium">
                                 Close
                             </button>
@@ -475,21 +477,21 @@ export default function TeacherClassesPage() {
                             }} className="px-4 py-2 bg-[var(--primary)] text-white rounded hover:bg-[var(--primary-hover)] flex items-center gap-2 text-sm font-medium">
                                 <Download className="w-4 h-4" /> Print Badges
                             </button>
-                        </div>
-                    </div>
-                </div>
+                        </PrismDialogFooter>
+                    </PrismDialog>
+                </PrismOverlay>
             )}
 
             {/* Broadcast Modal */}
             {broadcastModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                    <div className="bg-[var(--bg-card)] rounded-[var(--radius)] shadow-xl w-full max-w-md p-5">
-                        <div className="flex items-center justify-between mb-4">
+                <PrismOverlay className="z-50">
+                    <PrismDialog className="w-full max-w-md p-5">
+                        <PrismDialogHeader className="mb-4 border-b-0 px-0 py-0">
                             <h2 className="text-lg font-bold text-[var(--text-primary)] flex items-center gap-2"><Megaphone className="w-5 h-5 text-[var(--error)]" /> Emergency Broadcast</h2>
                             <button onClick={() => setBroadcastModalOpen(false)} className="text-[var(--text-muted)] hover:text-[var(--text-primary)]">
                                 <X className="w-5 h-5" />
                             </button>
-                        </div>
+                        </PrismDialogHeader>
                         {broadcastSuccess ? (
                             <div className="text-center py-6 text-[var(--success)]">
                                 <CheckSquare className="w-12 h-12 mx-auto mb-2 opacity-80" />
@@ -501,8 +503,8 @@ export default function TeacherClassesPage() {
                                 <p className="text-sm text-[var(--text-secondary)] mb-4">
                                     Send an urgent WhatsApp alert to all linked parents of <strong>{selectedClassName}</strong>.
                                 </p>
-                                <textarea
-                                    className="w-full h-32 p-3 bg-[var(--bg-page)] border border-[var(--border)] rounded-[var(--radius-sm)] text-sm mb-4 focus:outline-none focus:border-[var(--primary)]"
+                                <PrismTextarea
+                                    className="mb-4 h-32 text-sm"
                                     placeholder="Type your emergency message or important update here..."
                                     value={broadcastMessage}
                                     onChange={(e) => setBroadcastMessage(e.target.value)}
@@ -516,8 +518,8 @@ export default function TeacherClassesPage() {
                                 </button>
                             </div>
                         )}
-                    </div>
-                </div>
+                    </PrismDialog>
+                </PrismOverlay>
             )}
         </div>
     );

@@ -2,34 +2,40 @@
 
 import { FileQuestion, Upload, BookOpen, BarChart3, MessageSquare } from "lucide-react";
 import { LucideIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface EmptyStateProps {
     icon?: LucideIcon;
     title: string;
     description: string;
+    eyebrow?: string;
     action?: {
         label: string;
         href: string;
     };
+    className?: string;
 }
 
 export default function EmptyState({
     icon: Icon = FileQuestion,
     title,
     description,
+    eyebrow = "Nothing here yet",
     action,
+    className,
 }: EmptyStateProps) {
     return (
-        <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
-            <div className="w-16 h-16 rounded-2xl bg-[var(--bg-hover)] flex items-center justify-center mb-4">
-                <Icon className="w-7 h-7 text-[var(--text-muted)]" />
+        <div className={cn("prism-empty-shell", className)}>
+            <div className="prism-empty-icon">
+                <Icon className="h-7 w-7 text-[var(--text-secondary)]" />
             </div>
-            <h3 className="text-base font-semibold text-[var(--text-primary)] mb-1">{title}</h3>
-            <p className="text-sm text-[var(--text-muted)] max-w-xs mb-4">{description}</p>
+            <span className="prism-empty-eyebrow">{eyebrow}</span>
+            <h3 className="mt-3 text-lg font-semibold text-[var(--text-primary)]">{title}</h3>
+            <p className="mt-2 max-w-md text-sm leading-6 text-[var(--text-muted)]">{description}</p>
             {action && (
                 <a
                     href={action.href}
-                    className="inline-flex items-center gap-2 px-4 py-2.5 bg-[var(--primary)] text-white text-sm font-medium rounded-lg hover:bg-[var(--primary-hover)] transition-colors shadow-sm"
+                    className="prism-action mt-5"
                 >
                     {action.label}
                 </a>

@@ -1,6 +1,5 @@
 "use client";
 
-import { motion } from "framer-motion";
 import { AlertCircle, Brain, Sparkles } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -9,9 +8,19 @@ import rehypeKatex from "rehype-katex";
 
 import { CitationPopover } from "./CitationPopover";
 import { EditableNotesSurface } from "./EditableNotesSurface";
-import { FlashcardDeck } from "./FlashcardDeck";
+import { FlashcardDeck, type FlashcardState } from "./FlashcardDeck";
 import { KnowledgeGraphView } from "./KnowledgeGraphView";
 import { MermaidDiagram } from "./MermaidDiagram";
+import { QuizView, type QuizState } from "./QuizView";
+
+export type ToolState = QuizState | FlashcardState;
+
+interface AIMessageRendererProps {
+    response: AIResponse;
+    isLoading?: boolean;
+    initialState?: ToolState;
+    onStateChange?: (state: ToolState) => void;
+}
 
 type Citation = {
     source?: string;
@@ -60,47 +69,42 @@ function parseJson<T>(value: string): T | null {
     }
 }
 
-function renderQuiz(answer: string) {
+function renderQuiz(
+    answer: string,
+    isLoading: boolean,
+    initialState?: QuizState,
+    onStateChange?: (state: QuizState) => void,
+) {
     const parsed = parseJson<{ questions?: QuizQuestion[] } | QuizQuestion[]>(answer);
     const questions = Array.isArray(parsed) ? parsed : parsed?.questions || [];
     if (!questions.length) return null;
 
     return (
-        <div className="space-y-3">
-            {questions.map((question, index) => (
-                <motion.div
-                    key={`quiz-${index}`}
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.04 }}
-                    className="rounded-2xl border border-[var(--border)] bg-[var(--bg-page)] p-4"
-                >
-                    <p className="text-sm font-semibold text-[var(--text-primary)]">
-                        {index + 1}. {question.question || question.q}
-                    </p>
-                    <div className="mt-3 grid gap-2">
-                        {(question.options || []).map((option, optionIndex) => (
-                            <div
-                                key={`quiz-option-${index}-${optionIndex}`}
-                                className="rounded-xl border border-[var(--border)] px-3 py-2 text-xs text-[var(--text-secondary)]"
-                            >
-                                {option}
-                            </div>
-                        ))}
-                    </div>
-                    <p className="mt-3 text-xs font-medium text-[var(--primary)]">
-                        Correct answer: {String(question.correct ?? question.answer ?? "Not specified")}
-                    </p>
-                </motion.div>
-            ))}
-        </div>
+        <QuizView
+            questions={questions}
+            isLoading={isLoading}
+            initialState={initialState}
+            onStateChange={onStateChange}
+        />
     );
 }
 
-function renderFlashcards(answer: string) {
+function renderFlashcards(
+    answer: string,
+    isLoading: boolean,
+    initialState?: FlashcardState,
+    onStateChange?: (state: FlashcardState) => void,
+) {
     const parsed = parseJson<{ cards?: Flashcard[] } | Flashcard[]>(answer);
     const cards = Array.isArray(parsed) ? parsed : parsed?.cards || [];
-    return cards.length ? <FlashcardDeck cards={cards} /> : null;
+    return cards.length ? (
+        <FlashcardDeck
+            cards={cards}
+            isLoading={isLoading}
+            initialState={initialState}
+            onStateChange={onStateChange}
+        />
+    ) : null;
 }
 
 function renderMindMap(answer: string) {
@@ -158,11 +162,20 @@ function renderDefaultText(answer: string) {
     );
 }
 
-export function AIMessageRenderer({ response }: { response: AIResponse }) {
+export function AIMessageRenderer({
+    response,
+    isLoading = false,
+    initialState,
+    onStateChange,
+}: AIMessageRendererProps) {
     const structured =
         renderEditableDoc(response.mode, response.answer) ||
-        (response.mode === "quiz" ? renderQuiz(response.answer) : null) ||
-        (response.mode === "flashcards" ? renderFlashcards(response.answer) : null) ||
+        (response.mode === "quiz"
+            ? renderQuiz(response.answer, isLoading, initialState as QuizState | undefined, onStateChange as ((state: QuizState) => void) | undefined)
+            : null) ||
+        (response.mode === "flashcards"
+            ? renderFlashcards(response.answer, isLoading, initialState as FlashcardState | undefined, onStateChange as ((state: FlashcardState) => void) | undefined)
+            : null) ||
         (response.mode === "mindmap" ? renderMindMap(response.answer) : null) ||
         (response.mode === "concept_map" ? renderConceptMap(response.answer) : null) ||
         (response.mode === "flowchart" ? renderFlowchart(response.answer) : null);

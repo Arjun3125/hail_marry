@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from constants import ADMISSION_STATUS_TRANSITIONS, ADMISSION_STATUSES
 from src.domains.administrative.models.admission import AdmissionApplication
 from src.domains.academic.models.core import Class, Enrollment
+from src.domains.academic.services.student_profile_sync import sync_student_profile_context
 from src.domains.platform.models.audit import AuditLog
 from src.domains.identity.models.user import User
 
@@ -112,6 +113,7 @@ def bulk_enroll(
     tenant_id: UUID,
     application_ids: list[UUID],
     enrolled_by: UUID,
+    sync_student_profile_fn=sync_student_profile_context,
 ) -> dict:
     """Convert accepted applications into enrolled students."""
     enrolled = 0
@@ -159,6 +161,12 @@ def bulk_enroll(
                 tenant_id=tenant_id,
             )
             db.add(enrollment)
+
+        sync_student_profile_fn(
+            db=db,
+            tenant_id=tenant_id,
+            student_id=student.id,
+        )
 
         # Update application status
         app.status = "enrolled"

@@ -26,6 +26,7 @@ from src.domains.platform.routes.whatsapp import (
     whatsapp_webhook_inbound,
     whatsapp_tool_catalog,
     whatsapp_release_gate_snapshot,
+    admin_send_message,
     _extract_messages,
     _chunk_whatsapp_text,
     SendMessageRequest,
@@ -1360,6 +1361,33 @@ class TestToolCatalogEndpoint:
         with pytest.raises(Exception) as exc:
             asyncio.run(whatsapp_tool_catalog(current_user=current_user, role=None))
         assert getattr(exc.value, "status_code", None) == 403
+
+
+class TestAdminManualSend:
+    def test_admin_text_send_uses_notification_dispatch_for_linked_phone(self):
+        current_user = SimpleNamespace(id=uuid4(), tenant_id=uuid4(), role="admin")
+        linked_user = SimpleNamespace(user_id=uuid4())
+        fake_query = MagicMock()
+        fake_query.filter.return_value.first.return_value = linked_user
+        db = MagicMock()
+        db.query.return_value = fake_query
+
+        with patch("src.domains.platform.routes.whatsapp.dispatch_notification", new=AsyncMock(return_value=[
+            {"channel": "whatsapp", "status": "delivered"},
+            {"channel": "in_app", "status": "sent"},
+        ])) as dispatch_mock, patch("src.domains.platform.routes.whatsapp.log_message") as log_mock:
+            result = asyncio.run(
+                admin_send_message(
+                    SendMessageRequest(phone="919876543210", message="School closed tomorrow", message_type="text"),
+                    current_user=current_user,
+                    db=db,
+                )
+            )
+
+        assert result["success"] is True
+        assert result["routed_via"] == "notification_dispatch"
+        dispatch_mock.assert_awaited_once()
+        log_mock.assert_called_once()
 
 
 # ─── Agent Graph Structure Test ───────────────────────────────

@@ -78,6 +78,41 @@ ERROR_TAXONOMY: dict[str, ErrorDescriptor] = {
 }
 
 FALLBACK_DESCRIPTOR = ERROR_TAXONOMY["api.server"]
+ERROR_KEYWORD_TO_KEY: dict[str, str] = {
+    "ocr processing failed": "ocr.read",
+    "no readable": "ocr.read",
+    "ocr": "ocr.read",
+    "flowchart": "flowchart.generation",
+    "quiz output": "quiz.generation",
+    "quiz generation": "quiz.generation",
+    "flashcards output": "flashcards.generation",
+    "flashcard generation": "flashcards.generation",
+    "mind map output": "mindmap.generation",
+    "mind map generation": "mindmap.generation",
+    "mindmap": "mindmap.generation",
+    "concept map output": "concept_map.generation",
+    "concept map generation": "concept_map.generation",
+    "vector": "vector.database",
+    "faiss": "vector.database",
+    "qdrant": "vector.database",
+    "embedding search": "vector.database",
+    "retrieval": "rag.retrieval",
+    "grounded context": "rag.retrieval",
+    "study materials found": "rag.retrieval",
+    "ollama": "llm.generation",
+    "ai runtime": "llm.generation",
+    "timed out": "llm.generation",
+    "generation failed": "llm.generation",
+    "webhook": "whatsapp.webhook",
+    "whatsapp": "whatsapp.connection",
+    "upload": "file.upload",
+    "embedding": "embedding.generation",
+    "chunk": "chunking.document",
+    "cache": "cache.operation",
+    "redis": "cache.operation",
+    "job": "job.execution",
+    "worker": "job.execution",
+}
 
 
 def get_error_descriptor(key: str | None) -> ErrorDescriptor:
@@ -103,26 +138,8 @@ def classify_error_key(*, path: str, status_code: int, detail: Any = None) -> st
     message = _normalize_message(detail).lower()
     lowered_path = path.lower()
 
-    keyword_map: list[tuple[list[str], str]] = [
-        (["ocr processing failed", "no readable", "ocr"], "ocr.read"),
-        (["flowchart"], "flowchart.generation"),
-        (["quiz output", "quiz generation"], "quiz.generation"),
-        (["flashcards output", "flashcard generation"], "flashcards.generation"),
-        (["mind map output", "mind map generation", "mindmap"], "mindmap.generation"),
-        (["concept map output", "concept map generation"], "concept_map.generation"),
-        (["vector", "faiss", "qdrant", "embedding search"], "vector.database"),
-        (["retrieval", "grounded context", "study materials found"], "rag.retrieval"),
-        (["ollama", "ai runtime", "timed out", "generation failed"], "llm.generation"),
-        (["webhook"], "whatsapp.webhook"),
-        (["whatsapp"], "whatsapp.connection"),
-        (["upload"], "file.upload"),
-        (["embedding"], "embedding.generation"),
-        (["chunk"], "chunking.document"),
-        (["cache", "redis"], "cache.operation"),
-        (["job", "worker"], "job.execution"),
-    ]
-    for keywords, key in keyword_map:
-        if any(keyword in message for keyword in keywords):
+    for keyword, key in ERROR_KEYWORD_TO_KEY.items():
+        if keyword in message:
             return key
 
     if lowered_path.startswith("/api/whatsapp"):

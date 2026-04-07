@@ -27,6 +27,7 @@ from src.domains.academic.application.student_dashboard import (
     build_student_dashboard_response as _build_student_dashboard_response_impl,
 )
 from src.domains.academic.application.student_learning_insights import (
+    build_student_mastery_map as _build_student_mastery_map_impl,
     build_student_weak_topics as _build_student_weak_topics_impl,
     list_student_timetable as _list_student_timetable_impl,
     list_student_uploads as _list_student_uploads_impl,
@@ -161,9 +162,27 @@ def _record_mastery_outcome_metrics(
     if after_mastery <= before_mastery:
         return
 
-    observe_personalization_event("mastery_improved", surface=surface, target=target)
+    observe_personalization_event(
+        "mastery_improved",
+        surface=surface,
+        target=target,
+        db=db,
+        tenant_id=str(current_user.tenant_id),
+        user_id=str(current_user.id),
+        channel="web",
+        metadata={"topic": topic},
+    )
     if before_mastery < 60 <= after_mastery:
-        observe_personalization_event("mastery_recovered", surface=surface, target=target)
+        observe_personalization_event(
+            "mastery_recovered",
+            surface=surface,
+            target=target,
+            db=db,
+            tenant_id=str(current_user.tenant_id),
+            user_id=str(current_user.id),
+            channel="web",
+            metadata={"topic": topic},
+        )
 
     active_plan = get_active_study_path_for_topic(
         db,
@@ -174,9 +193,27 @@ def _record_mastery_outcome_metrics(
     if active_plan is None:
         return
 
-    observe_personalization_event("guided_mastery_improved", surface=surface, target=target)
+    observe_personalization_event(
+        "guided_mastery_improved",
+        surface=surface,
+        target=target,
+        db=db,
+        tenant_id=str(current_user.tenant_id),
+        user_id=str(current_user.id),
+        channel="web",
+        metadata={"topic": topic},
+    )
     if before_mastery < 60 <= after_mastery:
-        observe_personalization_event("guided_mastery_recovered", surface=surface, target=target)
+        observe_personalization_event(
+            "guided_mastery_recovered",
+            surface=surface,
+            target=target,
+            db=db,
+            tenant_id=str(current_user.tenant_id),
+            user_id=str(current_user.id),
+            channel="web",
+            metadata={"topic": topic},
+        )
 
 
 def _extract_json_payload(text: str) -> Any:
@@ -206,6 +243,19 @@ async def student_attendance(
 ):
     """List student's attendance records."""
     return _list_student_attendance_impl(
+        db=db,
+        tenant_id=current_user.tenant_id,
+        student_id=current_user.id,
+    )
+
+
+@router.get("/mastery")
+async def student_mastery_map(
+    current_user: User = Depends(require_role("student")),
+    db: Session = Depends(get_db),
+):
+    """Get the student's mastery map from live profile and topic records."""
+    return _build_student_mastery_map_impl(
         db=db,
         tenant_id=current_user.tenant_id,
         student_id=current_user.id,
@@ -566,6 +616,7 @@ async def complete_review(
                 before_snapshot=before_snapshot,
                 after_snapshot=after_snapshot,
             ),
+            db_session_factory=SessionLocal,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
@@ -679,4 +730,19 @@ async def submit_mock_test(
         )
     except _StudentMockTestSubmissionError as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.detail)
+
+
+# ─── Personal Mastery Map ──────────────────────────────────
+
+@router.get("/mastery-map")
+async def student_mastery_map(
+    current_user: User = Depends(require_role("student")),
+    db: Session = Depends(get_db),
+):
+    """Get the student's full sub-topic mastery map backed by real unified records."""
+    return _build_student_mastery_map_impl(
+        db=db,
+        tenant_id=current_user.tenant_id,
+        student_id=current_user.id,
+    )
 

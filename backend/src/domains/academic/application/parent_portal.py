@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Any
 
 from fastapi import HTTPException
-from sqlalchemy import func
+from sqlalchemy import case, func
 
 
 def get_child_for_parent(
@@ -56,8 +56,9 @@ def get_child_results(
     subject_model,
 ) -> list[dict[str, Any]]:
     marks = (
-        db.query(mark_model, exam_model)
+        db.query(mark_model, exam_model, subject_model.name)
         .join(exam_model, mark_model.exam_id == exam_model.id)
+        .join(subject_model, exam_model.subject_id == subject_model.id)
         .filter(
             mark_model.tenant_id == tenant_id,
             mark_model.student_id == child_id,
@@ -66,16 +67,8 @@ def get_child_results(
     )
 
     subjects_map: dict[str, dict[str, Any]] = {}
-    for mark, exam in marks:
-        subject = (
-            db.query(subject_model)
-            .filter(
-                subject_model.id == exam.subject_id,
-                subject_model.tenant_id == tenant_id,
-            )
-            .first()
-        )
-        subject_name = subject.name if subject else "Unknown"
+    for mark, exam, subject_name in marks:
+        subject_name = subject_name or "Unknown"
         if subject_name not in subjects_map:
             subjects_map[subject_name] = {
                 "name": subject_name,
@@ -114,8 +107,9 @@ def get_latest_mark(
     subject_model,
 ) -> dict[str, Any] | None:
     mark_row = (
-        db.query(mark_model, exam_model)
+        db.query(mark_model, exam_model, subject_model.name)
         .join(exam_model, mark_model.exam_id == exam_model.id)
+        .join(subject_model, exam_model.subject_id == subject_model.id)
         .filter(
             mark_model.tenant_id == tenant_id,
             mark_model.student_id == child_id,
@@ -128,18 +122,10 @@ def get_latest_mark(
     )
     if not mark_row:
         return None
-    mark, exam = mark_row
-    subject = (
-        db.query(subject_model)
-        .filter(
-            subject_model.id == exam.subject_id,
-            subject_model.tenant_id == tenant_id,
-        )
-        .first()
-    )
+    mark, exam, subject_name = mark_row
     percentage = round(mark.marks_obtained / exam.max_marks * 100) if exam.max_marks else 0
     return {
-        "subject": subject.name if subject else "Unknown",
+        "subject": subject_name or "Unknown",
         "exam": exam.name,
         "percentage": percentage,
         "marks": mark.marks_obtained,
@@ -203,23 +189,19 @@ def build_parent_dashboard_response(
     assignment_submission_model,
     timetable_model,
 ) -> dict[str, Any]:
-    total_att = (
-        db.query(attendance_model)
+    attendance_counts = (
+        db.query(
+            func.count(attendance_model.student_id),
+            func.sum(case((attendance_model.status == "present", 1), else_=0)),
+        )
         .filter(
             attendance_model.tenant_id == current_user.tenant_id,
             attendance_model.student_id == child.id,
         )
-        .count()
+        .first()
     )
-    present_att = (
-        db.query(attendance_model)
-        .filter(
-            attendance_model.tenant_id == current_user.tenant_id,
-            attendance_model.student_id == child.id,
-            attendance_model.status == "present",
-        )
-        .count()
-    )
+    total_att = int((attendance_counts[0] if attendance_counts else 0) or 0)
+    present_att = int((attendance_counts[1] if attendance_counts else 0) or 0)
     attendance_pct = round((present_att / total_att * 100) if total_att > 0 else 0)
 
     avg_marks_row = (
@@ -410,23 +392,19 @@ def build_parent_audio_report_response(
         exam_model=exam_model,
         subject_model=subject_model,
     )
-    total_att = (
-        db.query(attendance_model)
+    attendance_counts = (
+        db.query(
+            func.count(attendance_model.student_id),
+            func.sum(case((attendance_model.status == "present", 1), else_=0)),
+        )
         .filter(
             attendance_model.tenant_id == current_user.tenant_id,
             attendance_model.student_id == child.id,
         )
-        .count()
+        .first()
     )
-    present_att = (
-        db.query(attendance_model)
-        .filter(
-            attendance_model.tenant_id == current_user.tenant_id,
-            attendance_model.student_id == child.id,
-            attendance_model.status == "present",
-        )
-        .count()
-    )
+    total_att = int((attendance_counts[0] if attendance_counts else 0) or 0)
+    present_att = int((attendance_counts[1] if attendance_counts else 0) or 0)
     attendance_pct = round((present_att / total_att * 100) if total_att > 0 else 0)
 
     parts = [f"Progress report for {child.full_name}."]

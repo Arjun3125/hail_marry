@@ -84,10 +84,13 @@ except ModuleNotFoundError:  # Lightweight test environments
     Session = object
 
 try:
-    from auth.dependencies import get_current_user
+    from auth.dependencies import get_current_user, require_role
 except ModuleNotFoundError:  # Lightweight test environments
     async def get_current_user():
         raise HTTPException(status_code=503, detail="Authentication dependencies unavailable")
+
+    def require_role(*_roles):
+        return get_current_user
 
 try:
     from database import SessionLocal, get_db
@@ -150,6 +153,7 @@ except ModuleNotFoundError:  # Lightweight test environments
     def generate_report_card_pdf(*_args, **_kwargs):  # pragma: no cover - runtime guard
         raise HTTPException(status_code=503, detail="Report card service unavailable")
 from src.domains.platform.application.whatsapp_analytics import build_whatsapp_usage_snapshot
+from src.domains.platform.services.notification_dispatch import dispatch_notification
 from src.domains.platform.services.whatsapp_gateway import (
     WHATSAPP_VERIFY_TOKEN,
     delete_session,
@@ -171,11 +175,6 @@ from src.shared.ai_tools.whatsapp_tools import serialize_tool_catalog
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/whatsapp", tags=["WhatsApp"])
 WHATSAPP_TEXT_CHUNK_LIMIT = 1500
-
-
-def _require_admin(current_user) -> None:
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Admin access required")
 
 
 def _build_whatsapp_usage_snapshot(current_user, db: Session, days: int) -> dict:
@@ -566,12 +565,43 @@ def _generate_report_card_pdf(db, student_id: str, tenant_id: str, school_name: 
 @router.post("/send")
 async def admin_send_message(
     data: SendMessageRequest,
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_role("admin")),
     db: Session = Depends(get_db),
 ):
     """Admin endpoint to manually send a WhatsApp message."""
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Admin access required")
+    linked_user = db.query(PhoneUserLink).filter(
+        PhoneUserLink.phone == data.phone,
+        PhoneUserLink.tenant_id == current_user.tenant_id,
+        PhoneUserLink.verified,
+    ).first()
+
+    if data.message_type == "text" and linked_user:
+        delivery = await dispatch_notification(
+            tenant_id=str(current_user.tenant_id),
+            recipient_id=str(linked_user.user_id),
+            recipient_role="admin",
+            category="announcement",
+            title="WhatsApp message from administrator",
+            body=data.message,
+            data={"source": "admin_manual_send", "phone": data.phone},
+            triggered_by="admin",
+            triggered_by_user_id=str(current_user.id),
+            related_entity_type="whatsapp_manual_send",
+            preferred_channel="whatsapp",
+        )
+        if any(result.get("channel") == "whatsapp" and result.get("status") in {"delivered", "sent"} for result in delivery):
+            log_message(
+                db,
+                data.phone,
+                "outbound",
+                data.message,
+                message_type="text",
+                user_id=current_user.id,
+                tenant_id=current_user.tenant_id,
+                intent="announcement",
+                tool_called="notification_dispatch",
+            )
+        return {"success": True, "routed_via": "notification_dispatch", "results": delivery}
 
     if data.message_type == "buttons":
         result = await send_buttons(
@@ -614,13 +644,11 @@ async def admin_send_message(
 
 @router.get("/sessions")
 async def list_sessions(
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_role("admin")),
     db: Session = Depends(get_db),
     phone: Optional[str] = None,
 ):
     """List active WhatsApp sessions (admin only)."""
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Admin access required")
     phone_query = db.query(
         WhatsAppMessage.phone,
         sqlfunc.max(WhatsAppMessage.created_at).label("last_activity"),
@@ -650,13 +678,10 @@ async def list_sessions(
 @router.delete("/sessions/{phone}")
 async def force_logout_session(
     phone: str,
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_role("admin")),
     db: Session = Depends(get_db),
 ):
     """Force-logout a WhatsApp session (admin only)."""
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Admin access required")
-
     delete_session(db, phone)
     await send_text_message(phone, "🔒 Your session has been ended by an administrator. Send any message to log in again.")
     return {"message": f"Session for {phone} terminated"}
@@ -666,24 +691,21 @@ async def force_logout_session(
 
 @router.get("/analytics")
 async def whatsapp_analytics(
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_role("admin")),
     db: Session = Depends(get_db),
     days: int = Query(7, ge=1, le=90),
 ):
     """Get WhatsApp usage analytics (admin only)."""
-    _require_admin(current_user)
     return _build_whatsapp_usage_snapshot(current_user, db, days)
 
 
 @router.get("/release-gate-snapshot")
 async def whatsapp_release_gate_snapshot(
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_role("admin")),
     db: Session = Depends(get_db),
     days: int = Query(7, ge=1, le=90),
 ):
     """Return a release-gate-friendly WhatsApp staging evidence snapshot."""
-    _require_admin(current_user)
-
     analytics = _build_whatsapp_usage_snapshot(current_user, db, days)
     tenant_id = getattr(current_user, "tenant_id", None)
     metrics = get_whatsapp_metrics(str(tenant_id) if tenant_id else None)
@@ -713,11 +735,11 @@ async def whatsapp_release_gate_snapshot(
 
 @router.get("/tools/catalog")
 async def whatsapp_tool_catalog(
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_role("admin")),
     role: Optional[str] = Query(None),
 ):
     """Return the WhatsApp tool catalog metadata for planning/debug/admin use."""
-    if current_user.role != "admin":
+    if getattr(current_user, "role", None) != "admin":
         raise HTTPException(status_code=403, detail="Admin access required")
 
     if role is not None and role not in {"student", "teacher", "parent", "admin"}:

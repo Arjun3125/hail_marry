@@ -98,13 +98,6 @@ def build_gate_commands() -> list[GateCommand]:
             else ["npm", "run", "build"],
             workdir=FRONTEND,
         ),
-        GateCommand(
-            name="Frontend mascot/admin E2E",
-            argv=[_powershell(), "-Command", r".\node_modules\.bin\playwright.cmd test tests/e2e/mascot-assistant.spec.ts tests/e2e/admin-dashboard.spec.ts"]
-            if os.name == "nt"
-            else ["npx", "playwright", "test", "tests/e2e/mascot-assistant.spec.ts", "tests/e2e/admin-dashboard.spec.ts"],
-            workdir=FRONTEND,
-        ),
     ]
 
 

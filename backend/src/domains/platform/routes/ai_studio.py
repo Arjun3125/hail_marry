@@ -13,6 +13,10 @@ from database import get_db
 from src.domains.identity.models.user import User
 from src.domains.platform.models.study_session import StudySession
 from src.domains.platform.models.ai import AIQuery
+from src.domains.platform.services import (
+    mastery_tracking_service,
+)
+from src.domains.platform.models.topic_mastery import TopicMastery
 
 router = APIRouter(prefix="/api/ai-studio", tags=["AI Studio"])
 
@@ -69,60 +73,64 @@ async def heartbeat_session(
 
 @router.get("/suggestions")
 async def get_smart_suggestions(
+    notebook_id: uuid.UUID | None = None,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[dict[str, Any]]:
-    # Get last session stats
+    # 1. Get recent context
     session = db.query(StudySession).filter(
         StudySession.tenant_id == current_user.tenant_id,
         StudySession.user_id == current_user.id,
     ).order_by(StudySession.last_active_at.desc()).first()
     
-    # Get last query
     last_query = db.query(AIQuery).filter(
         AIQuery.tenant_id == current_user.tenant_id,
         AIQuery.user_id == current_user.id,
     ).order_by(AIQuery.created_at.desc()).first()
     
-    suggestions: list[dict[str, Any]] = []
+    # 2. Build profile-aware recommendations
+    recommendations = mastery_tracking_service.build_profile_aware_recommendations(
+        db=db,
+        tenant_id=current_user.tenant_id,
+        user_id=current_user.id,
+        notebook_id=notebook_id,
+        current_surface="ai_studio",
+        current_topic=session.topic if session else None,
+        current_query=last_query.query_text if last_query else None,
+        limit=4
+    )
     
-    time_spent = session.duration_seconds // 60 if session else 0
-    q_answered = session.questions_answered if session else 0
-    query_text = last_query.query_text if last_query else None
+    # 3. Augment with confidence and metadata for UI compatibility
+    return [
+        {
+            "id": rec.get("id", str(uuid.uuid4())),
+            "type": rec.get("target_tool", "quiz"),
+            "title": rec.get("label", "Next Step"),
+            "description": rec.get("description", "Continue your study session"),
+            "prompt": rec.get("prompt"),
+            "reason": rec.get("reason"),
+            "priority": rec.get("priority", "medium"),
+            "confidence": 90 if rec.get("priority") == "high" else 75
+        }
+        for rec in recommendations
+    ]
+
+@router.get("/mastery")
+async def get_student_mastery(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[dict[str, Any]]:
+    mastery_records = db.query(TopicMastery).filter(
+        TopicMastery.tenant_id == current_user.tenant_id,
+        TopicMastery.user_id == current_user.id,
+    ).order_by(TopicMastery.mastery_score.asc()).limit(10).all()
     
-    # Suggest knowledge tests
-    if query_text:
-        suggestions.append({
-            "id": "1",
-            "type": "quiz",
-            "title": "Test your understanding",
-            "description": f"Create a quiz about an aspect of '{query_text[:30]}...'",
-            "confidence": 85,
-        })
-        suggestions.append({
-            "id": "2",
-            "type": "flashcards",
-            "title": "Make study cards",
-            "description": "Extract key facts for spaced repetition",
-            "confidence": 75,
-        })
-        
-    if time_spent > 10 and q_answered > 3:
-        suggestions.append({
-            "id": "3",
-            "type": "practice",
-            "title": "Take a break?",
-            "description": f"You've been studying for {time_spent} minutes",
-            "confidence": 60,
-        })
-        
-    if not suggestions:
-        suggestions.append({
-            "id": "welcome",
-            "type": "deep_dive",
-            "title": "Start your session",
-            "description": "Ask a question about your study materials",
-            "confidence": 95,
-        })
-        
-    return suggestions[:3]
+    return [
+        {
+            "topic": record.topic,
+            "score": record.mastery_score,
+            "level": "novice" if record.mastery_score < 40 else "intermediate" if record.mastery_score < 80 else "master",
+            "last_activity": record.updated_at.isoformat()
+        }
+        for record in mastery_records
+    ]

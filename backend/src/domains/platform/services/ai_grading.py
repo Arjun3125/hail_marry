@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 from fastapi import HTTPException
 
@@ -12,6 +13,15 @@ from src.infrastructure.vector_store.ocr_service import (
 )
 
 MAX_EXTRACTED_CHARS = 5000
+
+
+def _coerce_numeric(value: Any) -> float | None:
+    try:
+        if value is None or value == "":
+            return None
+        return float(value)
+    except (TypeError, ValueError):
+        return None
 
 
 async def run_ai_grade(
@@ -95,14 +105,48 @@ async def run_ai_grade(
             except Exception as exc:
                 error = f"AI grading execution error: {str(exc)}"
 
+    expected_max_marks = _coerce_numeric(payload.get("exam_max_marks"))
+    normalized_max_marks = ai_max_score if ai_max_score is not None else expected_max_marks
+    proposed_mark = None
+    if ai_score is not None:
+        working_score = _coerce_numeric(ai_score)
+        working_ai_max = _coerce_numeric(ai_max_score)
+        if working_score is not None:
+            if expected_max_marks is not None and working_ai_max and working_ai_max > 0:
+                working_score = round((working_score / working_ai_max) * expected_max_marks)
+            proposed_mark = max(0, int(round(working_score)))
+            if expected_max_marks is not None:
+                proposed_mark = min(proposed_mark, int(round(expected_max_marks)))
+
+    review_status = "draft_ready" if proposed_mark is not None and not error else "manual_review_required"
+    teacher_review = {
+        "required": True,
+        "finalized": False,
+        "status": review_status,
+        "proposed_mark": proposed_mark,
+        "max_marks": int(round(normalized_max_marks)) if normalized_max_marks is not None else None,
+        "exam_id": payload.get("exam_id"),
+        "exam_name": payload.get("exam_name"),
+        "student_id": payload.get("student_id"),
+        "student_name": payload.get("student_name"),
+        "answer_key_provided": bool(payload.get("answer_key")),
+        "rubric_provided": bool(payload.get("rubric")),
+        "notes": (
+            "AI output is a draft recommendation and must be reviewed by a teacher before marks are finalized."
+        ),
+    }
+
     result = {
-        "status": "ai_graded" if (ai_score is not None and not error) else "review_required",
+        "status": review_status,
         "file_name": file_name,
         "file_path": str(path),
         "extracted_text": extracted_text,
         "ai_score": ai_score,
         "ai_max_score": ai_max_score,
         "ai_feedback": ai_feedback,
+        "review_required": True,
+        "proposed_mark": proposed_mark,
+        "teacher_review": teacher_review,
         "error": error,
         "ocr_processed": ocr_processed,
         "ocr_review_required": ocr_review_required,

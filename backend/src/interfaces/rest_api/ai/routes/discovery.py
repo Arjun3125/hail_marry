@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from src.interfaces.rest_api.ai.discovery_workflows import strip_html
-from auth.dependencies import get_current_user
+from auth.dependencies import require_role
 from database import get_db
 from src.domains.identity.models.user import User
 from src.domains.platform.schemas.ai_runtime import IngestURLRequest, InternalIngestURLRequest
@@ -25,12 +25,9 @@ class DiscoverRequest(BaseModel):
 @router.post("/discover-sources")
 async def discover_sources(
     request: DiscoverRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role("teacher", "admin")),
 ):
     """Search the web for educational resources using DuckDuckGo HTML search."""
-    if current_user.role not in ("teacher", "admin"):
-        raise HTTPException(status_code=403, detail="Only teachers and admins can discover sources")
-
     results = []
     try:
         async with httpx.AsyncClient(timeout=15.0) as client:
@@ -68,13 +65,11 @@ async def discover_sources(
 @router.post("/ingest-url")
 async def ingest_url(
     request: IngestURLRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role("teacher", "admin")),
     db: Session = Depends(get_db),
 ):
     """Queue a URL ingestion job for background embedding and storage."""
     _ = db
-    if current_user.role not in ("teacher", "admin"):
-        raise HTTPException(status_code=403, detail="Only teachers and admins can ingest sources")
     governance = evaluate_governance(
         db,
         tenant_id=current_user.tenant_id,

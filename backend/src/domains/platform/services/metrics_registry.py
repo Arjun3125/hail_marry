@@ -83,10 +83,36 @@ def snapshot_stage_latency_metrics() -> list[dict[str, Any]]:
         ]
 
 
-def observe_personalization_event(metric: str, *, surface: str = "unknown", target: str = "unknown", count: float = 1.0) -> None:
+def observe_personalization_event(
+    metric: str,
+    *,
+    surface: str = "unknown",
+    target: str = "unknown",
+    count: float = 1.0,
+    db=None,
+    tenant_id: str | None = None,
+    user_id: str | None = None,
+    channel: str | None = None,
+    metadata: dict[str, Any] | None = None,
+) -> None:
     key = (metric, surface, target)
     with _lock:
         _personalization_metrics[key] += count
+    if tenant_id or user_id:
+        from src.domains.platform.services.telemetry_events import record_business_event
+
+        record_business_event(
+            metric,
+            db=db,
+            tenant_id=str(tenant_id) if tenant_id is not None else None,
+            user_id=str(user_id) if user_id is not None else None,
+            event_family="personalization",
+            surface=surface,
+            target=target,
+            channel=channel,
+            value=count,
+            metadata=metadata or {},
+        )
 
 
 def snapshot_personalization_metrics() -> list[dict[str, Any]]:
@@ -159,11 +185,18 @@ def _get_global_queue_metrics() -> dict[str, int]:
 
 
 def export_prometheus_text(alerts: list[dict[str, Any]] | None = None) -> str:
+    # Cache snapshots to avoid redundant lock acquisitions and list copies
+    http_snapshot = snapshot_http_metrics()
+    ocr_snapshot = snapshot_ocr_metrics()
+    stage_snapshot = snapshot_stage_latency_metrics()
+    personalization_snapshot = snapshot_personalization_metrics()
+    traceability_snapshot = snapshot_traceability_error_metrics()
+
     lines = [
         "# HELP vidyaos_http_requests_total Total HTTP requests observed by the process",
         "# TYPE vidyaos_http_requests_total counter",
     ]
-    for row in snapshot_http_metrics():
+    for row in http_snapshot:
         lines.append(
             f'vidyaos_http_requests_total{{service="{_sanitize_label(row["service"])}",method="{_sanitize_label(row["method"])}",path="{_sanitize_label(row["path"])}",status_code="{row["status_code"]}"}} {row["count"]}'
         )
@@ -172,7 +205,7 @@ def export_prometheus_text(alerts: list[dict[str, Any]] | None = None) -> str:
         "# HELP vidyaos_http_request_duration_ms_sum Sum of HTTP request durations in milliseconds",
         "# TYPE vidyaos_http_request_duration_ms_sum counter",
     ])
-    for row in snapshot_http_metrics():
+    for row in http_snapshot:
         lines.append(
             f'vidyaos_http_request_duration_ms_sum{{service="{_sanitize_label(row["service"])}",method="{_sanitize_label(row["method"])}",path="{_sanitize_label(row["path"])}",status_code="{row["status_code"]}"}} {row["duration_ms_sum"]}'
         )
@@ -181,7 +214,7 @@ def export_prometheus_text(alerts: list[dict[str, Any]] | None = None) -> str:
         "# HELP vidyaos_ocr_events_total OCR events by outcome and engine",
         "# TYPE vidyaos_ocr_events_total counter",
     ])
-    for row in snapshot_ocr_metrics():
+    for row in ocr_snapshot:
         lines.append(
             f'vidyaos_ocr_events_total{{outcome="{_sanitize_label(row["outcome"])}",engine="{_sanitize_label(row["engine"])}"}} {row["count"]}'
         )
@@ -190,7 +223,7 @@ def export_prometheus_text(alerts: list[dict[str, Any]] | None = None) -> str:
         "# HELP vidyaos_stage_latency_total Total observed stage latency events by stage, operation, and outcome",
         "# TYPE vidyaos_stage_latency_total counter",
     ])
-    for row in snapshot_stage_latency_metrics():
+    for row in stage_snapshot:
         lines.append(
             f'vidyaos_stage_latency_total{{stage="{_sanitize_label(row["stage"])}",operation="{_sanitize_label(row["operation"])}",outcome="{_sanitize_label(row["outcome"])}"}} {row["count"]}'
         )
@@ -199,7 +232,7 @@ def export_prometheus_text(alerts: list[dict[str, Any]] | None = None) -> str:
         "# HELP vidyaos_stage_latency_duration_ms_sum Sum of observed stage latencies in milliseconds",
         "# TYPE vidyaos_stage_latency_duration_ms_sum counter",
     ])
-    for row in snapshot_stage_latency_metrics():
+    for row in stage_snapshot:
         lines.append(
             f'vidyaos_stage_latency_duration_ms_sum{{stage="{_sanitize_label(row["stage"])}",operation="{_sanitize_label(row["operation"])}",outcome="{_sanitize_label(row["outcome"])}"}} {row["duration_ms_sum"]}'
         )
@@ -208,7 +241,7 @@ def export_prometheus_text(alerts: list[dict[str, Any]] | None = None) -> str:
         "# HELP vidyaos_stage_latency_duration_ms_max Maximum observed stage latency in milliseconds",
         "# TYPE vidyaos_stage_latency_duration_ms_max gauge",
     ])
-    for row in snapshot_stage_latency_metrics():
+    for row in stage_snapshot:
         lines.append(
             f'vidyaos_stage_latency_duration_ms_max{{stage="{_sanitize_label(row["stage"])}",operation="{_sanitize_label(row["operation"])}",outcome="{_sanitize_label(row["outcome"])}"}} {row["duration_ms_max"]}'
         )
@@ -217,7 +250,7 @@ def export_prometheus_text(alerts: list[dict[str, Any]] | None = None) -> str:
         "# HELP vidyaos_personalization_events_total Personalization events by metric, surface, and target",
         "# TYPE vidyaos_personalization_events_total counter",
     ])
-    for row in snapshot_personalization_metrics():
+    for row in personalization_snapshot:
         lines.append(
             f'vidyaos_personalization_events_total{{metric="{_sanitize_label(row["metric"])}",surface="{_sanitize_label(row["surface"])}",target="{_sanitize_label(row["target"])}"}} {row["count"]}'
         )
@@ -226,7 +259,7 @@ def export_prometheus_text(alerts: list[dict[str, Any]] | None = None) -> str:
         "# HELP vidyaos_traceability_errors_total Traceability errors by code, subsystem, and severity",
         "# TYPE vidyaos_traceability_errors_total counter",
     ])
-    for row in snapshot_traceability_error_metrics():
+    for row in traceability_snapshot:
         lines.append(
             f'vidyaos_traceability_errors_total{{error_code="{_sanitize_label(row["error_code"])}",subsystem="{_sanitize_label(row["subsystem"])}",severity="{_sanitize_label(row["severity"])}"}} {row["count"]}'
         )

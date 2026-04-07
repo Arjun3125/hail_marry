@@ -1,8 +1,20 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Save, Upload } from "lucide-react";
+import {
+    Award,
+    Calculator,
+    ClipboardCheck,
+    FileSpreadsheet,
+    Save,
+    TrendingUp,
+    Upload,
+    Users,
+} from "lucide-react";
 
+import EmptyState from "@/components/EmptyState";
+import { PrismHeroKicker, PrismPage, PrismPanel, PrismSection } from "@/components/prism/PrismPage";
+import ErrorRemediation from "@/components/ui/ErrorRemediation";
 import { api } from "@/lib/api";
 
 type StudentItem = {
@@ -50,6 +62,32 @@ export default function TeacherMarksPage() {
         () => classes.find((c) => c.id === selectedClassId) || null,
         [classes, selectedClassId],
     );
+
+    const selectedSubject = useMemo(
+        () => (selectedClass?.subjects || []).find((subject) => subject.id === selectedSubjectId) || null,
+        [selectedClass, selectedSubjectId],
+    );
+
+    const marksSummary = useMemo(() => {
+        const max = Number(maxMarks);
+        const parsed = Object.values(marksByStudent)
+            .map((value) => value.trim())
+            .filter((value) => value !== "")
+            .map((value) => Number(value))
+            .filter((value) => Number.isFinite(value));
+
+        const entered = parsed.length;
+        const average = entered > 0 ? parsed.reduce((sum, value) => sum + value, 0) / entered : null;
+        const topScore = entered > 0 ? Math.max(...parsed) : null;
+        const validAveragePct = average !== null && Number.isFinite(max) && max > 0 ? Math.round((average / max) * 100) : null;
+
+        return {
+            entered,
+            average,
+            topScore,
+            averagePct: validAveragePct,
+        };
+    }, [marksByStudent, maxMarks]);
 
     useEffect(() => {
         const loadClasses = async () => {
@@ -213,148 +251,362 @@ export default function TeacherMarksPage() {
     };
 
     return (
-        <div>
-            <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold text-[var(--text-primary)]">Marks Entry</h1>
-                    <p className="text-sm text-[var(--text-secondary)]">Enter exam marks for students</p>
+        <PrismPage className="space-y-6 pb-8">
+            <PrismSection className="space-y-6">
+                <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
+                    <div className="space-y-4">
+                        <PrismHeroKicker>
+                            <ClipboardCheck className="h-3.5 w-3.5" />
+                            Teacher Assessment Workflow
+                        </PrismHeroKicker>
+                        <div className="space-y-3">
+                            <h1 className="prism-title text-4xl font-black leading-[0.98] text-[var(--text-primary)] md:text-5xl">
+                                Marks Entry
+                            </h1>
+                            <p className="max-w-3xl text-base leading-7 text-[var(--text-secondary)] md:text-lg">
+                                Create the exam frame, import OCR-led score sheets when available, and keep grading progress readable while preserving the fast data-entry path.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
+                        <MetricCard
+                            icon={Users}
+                            title="Roster size"
+                            value={`${selectedClass?.students.length || 0}`}
+                            accent="blue"
+                            summary={selectedClass ? `${selectedClass.name} ready for entry` : "Choose a class to begin"}
+                        />
+                        <MetricCard
+                            icon={Calculator}
+                            title="Marks entered"
+                            value={`${marksSummary.entered}`}
+                            accent="emerald"
+                            summary={selectedClass ? "Live draft across the current roster" : "Waiting for roster"}
+                        />
+                        <MetricCard
+                            icon={TrendingUp}
+                            title="Draft average"
+                            value={marksSummary.averagePct !== null ? `${marksSummary.averagePct}%` : "-"}
+                            accent="amber"
+                            summary={marksSummary.average !== null ? `Average ${marksSummary.average.toFixed(1)} / ${maxMarks || "0"}` : "Appears as marks are entered"}
+                        />
+                    </div>
                 </div>
-                <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-[var(--radius-sm)] border border-[var(--primary)]/20 bg-[var(--primary-light)] px-4 py-2 text-sm font-medium text-[var(--primary)] transition-colors hover:bg-[var(--primary)] hover:text-white">
-                    <Upload className="h-4 w-4" />
-                    {importing ? "Importing..." : "Import OCR / CSV"}
-                    <input
-                        type="file"
-                        accept=".csv,.txt,.jpg,.jpeg,.png"
-                        className="hidden"
-                        disabled={importing}
-                        onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            e.currentTarget.value = "";
-                            if (file) {
-                                void handleMarksImport(file);
-                            }
-                        }}
-                    />
-                </label>
+
+                <PrismPanel className="overflow-hidden p-0">
+                    <div className="border-b border-[var(--border)]/80 bg-[rgba(255,255,255,0.02)] px-5 py-4">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">Assessment Bar</p>
+                                <p className="mt-1 text-sm text-[var(--text-secondary)]">
+                                    Set the exam context first, then import or enter student marks before pushing the final submission.
+                                </p>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2">
+                                <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-2xl border border-[var(--primary)]/20 bg-[var(--primary-light)] px-4 py-2.5 text-sm font-medium text-[var(--primary)] transition-colors hover:bg-[var(--primary)] hover:text-white">
+                                    <Upload className="h-4 w-4" />
+                                    {importing ? "Importing..." : "Import OCR / CSV"}
+                                    <input
+                                        type="file"
+                                        accept=".csv,.txt,.jpg,.jpeg,.png"
+                                        className="hidden"
+                                        disabled={importing}
+                                        onChange={(e) => {
+                                            const file = e.target.files?.[0];
+                                            e.currentTarget.value = "";
+                                            if (file) {
+                                                void handleMarksImport(file);
+                                            }
+                                        }}
+                                    />
+                                </label>
+                                <button
+                                    className="inline-flex items-center gap-2 rounded-2xl bg-[linear-gradient(135deg,rgba(96,165,250,0.96),rgba(129,140,248,0.94))] px-4 py-2.5 text-sm font-semibold text-[#06101e] shadow-[0_18px_34px_rgba(96,165,250,0.22)] transition-all hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+                                    onClick={() => void saveMarks()}
+                                    disabled={saving || importing || !selectedClass}
+                                >
+                                    <Save className="h-4 w-4" />
+                                    {saving ? "Saving..." : "Save Marks"}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="grid gap-6 p-5 xl:grid-cols-[1.55fr_0.95fr]">
+                        <div className="space-y-4">
+                            <PrismPanel className="p-5">
+                                <div className="mb-4">
+                                    <p className="text-sm font-semibold text-[var(--text-primary)]">Exam setup</p>
+                                    <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                                        These values drive both OCR imports and manual submissions, so set them before entering marks.
+                                    </p>
+                                </div>
+                                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+                                    <label className="space-y-2 xl:col-span-1">
+                                        <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Class</span>
+                                        <select
+                                            value={selectedClassId}
+                                            onChange={(e) => setSelectedClassId(e.target.value)}
+                                            className="w-full rounded-2xl border border-[var(--border)] bg-[rgba(8,15,30,0.72)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--primary)]/50"
+                                        >
+                                            {classes.map((item) => (
+                                                <option key={item.id} value={item.id}>{item.name}</option>
+                                            ))}
+                                        </select>
+                                    </label>
+                                    <label className="space-y-2 xl:col-span-1">
+                                        <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Subject</span>
+                                        <select
+                                            value={selectedSubjectId}
+                                            onChange={(e) => setSelectedSubjectId(e.target.value)}
+                                            className="w-full rounded-2xl border border-[var(--border)] bg-[rgba(8,15,30,0.72)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--primary)]/50"
+                                        >
+                                            {(selectedClass?.subjects || []).map((subject) => (
+                                                <option key={subject.id} value={subject.id}>{subject.name}</option>
+                                            ))}
+                                        </select>
+                                    </label>
+                                    <label className="space-y-2 xl:col-span-1">
+                                        <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Exam name</span>
+                                        <input
+                                            type="text"
+                                            value={examName}
+                                            onChange={(e) => setExamName(e.target.value)}
+                                            placeholder="Exam name"
+                                            className="w-full rounded-2xl border border-[var(--border)] bg-[rgba(8,15,30,0.72)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--primary)]/50"
+                                        />
+                                    </label>
+                                    <label className="space-y-2 xl:col-span-1">
+                                        <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Exam date</span>
+                                        <input
+                                            type="date"
+                                            value={examDate}
+                                            onChange={(e) => setExamDate(e.target.value)}
+                                            className="w-full rounded-2xl border border-[var(--border)] bg-[rgba(8,15,30,0.72)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--primary)]/50"
+                                        />
+                                    </label>
+                                    <label className="space-y-2 xl:col-span-1">
+                                        <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Max marks</span>
+                                        <input
+                                            type="number"
+                                            value={maxMarks}
+                                            onChange={(e) => setMaxMarks(e.target.value)}
+                                            placeholder="Max"
+                                            className="w-full rounded-2xl border border-[var(--border)] bg-[rgba(8,15,30,0.72)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--primary)]/50"
+                                        />
+                                    </label>
+                                </div>
+                            </PrismPanel>
+
+                            {error ? (
+                                <ErrorRemediation
+                                    error={error}
+                                    scope="teacher-marks"
+                                    onRetry={() => {
+                                        setError(null);
+                                    }}
+                                />
+                            ) : null}
+                            {success ? (
+                                <div className="rounded-[var(--radius)] border border-[var(--success)]/30 bg-success-subtle px-4 py-3 text-sm text-[var(--success)]">
+                                    {success}
+                                </div>
+                            ) : null}
+
+                            <PrismPanel className="overflow-hidden p-0">
+                                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)]/80 bg-[rgba(255,255,255,0.02)] px-5 py-4">
+                                    <div>
+                                        <p className="text-sm font-semibold text-[var(--text-primary)]">Marks register</p>
+                                        <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                                            Enter only the scores you want to submit. Percentages calculate live against the current max marks.
+                                        </p>
+                                    </div>
+                                    <div className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[rgba(148,163,184,0.05)] px-3 py-1.5 text-xs text-[var(--text-secondary)]">
+                                        <FileSpreadsheet className="h-3.5 w-3.5" />
+                                        {selectedSubject ? `${selectedSubject.name} assessment` : "Select a subject"}
+                                    </div>
+                                </div>
+
+                                {loading ? (
+                                    <div className="grid gap-3 p-5">
+                                        {Array.from({ length: 6 }).map((_, index) => (
+                                            <div key={index} className="h-16 animate-pulse rounded-2xl bg-[rgba(148,163,184,0.08)]" />
+                                        ))}
+                                    </div>
+                                ) : !(selectedClass?.students.length) ? (
+                                    <div className="p-5">
+                                        <EmptyState
+                                            icon={Users}
+                                            title="No students in selected class"
+                                            description="Choose another class or add students before entering assessment scores."
+                                        />
+                                    </div>
+                                ) : (
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full min-w-[760px]">
+                                            <thead>
+                                                <tr className="border-b border-[var(--border)] bg-[rgba(148,163,184,0.04)]">
+                                                    <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Roll</th>
+                                                    <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Student</th>
+                                                    <th className="px-5 py-3 text-center text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Score / {maxMarks || "0"}</th>
+                                                    <th className="px-5 py-3 text-center text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Performance</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {selectedClass.students.map((student) => {
+                                                    const markText = marksByStudent[student.id] || "";
+                                                    const mark = Number(markText);
+                                                    const max = Number(maxMarks);
+                                                    const pct = markText !== "" && max > 0 && Number.isFinite(mark) ? Math.round((mark / max) * 100) : null;
+                                                    const pctTone = pct !== null
+                                                        ? pct >= 80
+                                                            ? "text-[var(--success)]"
+                                                            : pct >= 50
+                                                                ? "text-[var(--warning)]"
+                                                                : "text-[var(--error)]"
+                                                        : "text-[var(--text-muted)]";
+
+                                                    return (
+                                                        <tr key={student.id} className="border-b border-[var(--border-light)]/80">
+                                                            <td className="px-5 py-4 text-sm text-[var(--text-secondary)]">{student.roll_number || "-"}</td>
+                                                            <td className="px-5 py-4">
+                                                                <div>
+                                                                    <p className="text-sm font-semibold text-[var(--text-primary)]">{student.name}</p>
+                                                                    <p className="mt-1 text-xs text-[var(--text-muted)]">Ready for scored submission</p>
+                                                                </div>
+                                                            </td>
+                                                            <td className="px-5 py-4 text-center">
+                                                                <input
+                                                                    type="number"
+                                                                    value={markText}
+                                                                    onChange={(e) => updateMarks(student.id, e.target.value)}
+                                                                    min="0"
+                                                                    max={maxMarks || "0"}
+                                                                    placeholder="-"
+                                                                    className="w-28 rounded-2xl border border-[var(--border)] bg-[rgba(8,15,30,0.72)] px-3 py-2 text-center text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--primary)]/50"
+                                                                />
+                                                            </td>
+                                                            <td className="px-5 py-4 text-center">
+                                                                {pct !== null ? (
+                                                                    <div className="space-y-1">
+                                                                        <span className={`text-sm font-semibold ${pctTone}`}>{pct}%</span>
+                                                                        <p className="text-[11px] text-[var(--text-muted)]">
+                                                                            {pct >= 80 ? "Strong" : pct >= 50 ? "Watch" : "Needs intervention"}
+                                                                        </p>
+                                                                    </div>
+                                                                ) : (
+                                                                    <span className="text-sm text-[var(--text-muted)]">-</span>
+                                                                )}
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
+                            </PrismPanel>
+                        </div>
+
+                        <div className="space-y-4">
+                            <PrismPanel className="p-5">
+                                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">Assessment snapshot</p>
+                                <div className="mt-4 space-y-4">
+                                    <SummaryRow label="Current class" value={selectedClass?.name || "None selected"} />
+                                    <SummaryRow label="Subject" value={selectedSubject?.name || "None selected"} />
+                                    <SummaryRow label="Exam draft" value={examName.trim() || "Untitled assessment"} />
+                                    <SummaryRow label="Top entered score" value={marksSummary.topScore !== null ? `${marksSummary.topScore}` : "-"} />
+                                </div>
+                            </PrismPanel>
+
+                            <PrismPanel className="p-5">
+                                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">Workflow notes</p>
+                                <div className="mt-4 space-y-3 text-sm leading-6 text-[var(--text-secondary)]">
+                                    <p>Create the exam payload once, then use the same context for either OCR import or manual score entry.</p>
+                                    <p>This redesign only upgrades composition and hierarchy. The API contract and exam creation flow remain unchanged.</p>
+                                </div>
+                            </PrismPanel>
+
+                            <PrismPanel className="p-5">
+                                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">Performance guide</p>
+                                <div className="mt-4 space-y-3">
+                                    <GuideRow tone="success" label="80% and above" description="Strong understanding. Suitable for enrichment or advanced follow-up." />
+                                    <GuideRow tone="warning" label="50% to 79%" description="Moderate mastery. Review gaps before the next assessment." />
+                                    <GuideRow tone="error" label="Below 50%" description="Immediate intervention candidate for revision or remedial support." />
+                                </div>
+                            </PrismPanel>
+                        </div>
+                    </div>
+                </PrismPanel>
+            </PrismSection>
+        </PrismPage>
+    );
+}
+
+function MetricCard({
+    icon: Icon,
+    title,
+    value,
+    summary,
+    accent,
+}: {
+    icon: typeof Users;
+    title: string;
+    value: string;
+    summary: string;
+    accent: "blue" | "emerald" | "amber";
+}) {
+    const accentClasses = {
+        blue: "bg-[linear-gradient(135deg,rgba(96,165,250,0.22),rgba(59,130,246,0.08))] text-status-blue",
+        emerald: "bg-[linear-gradient(135deg,rgba(45,212,191,0.2),rgba(16,185,129,0.08))] text-status-emerald",
+        amber: "bg-[linear-gradient(135deg,rgba(251,191,36,0.2),rgba(245,158,11,0.08))] text-status-amber",
+    } as const;
+
+    return (
+        <PrismPanel className="p-4">
+            <div className={`mb-3 flex h-11 w-11 items-center justify-center rounded-2xl ${accentClasses[accent]}`}>
+                <Icon className="h-5 w-5" />
             </div>
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">{title}</p>
+            <p className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">{value}</p>
+            <p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">{summary}</p>
+        </PrismPanel>
+    );
+}
 
-            {error ? (
-                <div className="mb-4 rounded-[var(--radius)] border border-[var(--error)]/30 bg-error-subtle px-4 py-3 text-sm text-[var(--error)]">
-                    {error}
-                </div>
-            ) : null}
-            {success ? (
-                <div className="mb-4 rounded-[var(--radius)] border border-[var(--success)]/30 bg-success-subtle px-4 py-3 text-sm text-[var(--success)]">
-                    {success}
-                </div>
-            ) : null}
+function SummaryRow({ label, value }: { label: string; value: string }) {
+    return (
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-[var(--border)] bg-[rgba(148,163,184,0.05)] px-4 py-3">
+            <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">{label}</span>
+            <span className="text-sm font-medium text-[var(--text-primary)]">{value}</span>
+        </div>
+    );
+}
 
-            <div className="mb-6 grid gap-4 md:grid-cols-5">
-                <select
-                    value={selectedClassId}
-                    onChange={(e) => setSelectedClassId(e.target.value)}
-                    className="rounded-[var(--radius-sm)] border border-[var(--border)] px-4 py-2.5 text-sm"
-                >
-                    {classes.map((item) => (
-                        <option key={item.id} value={item.id}>{item.name}</option>
-                    ))}
-                </select>
-                <select
-                    value={selectedSubjectId}
-                    onChange={(e) => setSelectedSubjectId(e.target.value)}
-                    className="rounded-[var(--radius-sm)] border border-[var(--border)] px-4 py-2.5 text-sm"
-                >
-                    {(selectedClass?.subjects || []).map((subject) => (
-                        <option key={subject.id} value={subject.id}>{subject.name}</option>
-                    ))}
-                </select>
-                <input
-                    type="text"
-                    value={examName}
-                    onChange={(e) => setExamName(e.target.value)}
-                    placeholder="Exam name"
-                    className="rounded-[var(--radius-sm)] border border-[var(--border)] px-4 py-2.5 text-sm"
-                />
-                <input
-                    type="date"
-                    value={examDate}
-                    onChange={(e) => setExamDate(e.target.value)}
-                    className="rounded-[var(--radius-sm)] border border-[var(--border)] px-4 py-2.5 text-sm"
-                />
-                <input
-                    type="number"
-                    value={maxMarks}
-                    onChange={(e) => setMaxMarks(e.target.value)}
-                    placeholder="Max"
-                    className="rounded-[var(--radius-sm)] border border-[var(--border)] px-3 py-2.5 text-sm"
-                />
+function GuideRow({
+    tone,
+    label,
+    description,
+}: {
+    tone: "success" | "warning" | "error";
+    label: string;
+    description: string;
+}) {
+    const toneClasses = {
+        success: "bg-success-subtle text-[var(--success)]",
+        warning: "bg-warning-subtle text-[var(--warning)]",
+        error: "bg-error-subtle text-[var(--error)]",
+    } as const;
+
+    return (
+        <div className="flex items-start gap-3">
+            <div className={`mt-0.5 flex h-9 w-9 items-center justify-center rounded-xl ${toneClasses[tone]}`}>
+                <Award className="h-4 w-4" />
             </div>
-
-            <div className="bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="w-full min-w-[600px]">
-                        <thead>
-                            <tr className="border-b border-[var(--border)] bg-[var(--bg-page)]">
-                                <th className="px-5 py-3 text-left text-xs font-medium uppercase text-[var(--text-muted)]">Roll</th>
-                                <th className="px-5 py-3 text-left text-xs font-medium uppercase text-[var(--text-muted)]">Name</th>
-                                <th className="px-5 py-3 text-center text-xs font-medium uppercase text-[var(--text-muted)]">Marks (/{maxMarks || "0"})</th>
-                                <th className="px-5 py-3 text-center text-xs font-medium uppercase text-[var(--text-muted)]">%</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {loading ? (
-                                <tr>
-                                    <td colSpan={4} className="px-5 py-4 text-sm text-[var(--text-muted)]">Loading students...</td>
-                                </tr>
-                            ) : !(selectedClass?.students.length) ? (
-                                <tr>
-                                    <td colSpan={4} className="px-5 py-4 text-sm text-[var(--text-muted)]">No students in selected class.</td>
-                                </tr>
-                            ) : selectedClass.students.map((student) => {
-                                const markText = marksByStudent[student.id] || "";
-                                const mark = Number(markText);
-                                const max = Number(maxMarks);
-                                const pct = markText !== "" && max > 0 && Number.isFinite(mark) ? Math.round((mark / max) * 100) : null;
-                                return (
-                                    <tr key={student.id} className="border-b border-[var(--border-light)]">
-                                        <td className="px-5 py-3 text-sm text-[var(--text-secondary)]">{student.roll_number || "-"}</td>
-                                        <td className="px-5 py-3 text-sm font-medium text-[var(--text-primary)]">{student.name}</td>
-                                        <td className="px-5 py-3 text-center">
-                                            <input
-                                                type="number"
-                                                value={markText}
-                                                onChange={(e) => updateMarks(student.id, e.target.value)}
-                                                min="0"
-                                                max={maxMarks || "0"}
-                                                placeholder="-"
-                                                className="w-24 rounded-[var(--radius-sm)] border border-[var(--border)] px-3 py-1.5 text-center text-sm"
-                                            />
-                                        </td>
-                                        <td className="px-5 py-3 text-center">
-                                            {pct !== null ? (
-                                                <span className={`text-sm font-medium ${pct >= 80 ? "text-[var(--success)]" : pct >= 50 ? "text-[var(--warning)]" : "text-[var(--error)]"}`}>
-                                                    {pct}%
-                                                </span>
-                                            ) : (
-                                                <span className="text-sm text-[var(--text-muted)]">-</span>
-                                            )}
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <div className="mt-4 flex justify-end">
-                <button
-                    className="flex items-center gap-2 rounded-[var(--radius-sm)] bg-[var(--primary)] px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[var(--primary-hover)] disabled:opacity-60"
-                    onClick={() => void saveMarks()}
-                    disabled={saving || importing || !selectedClass}
-                >
-                    <Save className="w-4 h-4" /> {saving ? "Saving..." : "Save Marks"}
-                </button>
+            <div>
+                <p className="text-sm font-semibold text-[var(--text-primary)]">{label}</p>
+                <p className="text-xs leading-5 text-[var(--text-muted)]">{description}</p>
             </div>
         </div>
     );

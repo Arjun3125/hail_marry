@@ -19,6 +19,7 @@ import { RoleStartPanel } from "@/components/RoleStartPanel";
 import { GamificationHero } from "@/components/student/GamificationHero";
 import { AIActionCenter } from "@/components/student/AIActionCenter";
 import { AcademicSnapshot } from "@/components/student/AcademicSnapshot";
+import { PrismHeroKicker, PrismPage, PrismPanel } from "@/components/prism/PrismPage";
 
 type DashboardStats = {
     attendance_pct: number;
@@ -180,14 +181,22 @@ export default function StudentOverview() {
     );
 
     return (
-        <div>
+        <PrismPage className="space-y-6">
             {/* Header */}
-            <div className="mb-6">
-                <h1 className="text-2xl font-bold text-[var(--text-primary)]">
-                    Dashboard
-                </h1>
-                <p className="text-sm text-[var(--text-secondary)]">Your live academic snapshot from attendance, marks, and AI usage.</p>
-            </div>
+            <PrismPanel className="mb-6 p-6">
+                <PrismHeroKicker>Student command view</PrismHeroKicker>
+                <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                    <div>
+                        <h1 className="prism-title text-4xl font-black text-[var(--text-primary)]">Dashboard</h1>
+                        <p className="mt-2 max-w-2xl text-sm leading-7 text-[var(--text-secondary)]">
+                            Your live academic snapshot from attendance, marks, assignments, and AI usage in one immersive study surface.
+                        </p>
+                    </div>
+                    <div className="rounded-[var(--radius-sm)] border border-[var(--border)] bg-[rgba(148,163,184,0.05)] px-4 py-3 text-sm text-[var(--text-secondary)]">
+                        Focus today: {studyPath?.focus_topic || "Keep momentum across assignments and weak topics."}
+                    </div>
+                </div>
+            </PrismPanel>
 
             <RoleStartPanel role="student" />
 
@@ -349,6 +358,6 @@ export default function StudentOverview() {
                     chartsReady={chartsReady}
                 />
             </div>
-        </div>
+        </PrismPage>
     );
 }

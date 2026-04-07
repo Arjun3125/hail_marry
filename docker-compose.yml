@@ -127,6 +127,35 @@ services:
       api:
         condition: service_healthy
 
+  whatsapp-gateway:
+    build:
+      context: ./services/whatsapp-gateway
+      dockerfile: Dockerfile
+    container_name: vidyaos-wa-gateway
+    restart: unless-stopped
+    profiles: ["whatsapp"]
+    ports:
+      - "3100:3100"
+    environment:
+      WA_GATEWAY_PORT: "3100"
+      REDIS_URL: redis://redis:6379/0
+      PYTHON_BACKEND_URL: http://api:8000
+      WHATSAPP_VERIFY_TOKEN: ${WHATSAPP_VERIFY_TOKEN:-vidyaos-wa-verify}
+      WHATSAPP_APP_SECRET: ${WHATSAPP_APP_SECRET:-}
+      WA_WORKER_CONCURRENCY: "10"
+      WA_GATEWAY_RATE_LIMIT: "500"
+      NODE_ENV: production
+    depends_on:
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3100/health/"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
   nginx:
     image: nginx:alpine
     container_name: vidyaos-nginx

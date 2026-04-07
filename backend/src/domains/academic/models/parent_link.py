@@ -14,5 +14,5 @@ class ParentLink(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     __table_args__ = (
-        UniqueConstraint("parent_id", "child_id", name="uq_parent_child"),
+        UniqueConstraint("tenant_id", "parent_id", "child_id", name="uq_parent_child_per_tenant"),
     )

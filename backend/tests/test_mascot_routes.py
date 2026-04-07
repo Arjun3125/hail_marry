@@ -1,7 +1,7 @@
 import json
 import uuid
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 
 def _create_user_and_login(client, db_session, tenant_id, *, email: str, role: str = "student"):
@@ -931,6 +931,142 @@ def test_mascot_teacher_can_generate_assessment(client, db_session, active_tenan
     assert payload["artifacts"][0]["tool"] == "teacher_assessment_generate"
     assert payload["artifacts"][0]["subject"] == "Biology"
     run_text_query.assert_awaited_once()
+
+
+def test_mascot_teacher_attendance_mark_requires_confirmation_and_applies_rows(client, db_session, active_tenant):
+    from datetime import time
+
+    from src.domains.academic.models.attendance import Attendance
+    from src.domains.academic.models.core import Class, Enrollment, Subject
+    from src.domains.academic.models.timetable import Timetable
+    from src.domains.identity.models.user import User
+
+    teacher, token = _create_user_and_login(
+        client,
+        db_session,
+        active_tenant.id,
+        email="mascot-teacher-attendance@testschool.edu",
+        role="teacher",
+    )
+
+    school_class = Class(id=uuid.uuid4(), tenant_id=active_tenant.id, name="Class 9 A", grade_level="9")
+    subject = Subject(id=uuid.uuid4(), tenant_id=active_tenant.id, name="Biology", class_id=school_class.id)
+    timetable = Timetable(
+        id=uuid.uuid4(),
+        tenant_id=active_tenant.id,
+        class_id=school_class.id,
+        subject_id=subject.id,
+        teacher_id=teacher.id,
+        day_of_week=1,
+        start_time=time(9, 0),
+        end_time=time(10, 0),
+    )
+    rohan = User(id=uuid.uuid4(), tenant_id=active_tenant.id, email="rohan@testschool.edu", full_name="Rohan Sharma", role="student")
+    priya = User(id=uuid.uuid4(), tenant_id=active_tenant.id, email="priya@testschool.edu", full_name="Priya Singh", role="student")
+    db_session.add_all([
+        school_class,
+        subject,
+        timetable,
+        rohan,
+        priya,
+        Enrollment(id=uuid.uuid4(), tenant_id=active_tenant.id, student_id=rohan.id, class_id=school_class.id),
+        Enrollment(id=uuid.uuid4(), tenant_id=active_tenant.id, student_id=priya.id, class_id=school_class.id),
+    ])
+    db_session.commit()
+
+    first = client.post(
+        "/api/mascot/message",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"message": "Mark attendance for Class 9 A absent Rohan", "channel": "web"},
+    )
+    assert first.status_code == 200, first.text
+    first_payload = first.json()
+    assert first_payload["intent"] == "teacher_attendance_mark"
+    assert first_payload["requires_confirmation"] is True
+
+    second = client.post(
+        "/api/mascot/confirm",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"confirmation_id": first_payload["confirmation_id"], "approved": True, "channel": "web"},
+    )
+    assert second.status_code == 200, second.text
+    second_payload = second.json()
+    assert "Marked attendance for Class 9 A" in second_payload["reply_text"]
+
+    rows = db_session.query(Attendance).filter(Attendance.class_id == school_class.id).all()
+    status_by_student = {row.student_id: row.status for row in rows}
+    assert status_by_student[rohan.id] == "absent"
+    assert status_by_student[priya.id] == "present"
+
+
+def test_mascot_teacher_homework_create_requires_confirmation_and_enqueues_notifications(client, db_session, active_tenant, monkeypatch):
+    from datetime import time
+
+    from src.domains.academic.models.assignment import Assignment
+    from src.domains.academic.models.core import Class, Enrollment, Subject
+    from src.domains.academic.models.parent_link import ParentLink
+    from src.domains.academic.models.timetable import Timetable
+    from src.domains.identity.models.user import User
+
+    teacher, token = _create_user_and_login(
+        client,
+        db_session,
+        active_tenant.id,
+        email="mascot-teacher-homework@testschool.edu",
+        role="teacher",
+    )
+
+    school_class = Class(id=uuid.uuid4(), tenant_id=active_tenant.id, name="Class 9 A", grade_level="9")
+    subject = Subject(id=uuid.uuid4(), tenant_id=active_tenant.id, name="Biology", class_id=school_class.id)
+    timetable = Timetable(
+        id=uuid.uuid4(),
+        tenant_id=active_tenant.id,
+        class_id=school_class.id,
+        subject_id=subject.id,
+        teacher_id=teacher.id,
+        day_of_week=1,
+        start_time=time(9, 0),
+        end_time=time(10, 0),
+    )
+    student = User(id=uuid.uuid4(), tenant_id=active_tenant.id, email="student-homework@testschool.edu", full_name="Student One", role="student")
+    parent = User(id=uuid.uuid4(), tenant_id=active_tenant.id, email="parent-homework@testschool.edu", full_name="Parent One", role="parent")
+    db_session.add_all([
+        school_class,
+        subject,
+        timetable,
+        student,
+        parent,
+        Enrollment(id=uuid.uuid4(), tenant_id=active_tenant.id, student_id=student.id, class_id=school_class.id),
+        ParentLink(id=uuid.uuid4(), tenant_id=active_tenant.id, parent_id=parent.id, child_id=student.id, relationship_type="parent"),
+    ])
+    db_session.commit()
+
+    submit_mock = MagicMock(return_value=SimpleNamespace(result=lambda timeout=None: None))
+    monkeypatch.setattr("src.domains.platform.services.mascot_orchestrator.submit_async_job", submit_mock)
+
+    first = client.post(
+        "/api/mascot/message",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"message": "Assign homework for Biology in Class 9 A due 2026-04-10: Solve exercise 3", "channel": "web"},
+    )
+    assert first.status_code == 200, first.text
+    first_payload = first.json()
+    assert first_payload["intent"] == "teacher_homework_create"
+    assert first_payload["requires_confirmation"] is True
+
+    second = client.post(
+        "/api/mascot/confirm",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"confirmation_id": first_payload["confirmation_id"], "approved": True, "channel": "web"},
+    )
+    assert second.status_code == 200, second.text
+    second_payload = second.json()
+    assert "Created homework" in second_payload["reply_text"]
+
+    assignment = db_session.query(Assignment).filter(Assignment.subject_id == subject.id).one()
+    assert assignment.title == "Biology homework"
+    assert assignment.description.startswith("Solve exercise 3")
+    submit_mock.assert_called_once()
 
 
 def test_mascot_admin_teacher_import_requires_confirmation_and_creates_teachers(client, db_session, active_tenant):

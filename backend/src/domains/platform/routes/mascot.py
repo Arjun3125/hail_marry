@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Upload
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
-from auth.dependencies import get_current_user
+from auth.dependencies import get_current_user, require_role
 from database import SessionLocal, get_async_session, get_db
 from src.domains.identity.models.user import User
 from src.domains.platform.application.mascot_release_gate import (
@@ -36,11 +36,6 @@ from src.domains.platform.services.mascot_schemas import MascotConfirmRequest, M
 
 router = APIRouter(prefix="/api/mascot", tags=["mascot"])
 _build_whatsapp_usage_snapshot = build_whatsapp_usage_snapshot
-
-
-def _require_admin(current_user: User) -> None:
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Admin access required")
 
 
 def _build_mascot_metric_snapshot() -> dict[str, int]:
@@ -203,21 +198,19 @@ async def mascot_session_clear(
 
 @router.get("/release-gate-snapshot")
 async def mascot_release_gate_snapshot(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role("admin")),
     session: AsyncSession = Depends(get_async_session),
     days: int = Query(7, ge=1, le=90),
 ):
-    _require_admin(current_user)
     return await _build_release_gate_snapshot(current_user=current_user, session=session, days=days)
 
 
 @router.get("/release-gate-evidence")
 async def mascot_release_gate_evidence(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role("admin")),
     session: AsyncSession = Depends(get_async_session),
     days: int = Query(7, ge=1, le=90),
 ):
-    _require_admin(current_user)
     snapshot = await _build_release_gate_snapshot(current_user=current_user, session=session, days=days)
     generated_at = snapshot["generated_at"]
     safe_stamp = generated_at.replace(":", "-")
@@ -231,11 +224,10 @@ async def mascot_release_gate_evidence(
 
 @router.get("/staging-packet")
 async def mascot_staging_packet(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role("admin")),
     session: AsyncSession = Depends(get_async_session),
     days: int = Query(7, ge=1, le=90),
 ):
-    _require_admin(current_user)
     mascot_snapshot = await _build_release_gate_snapshot(current_user=current_user, session=session, days=days)
 
     sync_db = SessionLocal()

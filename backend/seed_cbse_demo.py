@@ -32,17 +32,21 @@ from src.domains.academic.models.timetable import Timetable
 from src.domains.academic.models.lecture import Lecture
 from src.domains.academic.models.assignment import Assignment, AssignmentSubmission
 from src.domains.academic.models.performance import SubjectPerformance
+from src.domains.academic.services.student_profile_sync import sync_student_profile_context
 from src.domains.academic.models.test_series import TestSeries, MockTestAttempt
 from src.domains.academic.models.parent_link import ParentLink
 from src.domains.platform.models.notebook import Notebook
 from src.domains.platform.models.document import Document
 from src.domains.platform.models.ai import AIFolder, AIQuery
+from src.domains.platform.models.audit import AuditLog
 from src.domains.platform.models.generated_content import GeneratedContent
 from src.domains.platform.models.topic_mastery import TopicMastery
 from src.domains.platform.models.learner_profile import LearnerProfile
 from src.domains.platform.models.study_path_plan import StudyPathPlan
 from src.domains.platform.models.spaced_repetition import ReviewSchedule
 from src.domains.platform.models.knowledge_graph import KGConcept, KGRelationship
+from src.domains.platform.models.notification import Notification, NotificationPreference
+from src.domains.platform.models.study_session import StudySession
 from src.domains.platform.models.usage_counter import UsageCounter
 
 # ── Config ────────────────────────────────────────────────────
@@ -157,6 +161,95 @@ def get_nvidia_embeddings(texts: list[str]) -> list[list[float]]:
     return [item.embedding for item in response.data]
 
 
+PERSONA_AI_HISTORY = {
+    "teacher": [
+        {"mode": "qa", "q": "Create a remediation plan for projectile motion weak learners", "r": "Use a three-step sequence: recap vectors, guided derivations, then mixed numericals. Close with a 15-minute exit quiz.", "subj": "Physics", "cites": 1},
+        {"mode": "study_guide", "q": "Summarize common student errors in thermodynamics", "r": "Students are mixing state functions with path functions and losing sign conventions for work and enthalpy. Re-teach through solved comparisons.", "subj": "Chemistry", "cites": 1},
+        {"mode": "quiz", "q": "Generate a quick formative quiz for derivatives", "r": "Five short questions covering power rule, chain rule, and slope interpretation with one application problem.", "subj": "Mathematics", "cites": 1},
+        {"mode": "qa", "q": "Draft feedback comments for Python functions lab", "r": "Praise decomposition and naming first, then point to parameter use, return values, and missed edge cases.", "subj": "Computer Science", "cites": 0},
+    ],
+    "parent": [
+        {"mode": "qa", "q": "How should I help with low chemistry confidence at home?", "r": "Keep the support routine light: 20-minute revision blocks, formula recall, then one concept question. Avoid turning the conversation into a marks lecture.", "subj": "Chemistry", "cites": 0},
+        {"mode": "qa", "q": "Explain this month's attendance trend in simple words", "r": "Attendance improved after the second week. One absence and two late arrivals are the main reasons the rate is not above 95 percent yet.", "subj": "English", "cites": 0},
+        {"mode": "study_guide", "q": "Build a weekend revision plan before exams", "r": "Saturday: Physics and Mathematics practice. Sunday: light English reading, Chemistry flashcards, and one Computer Science recap block.", "subj": "Mathematics", "cites": 0},
+    ],
+    "admin": [
+        {"mode": "qa", "q": "Summarize AI usage spikes across the last week", "r": "Usage spikes came from student quiz generation before tests and teacher grading workflows. Peak load was concentrated between 6 PM and 9 PM IST.", "subj": "Computer Science", "cites": 0},
+        {"mode": "qa", "q": "Draft a principal briefing on attendance and fee risk", "r": "Highlight the student risk radar first, then connect attendance recovery actions with pending fee follow-ups. Keep the note actionable and short.", "subj": "English", "cites": 0},
+        {"mode": "study_guide", "q": "Prepare an onboarding checklist for the next batch", "r": "Include user activation, class allocation, timetable verification, parent linking, branding check, and WhatsApp communication readiness.", "subj": "Computer Science", "cites": 0},
+    ],
+}
+
+PERSONA_NOTIFICATION_TEMPLATES = {
+    "student": [
+        {"category": "assignment", "title": "Assignment feedback posted", "body": "Differentiation assignment feedback is ready in your workspace.", "channel": "in_app", "triggered_by": "teacher"},
+        {"category": "review", "title": "Review session due", "body": "Three revision cards are due for Chemistry and Physics today.", "channel": "push", "triggered_by": "system"},
+        {"category": "test_reminder", "title": "Mock test this weekend", "body": "JEE Foundation mock test opens on Saturday morning.", "channel": "in_app", "triggered_by": "teacher"},
+    ],
+    "teacher": [
+        {"category": "attendance", "title": "Attendance summary ready", "body": "Class 11 Science attendance sync finished for today's register.", "channel": "in_app", "triggered_by": "system"},
+        {"category": "ai_review", "title": "AI grading draft available", "body": "A subjective answer sheet now has proposed marks for review.", "channel": "in_app", "triggered_by": "automation"},
+        {"category": "announcement", "title": "Lesson resources indexed", "body": "Uploaded lecture notes are searchable in Discover.", "channel": "email", "triggered_by": "system"},
+    ],
+    "parent": [
+        {"category": "attendance", "title": "Attendance update", "body": "Your child was present for all scheduled classes this week.", "channel": "whatsapp", "triggered_by": "system"},
+        {"category": "report", "title": "Monthly progress report", "body": "A new summary report is available with subject-wise highlights.", "channel": "email", "triggered_by": "system"},
+        {"category": "homework", "title": "Homework reminder", "body": "Two assignments remain pending for the coming week.", "channel": "whatsapp", "triggered_by": "teacher"},
+    ],
+    "admin": [
+        {"category": "security", "title": "Security digest", "body": "Daily security posture summary has been generated.", "channel": "in_app", "triggered_by": "system"},
+        {"category": "queue", "title": "Queue pressure recovered", "body": "AI queue depth returned to the normal operating band.", "channel": "in_app", "triggered_by": "system"},
+        {"category": "branding", "title": "Branding review due", "body": "Review tenant brand assets before the new admission cycle.", "channel": "email", "triggered_by": "system"},
+    ],
+}
+
+PERSONA_AUDIT_TEMPLATES = {
+    "student": [
+        {"action": "mascot.message", "entity_type": "assistant_session", "metadata": {"surface": "student.assistant", "channel": "web"}},
+        {"action": "ai_history.pin", "entity_type": "ai_query", "metadata": {"surface": "student.ai_history"}},
+        {"action": "study_path.viewed", "entity_type": "study_path", "metadata": {"surface": "student.tools"}},
+    ],
+    "teacher": [
+        {"action": "teacher.assignment.created", "entity_type": "assignment", "metadata": {"surface": "teacher.assignments"}},
+        {"action": "teacher.attendance.marked", "entity_type": "attendance", "metadata": {"surface": "teacher.attendance"}},
+        {"action": "teacher.discovery.ingested", "entity_type": "document", "metadata": {"surface": "teacher.discover"}},
+    ],
+    "parent": [
+        {"action": "parent.report.viewed", "entity_type": "report", "metadata": {"surface": "parent.reports"}},
+        {"action": "mascot.message", "entity_type": "assistant_session", "metadata": {"surface": "parent.assistant", "channel": "web"}},
+        {"action": "parent.attendance.viewed", "entity_type": "attendance", "metadata": {"surface": "parent.attendance"}},
+    ],
+    "admin": [
+        {"action": "branding.updated", "entity_type": "branding", "metadata": {"surface": "admin.branding"}},
+        {"action": "feature_flag.toggled", "entity_type": "feature_flag", "metadata": {"surface": "admin.security"}},
+        {"action": "webhook.updated", "entity_type": "webhook", "metadata": {"surface": "admin.webhooks"}},
+        {"action": "ai_review.completed", "entity_type": "ai_review", "metadata": {"surface": "admin.ai-review"}},
+    ],
+}
+
+
+def _history_start(now: datetime, *, days: int = 180) -> date:
+    return (now - timedelta(days=days - 1)).date()
+
+
+def _school_days_between(start: date, end: date) -> list[date]:
+    days: list[date] = []
+    cursor = start
+    while cursor <= end:
+        if cursor.weekday() < 6:
+            days.append(cursor)
+        cursor += timedelta(days=1)
+    return days
+
+
+def _history_timestamp(target_day: date, *, hour: int = 9, minute: int = 0) -> datetime:
+    return datetime.combine(target_day, time(hour, minute), tzinfo=UTC)
+
+
+def _month_start(value: date) -> date:
+    return value.replace(day=1)
+
+
 def cleanup_existing(db):
     """Remove existing Modern Hustlers Academy tenant and all associated data."""
     tenant = db.query(Tenant).filter(Tenant.name == TENANT_NAME).first()
@@ -167,7 +260,8 @@ def cleanup_existing(db):
     logger.info(f"Cleaning up existing tenant {tid}...")
     # Delete in dependency order (children first)
     for model_cls in [
-        MockTestAttempt, TestSeries, UsageCounter, KGRelationship, KGConcept,
+        MockTestAttempt, TestSeries, UsageCounter, AuditLog, NotificationPreference,
+        Notification, StudySession, KGRelationship, KGConcept,
         ReviewSchedule, StudyPathPlan, LearnerProfile, TopicMastery,
         GeneratedContent, AIQuery, AIFolder, AssignmentSubmission, Assignment,
         Mark, Exam, Attendance, Lecture, Timetable, SubjectPerformance,
@@ -202,6 +296,8 @@ def seed(skip_embeddings: bool = False):
     Base.metadata.create_all(bind=engine)
     db = SessionLocal()
     now = datetime.now(UTC)
+    history_start = _history_start(now)
+    history_days = _school_days_between(history_start, now.date())
 
     try:
         # ── 0. Cleanup ───────────────────────────────────────────
@@ -221,22 +317,30 @@ def seed(skip_embeddings: bool = False):
         student_id = uuid.uuid4()
         db.add(User(id=student_id, tenant_id=tenant_id,
                      email=DEMO_STUDENT_EMAIL,
-                     full_name="Naren (Demo)", role="student"))
+                     full_name="Naren (Demo)", role="student",
+                     preferred_locale="en", phone_number="+919800000101",
+                     whatsapp_linked=True, last_login=now - timedelta(hours=3)))
 
         teacher_id = uuid.uuid4()
         db.add(User(id=teacher_id, tenant_id=tenant_id,
                      email=DEMO_TEACHER_EMAIL,
-                     full_name="Mr. Sharma", role="teacher"))
+                     full_name="Mr. Sharma", role="teacher",
+                     preferred_locale="en", phone_number="+919800000102",
+                     whatsapp_linked=True, last_login=now - timedelta(hours=5)))
 
         admin_id = uuid.uuid4()
         db.add(User(id=admin_id, tenant_id=tenant_id,
                      email=DEMO_ADMIN_EMAIL,
-                     full_name="Admin", role="admin"))
+                     full_name="Admin", role="admin",
+                     preferred_locale="en", phone_number="+919800000103",
+                     whatsapp_linked=False, last_login=now - timedelta(hours=1)))
 
         parent_id = uuid.uuid4()
         db.add(User(id=parent_id, tenant_id=tenant_id,
                      email=DEMO_PARENT_EMAIL,
-                     full_name="Mrs. Sharma (Parent)", role="parent"))
+                     full_name="Mrs. Sharma (Parent)", role="parent",
+                     preferred_locale="en", phone_number="+919800000104",
+                     whatsapp_linked=True, last_login=now - timedelta(days=1, hours=2)))
         db.flush()
         logger.info("✓ Users created (student + teacher + admin + parent)")
 
@@ -245,6 +349,19 @@ def seed(skip_embeddings: bool = False):
                            child_id=student_id, relationship_type="parent"))
         db.flush()
         logger.info("✓ Parent-student link created")
+
+        for user_id in (student_id, teacher_id, admin_id, parent_id):
+            db.add(NotificationPreference(
+                tenant_id=tenant_id,
+                user_id=user_id,
+                whatsapp_enabled=user_id != admin_id,
+                sms_enabled=False,
+                email_enabled=True,
+                push_enabled=user_id != parent_id,
+                in_app_enabled=True,
+            ))
+        db.flush()
+        logger.info("✓ Notification preferences created")
 
         # ── 3. Academic structure ────────────────────────────────
         class_id = uuid.uuid4()
@@ -294,35 +411,60 @@ def seed(skip_embeddings: bool = False):
 
         # ── 5. Attendance (90 days) ──────────────────────────────
         att_count = 0
-        for day_offset in range(90):
-            d = date(2026, 1, 1) + timedelta(days=day_offset)
-            if d.weekday() >= 6:
-                continue
-            status = random.choices(["present", "absent", "late"], weights=[88, 8, 4])[0]
-            db.add(Attendance(tenant_id=tenant_id, student_id=student_id,
-                               class_id=class_id, date=d, status=status))
+        for idx, day_value in enumerate(history_days):
+            if idx < 45:
+                weights = [84, 11, 5]
+            elif idx < 110:
+                weights = [88, 8, 4]
+            else:
+                weights = [91, 5, 4]
+            status = random.choices(["present", "absent", "late"], weights=weights)[0]
+            db.add(Attendance(
+                tenant_id=tenant_id,
+                student_id=student_id,
+                class_id=class_id,
+                date=day_value,
+                status=status,
+            ))
             att_count += 1
         db.flush()
-        logger.info(f"✓ {att_count} days attendance seeded")
+        logger.info(f"✓ {att_count} attendance records seeded across 6 months")
 
         # ── 6. Exams & Marks ─────────────────────────────────────
         exam_ids = {}
-        for subj_name in ["Physics", "Chemistry", "Mathematics", "Computer Science"]:
-            for exam_name, exam_date_obj in [("Unit Test 1", date(2025, 11, 15)),
-                                              ("Mid Term", date(2026, 1, 10)),
-                                              ("Unit Test 2", date(2026, 3, 5))]:
+        exam_plan = [
+            ("Diagnostic", history_start + timedelta(days=14)),
+            ("Unit Test 1", history_start + timedelta(days=42)),
+            ("Mid Term", history_start + timedelta(days=88)),
+            ("Unit Test 2", history_start + timedelta(days=126)),
+            ("Pre-Board Practice", history_start + timedelta(days=166)),
+        ]
+        baseline_scores = {
+            "Physics": 68,
+            "Chemistry": 64,
+            "Mathematics": 74,
+            "English": 72,
+            "Computer Science": 80,
+        }
+        for subj_name in ["Physics", "Chemistry", "Mathematics", "English", "Computer Science"]:
+            for exam_idx, (exam_name, exam_date_obj) in enumerate(exam_plan):
                 eid = uuid.uuid4()
                 exam_ids[f"{exam_name}-{subj_name}"] = eid
+                max_marks = 100 if subj_name != "Computer Science" else 80
                 db.add(Exam(id=eid, tenant_id=tenant_id, name=f"{exam_name} - {subj_name}",
-                             subject_id=subjects[subj_name], max_marks=100, exam_date=exam_date_obj))
+                             subject_id=subjects[subj_name], max_marks=max_marks, exam_date=exam_date_obj,
+                             created_at=_history_timestamp(exam_date_obj, hour=10)))
                 db.flush()
+                score_floor = min(max_marks, baseline_scores[subj_name] + exam_idx * 3)
                 db.add(Mark(tenant_id=tenant_id, student_id=student_id,
-                             exam_id=eid, marks_obtained=random.randint(62, 94)))
+                             exam_id=eid,
+                             marks_obtained=min(max_marks, random.randint(score_floor, min(score_floor + 18, max_marks))),
+                             created_at=_history_timestamp(exam_date_obj, hour=15)))
         db.flush()
-        logger.info("✓ Exams & marks seeded (4 subjects × 3 exams)")
+        logger.info("✓ Exams & marks seeded across the full six-month window")
 
         # ── 7. Lectures ──────────────────────────────────────────
-        lecture_data = [
+        _ = [
             ("Physics", "Kinematics - Displacement vs Distance", -60),
             ("Physics", "Newton's Laws of Motion - Numericals", -52),
             ("Physics", "Projectile Motion - Derivation of Range", -45),
@@ -339,17 +481,63 @@ def seed(skip_embeddings: bool = False):
             ("Computer Science", "Functions and Scope in Python", -30),
             ("Physics", "Work Energy Theorem - Applications", -25),
         ]
-        for subj_name, title, days_ago in lecture_data:
+        lecture_topics = {
+            "Physics": [
+                "Kinematics - Displacement vs Distance",
+                "Newton's Laws of Motion - Numericals",
+                "Projectile Motion - Derivation of Range",
+                "Work Energy Theorem - Applications",
+                "Center of Mass - Problem Solving",
+                "Units and Measurements - Error Analysis",
+            ],
+            "Chemistry": [
+                "IUPAC Nomenclature Basics",
+                "Chemical Bonding and VSEPR Theory",
+                "Thermodynamics - Enthalpy Problems",
+                "Equilibrium - Le Chatelier Applications",
+                "Isomerism - Types and Recognition",
+            ],
+            "Mathematics": [
+                "Introduction to Limits",
+                "Differentiation - Power Rule and Chain Rule",
+                "Trigonometric Identities Revision",
+                "Complex Numbers on the Argand Plane",
+                "Sets and Relations - Core Revision",
+            ],
+            "English": [
+                "The Portrait of a Lady - Analysis",
+                "We're Not Afraid to Die - Themes",
+                "Discovering Tut - Evidence and Tone",
+            ],
+            "Computer Science": [
+                "Python Basics - Variables and Data Types",
+                "Control Flow - Loops and Conditions",
+                "Functions and Scope in Python",
+                "Lists and Comprehensions Lab",
+                "String Processing and Formatting",
+            ],
+        }
+        lecture_data = []
+        lecture_dates = history_days[::5]
+        subject_cycle = list(lecture_topics.keys())
+        for idx, lecture_day in enumerate(lecture_dates):
+            subject_name = subject_cycle[idx % len(subject_cycle)]
+            topic_pool = lecture_topics[subject_name]
+            title = topic_pool[(idx // len(subject_cycle)) % len(topic_pool)]
+            lecture_data.append((subject_name, title, lecture_day))
+
+        for idx, (subj_name, title, lecture_day) in enumerate(lecture_data):
             db.add(Lecture(tenant_id=tenant_id, subject_id=subjects[subj_name],
                            class_id=class_id, teacher_id=teacher_id, title=title,
-                           scheduled_at=now + timedelta(days=days_ago),
-                           duration_minutes=45,
-                           transcript_ingested=random.random() < 0.6))
+                           scheduled_at=_history_timestamp(lecture_day, hour=8 + (idx % 4)),
+                           duration_minutes=45 + ((idx % 3) * 5),
+                           transcript_ingested=(idx % 3) != 0,
+                           created_at=_history_timestamp(lecture_day, hour=7, minute=30)))
         db.flush()
-        logger.info(f"✓ {len(lecture_data)} lectures seeded")
+        logger.info(f"✓ {len(lecture_data)} lectures seeded across 6 months")
 
         # ── 8. Assignments + Submissions ─────────────────────────
-        assignment_data = [
+        _ = [
             ("Physics", "Numericals on Kinematics Ch.3", -30, 82),
             ("Physics", "Laws of Motion - Worksheet", -15, 88),
             ("Chemistry", "IUPAC Naming Practice Set", -25, 76),
@@ -361,20 +549,38 @@ def seed(skip_embeddings: bool = False):
             ("Computer Science", "List Comprehension Exercises", -5, None),  # pending
             ("Physics", "Projectile Motion Numericals", -3, None),  # pending
         ]
-        for subj_name, title, days_ago, grade in assignment_data:
+        assignment_topics = {
+            "Physics": ["Numericals on Kinematics", "Laws of Motion Worksheet", "Projectile Motion Practice", "Work-Energy Problem Set"],
+            "Chemistry": ["IUPAC Naming Practice Set", "Thermodynamics Problem Set", "Chemical Bonding Worksheet", "Equilibrium Revision Sheet"],
+            "Mathematics": ["Limits and Continuity Exercise", "Differentiation Assignment", "Trigonometry Revision", "Complex Numbers Drill"],
+            "English": ["Essay: Portrait of a Lady Character Sketch", "Reading Response: Discovering Tut", "Theme Analysis Writing Task"],
+            "Computer Science": ["Python Functions Lab", "List Comprehension Exercises", "String Methods Worksheet", "Flow Control Coding Practice"],
+        }
+        assignment_data = []
+        assignment_dates = history_days[::9]
+        subject_rotation = list(assignment_topics.keys())
+        for idx, assignment_day in enumerate(assignment_dates):
+            subject_name = subject_rotation[idx % len(subject_rotation)]
+            topic_pool = assignment_topics[subject_name]
+            topic_title = topic_pool[(idx // len(subject_rotation)) % len(topic_pool)]
+            due = _history_timestamp(assignment_day + timedelta(days=5), hour=18)
+            grade = None if assignment_day >= now.date() - timedelta(days=12) and idx % 2 == 0 else random.randint(72, 94)
+            assignment_data.append((subject_name, topic_title, due, grade, assignment_day))
+
+        for subj_name, title, due, grade, created_day in assignment_data:
             aid = uuid.uuid4()
-            due = now + timedelta(days=days_ago + 7)
             db.add(Assignment(id=aid, tenant_id=tenant_id, subject_id=subjects[subj_name],
                                title=title, description=f"Complete all problems from {title}",
-                               due_date=due, created_by=teacher_id))
+                               due_date=due, created_by=teacher_id,
+                               created_at=_history_timestamp(created_day, hour=16)))
             db.flush()
             if grade is not None:
                 db.add(AssignmentSubmission(
                     tenant_id=tenant_id, assignment_id=aid, student_id=student_id,
-                    submitted_at=due - timedelta(days=1), grade=grade,
+                    submitted_at=due - timedelta(days=1, hours=2), grade=grade,
                     feedback="Good work!" if grade >= 85 else "Review the weak areas."))
         db.flush()
-        logger.info(f"✓ {len(assignment_data)} assignments seeded")
+        logger.info(f"✓ {len(assignment_data)} assignments seeded across 6 months")
 
         # ── 9. SubjectPerformance ────────────────────────────────
         perf_data = {"Physics": (78.5, 92.0), "Chemistry": (74.2, 88.5),
@@ -386,6 +592,15 @@ def seed(skip_embeddings: bool = False):
                                       average_score=avg, attendance_rate=att))
         db.flush()
         logger.info("✓ SubjectPerformance seeded")
+
+        student_profile = sync_student_profile_context(
+            db=db,
+            tenant_id=tenant_id,
+            student_id=student_id,
+        )
+        student_profile.last_computed_at = now
+        db.flush()
+        logger.info("✓ Unified StudentProfile seeded from live records")
 
         # ── 10. AI Folders ───────────────────────────────────────
         folders = {}
@@ -490,6 +705,30 @@ def seed(skip_embeddings: bool = False):
         ))
         db.flush()
         logger.info("✓ LearnerProfile seeded")
+
+        study_topics = [
+            "Projectile Motion",
+            "Thermodynamics",
+            "Derivatives",
+            "Python Functions",
+            "Chemical Bonding",
+            "Trigonometric Identities",
+        ]
+        study_session_count = 0
+        for idx, session_day in enumerate(history_days[::3]):
+            db.add(StudySession(
+                tenant_id=tenant_id,
+                user_id=student_id,
+                topic=study_topics[idx % len(study_topics)],
+                duration_seconds=900 + ((idx % 5) * 420),
+                questions_answered=3 + (idx % 6),
+                created_at=_history_timestamp(session_day, hour=18 + (idx % 3), minute=15),
+                updated_at=_history_timestamp(session_day, hour=18 + (idx % 3), minute=45),
+                last_active_at=_history_timestamp(session_day, hour=18 + (idx % 3), minute=45),
+            ))
+            study_session_count += 1
+        db.flush()
+        logger.info(f"✓ {study_session_count} study sessions seeded across 6 months")
 
         # ── 14. StudyPathPlan ────────────────────────────────────
         physics_nb = notebook_ids.get("Physics")
@@ -615,23 +854,86 @@ def seed(skip_embeddings: bool = False):
         logger.info(f"✓ {len(gen_content)} GeneratedContent items seeded")
 
         # ── 18. UsageCounter (6-month analytics) ─────────────────
+        usage_profiles = {
+            student_id: {"metric": "ai_requests", "count_range": (2, 9), "tokens_per_request": (260, 720), "model": "meta/llama-3.1-70b-instruct"},
+            teacher_id: {"metric": "teacher_assistant_requests", "count_range": (1, 5), "tokens_per_request": (320, 820), "model": "meta/llama-3.1-70b-instruct"},
+            parent_id: {"metric": "parent_assistant_requests", "count_range": (0, 3), "tokens_per_request": (180, 520), "model": "meta/llama-3.1-8b-instruct"},
+            admin_id: {"metric": "admin_ai_requests", "count_range": (0, 4), "tokens_per_request": (280, 760), "model": "meta/llama-3.1-70b-instruct"},
+        }
         uc_count = 0
-        for day_offset in range(180):
-            d = date(2025, 10, 1) + timedelta(days=day_offset)
-            if random.random() < 0.3:
-                continue  # skip some days
-            queries = random.randint(1, 8)
-            tokens = queries * random.randint(300, 700)
+        month_rollups: dict[tuple[uuid.UUID, str, date], dict[str, float]] = {}
+        tenant_day_rollups: dict[date, dict[str, float]] = {}
+        tenant_month_rollups: dict[date, dict[str, float]] = {}
+        for bucket_day in history_days:
+            for user_id, profile in usage_profiles.items():
+                min_count, max_count = profile["count_range"]
+                count = random.randint(min_count, max_count)
+                if count <= 0:
+                    continue
+                tokens = sum(random.randint(*profile["tokens_per_request"]) for _ in range(count))
+                cache_hits = min(count, random.randint(0, max(1, count // 2)))
+                cost_units = round(tokens * 0.00002, 4)
+                db.add(UsageCounter(
+                    tenant_id=tenant_id, user_id=user_id, scope="user",
+                    metric=profile["metric"], bucket_type="day", bucket_start=bucket_day,
+                    count=count, token_total=tokens, cache_hits=cache_hits,
+                    estimated_cost_units=cost_units, last_model=profile["model"],
+                ))
+                uc_count += 1
+
+                month_key = (user_id, profile["metric"], _month_start(bucket_day))
+                month_rollups.setdefault(month_key, {"count": 0, "tokens": 0, "cache_hits": 0, "cost_units": 0.0})
+                month_rollups[month_key]["count"] += count
+                month_rollups[month_key]["tokens"] += tokens
+                month_rollups[month_key]["cache_hits"] += cache_hits
+                month_rollups[month_key]["cost_units"] += cost_units
+
+                tenant_day_rollups.setdefault(bucket_day, {"count": 0, "tokens": 0, "cache_hits": 0, "cost_units": 0.0})
+                tenant_day_rollups[bucket_day]["count"] += count
+                tenant_day_rollups[bucket_day]["tokens"] += tokens
+                tenant_day_rollups[bucket_day]["cache_hits"] += cache_hits
+                tenant_day_rollups[bucket_day]["cost_units"] += cost_units
+
+                tenant_month = _month_start(bucket_day)
+                tenant_month_rollups.setdefault(tenant_month, {"count": 0, "tokens": 0, "cache_hits": 0, "cost_units": 0.0})
+                tenant_month_rollups[tenant_month]["count"] += count
+                tenant_month_rollups[tenant_month]["tokens"] += tokens
+                tenant_month_rollups[tenant_month]["cache_hits"] += cache_hits
+                tenant_month_rollups[tenant_month]["cost_units"] += cost_units
+        for (user_id, metric, bucket_start), totals in month_rollups.items():
             db.add(UsageCounter(
-                tenant_id=tenant_id, user_id=student_id, scope="user",
-                metric="ai_query", bucket_type="daily", bucket_start=d,
-                count=queries, token_total=tokens, cache_hits=random.randint(0, 2),
-                estimated_cost_units=round(tokens * 0.00002, 4),
+                tenant_id=tenant_id, user_id=user_id, scope="user",
+                metric=metric, bucket_type="month", bucket_start=bucket_start,
+                count=int(totals["count"]), token_total=int(totals["tokens"]),
+                cache_hits=int(totals["cache_hits"]),
+                estimated_cost_units=round(float(totals["cost_units"]), 4),
+                last_model=usage_profiles[user_id]["model"],
+            ))
+            uc_count += 1
+
+        for bucket_day, totals in tenant_day_rollups.items():
+            db.add(UsageCounter(
+                tenant_id=tenant_id, user_id=None, scope="tenant",
+                metric="ai_requests", bucket_type="day", bucket_start=bucket_day,
+                count=int(totals["count"]), token_total=int(totals["tokens"]),
+                cache_hits=int(totals["cache_hits"]),
+                estimated_cost_units=round(float(totals["cost_units"]), 4),
+                last_model="meta/llama-3.1-70b-instruct",
+            ))
+            uc_count += 1
+
+        for bucket_month, totals in tenant_month_rollups.items():
+            db.add(UsageCounter(
+                tenant_id=tenant_id, user_id=None, scope="tenant",
+                metric="ai_requests", bucket_type="month", bucket_start=bucket_month,
+                count=int(totals["count"]), token_total=int(totals["tokens"]),
+                cache_hits=int(totals["cache_hits"]),
+                estimated_cost_units=round(float(totals["cost_units"]), 4),
                 last_model="meta/llama-3.1-70b-instruct",
             ))
             uc_count += 1
         db.flush()
-        logger.info(f"✓ {uc_count} UsageCounter daily entries seeded")
+        logger.info(f"✓ {uc_count} UsageCounter entries seeded for all personas")
 
         # ── 19. TestSeries + MockTestAttempts ────────────────────
         ts1_id = uuid.uuid4()
@@ -683,8 +985,81 @@ def seed(skip_embeddings: bool = False):
             ))
             query_count += 1
 
+        persona_users = {
+            "student": student_id,
+            "teacher": teacher_id,
+            "parent": parent_id,
+            "admin": admin_id,
+        }
+        for role, templates in PERSONA_AI_HISTORY.items():
+            user_id = persona_users[role]
+            for idx, query_day in enumerate(history_days[::14]):
+                template = templates[idx % len(templates)]
+                nb = notebook_ids.get(template["subj"])
+                db.add(AIQuery(
+                    id=uuid.uuid4(), tenant_id=tenant_id, user_id=user_id,
+                    folder_id=None, notebook_id=nb,
+                    mode=template["mode"], query_text=template["q"],
+                    response_text=template["r"],
+                    title=f"{role.title()} {template['mode'].replace('_', ' ').title()} - {template['subj']}",
+                    token_usage=random.randint(180, 760),
+                    citation_count=template.get("cites", 0),
+                    is_pinned=idx % 7 == 0,
+                    created_at=_history_timestamp(query_day, hour=9 + (idx % 8), minute=(idx * 7) % 60),
+                ))
+                query_count += 1
+
+        notification_count = 0
+        for role, templates in PERSONA_NOTIFICATION_TEMPLATES.items():
+            user_id = persona_users[role]
+            for idx, notify_day in enumerate(history_days[::18]):
+                template = templates[idx % len(templates)]
+                created_at = _history_timestamp(notify_day, hour=8 + (idx % 9), minute=(idx * 11) % 60)
+                was_read = role != "admin" or idx < len(history_days[::18]) - 2
+                db.add(Notification(
+                    tenant_id=tenant_id,
+                    user_id=user_id,
+                    recipient_role=role,
+                    recipient_channel=template["channel"],
+                    category=template["category"],
+                    title=template["title"],
+                    body=template["body"],
+                    body_locale="en",
+                    read=was_read,
+                    status="delivered" if was_read else "sent",
+                    sent_at=created_at,
+                    delivered_at=created_at + timedelta(minutes=3),
+                    read_at=(created_at + timedelta(hours=4)) if was_read else None,
+                    triggered_by=template["triggered_by"],
+                    triggered_by_user_id=teacher_id if template["triggered_by"] == "teacher" else None,
+                    related_entity_type=template["category"],
+                    created_at=created_at,
+                    updated_at=created_at + timedelta(minutes=5),
+                ))
+                notification_count += 1
+
+        audit_count = 0
+        for role, templates in PERSONA_AUDIT_TEMPLATES.items():
+            user_id = persona_users[role]
+            for idx, audit_day in enumerate(history_days[::15]):
+                template = templates[idx % len(templates)]
+                audit_time = _history_timestamp(audit_day, hour=7 + (idx % 10), minute=(idx * 13) % 60)
+                db.add(AuditLog(
+                    tenant_id=tenant_id,
+                    user_id=user_id,
+                    action=template["action"],
+                    entity_type=template["entity_type"],
+                    entity_id=None,
+                    metadata_=template["metadata"],
+                    ip_address=f"10.0.0.{10 + (idx % 40)}",
+                    created_at=audit_time,
+                ))
+                audit_count += 1
+
         db.flush()
         logger.info(f"✓ {query_count} AI history entries over 6 months")
+        logger.info(f"✓ {notification_count} notifications seeded across student, teacher, parent, and admin")
+        logger.info(f"✓ {audit_count} audit events seeded across student, teacher, parent, and admin")
 
         # ── Commit ───────────────────────────────────────────────
         db.commit()

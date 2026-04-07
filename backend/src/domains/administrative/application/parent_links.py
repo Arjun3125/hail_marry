@@ -7,6 +7,7 @@ from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
 from src.domains.academic.models.parent_link import ParentLink
+from src.domains.academic.services.student_profile_sync import sync_student_profile_context
 from src.domains.identity.models.user import User
 from src.domains.platform.models.audit import AuditLog
 
@@ -51,6 +52,7 @@ def create_admin_parent_link(
     parent_id: str,
     child_id: str,
     parse_uuid_fn,
+    sync_student_profile_fn=sync_student_profile_context,
 ) -> dict:
     parent_uuid = parse_uuid_fn(parent_id, "parent_id")
     child_uuid = parse_uuid_fn(child_id, "child_id")
@@ -87,6 +89,11 @@ def create_admin_parent_link(
     db.add(link)
     if hasattr(db, "flush"):
         db.flush()
+    sync_student_profile_fn(
+        db=db,
+        tenant_id=tenant_id,
+        student_id=child_uuid,
+    )
     db.add(
         AuditLog(
             tenant_id=tenant_id,
@@ -110,6 +117,7 @@ def delete_admin_parent_link(
     actor_user_id,
     link_id: str,
     parse_uuid_fn,
+    sync_student_profile_fn=sync_student_profile_context,
 ) -> dict:
     link_uuid = parse_uuid_fn(link_id, "link_id")
     link = db.query(ParentLink).filter(
@@ -119,7 +127,15 @@ def delete_admin_parent_link(
     if not link:
         raise HTTPException(status_code=404, detail="Parent link not found")
 
+    child_id = link.child_id
     db.delete(link)
+    if hasattr(db, "flush"):
+        db.flush()
+    sync_student_profile_fn(
+        db=db,
+        tenant_id=tenant_id,
+        student_id=child_id,
+    )
     db.add(
         AuditLog(
             tenant_id=tenant_id,

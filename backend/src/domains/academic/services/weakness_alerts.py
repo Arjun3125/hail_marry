@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from src.domains.academic.models.performance import SubjectPerformance
 from src.domains.academic.models.core import Subject
+from src.domains.platform.models.topic_mastery import TopicMastery
 
 
 from constants import WEAK_TOPIC_THRESHOLD_PCT as WEAK_THRESHOLD_PCT
@@ -53,4 +54,30 @@ def generate_weakness_alerts(
             },
         })
 
-    return sorted(alerts, key=lambda a: a["average_score"])
+    # Scan Topic Mastery for granular conceptual gaps
+    mastery_risks = db.query(TopicMastery).filter(
+        TopicMastery.user_id == user_id,
+        TopicMastery.tenant_id == tenant_id,
+        TopicMastery.concept == "core",
+        TopicMastery.mastery_score < 45,
+        TopicMastery.confidence_score > 0.2, # Only alert on topics we are somewhat sure about
+    ).all()
+
+    for risk in mastery_risks:
+        alerts.append({
+            "subject_id": str(risk.subject_id) if risk.subject_id else None,
+            "topic": risk.topic,
+            "mastery_score": round(risk.mastery_score, 1),
+            "severity": "critical" if risk.mastery_score < 35 else "warning",
+            "type": "mastery_gap",
+            "message": f"Struggling with {risk.topic}: Your mastery score is {round(risk.mastery_score)}%.",
+            "recommendation": f"Focus on {risk.topic} in the AI Studio to rebuild confidence.",
+            "action": {
+                "type": "open_ai_studio",
+                "label": f"Study {risk.topic}",
+                "topic": risk.topic,
+                "subject_id": str(risk.subject_id) if risk.subject_id else None,
+            },
+        })
+
+    return sorted(alerts, key=lambda a: a.get("average_score", a.get("mastery_score", 100)))

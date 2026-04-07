@@ -7,7 +7,7 @@ import csv
 import io
 import time
 from collections import Counter
-from datetime import date, datetime
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from dataclasses import dataclass
 from typing import Any
@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from constants import STUDENT_ALLOWED_EXTENSIONS, STUDENT_MAX_FILE_SIZE, TEACHER_ALLOWED_EXTENSIONS, TEACHER_MAX_FILE_SIZE
 from src.domains.academic.models.attendance import Attendance
+from src.domains.academic.models.assignment import Assignment
 from src.domains.academic.models.core import Class, Enrollment, Subject
 from src.domains.academic.models.marks import Exam, Mark
 from src.domains.academic.models.parent_link import ParentLink
@@ -38,7 +39,12 @@ from src.domains.platform.services.mascot_registry import capability_requires_co
 from src.domains.platform.services.mascot_schemas import MascotAction, MascotMessageRequest, MascotMessageResponse, PendingMascotAction
 from src.domains.platform.services.mascot_session_store import build_session_id, clear_session, delete_pending_action, load_pending_action, load_session, mutation_seen_recently, remember_mutation, save_session, store_pending_action
 from src.domains.platform.services.metrics_registry import observe_stage_latency
+from src.domains.platform.services.background_runtime import submit_async_job
+from src.domains.platform.services.notification_dispatch import dispatch_notification
 from src.domains.platform.services.study_path_service import get_or_create_study_path
+from src.domains.platform.services import (
+    mastery_tracking_service,
+)
 from src.domains.platform.services.trace_backend import record_trace_event
 from src.shared.ocr_imports import extract_upload_content_result, get_extension, parse_account_rows_with_diagnostics, parse_attendance_rows_with_diagnostics, parse_marks_rows_with_diagnostics, parse_student_import_rows_with_diagnostics
 from src.infrastructure.llm.providers import get_llm_provider
@@ -91,6 +97,22 @@ _STUDY_PATH_EXECUTE_MARKERS = (
     "next step for me",
 )
 _TEACHER_ASSESSMENT_MARKERS = ("generate assessment", "create assessment", "create test", "generate test", "question paper", "worksheet")
+_TEACHER_ATTENDANCE_MUTATION_MARKERS = (
+    "mark attendance",
+    "take attendance",
+    "attendance for class",
+    "everyone present",
+    "all present",
+    "present except",
+)
+_TEACHER_HOMEWORK_MUTATION_MARKERS = (
+    "assign homework",
+    "create homework",
+    "set homework",
+    "give homework",
+    "create assignment",
+    "assign assignment",
+)
 _STRUCTURED_IMPORT_MARKERS = {
     "teacher_roster_import": ("student roster", "student list", "onboard students", "import students", "roster"),
     "teacher_attendance_import": ("attendance", "attendance sheet", "mark attendance"),
@@ -294,6 +316,66 @@ def _detect_teacher_assessment(message: str, role: str | None) -> bool:
     return normalized_role in {"teacher", "admin"} and any(marker in lowered for marker in _TEACHER_ASSESSMENT_MARKERS)
 
 
+def _detect_teacher_attendance_mutation(message: str, role: str | None) -> bool:
+    normalized_role = (role or "").strip().lower()
+    lowered = _clean(message).lower()
+    return normalized_role in {"teacher", "admin"} and any(marker in lowered for marker in _TEACHER_ATTENDANCE_MUTATION_MARKERS)
+
+
+def _detect_teacher_homework_mutation(message: str, role: str | None) -> bool:
+    normalized_role = (role or "").strip().lower()
+    lowered = _clean(message).lower()
+    return normalized_role in {"teacher", "admin"} and any(marker in lowered for marker in _TEACHER_HOMEWORK_MUTATION_MARKERS)
+
+
+def _extract_absent_names(message: str) -> list[str]:
+    text = _clean(message)
+    lowered = text.lower()
+    match = re.search(r"\b(?:except|absent(?: students?)?(?::| are)?|missing)\b(?P<names>.+)$", lowered, flags=re.IGNORECASE)
+    if not match:
+        return []
+    names_blob = text[match.start("names"):].strip(" .:-")
+    if not names_blob:
+        return []
+    normalized = re.sub(r"\band\b", ",", names_blob, flags=re.IGNORECASE)
+    candidates = [item.strip(" .") for item in normalized.split(",")]
+    return [item for item in candidates if item]
+
+
+def _parse_due_date_from_message(message: str) -> date | None:
+    text = _clean(message)
+    iso_match = re.search(r"\b(20\d{2}-\d{2}-\d{2})\b", text)
+    if iso_match:
+        return _parse_date_hint(iso_match.group(1))
+
+    lowered = text.lower()
+    today = datetime.now(timezone.utc).date()
+    if "tomorrow" in lowered:
+        return today + timedelta(days=1)
+    if "today" in lowered:
+        return today
+    if "next week" in lowered:
+        return today + timedelta(days=7)
+    return None
+
+
+def _extract_assignment_brief(message: str) -> tuple[str | None, str]:
+    text = _clean(message)
+    detail = ""
+    if ":" in text:
+        detail = text.split(":", 1)[1].strip()
+    else:
+        match = re.search(r"\b(?:about|on|for)\b(?P<detail>.+)$", text, flags=re.IGNORECASE)
+        if match:
+            detail = match.group("detail").strip(" .")
+    detail = detail or text
+    title = None
+    quoted = re.search(r'"(?P<title>[^"]+)"', text)
+    if quoted:
+        title = _clean(quoted.group("title"))
+    return title, detail
+
+
 def _extract_question_count(message: str) -> int | None:
     match = re.search(r"\b(\d{1,2})\s+(?:question|questions|mcq|mcqs)\b", _clean(message).lower())
     if not match:
@@ -372,6 +454,10 @@ def _follow_ups(intent: str, notebook_name: str | None = None) -> list[str]:
         return ["Show class insights", "Open marks page", "Create quiz for weak topics"]
     if intent == "teacher_assessment_generate":
         return ["Show class insights", "Open marks page", "Generate quiz for Chapter 10"]
+    if intent == "teacher_attendance_mark":
+        return ["Open attendance page", "Show class insights", "Import attendance from image"]
+    if intent == "teacher_homework_create":
+        return ["Open assignments page", "Show class insights", "Generate assessment for this class"]
     if intent == "teacher_roster_import":
         return ["Open classes page", "Import attendance from image", "Generate a Biology assessment"]
     if intent == "teacher_attendance_import":
@@ -600,7 +686,7 @@ def _explicit_notebook_target(request: MascotMessageRequest) -> str | None:
 
 def _mutation_signature(request: MascotMessageRequest, action: dict[str, Any], active_notebook: Notebook | None) -> str | None:
     intent = str(action.get("intent") or "")
-    if intent not in {"notebook_create", "notebook_update", "teacher_roster_import", "teacher_attendance_import", "teacher_marks_import", "admin_teacher_import", "admin_student_import"}:
+    if intent not in {"notebook_create", "notebook_update", "teacher_roster_import", "teacher_attendance_import", "teacher_marks_import", "admin_teacher_import", "admin_student_import", "teacher_attendance_mark", "teacher_homework_create"}:
         return None
     parts = [request.channel, request.user_id or "", intent]
     if intent == "notebook_create":
@@ -610,6 +696,19 @@ def _mutation_signature(request: MascotMessageRequest, action: dict[str, Any], a
             str(action.get("operation") or "").strip().lower(),
             str(action.get("notebook_name") or getattr(active_notebook, "id", "") or "").strip().lower(),
             str(action.get("name") or "").strip().lower(),
+        ])
+    elif intent == "teacher_attendance_mark":
+        parts.extend([
+            str(action.get("class_id") or "").strip(),
+            str(action.get("attendance_date") or "").strip(),
+            str(len(action.get("absent_students", []) or [])),
+        ])
+    elif intent == "teacher_homework_create":
+        parts.extend([
+            str(action.get("class_id") or "").strip(),
+            str(action.get("subject_id") or "").strip(),
+            str(action.get("title") or "").strip().lower(),
+            str(action.get("due_date") or "").strip(),
         ])
     else:
         parts.extend([
@@ -829,6 +928,24 @@ async def _interpret(request: MascotMessageRequest) -> _ResolvedIntent:
             }
         )
 
+    if _detect_teacher_attendance_mutation(translated, request.role):
+        actions.append(
+            {
+                "intent": "teacher_attendance_mark",
+                "kind": "teacher_workflow",
+                "message": translated,
+            }
+        )
+
+    if _detect_teacher_homework_mutation(translated, request.role):
+        actions.append(
+            {
+                "intent": "teacher_homework_create",
+                "kind": "teacher_workflow",
+                "message": translated,
+            }
+        )
+
     navigation_targets = _detect_navigation_targets(translated, request.role or "student")
     if len(set(navigation_targets)) > 1:
         return _ResolvedIntent(
@@ -838,7 +955,7 @@ async def _interpret(request: MascotMessageRequest) -> _ResolvedIntent:
             [{"intent": "clarify_request", "kind": "clarify", "reason": "multiple_navigation_targets", "targets": navigation_targets}],
         )
     nav = navigation_targets[0] if navigation_targets else None
-    if nav and not role_report and not _detect_teacher_assessment(translated, request.role):
+    if nav and not role_report and not _detect_teacher_assessment(translated, request.role) and not _detect_teacher_attendance_mutation(translated, request.role) and not _detect_teacher_homework_mutation(translated, request.role):
         actions.append({"intent": "navigate", "kind": "navigate", "target": nav})
 
     if not actions:
@@ -914,6 +1031,22 @@ async def _execute_actions(
             )
             reply_parts.append("I can't access that notebook from your account, so I did not run that action.")
             break
+
+        if action["intent"] == "teacher_attendance_mark":
+            prepared = await _prepare_teacher_attendance_mark(session, request, action, translated_message)
+            if not prepared.get("ok"):
+                results.append(MascotAction(kind="clarify", status="needs_input", payload=action, result_summary=str(prepared.get("summary") or "I need more detail before marking attendance.")))
+                reply_parts.append(str(prepared.get("summary") or "I need more detail before marking attendance."))
+                break
+            action = prepared["action"]
+
+        if action["intent"] == "teacher_homework_create":
+            prepared = await _prepare_teacher_homework_create(session, request, action, translated_message)
+            if not prepared.get("ok"):
+                results.append(MascotAction(kind="clarify", status="needs_input", payload=action, result_summary=str(prepared.get("summary") or "I need more detail before creating homework.")))
+                reply_parts.append(str(prepared.get("summary") or "I need more detail before creating homework."))
+                break
+            action = prepared["action"]
 
         if capability_key and capability_requires_confirmation(capability_key) and not allow_high_risk:
             pending = PendingMascotAction(
@@ -1046,6 +1179,133 @@ async def _execute_actions(
             reply_parts.append(summary)
             continue
 
+        if action["intent"] == "teacher_attendance_mark":
+            class_uuid = _safe_uuid(action.get("class_id"))
+            if not await _teacher_can_access_class(session, request, class_uuid):
+                results.append(MascotAction(kind="teacher_workflow", status="failed", payload=action, result_summary="That class is outside your allowed teaching scope."))
+                reply_parts.append("That class is outside your allowed teaching scope.")
+                continue
+
+            attendance_date = _parse_date_hint(action.get("attendance_date")) or datetime.now(timezone.utc).date()
+            absent_ids = {_safe_uuid(item.get("student_id")) for item in (action.get("absent_students") or [])}
+            absent_ids.discard(None)
+            enrollment_result = await session.execute(
+                select(Enrollment).where(
+                    Enrollment.tenant_id == _safe_uuid(request.tenant_id),
+                    Enrollment.class_id == class_uuid,
+                )
+            )
+            enrollments = list(enrollment_result.scalars().all())
+            imported = 0
+            for enrollment in enrollments:
+                existing_result = await session.execute(
+                    select(Attendance).where(
+                        Attendance.tenant_id == _safe_uuid(request.tenant_id),
+                        Attendance.class_id == class_uuid,
+                        Attendance.student_id == enrollment.student_id,
+                        Attendance.date == attendance_date,
+                    )
+                )
+                existing = existing_result.scalar_one_or_none()
+                status = "absent" if enrollment.student_id in absent_ids else "present"
+                if existing is None:
+                    session.add(
+                        Attendance(
+                            tenant_id=_safe_uuid(request.tenant_id),
+                            class_id=class_uuid,
+                            student_id=enrollment.student_id,
+                            date=attendance_date,
+                            status=status,
+                        )
+                    )
+                else:
+                    existing.status = status
+                imported += 1
+            await session.commit()
+            if mutation_signature:
+                remember_mutation(session_key, mutation_signature)
+            summary = f"Marked attendance for {action.get('class_name')} on {attendance_date.isoformat()}."
+            results.append(MascotAction(kind="teacher_workflow", status="completed", payload={"intent": "teacher_attendance_mark", "class_id": action.get("class_id"), "attendance_date": attendance_date.isoformat(), "absent_count": len(absent_ids)}, result_summary=summary))
+            artifacts.append({"tool": "teacher_attendance_mark", "class_name": action.get("class_name"), "date": attendance_date.isoformat(), "absent_students": action.get("absent_students", [])})
+            reply_parts.append(summary)
+            continue
+
+        if action["intent"] == "teacher_homework_create":
+            subject_uuid = _safe_uuid(action.get("subject_id"))
+            class_uuid = _safe_uuid(action.get("class_id"))
+            if not await _teacher_can_access_subject(session, request, subject_uuid):
+                results.append(MascotAction(kind="teacher_workflow", status="failed", payload=action, result_summary="That subject is outside your allowed teaching scope."))
+                reply_parts.append("That subject is outside your allowed teaching scope.")
+                continue
+
+            due_date = _parse_date_hint(action.get("due_date"))
+            assignment = Assignment(
+                tenant_id=_safe_uuid(request.tenant_id),
+                subject_id=subject_uuid,
+                title=str(action.get("title") or "Homework")[:255],
+                description=str(action.get("description") or "").strip(),
+                due_date=datetime.combine(due_date, datetime.min.time(), tzinfo=timezone.utc) if due_date else None,
+                created_by=_safe_uuid(request.user_id),
+            )
+            session.add(assignment)
+            await session.commit()
+            await session.refresh(assignment)
+
+            enrollment_result = await session.execute(
+                select(Enrollment, User).join(User, User.id == Enrollment.student_id).where(
+                    Enrollment.tenant_id == _safe_uuid(request.tenant_id),
+                    Enrollment.class_id == class_uuid,
+                    User.tenant_id == _safe_uuid(request.tenant_id),
+                )
+            )
+            roster = list(enrollment_result.all())
+            student_recipients = [
+                {"user_id": str(user.id), "student_id": str(user.id), "student_name": user.full_name or "Student"}
+                for enrollment, user in roster
+            ]
+            student_ids = [enrollment.student_id for enrollment, _user in roster]
+            parent_recipients: list[dict[str, str]] = []
+            if student_ids:
+                parent_link_result = await session.execute(
+                    select(ParentLink, User).join(User, User.id == ParentLink.parent_id).where(
+                        ParentLink.tenant_id == _safe_uuid(request.tenant_id),
+                        ParentLink.child_id.in_(student_ids),
+                        User.tenant_id == _safe_uuid(request.tenant_id),
+                    )
+                )
+                student_name_map = {str(user.id): user.full_name or "Student" for _enrollment, user in roster}
+                for parent_link, parent_user in parent_link_result.all():
+                    parent_recipients.append(
+                        {
+                            "user_id": str(parent_user.id),
+                            "student_id": str(parent_link.child_id),
+                            "student_name": student_name_map.get(str(parent_link.child_id), "Student"),
+                        }
+                    )
+            submit_async_job(
+                "teacher-homework-notifications",
+                _notify_homework_recipients,
+                tenant_id=request.tenant_id or "",
+                teacher_id=request.user_id or "",
+                assignment_id=str(assignment.id),
+                class_name=str(action.get("class_name") or ""),
+                subject_name=str(action.get("subject_name") or ""),
+                title=str(action.get("title") or "Homework"),
+                description=str(action.get("description") or ""),
+                due_date=due_date.isoformat() if due_date else None,
+                student_recipients=student_recipients,
+                parent_recipients=parent_recipients,
+            )
+            if mutation_signature:
+                remember_mutation(session_key, mutation_signature)
+            summary = f"Created homework '{assignment.title}' for {action.get('class_name')}."
+            if due_date:
+                summary = f"{summary} Due {due_date.isoformat()}."
+            results.append(MascotAction(kind="teacher_workflow", status="completed", payload={"intent": "teacher_homework_create", "assignment_id": str(assignment.id), "subject_id": action.get("subject_id"), "class_id": action.get("class_id")}, result_summary=summary))
+            artifacts.append({"tool": "teacher_homework_create", "assignment_id": str(assignment.id), "title": assignment.title, "class_name": action.get("class_name"), "subject_name": action.get("subject_name"), "due_date": due_date.isoformat() if due_date else None})
+            reply_parts.append(summary)
+            continue
+
         if action["intent"] == "parent_progress_report":
             progress = await _build_parent_progress_report(session, request)
             artifacts.append({"tool": "parent_progress_report", **progress})
@@ -1089,6 +1349,16 @@ async def _execute_actions(
             next_tool = str(next_action.get("target_tool") or "study_guide").strip()
             next_prompt = str(next_action.get("prompt") or plan.get("focus_topic") or translated_message).strip()
             if next_tool in _TOOLS:
+                # Get mastery aware prompt padding
+                profile = mastery_tracking_service.build_adaptive_quiz_profile(
+                    session,
+                    _safe_uuid(request.tenant_id),
+                    _safe_uuid(request.user_id),
+                    next_prompt
+                )
+                if profile and profile.get("prompt_suffix"):
+                    next_prompt = f"{next_prompt}\n\n[Pedagogy Instruction: {profile['prompt_suffix']}]"
+
                 tool_result = await run_study_tool(
                     InternalStudyToolGenerateRequest(
                         tenant_id=request.tenant_id or "",
@@ -1304,11 +1574,22 @@ async def _execute_actions(
                 reply_parts.append("Tell me the topic too.")
                 continue
             tool = action["tool"]
+            # Inject mastery context
+            profile = mastery_tracking_service.build_adaptive_quiz_profile(
+                session,
+                _safe_uuid(request.tenant_id),
+                _safe_uuid(request.user_id),
+                topic
+            )
+            final_prompt = topic
+            if profile and profile.get("prompt_suffix"):
+                final_prompt = f"{topic}\n\n[Pedagogy Instruction: {profile['prompt_suffix']}]"
+
             tool_result = await run_study_tool(
                 InternalStudyToolGenerateRequest(
                     tenant_id=request.tenant_id or "",
                     tool=tool,
-                    topic=topic,
+                    topic=final_prompt,
                     notebook_id=UUID(str(active_notebook.id)) if active_notebook else None,
                 ),
                 trace_id=trace_id,
@@ -1549,6 +1830,200 @@ async def _resolve_subject_with_context(session: AsyncSession, request: MascotMe
             if exact:
                 return exact
     return await _resolve_subject(session, request, message)
+
+
+async def _prepare_teacher_attendance_mark(
+    session: AsyncSession,
+    request: MascotMessageRequest,
+    action: dict[str, Any],
+    translated_message: str,
+) -> dict[str, Any]:
+    metadata = _ui_metadata(request)
+    school_class = await _resolve_class(
+        session,
+        request,
+        translated_message,
+        explicit_id=str(
+            metadata.get("class_id")
+            or (request.ui_context.current_page_entity_id if request.ui_context and request.ui_context.current_page_entity == "class" else "")
+            or ""
+        ).strip() or None,
+    )
+    if school_class is None:
+        return {
+            "ok": False,
+            "summary": "I need the class name before I mark attendance. Mention the class or open the attendance page for that class.",
+        }
+
+    absent_names = _extract_absent_names(translated_message)
+    absent_students: list[dict[str, str]] = []
+    missing_names: list[str] = []
+    if absent_names:
+        enrollment_result = await session.execute(
+            select(Enrollment, User).join(User, User.id == Enrollment.student_id).where(
+                Enrollment.tenant_id == _safe_uuid(request.tenant_id),
+                Enrollment.class_id == school_class.id,
+                User.tenant_id == _safe_uuid(request.tenant_id),
+            )
+        )
+        roster = list(enrollment_result.all())
+        for raw_name in absent_names:
+            lowered = raw_name.lower()
+            matched = next(
+                (
+                    user
+                    for _enrollment, user in roster
+                    if user.full_name and lowered in user.full_name.lower()
+                ),
+                None,
+            )
+            if matched is None:
+                missing_names.append(raw_name)
+                continue
+            absent_students.append({"student_id": str(matched.id), "student_name": matched.full_name})
+        if missing_names:
+            return {
+                "ok": False,
+                "summary": f"I couldn't match these absent students in {school_class.name}: {', '.join(missing_names[:5])}.",
+            }
+
+    summary = f"Mark attendance for {school_class.name} with {len(absent_students)} absent student{'s' if len(absent_students) != 1 else ''}."
+    if not absent_students:
+        summary = f"Mark attendance for {school_class.name} with everyone present."
+    return {
+        "ok": True,
+        "action": {
+            **action,
+            "class_id": str(school_class.id),
+            "class_name": school_class.name,
+            "attendance_date": datetime.now(timezone.utc).date().isoformat(),
+            "absent_students": absent_students,
+        },
+        "summary": summary,
+    }
+
+
+async def _notify_homework_recipients(
+    *,
+    tenant_id: str,
+    teacher_id: str,
+    assignment_id: str,
+    class_name: str,
+    subject_name: str,
+    title: str,
+    description: str,
+    due_date: str | None,
+    student_recipients: list[dict[str, str]],
+    parent_recipients: list[dict[str, str]],
+) -> None:
+    body = description.strip() or title.strip()
+    if due_date:
+        body = f"{body}\n\nDue date: {due_date}"
+
+    for student in student_recipients:
+        await dispatch_notification(
+            tenant_id=tenant_id,
+            recipient_id=student["user_id"],
+            recipient_role="student",
+            category="homework",
+            title=f"New homework: {title}",
+            body=body,
+            data={
+                "assignment_id": assignment_id,
+                "class_name": class_name,
+                "subject_name": subject_name,
+            },
+            triggered_by="teacher",
+            triggered_by_user_id=teacher_id,
+            related_entity_type="assignment",
+            related_entity_id=assignment_id,
+            preferred_channel="whatsapp",
+        )
+
+    for parent in parent_recipients:
+        await dispatch_notification(
+            tenant_id=tenant_id,
+            recipient_id=parent["user_id"],
+            recipient_role="parent",
+            category="homework",
+            title=f"Homework update for {parent['student_name']}",
+            body=body,
+            data={
+                "assignment_id": assignment_id,
+                "student_id": parent["student_id"],
+                "student_name": parent["student_name"],
+                "class_name": class_name,
+                "subject_name": subject_name,
+            },
+            triggered_by="teacher",
+            triggered_by_user_id=teacher_id,
+            related_entity_type="assignment",
+            related_entity_id=assignment_id,
+            preferred_channel="whatsapp",
+        )
+
+
+async def _prepare_teacher_homework_create(
+    session: AsyncSession,
+    request: MascotMessageRequest,
+    action: dict[str, Any],
+    translated_message: str,
+) -> dict[str, Any]:
+    metadata = _ui_metadata(request)
+    subject = await _resolve_subject_with_context(session, request, translated_message)
+    school_class = await _resolve_class(
+        session,
+        request,
+        translated_message,
+        explicit_id=str(
+            metadata.get("class_id")
+            or (request.ui_context.current_page_entity_id if request.ui_context and request.ui_context.current_page_entity == "class" else "")
+            or ""
+        ).strip() or None,
+    )
+    if subject is None and school_class is None:
+        return {
+            "ok": False,
+            "summary": "I need the subject or class before I create homework. Example: assign homework for Biology in Class 9 A due 2026-04-10: Solve exercise 3.",
+        }
+    if subject is not None and school_class is None:
+        school_class = await session.get(Class, subject.class_id)
+    if subject is None and school_class is not None:
+        subject_result = await session.execute(
+            select(Subject).where(
+                Subject.tenant_id == _safe_uuid(request.tenant_id),
+                Subject.class_id == school_class.id,
+            )
+        )
+        subjects = list(subject_result.scalars().all())
+        if len(subjects) == 1:
+            subject = subjects[0]
+        else:
+            return {
+                "ok": False,
+                "summary": f"I need the subject name before I create homework for {school_class.name}.",
+            }
+    if subject is None or school_class is None:
+        return {"ok": False, "summary": "I need clearer subject and class context before creating homework."}
+
+    due_date = _parse_due_date_from_message(translated_message)
+    raw_title, detail = _extract_assignment_brief(translated_message)
+    title = raw_title or f"{subject.name} homework"
+    description = detail or title
+    return {
+        "ok": True,
+        "action": {
+            **action,
+            "class_id": str(school_class.id),
+            "class_name": school_class.name,
+            "subject_id": str(subject.id),
+            "subject_name": subject.name,
+            "title": title[:255],
+            "description": description,
+            "due_date": due_date.isoformat() if due_date else None,
+        },
+        "summary": f"Create homework '{title[:80]}' for {subject.name} in {school_class.name}." + (f" Due {due_date.isoformat()}." if due_date else ""),
+    }
 
 
 async def _resolve_student_identifier_in_class_async(

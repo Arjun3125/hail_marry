@@ -291,6 +291,7 @@ export const api = {
         upload: (formData: FormData) => apiFormFetch("/api/student/upload", formData),
         uploads: () => apiFetch("/api/student/uploads"),
         weakTopics: () => apiFetch("/api/student/weak-topics"),
+        mastery: () => apiFetch("/api/student/mastery"),
         generateTool: (data: { tool: "quiz" | "flashcards" | "mindmap" | "flowchart" | "concept_map"; topic: string; subject_id?: string }) =>
             apiFetch("/api/student/tools/generate", {
                 method: "POST",
@@ -320,6 +321,7 @@ export const api = {
                 method: "POST",
                 body: JSON.stringify(data),
             }),
+        masteryMap: () => apiFetch("/api/student/mastery-map"),
     },
     teacher: {
         dashboard: () => apiFetch("/api/teacher/dashboard"),
@@ -801,4 +803,12 @@ export const api = {
         completeStudyPathStep: (planId: string, stepId: string) =>
             apiFetch(`/api/personalization/study-path/${planId}/steps/${stepId}/complete`, { method: "POST" }),
     },
+    aiStudio: {
+        getMastery: (notebookId?: string | null) => {
+            const query = new URLSearchParams();
+            if (notebookId) query.set("notebook_id", notebookId);
+            const suffix = query.toString();
+            return apiFetch(`/api/ai-studio/mastery${suffix ? `?${suffix}` : ""}`);
+        }
+    }
 };

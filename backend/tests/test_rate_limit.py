@@ -67,6 +67,8 @@ class TestRateLimitIntegration:
             if resp.status_code == 429:
                 hit_429 = True
                 assert "Rate limit exceeded" in resp.json()["detail"]
+                assert "Retry-After" in resp.headers
+                assert int(resp.headers["Retry-After"]) >= 1
                 break
 
         assert hit_429, "Rate limiter should have triggered"

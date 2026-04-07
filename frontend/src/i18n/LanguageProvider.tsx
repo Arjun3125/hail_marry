@@ -1,15 +1,13 @@
 "use client";
 
-import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
 import en from "@/i18n/en.json";
 import hi from "@/i18n/hi.json";
+import { LANGUAGE_COOKIE_KEY, resolveLanguage, type Language } from "@/i18n/config";
 
 type Translations = typeof en;
-type Language = "en" | "hi";
 
 const dictionaries: Record<Language, Translations> = { en, hi };
-
-const STORAGE_KEY = "vidyaos-lang";
 
 type LanguageContextType = {
     lang: Language;
@@ -23,22 +21,54 @@ const LanguageContext = createContext<LanguageContextType>({
     t: (path: string) => path,
 });
 
-export function LanguageProvider({ children }: { children: React.ReactNode }) {
-    const [lang, setLangState] = useState<Language>("en");
+function persistLanguage(newLang: Language) {
+    document.cookie = `${LANGUAGE_COOKIE_KEY}=${newLang};path=/;max-age=31536000;SameSite=Lax`;
+    localStorage.setItem(LANGUAGE_COOKIE_KEY, newLang);
+    document.documentElement.lang = newLang;
+}
 
-    // Read stored language after mount to avoid hydration mismatch
+function getClientPreferredLanguage(initialLang: Language): Language {
+    if (typeof document === "undefined") {
+        return initialLang;
+    }
+
+    const cookieMatch = document.cookie
+        .split("; ")
+        .find((cookie) => cookie.startsWith(`${LANGUAGE_COOKIE_KEY}=`));
+    if (cookieMatch) {
+        return resolveLanguage(cookieMatch.split("=")[1]);
+    }
+
+    return resolveLanguage(localStorage.getItem(LANGUAGE_COOKIE_KEY)) || initialLang;
+}
+
+export function LanguageProvider({
+    children,
+    initialLang,
+}: {
+    children: React.ReactNode;
+    initialLang: Language;
+}) {
+    const [lang, setLangState] = useState<Language>(() => getClientPreferredLanguage(initialLang));
+
     useEffect(() => {
-        queueMicrotask(() => {
-            const stored = localStorage.getItem(STORAGE_KEY) as Language | null;
-            if (stored && dictionaries[stored]) {
-                setLangState(stored);
-            }
-        });
-    }, []);
+        const cookieMatch = document.cookie
+            .split("; ")
+            .find((cookie) => cookie.startsWith(`${LANGUAGE_COOKIE_KEY}=`));
+        const cookieLang = resolveLanguage(cookieMatch?.split("=")[1]);
+        const storedLang = resolveLanguage(localStorage.getItem(LANGUAGE_COOKIE_KEY));
+
+        if (cookieLang !== lang || storedLang !== lang) {
+            persistLanguage(lang);
+            return;
+        }
+
+        document.documentElement.lang = lang;
+    }, [lang]);
 
     const setLang = useCallback((newLang: Language) => {
         setLangState(newLang);
-        localStorage.setItem(STORAGE_KEY, newLang);
+        persistLanguage(newLang);
     }, []);
 
     const t = useCallback(
@@ -49,13 +79,12 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
                 if (value && typeof value === "object" && key in value) {
                     value = (value as Record<string, unknown>)[key];
                 } else {
-                    // Fallback to English
                     let fallback: unknown = dictionaries.en;
-                    for (const k of keys) {
-                        if (fallback && typeof fallback === "object" && k in fallback) {
-                            fallback = (fallback as Record<string, unknown>)[k];
+                    for (const fallbackKey of keys) {
+                        if (fallback && typeof fallback === "object" && fallbackKey in fallback) {
+                            fallback = (fallback as Record<string, unknown>)[fallbackKey];
                         } else {
-                            return path; // Return key as-is if not found
+                            return path;
                         }
                     }
                     return typeof fallback === "string" ? fallback : path;
@@ -82,10 +111,10 @@ export function LanguageToggle() {
     return (
         <button
             onClick={() => setLang(lang === "en" ? "hi" : "en")}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg border border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--primary)] hover:text-[var(--primary)] transition-colors"
+            className="flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-2.5 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition-colors hover:border-[var(--primary)] hover:text-[var(--primary)]"
             title={lang === "en" ? "हिंदी में बदलें" : "Switch to English"}
         >
-            {lang === "en" ? "🇮🇳 हिंदी" : "🇬🇧 English"}
+            {lang === "en" ? "हिंदी" : "English"}
         </button>
     );
 }

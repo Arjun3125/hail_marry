@@ -7,7 +7,7 @@ from typing import Any
 from uuid import UUID
 
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import case, func
 
 from src.domains.identity.models.user import User
 from src.domains.academic.models.attendance import Attendance
@@ -43,54 +43,69 @@ def generate_digest(
 
     since = date.today() - timedelta(days=days)
     children_data = []
+    children = db.query(User).filter(User.id.in_(child_ids)).all()
+    children_by_id = {child.id: child for child in children}
+    attendance_rows = db.query(
+        Attendance.student_id,
+        func.count(Attendance.student_id),
+        func.sum(case((Attendance.status == "present", 1), else_=0)),
+    ).filter(
+        Attendance.tenant_id == tenant_id,
+        Attendance.student_id.in_(child_ids),
+        Attendance.date >= since,
+    ).group_by(Attendance.student_id).all()
+    attendance_by_child = {
+        student_id: {
+            "total_days": int(total or 0),
+            "present_days": int(present or 0),
+        }
+        for student_id, total, present in attendance_rows
+    }
+    enrolled_child_ids = {
+        enrollment.student_id
+        for enrollment in db.query(Enrollment).filter(
+            Enrollment.tenant_id == tenant_id,
+            Enrollment.student_id.in_(child_ids),
+        ).all()
+    }
+    mark_rows = db.query(Mark, Exam).join(
+        Exam,
+        Mark.exam_id == Exam.id,
+    ).filter(
+        Mark.tenant_id == tenant_id,
+        Mark.student_id.in_(child_ids),
+    ).order_by(Mark.student_id.asc(), Mark.id.desc()).all()
+    recent_marks_by_child: dict[UUID, list[dict[str, Any]]] = {}
+    for mark, exam in mark_rows:
+        if mark.student_id not in enrolled_child_ids:
+            continue
+        entries = recent_marks_by_child.setdefault(mark.student_id, [])
+        if len(entries) >= 10:
+            continue
+        entries.append({
+            "exam": exam.name,
+            "marks_obtained": mark.marks_obtained,
+            "max_marks": exam.max_marks,
+            "percentage": round(marks_obtained / exam.max_marks * 100) if (marks_obtained := mark.marks_obtained) and exam.max_marks > 0 else 0,
+        })
+    ai_usage_rows = db.query(
+        AIQuery.user_id,
+        func.count(AIQuery.id),
+    ).filter(
+        AIQuery.tenant_id == tenant_id,
+        AIQuery.user_id.in_(child_ids),
+    ).group_by(AIQuery.user_id).all()
+    ai_sessions_by_child = {user_id: int(count or 0) for user_id, count in ai_usage_rows}
 
     for child_id in child_ids:
-        child = db.query(User).filter(User.id == child_id).first()
+        child = children_by_id.get(child_id)
         if not child:
             continue
 
-        # Attendance summary
-        total_att = db.query(Attendance).filter(
-            Attendance.tenant_id == tenant_id,
-            Attendance.student_id == child_id,
-            Attendance.date >= since,
-        ).count()
-        present_att = db.query(Attendance).filter(
-            Attendance.tenant_id == tenant_id,
-            Attendance.student_id == child_id,
-            Attendance.date >= since,
-            Attendance.status == "present",
-        ).count()
+        attendance = attendance_by_child.get(child_id, {"total_days": 0, "present_days": 0})
+        total_att = attendance["total_days"]
+        present_att = attendance["present_days"]
         attendance_pct = round(present_att / total_att * 100) if total_att > 0 else None
-
-        # Recent marks
-        recent_marks = []
-        enrollments = db.query(Enrollment).filter(
-            Enrollment.tenant_id == tenant_id,
-            Enrollment.student_id == child_id,
-        ).all()
-        class_ids = [e.class_id for e in enrollments]
-
-        if class_ids:
-            marks = db.query(Mark).filter(
-                Mark.tenant_id == tenant_id,
-                Mark.student_id == child_id,
-            ).order_by(Mark.id.desc()).limit(10).all()
-            for m in marks:
-                exam = db.query(Exam).filter(Exam.id == m.exam_id).first()
-                if exam:
-                    recent_marks.append({
-                        "exam": exam.name,
-                        "marks_obtained": m.marks_obtained,
-                        "max_marks": exam.max_marks,
-                        "percentage": round(m.marks_obtained / exam.max_marks * 100) if exam.max_marks > 0 else 0,
-                    })
-
-        # AI usage count
-        ai_sessions = db.query(func.count(AIQuery.id)).filter(
-            AIQuery.tenant_id == tenant_id,
-            AIQuery.user_id == child_id,
-        ).scalar() or 0
 
         children_data.append({
             "student_id": str(child_id),
@@ -100,8 +115,8 @@ def generate_digest(
                 "present_days": present_att,
                 "percentage": attendance_pct,
             },
-            "recent_marks": recent_marks,
-            "ai_study_sessions": ai_sessions,
+            "recent_marks": recent_marks_by_child.get(child_id, []),
+            "ai_study_sessions": ai_sessions_by_child.get(child_id, 0),
         })
 
     return {

@@ -57,11 +57,9 @@ async def get_personalized_recommendations(
     current_surface: str | None = None,
     current_topic: str | None = None,
     current_query: str | None = None,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role("student")),
     db: Session = Depends(get_db),
 ):
-    if current_user.role != "student":
-        return {"items": [], "learner_profile": None}
     return _build_personalized_recommendations_response_impl(
         db=db,
         tenant_id=current_user.tenant_id,
@@ -72,17 +70,24 @@ async def get_personalized_recommendations(
         current_topic=current_topic,
         current_query=current_query,
         build_profile_aware_recommendations_fn=build_profile_aware_recommendations,
-        observe_personalization_event_fn=observe_personalization_event,
+        observe_personalization_event_fn=lambda metric, *, surface="unknown", target="unknown", count=1.0: observe_personalization_event(
+            metric,
+            surface=surface,
+            target=target,
+            count=count,
+            db=db,
+            tenant_id=str(current_user.tenant_id),
+            user_id=str(current_user.id),
+            channel="web",
+        ),
     )
 
 
 @router.get("/profile")
 async def get_personalization_profile(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role("student")),
     db: Session = Depends(get_db),
 ):
-    if current_user.role != "student":
-        return {"profile": None}
     return _build_personalization_profile_response_impl(
         db=db,
         tenant_id=current_user.tenant_id,
@@ -93,11 +98,9 @@ async def get_personalization_profile(
 
 @router.post("/profile/recompute")
 async def recompute_personalization_profile(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role("student")),
     db: Session = Depends(get_db),
 ):
-    if current_user.role != "student":
-        return {"profile": None}
     return _build_recomputed_personalization_profile_response_impl(
         db=db,
         tenant_id=current_user.tenant_id,
@@ -110,11 +113,9 @@ async def recompute_personalization_profile(
 @router.get("/remediation")
 async def get_personalization_remediation(
     limit: int = 3,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role("student")),
     db: Session = Depends(get_db),
 ):
-    if current_user.role != "student":
-        return {"items": []}
     return _build_personalization_remediation_response_impl(
         db=db,
         tenant_id=current_user.tenant_id,
@@ -132,11 +133,9 @@ async def get_personalization_study_path(
     subject_id: str | None = None,
     current_surface: str | None = None,
     force_refresh: bool = False,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role("student")),
     db: Session = Depends(get_db),
 ):
-    if current_user.role != "student":
-        return {"plan": None}
     return _build_personalization_study_path_response_impl(
         db=db,
         tenant_id=current_user.tenant_id,
@@ -147,7 +146,16 @@ async def get_personalization_study_path(
         current_surface=current_surface,
         force_refresh=force_refresh,
         get_or_create_study_path_fn=get_or_create_study_path,
-        observe_personalization_event_fn=observe_personalization_event,
+        observe_personalization_event_fn=lambda metric, *, surface="unknown", target="unknown", count=1.0: observe_personalization_event(
+            metric,
+            surface=surface,
+            target=target,
+            count=count,
+            db=db,
+            tenant_id=str(current_user.tenant_id),
+            user_id=str(current_user.id),
+            channel="web",
+        ),
     )
 
 
@@ -155,11 +163,9 @@ async def get_personalization_study_path(
 async def complete_personalization_study_path_step(
     plan_id: str,
     step_id: str,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role("student")),
     db: Session = Depends(get_db),
 ):
-    if current_user.role != "student":
-        return {"plan": None}
     return _build_completed_study_path_response_impl(
         db=db,
         tenant_id=current_user.tenant_id,
@@ -167,17 +173,25 @@ async def complete_personalization_study_path_step(
         plan_id=plan_id,
         step_id=step_id,
         complete_study_path_step_fn=complete_study_path_step,
-        observe_personalization_event_fn=observe_personalization_event,
+        observe_personalization_event_fn=lambda metric, *, surface="unknown", target="unknown", count=1.0: observe_personalization_event(
+            metric,
+            surface=surface,
+            target=target,
+            count=count,
+            db=db,
+            tenant_id=str(current_user.tenant_id),
+            user_id=str(current_user.id),
+            channel="web",
+        ),
     )
 
 
 @router.post("/events")
 async def record_personalization_event(
     payload: PersonalizationEventRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role("student")),
+    db: Session = Depends(get_db),
 ):
-    if current_user.role != "student":
-        return {"success": False}
     if payload.event_type not in _ALLOWED_PERSONALIZATION_EVENTS:
         raise HTTPException(status_code=400, detail="Unsupported event_type")
 
@@ -185,6 +199,10 @@ async def record_personalization_event(
         payload.event_type,
         surface=payload.surface or "unknown",
         target=payload.target or "unknown",
+        db=db,
+        tenant_id=str(current_user.tenant_id),
+        user_id=str(current_user.id),
+        channel="web",
     )
     return {"success": True}
 

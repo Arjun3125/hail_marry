@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 from uuid import UUID
 
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from src.domains.academic.models.core import Subject
@@ -305,6 +306,28 @@ def count_recent_confusion_queries(
         return 0
 
     since = _utcnow() - timedelta(days=since_days)
+    escaped_topic = normalized_topic.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    candidate_patterns = [f"%{escaped_topic}%"]
+    for prefix in (
+        "explain ",
+        "what is ",
+        "what are ",
+        "tell me about ",
+        "help me understand ",
+        "summarize ",
+        "summary of ",
+        "create quiz for ",
+        "generate quiz for ",
+        "make quiz for ",
+        "quiz on ",
+        "quiz for ",
+        "study guide for ",
+        "flashcards for ",
+        "why is ",
+        "how does ",
+        "how do ",
+    ):
+        candidate_patterns.append(f"{prefix}{escaped_topic}%")
     query = (
         db.query(AIQuery)
         .filter(
@@ -313,6 +336,7 @@ def count_recent_confusion_queries(
             AIQuery.deleted_at.is_(None),
             AIQuery.created_at >= since,
             AIQuery.mode.in_(("qa", "study_guide", "socratic")),
+            or_(*(AIQuery.query_text.ilike(pattern, escape="\\") for pattern in candidate_patterns)),
         )
     )
     queries = query.all() if hasattr(query, "all") else []
@@ -567,6 +591,11 @@ def build_profile_aware_recommendations(
                 "priority": "high",
             }
         )
+    existing_weak_topics = {
+        item["label"].replace("Practice weak topic: ", "", 1).strip().lower()
+        for item in suggestions
+        if item.get("reason") == "weak_topic"
+    }
 
     if topic_label:
         snapshot = get_topic_mastery_snapshot(
@@ -601,7 +630,7 @@ def build_profile_aware_recommendations(
         .all()
     )
     for row in mastery_rows:
-        if any(item["reason"] == "weak_topic" and row.topic.lower() in item["label"].lower() for item in suggestions):
+        if row.topic.lower() in existing_weak_topics:
             continue
         target_tool = "flashcards" if active_tool != "flashcards" else "quiz"
         suggestions.append(

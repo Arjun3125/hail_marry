@@ -95,7 +95,7 @@ test("student upload flow shows OCR review metadata for image uploads @smoke", a
 
     await page.goto("/student/upload");
 
-    await expect(page.getByRole("heading", { name: "Upload Study Materials" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /study-ready intake surface/i })).toBeVisible();
     await expect(page.getByText("chapter-9.pdf")).toBeVisible();
 
     await page.locator('input[type="file"]').setInputFiles({
@@ -104,12 +104,12 @@ test("student upload flow shows OCR review metadata for image uploads @smoke", a
         buffer: Buffer.from("fake-image-binary"),
     });
 
-    await expect(page.getByRole("paragraph").filter({ hasText: /^photosynthesis-note\.jpg$/ })).toBeVisible();
+    await expect(page.getByText("photosynthesis-note.jpg")).toBeVisible();
     await expect(page.getByText(/OCR completed/i)).toBeVisible();
     await expect(page.getByText(/OCR review recommended/i)).toBeVisible();
     await expect(page.getByText(/OCR confidence 82%/i)).toBeVisible();
     await expect(page.getByText(/Low confidence in two handwritten lines/i)).toBeVisible();
-    await expect(page.getByRole("heading", { name: /Your upload is ready/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /latest upload is ready/i })).toBeVisible();
     await expect(page.getByRole("link", { name: /Ask and understand/i })).toBeVisible();
     await expect(page.getByRole("link", { name: /Practice immediately/i })).toBeVisible();
     await page.getByRole("link", { name: /Ask and understand/i }).click();
@@ -214,10 +214,10 @@ test("student study tools page queues a quiz job and renders grounded results @s
 
     await page.goto("/student/tools");
 
-    await expect(page.getByRole("heading", { name: "AI Study Tools" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Build revision assets from your learning material/i })).toBeVisible();
     await page.getByRole("button", { name: /Quiz/i }).click();
 
-    await page.getByPlaceholder(/Enter a topic for your Quiz/i).fill("Photosynthesis");
+    await page.locator("textarea").fill("Photosynthesis");
     await page.getByRole("button", { name: /Generate/i }).click();
 
     await expect(page.getByRole("heading", { name: "Generated Quiz" })).toBeVisible();

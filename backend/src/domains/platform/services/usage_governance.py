@@ -464,12 +464,12 @@ def record_usage_event(
         counters_to_increment.add("ai_requests")
     if token_usage > 0:
         counters_to_increment.add("llm_tokens")
+    cost_inc = _estimate_cost_units(token_usage, used_fallback=used_fallback_model)
 
     for bucket_type in ("day", "month"):
         for counter_metric in counters_to_increment:
             count_inc = count if counter_metric != "llm_tokens" else 0
             token_inc = token_usage if counter_metric == "llm_tokens" else token_usage
-            cost_inc = _estimate_cost_units(token_usage, used_fallback=used_fallback_model)
             if user_id:
                 _upsert_counter(
                     db,

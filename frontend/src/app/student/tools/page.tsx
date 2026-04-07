@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, useCallback } from "react";
 import {
+    ArrowRight,
     Brain,
     ChevronLeft,
     ChevronRight,
@@ -13,10 +14,17 @@ import {
     Sparkles,
     Library,
     Clock,
+    FolderKanban,
     Pin,
+    WandSparkles,
 } from "lucide-react";
 
+import EmptyState from "@/components/EmptyState";
+import { PrismHeroKicker, PrismPage, PrismPanel, PrismSection } from "@/components/prism/PrismPage";
+import { useNetworkAware } from "@/hooks/useNetworkAware";
+import ErrorRemediation from "@/components/ui/ErrorRemediation";
 import { api } from "@/lib/api";
+import { cn } from "@/lib/utils";
 
 type Tool = "quiz" | "flashcards" | "mindmap" | "flowchart" | "concept_map";
 type AIJobStatus = "queued" | "running" | "completed" | "failed";
@@ -49,6 +57,7 @@ const tools: { id: Tool; label: string; icon: typeof Brain; desc: string; color:
 ];
 
 export default function StudyToolsPage() {
+    const { isSlowConnection, saveData } = useNetworkAware();
     const [activeTab, setActiveTab] = useState<"create" | "library">("create");
     const [activeTool, setActiveTool] = useState<Tool | null>(null);
     const [topic, setTopic] = useState("");
@@ -64,7 +73,9 @@ export default function StudyToolsPage() {
     const [libraryLoading, setLibraryLoading] = useState(false);
 
     const selectedTool = useMemo(() => tools.find((tool) => tool.id === activeTool) || null, [activeTool]);
+    const pinnedCount = useMemo(() => libraryItems.filter((item) => item.is_pinned).length, [libraryItems]);
     const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
+    const fallbackPollMs = saveData ? 6000 : isSlowConnection ? 4000 : 2000;
     
     // Inline history for selected tool
     const [toolHistory, setToolHistory] = useState<AIHistoryItem[]>([]);
@@ -73,7 +84,11 @@ export default function StudyToolsPage() {
         if (activeTool) {
             api.aiHistory.list({ mode: activeTool, page: 1 }).then((res) => {
                 setToolHistory((res as { items: AIHistoryItem[] }).items?.slice(0, 3) || []);
+            }).catch(() => {
+                setToolHistory([]);
             });
+        } else {
+            setToolHistory([]);
         }
     }, [activeTool]);
     
@@ -143,7 +158,7 @@ export default function StudyToolsPage() {
 
                 timer = setTimeout(() => {
                     void poll();
-                }, job.poll_after_ms ?? 2000);
+                }, job.poll_after_ms ?? fallbackPollMs);
             } catch (err) {
                 if (cancelled) return;
                 setError(err instanceof Error ? err.message : "Failed to load job status");
@@ -158,7 +173,7 @@ export default function StudyToolsPage() {
             cancelled = true;
             if (timer) clearTimeout(timer);
         };
-    }, [jobId]);
+    }, [fallbackPollMs, jobId]);
 
     const generateResult = async () => {
         if (!activeTool || !topic.trim()) return;
@@ -196,52 +211,71 @@ export default function StudyToolsPage() {
     };
 
     return (
-        <div>
-            <div className="mb-6">
-                <h1 className="text-2xl font-bold text-[var(--text-primary)]">AI Study Tools</h1>
-                <p className="text-sm text-[var(--text-secondary)]">Generate quizzes, flashcards, mind maps, flowcharts, and concept maps from your uploaded materials.</p>
-            </div>
+        <PrismPage className="space-y-6">
+            <PrismSection className="space-y-6">
+                <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+                    <div className="space-y-4">
+                        <PrismHeroKicker>
+                            <Sparkles className="h-3.5 w-3.5" />
+                            Student tool studio
+                        </PrismHeroKicker>
+                        <div className="space-y-3">
+                            <div className="flex flex-wrap items-center gap-3">
+                                <h1 className="text-3xl font-semibold tracking-tight text-[var(--text-primary)] md:text-4xl">
+                                    Build revision assets from your learning material.
+                                </h1>
+                                <span className="rounded-full border border-white/10 bg-white/6 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--text-muted)]">
+                                    Prism Phase 3
+                                </span>
+                            </div>
+                            <p className="max-w-3xl text-sm leading-7 text-[var(--text-secondary)] md:text-base">
+                                Generate quizzes, flashcards, mind maps, flowcharts, and concept maps in a workspace designed around creation, saved
+                                assets, and grounded outputs rather than a single flat tool panel.
+                            </p>
+                        </div>
+                    </div>
 
-            {/* Tabs */}
-            <div className="flex border-b border-[var(--border)] mb-6">
-                <button
-                    onClick={() => setActiveTab("create")}
-                    className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors ${
-                        activeTab === "create"
-                            ? "text-[var(--primary)] border-b-2 border-[var(--primary)]"
-                            : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-                    }`}
-                >
-                    <Sparkles className="w-4 h-4" />
-                    Create New
-                </button>
-                <button
-                    onClick={() => setActiveTab("library")}
-                    className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors ${
-                        activeTab === "library"
-                            ? "text-[var(--primary)] border-b-2 border-[var(--primary)]"
-                            : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-                    }`}
-                >
-                    <Library className="w-4 h-4" />
-                    My Library
-                    {libraryItems.length > 0 && (
-                        <span className="ml-1 text-xs bg-[var(--primary)] text-white px-2 py-0.5 rounded-full">
-                            {libraryItems.length}
-                        </span>
-                    )}
-                </button>
-            </div>
+                    <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-1">
+                        <MetricPanel
+                            label="Active workspace"
+                            value={selectedTool?.label || "Select a tool"}
+                            detail={selectedTool ? selectedTool.desc : "Choose a format to shape the next study pass."}
+                        />
+                        <MetricPanel
+                            label="Saved assets"
+                            value={libraryItems.length > 0 ? `${libraryItems.length}` : "Library ready"}
+                            detail={libraryItems.length > 0 ? `${pinnedCount} pinned study assets saved for reuse.` : "Generated tools collect in one reusable shelf."}
+                        />
+                        <MetricPanel
+                            label="Recent momentum"
+                            value={toolHistory.length > 0 ? `${toolHistory.length} recent` : "Fresh start"}
+                            detail={toolHistory.length > 0 ? "Jump back into the latest prompts for this tool." : "Pick a tool and start building your first artifact."}
+                        />
+                    </div>
+                </div>
+
+                {error ? <ErrorRemediation error={error} scope="student-tools" onRetry={() => void generateResult()} simplifiedModeHref="/student/upload" /> : null}
+
+                <div className="grid gap-6 xl:grid-cols-[0.98fr_1.02fr]">
+                    <PrismPanel className="space-y-5 p-5">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--text-muted)]">Workspace mode</p>
+                                <h2 className="mt-1 text-lg font-semibold text-[var(--text-primary)]">Create or revisit study assets</h2>
+                            </div>
+                            <div className="inline-flex rounded-full border border-white/10 bg-black/10 p-1">
+                                <TabButton active={activeTab === "create"} onClick={() => setActiveTab("create")} icon={WandSparkles}>
+                                    Create
+                                </TabButton>
+                                <TabButton active={activeTab === "library"} onClick={() => setActiveTab("library")} icon={Library}>
+                                    Library
+                                </TabButton>
+                            </div>
+                        </div>
 
             {activeTab === "create" ? (
                 <>
-                    {error ? (
-                        <div className="mb-4 rounded-[var(--radius)] border border-[var(--error)]/30 bg-error-subtle px-4 py-3 text-sm text-[var(--error)]">
-                            {error}
-                        </div>
-                    ) : null}
-
-                    <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
                         {tools.map((tool) => (
                             <button
                                 key={tool.id}
@@ -251,177 +285,367 @@ export default function StudyToolsPage() {
                                     setResult(null);
                                     setCitations([]);
                                 }}
-                                className={`p-4 rounded-[var(--radius)] text-center transition-all ${
+                                className={cn(
+                                    "group relative overflow-hidden rounded-[calc(var(--radius)*1.05)] border p-4 text-left transition-all duration-200",
                                     activeTool === tool.id
-                                        ? `bg-gradient-to-br ${tool.color} text-white shadow-lg scale-[1.02]`
-                                        : "bg-[var(--bg-card)] shadow-[var(--shadow-card)] hover:shadow-md text-[var(--text-primary)]"
-                                } ${loading ? "opacity-60 cursor-not-allowed" : ""}`}
+                                        ? `border-white/15 bg-gradient-to-br ${tool.color} text-white shadow-[0_22px_60px_rgba(15,23,42,0.34)]`
+                                        : "border-white/8 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.03))] hover:-translate-y-0.5 hover:border-white/15 hover:bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.04))]",
+                                    loading ? "cursor-not-allowed opacity-60" : ""
+                                )}
                             >
-                                <tool.icon className={`w-6 h-6 mx-auto mb-2 ${activeTool === tool.id ? "text-white" : "text-[var(--primary)]"}`} />
-                                <p className="text-xs font-semibold">{tool.label}</p>
-                                <p className={`text-[10px] mt-0.5 ${activeTool === tool.id ? "text-white/80" : "text-[var(--text-muted)]"}`}>{tool.desc}</p>
+                                <div className="flex items-start justify-between gap-3">
+                                    <div className={cn("rounded-2xl border p-2.5", activeTool === tool.id ? "border-white/20 bg-white/10" : "border-white/10 bg-white/5")}>
+                                        <tool.icon className={cn("h-5 w-5", activeTool === tool.id ? "text-white" : "text-[var(--primary)]")} />
+                                    </div>
+                                    <ArrowRight className={cn("h-4 w-4 transition-transform group-hover:translate-x-0.5", activeTool === tool.id ? "text-white/70" : "text-[var(--text-muted)]")} />
+                                </div>
+                                <p className="mt-4 text-sm font-semibold">{tool.label}</p>
+                                <p className={cn("mt-1 text-xs leading-6", activeTool === tool.id ? "text-white/80" : "text-[var(--text-secondary)]")}>{tool.desc}</p>
                             </button>
                         ))}
                     </div>
 
-                    {activeTool ? (
-                        <>
-                            {/* Recent items for this tool */}
-                            {toolHistory.length > 0 && (
-                                <div className="mb-4 bg-[var(--bg-card)] rounded-[var(--radius)] border border-[var(--border)]/50 p-3">
-                                    <div className="flex items-center gap-2 text-xs text-[var(--text-secondary)] mb-2">
-                                        <Clock className="w-3.5 h-3.5" />
-                                        <span>Recent {selectedTool?.label} you created</span>
-                                    </div>
-                                    <div className="space-y-2">
-                                        {toolHistory.map((item) => (
-                                            <div
-                                                key={item.id}
-                                                className="flex items-center gap-2 p-2 rounded hover:bg-[var(--surface-hover)] cursor-pointer transition-colors"
-                                                onClick={() => setTopic(item.query_text)}
-                                            >
-                                                {item.is_pinned && <Pin className="w-3 h-3 text-[var(--primary)]" />}
-                                                <span className="text-sm text-[var(--text-primary)] truncate flex-1">
-                                                    {item.title || item.query_text}
-                                                </span>
-                                                <span className="text-xs text-[var(--text-muted)]">
-                                                    {new Date(item.created_at).toLocaleDateString()}
-                                                </span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-
-                            <div className="bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] p-4 mb-6">
-                                <div className="flex gap-3">
-                                    <input
-                                        value={topic}
-                                        onChange={(event) => setTopic(event.target.value)}
-                                        onKeyDown={(event) => {
-                                            if (event.key === "Enter") {
-                                                void generateResult();
-                                            }
-                                        }}
-                                        placeholder={`Enter a topic for your ${selectedTool?.label || "tool"}...`}
-                                        className="flex-1 px-4 py-2.5 text-sm border border-[var(--border)] rounded-[var(--radius-sm)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
-                                    />
-                                    <button
-                                        onClick={() => void generateResult()}
-                                        disabled={loading || !topic.trim()}
-                                        className="px-5 py-2.5 bg-[var(--primary)] text-white text-sm font-medium rounded-[var(--radius-sm)] hover:bg-[var(--primary-hover)] disabled:opacity-50 flex items-center gap-2"
-                                    >
-                                        {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                                        Generate
-                                    </button>
-                                </div>
+                    {toolHistory.length > 0 ? (
+                        <div className="rounded-[calc(var(--radius)*0.95)] border border-white/10 bg-black/10 p-4">
+                            <div className="mb-3 flex items-center gap-2 text-xs font-medium text-[var(--text-secondary)]">
+                                <Clock className="h-3.5 w-3.5" />
+                                Recent {selectedTool?.label || "tool"} prompts
                             </div>
-
-                            {loading ? (
-                                <div className="bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] p-12 text-center">
-                                    <Loader2 className="w-8 h-8 mx-auto text-[var(--primary)] animate-spin mb-3" />
-                                    <p className="text-sm text-[var(--text-secondary)]">
-                                        {jobStatus === "queued" ? `Queued ${selectedTool?.label}...` : `Generating ${selectedTool?.label}...`}
-                                    </p>
-                                </div>
-                            ) : null}
-
-                            {!loading && result && activeTool === "quiz" ? <QuizView questions={result as QuizQ[]} /> : null}
-                            {!loading && result && activeTool === "flashcards" ? <FlashcardsView cards={result as Flashcard[]} /> : null}
-                            {!loading && result && activeTool === "mindmap" ? <MindMapView data={result as MindNode} /> : null}
-                            {!loading && result && activeTool === "flowchart" ? <FlowchartView data={result as FlowchartData | string} /> : null}
-                            {!loading && result && activeTool === "concept_map" ? <ConceptMapView data={result as ConceptMap} /> : null}
-
-                            {!loading && citations.length > 0 ? (
-                                <div className="mt-4 bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] p-4">
-                                    <p className="text-xs font-semibold text-[var(--text-secondary)] mb-2">Sources</p>
-                                    <div className="flex flex-wrap gap-2">
-                                        {citations.map((citation, idx) => {
-                                            const label = citation.text || `${citation.source || "Document"}${citation.page ? ` p.${citation.page}` : ""}`;
-                                            if (citation.url) {
-                                                return (
-                                                    <a
-                                                        key={`${citation.source || "src"}-${citation.page || "page"}-${idx}`}
-                                                        href={citation.url}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="text-[10px] px-2 py-1 rounded-full bg-[var(--bg-page)] text-[var(--text-secondary)] hover:text-[var(--primary)] transition"
-                                                    >
-                                                        {label}
-                                                    </a>
-                                                );
-                                            }
-                                            return (
-                                                <span key={`${citation.source || "src"}-${citation.page || "page"}-${idx}`} className="text-[10px] px-2 py-1 rounded-full bg-[var(--bg-page)] text-[var(--text-secondary)]">
-                                                    {label}
-                                                </span>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            ) : null}
-                        </>
+                            <div className="space-y-2">
+                                {toolHistory.map((item) => (
+                                    <button
+                                        key={item.id}
+                                        onClick={() => setTopic(item.query_text)}
+                                        className="flex w-full items-center gap-3 rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-2.5 text-left transition hover:border-white/12 hover:bg-white/[0.05]"
+                                    >
+                                        {item.is_pinned ? <Pin className="h-3.5 w-3.5 text-[var(--primary)]" /> : <Clock className="h-3.5 w-3.5 text-[var(--text-muted)]" />}
+                                        <div className="min-w-0 flex-1">
+                                            <p className="truncate text-sm font-medium text-[var(--text-primary)]">{item.title || item.query_text}</p>
+                                            <p className="text-[11px] text-[var(--text-muted)]">{new Date(item.created_at).toLocaleDateString()}</p>
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
                     ) : null}
+
+                    <div className="rounded-[calc(var(--radius)*1.05)] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02))] p-4">
+                        <div className="mb-4 space-y-1">
+                            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">Prompt builder</p>
+                            <h3 className="text-base font-semibold text-[var(--text-primary)]">
+                                {selectedTool ? `Generate a ${selectedTool.label.toLowerCase()} from your topic` : "Choose a tool, then describe the topic"}
+                            </h3>
+                            <p className="text-sm text-[var(--text-secondary)]">
+                                Keep the topic specific enough to anchor the output to one chapter, unit, or problem area.
+                            </p>
+                        </div>
+
+                        <div className="space-y-3">
+                            <textarea
+                                value={topic}
+                                onChange={(event) => setTopic(event.target.value)}
+                                placeholder={selectedTool ? `Example: ${toolPlaceholder(selectedTool.id)}` : "Pick a tool first, then enter a focused study topic."}
+                                className="min-h-[120px] w-full rounded-[calc(var(--radius)*0.9)] border border-white/10 bg-black/15 px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20"
+                            />
+                            <div className="flex flex-wrap items-center justify-between gap-3">
+                                <div className="flex flex-wrap gap-2 text-[11px] text-[var(--text-muted)]">
+                                    <PromptChip label="High-yield revision" onClick={() => setTopic("High-yield revision points from this chapter")} />
+                                    <PromptChip label="Exam prep" onClick={() => setTopic("Exam-focused questions and concepts for this unit")} />
+                                    <PromptChip label="Concept links" onClick={() => setTopic("Connections between the main concepts in this topic")} />
+                                </div>
+                                <button
+                                    onClick={() => void generateResult()}
+                                    disabled={loading || !activeTool || !topic.trim()}
+                                    className="inline-flex items-center gap-2 rounded-2xl bg-[linear-gradient(135deg,rgba(96,165,250,0.96),rgba(129,140,248,0.94))] px-4 py-2.5 text-sm font-semibold text-[#07111f] shadow-[0_18px_34px_rgba(96,165,250,0.24)] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                    {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                                    Generate
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </>
             ) : (
-                // Library View
-                <div>
+                <div className="space-y-4">
+                    <div className="rounded-[calc(var(--radius)*1.05)] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] p-4">
+                        <div className="flex items-center justify-between gap-3">
+                            <div>
+                                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">Saved study assets</p>
+                                <h3 className="mt-1 text-base font-semibold text-[var(--text-primary)]">Your generated library</h3>
+                            </div>
+                            <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-[var(--text-secondary)]">
+                                {libraryItems.length} items
+                            </div>
+                        </div>
+                    </div>
+
                     {libraryLoading ? (
-                        <div className="flex items-center justify-center py-12">
-                            <Loader2 className="w-8 h-8 animate-spin text-[var(--primary)]" />
-                        </div>
+                        <PrismPanel className="flex items-center justify-center p-12">
+                            <div className="flex items-center gap-3 text-sm text-[var(--text-secondary)]">
+                                <Loader2 className="h-5 w-5 animate-spin text-[var(--primary)]" />
+                                Loading your study library...
+                            </div>
+                        </PrismPanel>
                     ) : libraryItems.length === 0 ? (
-                        <div className="text-center py-12">
-                            <Library className="w-16 h-16 mx-auto mb-4 text-[var(--text-muted)] opacity-50" />
-                            <h3 className="text-lg font-medium text-[var(--text-primary)] mb-2">No saved tools yet</h3>
-                            <p className="text-sm text-[var(--text-secondary)] mb-4">Generate quizzes, flashcards, and more to build your library</p>
-                            <button
-                                onClick={() => setActiveTab("create")}
-                                className="px-4 py-2 bg-[var(--primary)] text-white rounded-lg text-sm font-medium hover:bg-[var(--primary-hover)] transition-colors"
-                            >
-                                Create Your First Tool
-                            </button>
-                        </div>
+                        <EmptyState
+                            icon={Library}
+                            title="No saved study tools yet"
+                            description="Generate your first quiz, flashcards, or map to build a reusable revision shelf."
+                            action={{ label: "Switch to create", href: "#student-tools-create" }}
+                        />
                     ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div className="grid gap-3">
                             {libraryItems.map((item) => (
-                                <div
+                                <button
                                     key={item.id}
-                                    className="group bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] p-4 hover:shadow-md transition-all cursor-pointer"
                                     onClick={() => {
                                         setActiveTab("create");
                                         setActiveTool(item.mode as Tool);
                                         setTopic(item.query_text);
                                     }}
+                                    className="group rounded-[calc(var(--radius)*1.02)] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.03))] p-4 text-left transition hover:-translate-y-0.5 hover:border-white/15"
                                 >
-                                    <div className="flex items-start justify-between mb-3">
-                                        <div className="flex items-center gap-2">
-                                            {item.mode === "quiz" && <HelpCircle className="w-5 h-5 text-violet-500" />}
-                                            {item.mode === "flashcards" && <Layers className="w-5 h-5 text-amber-500" />}
-                                            {item.mode === "mindmap" && <Brain className="w-5 h-5 text-emerald-500" />}
-                                            {item.mode === "flowchart" && <GitBranch className="w-5 h-5 text-sky-500" />}
-                                            {item.mode === "concept_map" && <Network className="w-5 h-5 text-rose-500" />}
-                                            <span className="text-xs font-medium px-2 py-0.5 bg-[var(--bg-page)] rounded-full text-[var(--text-secondary)] capitalize">
-                                                {item.mode.replace("_", " ")}
-                                            </span>
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div className="flex items-center gap-3">
+                                            <div className="rounded-2xl border border-white/10 bg-white/5 p-2.5">
+                                                <LibraryIcon mode={item.mode} />
+                                            </div>
+                                            <div>
+                                                <p className="text-sm font-semibold text-[var(--text-primary)]">{item.title || item.query_text}</p>
+                                                <p className="text-xs text-[var(--text-secondary)]">{formatToolMode(item.mode)} study asset</p>
+                                            </div>
                                         </div>
-                                        {item.is_pinned && <Pin className="w-4 h-4 text-[var(--primary)]" />}
+                                        {item.is_pinned ? <Pin className="h-4 w-4 text-[var(--primary)]" /> : null}
                                     </div>
-                                    <h3 className="font-medium text-[var(--text-primary)] mb-2 line-clamp-2">
-                                        {item.title || item.query_text}
-                                    </h3>
-                                    <div className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
-                                        <Clock className="w-3 h-3" />
+                                    <div className="mt-3 flex items-center justify-between gap-3 text-[11px] text-[var(--text-muted)]">
                                         <span>{new Date(item.created_at).toLocaleDateString()}</span>
+                                        <span className="inline-flex items-center gap-1 text-[var(--text-secondary)] group-hover:text-[var(--text-primary)]">
+                                            Open in create mode
+                                            <ArrowRight className="h-3.5 w-3.5" />
+                                        </span>
                                     </div>
-                                </div>
+                                </button>
                             ))}
                         </div>
                     )}
                 </div>
             )}
+                    </PrismPanel>
+
+                    <div className="space-y-6" id="student-tools-create">
+                        <PrismPanel className="overflow-hidden p-0">
+                            <div className="border-b border-white/8 px-5 py-4">
+                                <div className="flex flex-wrap items-start justify-between gap-3">
+                                    <div>
+                                        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">Output studio</p>
+                                        <h2 className="mt-1 text-lg font-semibold text-[var(--text-primary)]">
+                                            {selectedTool ? `${selectedTool.label} workspace` : "Study output preview"}
+                                        </h2>
+                                        <p className="mt-1 text-sm text-[var(--text-secondary)]">
+                                            {loading
+                                                ? jobStatus === "queued"
+                                                    ? "Your request is queued and will appear here as soon as the job starts."
+                                                    : "The generated study artifact will stream into this panel when it is ready."
+                                                : selectedTool
+                                                  ? "Generated outputs stay grounded to your prompt and can be reused from the library."
+                                                  : "Pick a tool on the left to start a focused revision workflow."}
+                                        </p>
+                                    </div>
+                                    <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-[var(--text-secondary)]">
+                                        {selectedTool ? selectedTool.label : "No tool selected"}
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="p-5">
+                                {loading ? (
+                                    <div className="flex min-h-[360px] flex-col items-center justify-center gap-3 rounded-[calc(var(--radius)*0.95)] border border-dashed border-white/10 bg-black/10 px-6 py-10 text-center">
+                                        <Loader2 className="h-8 w-8 animate-spin text-[var(--primary)]" />
+                                        <div>
+                                            <p className="text-sm font-semibold text-[var(--text-primary)]">
+                                                {jobStatus === "queued" ? `Queued ${selectedTool?.label || "study tool"}` : `Generating ${selectedTool?.label || "study tool"}`}
+                                            </p>
+                                            <p className="mt-1 text-sm text-[var(--text-secondary)]">We&apos;re shaping the output around your topic and available study material.</p>
+                                        </div>
+                                    </div>
+                                ) : !selectedTool ? (
+                                    <EmptyState
+                                        icon={WandSparkles}
+                                        title="Choose a study format"
+                                        description="Select quiz, flashcards, mind map, flowchart, or concept map to open the creation workspace."
+                                        action={{ label: "Go to uploads", href: "/student/upload" }}
+                                    />
+                                ) : !result ? (
+                                    <ToolPreview selectedTool={selectedTool} topic={topic} recentCount={toolHistory.length} />
+                                ) : (
+                                    <div className="space-y-4">
+                                        {activeTool === "quiz" ? <QuizView questions={result as QuizQ[]} /> : null}
+                                        {activeTool === "flashcards" ? <FlashcardsView cards={result as Flashcard[]} /> : null}
+                                        {activeTool === "mindmap" ? <MindMapView data={result as MindNode} /> : null}
+                                        {activeTool === "flowchart" ? <FlowchartView data={result as FlowchartData | string} /> : null}
+                                        {activeTool === "concept_map" ? <ConceptMapView data={result as ConceptMap} /> : null}
+                                        {citations.length > 0 ? <SourceStrip citations={citations} /> : null}
+                                    </div>
+                                )}
+                            </div>
+                        </PrismPanel>
+                        <div className="grid gap-4 md:grid-cols-2">
+                            <PrismPanel className="p-4">
+                                <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">
+                                    <FolderKanban className="h-3.5 w-3.5" />
+                                    Flow
+                                </div>
+                                <h3 className="text-sm font-semibold text-[var(--text-primary)]">Create, save, return</h3>
+                                <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
+                                    This route now separates creation from the library so repeated revision feels organized rather than disposable.
+                                </p>
+                            </PrismPanel>
+                            <PrismPanel className="p-4">
+                                <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">
+                                    <Brain className="h-3.5 w-3.5" />
+                                    Guidance
+                                </div>
+                                <h3 className="text-sm font-semibold text-[var(--text-primary)]">Better prompts, better outputs</h3>
+                                <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
+                                    Use a chapter, lesson, or concept cluster instead of a broad subject name to keep generated material sharper and easier to trust.
+                                </p>
+                            </PrismPanel>
+                        </div>
+                    </div>
+                </div>
+            </PrismSection>
+        </PrismPage>
+    );
+}
+
+function TabButton({
+    active,
+    onClick,
+    icon: Icon,
+    children,
+}: {
+    active: boolean;
+    onClick: () => void;
+    icon: typeof Library;
+    children: React.ReactNode;
+}) {
+    return (
+        <button
+            onClick={onClick}
+            className={cn(
+                "inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-medium transition",
+                active ? "bg-white/12 text-[var(--text-primary)] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+            )}
+        >
+            <Icon className="h-4 w-4" />
+            {children}
+        </button>
+    );
+}
+
+function MetricPanel({ label, value, detail }: { label: string; value: string; detail: string }) {
+    return (
+        <PrismPanel className="p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">{label}</p>
+            <p className="mt-2 text-lg font-semibold text-[var(--text-primary)]">{value}</p>
+            <p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">{detail}</p>
+        </PrismPanel>
+    );
+}
+
+function PromptChip({ label, onClick }: { label: string; onClick: () => void }) {
+    return (
+        <button onClick={onClick} className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 transition hover:border-white/15 hover:bg-white/8">
+            {label}
+        </button>
+    );
+}
+
+function ToolPreview({
+    selectedTool,
+    topic,
+    recentCount,
+}: {
+    selectedTool: (typeof tools)[number];
+    topic: string;
+    recentCount: number;
+}) {
+    return (
+        <div className={cn("rounded-[calc(var(--radius)*0.95)] border border-white/10 bg-gradient-to-br p-5", selectedTool.color)}>
+            <div className="flex items-start justify-between gap-4">
+                <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/65">Ready to generate</p>
+                    <h3 className="mt-2 text-xl font-semibold text-white">{selectedTool.label}</h3>
+                    <p className="mt-2 max-w-xl text-sm leading-7 text-white/80">{selectedTool.desc}</p>
+                </div>
+                <div className="rounded-2xl border border-white/15 bg-white/10 p-3">
+                    <selectedTool.icon className="h-5 w-5 text-white" />
+                </div>
+            </div>
+
+            <div className="mt-6 grid gap-3 md:grid-cols-3">
+                <PreviewStat label="Prompt state" value={topic.trim() ? "Ready" : "Waiting"} />
+                <PreviewStat label="Recent prompts" value={recentCount > 0 ? `${recentCount}` : "0"} />
+                <PreviewStat label="Output style" value={selectedTool.label} />
+            </div>
+
+            <div className="mt-6 rounded-[calc(var(--radius)*0.9)] border border-white/15 bg-black/15 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/65">Next step</p>
+                <p className="mt-2 text-sm leading-6 text-white/80">
+                    {topic.trim()
+                        ? `Generate now to turn "${topic}" into a structured ${selectedTool.label.toLowerCase()} study asset.`
+                        : `Add a focused topic on the left and generate a ${selectedTool.label.toLowerCase()} you can revisit later from the library.`}
+                </p>
+            </div>
         </div>
     );
+}
+
+function PreviewStat({ label, value }: { label: string; value: string }) {
+    return (
+        <div className="rounded-2xl border border-white/15 bg-black/15 p-3">
+            <p className="text-[11px] uppercase tracking-[0.18em] text-white/60">{label}</p>
+            <p className="mt-2 text-sm font-semibold text-white">{value}</p>
+        </div>
+    );
+}
+
+function SourceStrip({ citations }: { citations: Citation[] }) {
+    return (
+        <div className="rounded-[calc(var(--radius)*0.95)] border border-white/10 bg-black/10 p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">Sources</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+                {citations.map((citation, idx) => {
+                    const label = citation.text || `${citation.source || "Document"}${citation.page ? ` p.${citation.page}` : ""}`;
+                    const key = `${citation.source || "src"}-${citation.page || "page"}-${idx}`;
+                    const classes = "rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] text-[var(--text-secondary)] transition hover:text-[var(--text-primary)]";
+                    if (citation.url) {
+                        return <a key={key} href={citation.url} target="_blank" rel="noopener noreferrer" className={classes}>{label}</a>;
+                    }
+                    return <span key={key} className={classes}>{label}</span>;
+                })}
+            </div>
+        </div>
+    );
+}
+
+function LibraryIcon({ mode }: { mode: string }) {
+    if (mode === "quiz") return <HelpCircle className="h-5 w-5 text-violet-400" />;
+    if (mode === "flashcards") return <Layers className="h-5 w-5 text-amber-400" />;
+    if (mode === "mindmap") return <Brain className="h-5 w-5 text-emerald-400" />;
+    if (mode === "flowchart") return <GitBranch className="h-5 w-5 text-sky-400" />;
+    return <Network className="h-5 w-5 text-rose-400" />;
+}
+
+function formatToolMode(mode: string) {
+    return mode.replace("_", " ");
+}
+
+function toolPlaceholder(tool: Tool) {
+    if (tool === "quiz") return "Thermodynamics laws and heat engine questions";
+    if (tool === "flashcards") return "French Revolution dates, causes, and outcomes";
+    if (tool === "mindmap") return "Cell biology structure and major functions";
+    if (tool === "flowchart") return "Steps in solving quadratic equations";
+    return "How photosynthesis concepts relate to each other";
 }
 
 function QuizView({ questions }: { questions: QuizQ[] }) {

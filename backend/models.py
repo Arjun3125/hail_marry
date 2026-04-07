@@ -10,6 +10,7 @@ from src.domains.identity.models.tenant import Tenant       # noqa: F401
 
 # Academic
 from src.domains.academic.models.core import Class, Subject, Enrollment  # noqa: F401
+from src.domains.academic.models.batch import Batch, BatchEnrollment  # noqa: F401
 from src.domains.academic.models.lecture import Lecture       # noqa: F401
 from src.domains.academic.models.timetable import Timetable  # noqa: F401
 from src.domains.academic.models.parent_link import ParentLink  # noqa: F401
@@ -18,12 +19,16 @@ from src.domains.academic.models.attendance import Attendance  # noqa: F401
 from src.domains.academic.models.assignment import Assignment, AssignmentSubmission  # noqa: F401
 from src.domains.academic.models.marks import Exam, Mark     # noqa: F401
 from src.domains.academic.models.test_series import TestSeries, MockTestAttempt  # noqa: F401
+from src.domains.academic.models.student_profile import StudentProfile  # noqa: F401
 
 # Administrative
+from src.domains.administrative.models.admission import AdmissionApplication  # noqa: F401
 from src.domains.administrative.models.complaint import Complaint  # noqa: F401
+from src.domains.administrative.models.fee import FeeStructure, FeeInvoice, FeePayment  # noqa: F401
 
 # Platform
 from src.domains.platform.models.ai import AIQuery          # noqa: F401
+from src.domains.platform.models.analytics_event import AnalyticsEvent  # noqa: F401
 from src.domains.platform.models.document import Document    # noqa: F401
 from src.domains.platform.models.audit import AuditLog       # noqa: F401
 from src.domains.platform.models.feature_flag import FeatureFlag  # noqa: F401

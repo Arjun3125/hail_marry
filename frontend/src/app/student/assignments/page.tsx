@@ -1,9 +1,21 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, Clock, Upload, GraduationCap, AlertCircle, FileText, Bot, UploadCloud } from "lucide-react";
+import {
+    AlertCircle,
+    Bot,
+    CheckCircle2,
+    Clock,
+    GraduationCap,
+    Sparkles,
+    Upload,
+    UploadCloud,
+} from "lucide-react";
 
 import { api } from "@/lib/api";
+import { PrismTabButton, PrismTabList } from "@/components/prism/PrismControls";
+import { PrismHeroKicker, PrismPage, PrismPanel, PrismSection } from "@/components/prism/PrismPage";
+import ErrorRemediation from "@/components/ui/ErrorRemediation";
 
 type AssignmentItem = {
     id: string;
@@ -18,11 +30,11 @@ type AssignmentItem = {
 
 type Tab = "all" | "pending" | "submitted" | "graded";
 
-const tabs: Array<{ id: Tab; label: string }> = [
-    { id: "all", label: "All Items" },
-    { id: "pending", label: "Needs Action" },
-    { id: "submitted", label: "Submitted" },
-    { id: "graded", label: "Graded" },
+const tabs: Array<{ id: Tab; label: string; summary: string }> = [
+    { id: "all", label: "All Items", summary: "Full assignment ledger" },
+    { id: "pending", label: "Needs Action", summary: "Upload or complete soon" },
+    { id: "submitted", label: "Submitted", summary: "Awaiting review or replacement" },
+    { id: "graded", label: "Graded", summary: "Returned with score" },
 ];
 
 type OCRNote = {
@@ -30,6 +42,30 @@ type OCRNote = {
     warning: string | null;
     confidence?: number;
 };
+
+function statusAccent(status: AssignmentItem["status"]) {
+    if (status === "graded") {
+        return {
+            stripe: "from-emerald-400 to-teal-500",
+            badge: "bg-emerald-500/10 text-status-emerald",
+            iconWrap: "bg-emerald-500/12 text-status-emerald",
+        };
+    }
+
+    if (status === "submitted") {
+        return {
+            stripe: "from-sky-400 to-indigo-500",
+            badge: "bg-blue-500/10 text-status-blue",
+            iconWrap: "bg-blue-500/12 text-status-blue",
+        };
+    }
+
+    return {
+        stripe: "from-amber-300 to-orange-500",
+        badge: "bg-amber-500/10 text-status-amber",
+        iconWrap: "bg-amber-500/12 text-status-amber",
+    };
+}
 
 export default function AssignmentsPage() {
     const [assignments, setAssignments] = useState<AssignmentItem[]>([]);
@@ -65,6 +101,22 @@ export default function AssignmentsPage() {
         return assignments.filter((item) => item.status === activeTab);
     }, [assignments, activeTab]);
 
+    const summary = useMemo(() => {
+        const pending = assignments.filter((item) => item.status === "pending").length;
+        const submitted = assignments.filter((item) => item.status === "submitted").length;
+        const graded = assignments.filter((item) => item.status === "graded").length;
+        const averageGrade =
+            graded > 0
+                ? Math.round(
+                      assignments
+                          .filter((item) => item.status === "graded")
+                          .reduce((sum, item) => sum + (item.grade ?? 0), 0) / graded
+                  )
+                : null;
+
+        return { pending, submitted, graded, averageGrade };
+    }, [assignments]);
+
     const submitAssignment = async (assignmentId: string, file: File | null) => {
         if (!file) return;
         try {
@@ -79,13 +131,14 @@ export default function AssignmentsPage() {
             };
             setOcrNotes((prev) => ({
                 ...prev,
-                [assignmentId]: payload?.ocr_review_required || payload?.ocr_warning
-                    ? {
-                        reviewRequired: Boolean(payload?.ocr_review_required),
-                        warning: payload?.ocr_warning ?? null,
-                        confidence: typeof payload?.ocr_confidence === "number" ? payload.ocr_confidence : undefined,
-                    }
-                    : null,
+                [assignmentId]:
+                    payload?.ocr_review_required || payload?.ocr_warning
+                        ? {
+                              reviewRequired: Boolean(payload?.ocr_review_required),
+                              warning: payload?.ocr_warning ?? null,
+                              confidence: typeof payload?.ocr_confidence === "number" ? payload.ocr_confidence : undefined,
+                          }
+                        : null,
             }));
             await loadAssignments();
         } catch (err) {
@@ -96,172 +149,257 @@ export default function AssignmentsPage() {
     };
 
     return (
-        <div className="max-w-4xl mx-auto space-y-6">
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-4">
-                <div>
-                    <h1 className="text-3xl font-black text-[var(--text-primary)] flex items-center gap-3 tracking-tight">
-                        <FileText className="w-8 h-8 text-[var(--accent-indigo)]" />
-                        Assignments Explorer
-                    </h1>
-                    <p className="text-sm text-[var(--text-muted)] mt-2 italic">Track deadlines, submit homework via camera or file, and review graded outcomes.</p>
-                </div>
-            </div>
-
-            {error && (
-                <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-500 shadow-md animate-in fade-in flex items-center gap-2">
-                    <AlertCircle className="w-4 h-4" /> {error}
-                </div>
-            )}
-
-            {/* Futuristic Tab Bar */}
-            <div className="flex flex-wrap gap-2 p-1 bg-[var(--bg-card)]/50 backdrop-blur-md rounded-2xl w-fit border border-[var(--border-light)] shadow-sm">
-                {tabs.map((tab) => (
-                    <button
-                        key={tab.id}
-                        onClick={() => setActiveTab(tab.id)}
-                        className={`relative px-5 py-2 text-sm font-bold rounded-xl transition-all duration-300 ${
-                            activeTab === tab.id
-                                ? "text-white shadow-md shadow-indigo-500/20"
-                                : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-page)]"
-                        }`}
-                    >
-                        {activeTab === tab.id && (
-                            <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-xl pointer-events-none -z-10 animate-in zoom-in-95" />
-                        )}
-                        {tab.label}
-                    </button>
-                ))}
-            </div>
-
-            <div className="space-y-4">
-                {loading ? (
-                    <div className="flex flex-col items-center justify-center p-20 glass-panel border border-[var(--border-light)] rounded-3xl opacity-70">
-                        <Clock className="w-12 h-12 text-[var(--text-muted)] mb-4 animate-spin-slow" />
-                        <p className="text-sm font-medium text-[var(--text-muted)] animate-pulse">Syncing assignment ledger...</p>
+        <PrismPage className="space-y-6">
+            <PrismSection className="space-y-6">
+                <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
+                    <div className="space-y-4">
+                        <PrismHeroKicker>
+                            <Sparkles className="h-3.5 w-3.5" />
+                            Student Submission Flow
+                        </PrismHeroKicker>
+                        <div className="space-y-3">
+                            <h1 className="prism-title text-4xl font-black leading-[0.98] text-[var(--text-primary)] md:text-5xl">
+                                Keep deadlines, uploads, and grades inside one{" "}
+                                <span className="premium-gradient">clear assignment ledger</span>
+                            </h1>
+                            <p className="max-w-3xl text-base leading-7 text-[var(--text-secondary)] md:text-lg">
+                                This page is now organized around student action: see what needs attention, submit from camera or file, and quickly understand what has already been graded.
+                            </p>
+                        </div>
                     </div>
-                ) : filteredAssignments.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center p-20 glass-panel border border-[var(--border-light)] rounded-3xl text-center">
-                        <CheckCircle2 className="w-16 h-16 text-[var(--text-muted)] opacity-30 mb-4" />
-                        <h3 className="text-lg font-bold text-[var(--text-primary)] mb-1">You&apos;re all caught up!</h3>
-                        <p className="text-xs font-medium text-[var(--text-muted)]">No assignments found in this category.</p>
-                    </div>
-                ) : (
-                    filteredAssignments.map((item, idx) => {
-                        const isGraded = item.status === "graded";
-                        const isSubmitted = item.status === "submitted";
-                        const isPending = item.status === "pending";
 
-                        return (
-                            <div key={item.id} className={`relative overflow-hidden bg-[var(--bg-card)]/90 backdrop-blur-sm rounded-2xl p-6 shadow-sm hover:shadow-lg border border-[var(--border-light)] transition-shadow duration-300 stagger-${Math.min(idx + 1, 6)} group`}>
-                                {/* Abstract Status Edge Bar */}
-                                <div className={`absolute top-0 left-0 w-1.5 h-full ${
-                                    isGraded ? "bg-gradient-to-b from-emerald-400 to-teal-500" :
-                                    isSubmitted ? "bg-gradient-to-b from-blue-400 to-indigo-500" :
-                                    "bg-gradient-to-b from-amber-400 to-orange-500"
-                                }`} />
-
-                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 pl-4">
-                                    <div className="flex items-start gap-5">
-                                        <div
-                                            className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 shadow-inner ${
-                                                isGraded ? "bg-emerald-500/10 text-emerald-500"
-                                                : isSubmitted ? "bg-blue-500/10 text-blue-500"
-                                                : "bg-amber-500/10 text-amber-500"
-                                            }`}
-                                        >
-                                            {isGraded ? <GraduationCap className="w-6 h-6" />
-                                            : isSubmitted ? <CheckCircle2 className="w-6 h-6" />
-                                            : <Clock className="w-6 h-6 animate-pulse" />}
-                                        </div>
-                                        <div>
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <h3 className="text-lg font-bold text-[var(--text-primary)] group-hover:text-[var(--accent-indigo)] transition-colors">{item.title}</h3>
-                                                <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md ${
-                                                    isGraded ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                                                    : isSubmitted ? "bg-blue-500/10 text-blue-600 dark:text-blue-400"
-                                                    : "bg-amber-500/10 text-amber-600 dark:text-amber-400"
-                                                }`}>
-                                                    {item.status}
-                                                </span>
-                                            </div>
-                                            <p className="text-xs font-semibold text-[var(--text-muted)] flex flex-wrap items-center gap-2">
-                                                <span className="text-[var(--text-primary)] opacity-80">{item.subject}</span>
-                                                <span className="w-1 h-1 rounded-full bg-[var(--text-muted)] opacity-50" />
-                                                <span>Due: {item.due || "No date set"}</span>
-                                            </p>
-
-                                            {item.submitted_at && (
-                                                <p className="text-[10px] text-[var(--text-muted)] mt-2 flex items-center gap-1 opacity-70">
-                                                    <UploadCloud className="w-3 h-3" /> Submitted at {item.submitted_at}
-                                                </p>
-                                            )}
-
-                                            {ocrNotes[item.id] && (ocrNotes[item.id]!.reviewRequired || ocrNotes[item.id]!.warning) && (
-                                                <div className="mt-3 inline-flex flex-col bg-amber-500/5 border border-amber-500/20 rounded-lg p-2.5 max-w-sm">
-                                                    <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1.5 uppercase tracking-wide">
-                                                        <AlertCircle className="w-3 h-3" />
-                                                        OCR Scanning Alert
-                                                    </p>
-                                                    <p className="text-xs text-[var(--text-secondary)] mt-1 ml-4.5 leading-snug">
-                                                        {typeof ocrNotes[item.id]?.confidence === "number" && `Clarity at ${Math.round(ocrNotes[item.id]!.confidence! * 100)}%. `}
-                                                        Please review your image{ocrNotes[item.id]?.warning ? `: ${ocrNotes[item.id]?.warning}` : "."}
-                                                    </p>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    <div className="flex items-center gap-3 sm:ml-auto w-full sm:w-auto flex-wrap sm:flex-nowrap pt-4 sm:pt-0 border-t border-[var(--border-light)] sm:border-0">
-                                        {isGraded && (
-                                            <div className="flex flex-col items-center justify-center px-4 shrink-0">
-                                                <span className="text-xs font-black uppercase tracking-widest text-[var(--text-muted)] mb-1">Score</span>
-                                                <span className="text-3xl font-black text-[var(--text-primary)]">
-                                                    {item.grade ?? 0}<span className="text-sm opacity-50">/100</span>
-                                                </span>
-                                            </div>
-                                        )}
-
-                                        <a
-                                            href="/student/assistant"
-                                            className="px-4 py-2.5 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 text-xs font-bold hover:bg-purple-500/20 transition-colors flex items-center gap-1.5 flex-1 sm:flex-initial justify-center"
-                                        >
-                                            <Bot className="w-4 h-4" /> Need Help?
-                                        </a>
-
-                                        <label className={`px-4 py-2.5 rounded-xl text-white text-xs font-bold cursor-pointer transition-all shadow-md flex-1 sm:flex-initial flex items-center justify-center gap-2 ${
-                                            uploadingId === item.id 
-                                                ? "bg-[var(--text-muted)] cursor-not-allowed"
-                                                : isPending 
-                                                    ? "bg-gradient-to-r from-blue-500 to-indigo-600 hover:shadow-indigo-500/20 hover:scale-105" 
-                                                    : "bg-[var(--bg-page)] text-[var(--text-primary)] border border-[var(--border-light)] hover:bg-[var(--border-light)] hover:shadow-none bg-none shadow-none"
-                                        }`}>
-                                            {uploadingId === item.id ? (
-                                                <>&nbsp;&nbsp;<Clock className="w-4 h-4 animate-spin-slow" /> Uploading...&nbsp;&nbsp;</>
-                                            ) : isPending ? (
-                                                <><UploadCloud className="w-4 h-4" /> Upload Homework</>
-                                            ) : (
-                                                <><Upload className="w-4 h-4" /> Replace File</>
-                                            )}
-                                            <input
-                                                type="file"
-                                                accept=".pdf,.docx,image/*"
-                                                capture="environment"
-                                                className="hidden"
-                                                disabled={uploadingId !== null}
-                                                onChange={(event) => {
-                                                    const file = event.target.files?.[0] || null;
-                                                    void submitAssignment(item.id, file);
-                                                    event.target.value = "";
-                                                }}
-                                            />
-                                        </label>
-                                    </div>
-                                </div>
+                    <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
+                        <PrismPanel className="p-4">
+                            <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,rgba(251,191,36,0.18),rgba(249,115,22,0.08))]">
+                                <Clock className="h-5 w-5 text-status-amber" />
                             </div>
-                        );
-                    })
-                )}
-            </div>
-        </div>
+                            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">Needs action</p>
+                            <p className="mt-2 text-2xl font-black text-[var(--text-primary)]">{summary.pending}</p>
+                            <p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">Assignments still waiting for submission or follow-up.</p>
+                        </PrismPanel>
+                        <PrismPanel className="p-4">
+                            <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,rgba(96,165,250,0.18),rgba(99,102,241,0.08))]">
+                                <UploadCloud className="h-5 w-5 text-status-blue" />
+                            </div>
+                            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">Submitted</p>
+                            <p className="mt-2 text-2xl font-black text-[var(--text-primary)]">{summary.submitted}</p>
+                            <p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">Work already uploaded and waiting for teacher review.</p>
+                        </PrismPanel>
+                        <PrismPanel className="p-4">
+                            <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,rgba(45,212,191,0.18),rgba(16,185,129,0.08))]">
+                                <GraduationCap className="h-5 w-5 text-status-emerald" />
+                            </div>
+                            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">Average score</p>
+                            <p className="mt-2 text-2xl font-black text-[var(--text-primary)]">
+                                {summary.averageGrade !== null ? (
+                                    <>
+                                        {summary.averageGrade}
+                                        <span className="ml-1 text-sm opacity-50">/100</span>
+                                    </>
+                                ) : (
+                                    "--"
+                                )}
+                            </p>
+                            <p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">Latest graded work, normalized into a quick progress signal.</p>
+                        </PrismPanel>
+                    </div>
+                </div>
+
+                {error ? (
+                    <ErrorRemediation
+                        error={error}
+                        scope="student-assignments"
+                        onRetry={() => {
+                            void (async () => {
+                                try {
+                                    setLoading(true);
+                                    setError(null);
+                                    await loadAssignments();
+                                } catch (err) {
+                                    setError(err instanceof Error ? err.message : "Failed to load assignments");
+                                } finally {
+                                    setLoading(false);
+                                }
+                            })();
+                        }}
+                    />
+                ) : null}
+
+                <PrismPanel className="space-y-5 p-5">
+                    <PrismTabList>
+                        {tabs.map((tab) => {
+                            const isActive = activeTab === tab.id;
+                            const count =
+                                tab.id === "all"
+                                    ? assignments.length
+                                    : assignments.filter((item) => item.status === tab.id).length;
+
+                            return (
+                                <PrismTabButton
+                                    key={tab.id}
+                                    onClick={() => setActiveTab(tab.id)}
+                                    active={isActive}
+                                    className="min-w-[220px] flex-1 px-4 py-3 text-left"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className="text-left">
+                                            <p className="text-sm font-semibold">{tab.label}</p>
+                                            <p className="text-[11px] leading-5 text-[var(--text-muted)]">{tab.summary}</p>
+                                        </div>
+                                        <span className="ml-auto rounded-full border border-[var(--border)] bg-[rgba(255,255,255,0.04)] px-2 py-0.5 text-[10px] font-semibold text-[var(--text-secondary)]">
+                                            {count}
+                                        </span>
+                                    </div>
+                                </PrismTabButton>
+                            );
+                        })}
+                    </PrismTabList>
+
+                    {loading ? (
+                        <div className="flex flex-col items-center justify-center rounded-[1.75rem] border border-[var(--border)] bg-[rgba(148,163,184,0.04)] p-20 text-center">
+                            <Clock className="mb-4 h-12 w-12 animate-spin text-[var(--text-muted)]" />
+                            <p className="text-sm font-medium text-[var(--text-muted)]">Syncing assignment ledger...</p>
+                        </div>
+                    ) : filteredAssignments.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center rounded-[1.75rem] border border-[var(--border)] bg-[rgba(148,163,184,0.04)] p-20 text-center">
+                            <CheckCircle2 className="mb-4 h-16 w-16 text-[var(--text-muted)] opacity-30" />
+                            <h3 className="mb-1 text-lg font-bold text-[var(--text-primary)]">You&apos;re all caught up</h3>
+                            <p className="text-xs font-medium text-[var(--text-muted)]">No assignments found in this category.</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-4">
+                            {filteredAssignments.map((item) => {
+                                const isGraded = item.status === "graded";
+                                const isSubmitted = item.status === "submitted";
+                                const isPending = item.status === "pending";
+                                const accent = statusAccent(item.status);
+
+                                return (
+                                    <div
+                                        key={item.id}
+                                        className="relative overflow-hidden rounded-[1.75rem] border border-[var(--border)] bg-[rgba(148,163,184,0.05)] p-6 shadow-[0_20px_42px_rgba(2,6,23,0.1)]"
+                                    >
+                                        <div className={`absolute inset-y-0 left-0 w-1.5 bg-gradient-to-b ${accent.stripe}`} />
+
+                                        <div className="flex flex-col gap-6 pl-4 lg:flex-row lg:items-start lg:justify-between">
+                                            <div className="flex min-w-0 items-start gap-4">
+                                                <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${accent.iconWrap}`}>
+                                                    {isGraded ? (
+                                                        <GraduationCap className="h-6 w-6" />
+                                                    ) : isSubmitted ? (
+                                                        <CheckCircle2 className="h-6 w-6" />
+                                                    ) : (
+                                                        <Clock className="h-6 w-6" />
+                                                    )}
+                                                </div>
+
+                                                <div className="min-w-0">
+                                                    <div className="mb-2 flex flex-wrap items-center gap-2">
+                                                        <h3 className="text-xl font-bold text-[var(--text-primary)]">{item.title}</h3>
+                                                        <span className={`rounded-md px-2 py-1 text-[10px] font-black uppercase tracking-[0.16em] ${accent.badge}`}>
+                                                            {item.status}
+                                                        </span>
+                                                    </div>
+
+                                                    <p className="flex flex-wrap items-center gap-2 text-xs font-semibold text-[var(--text-muted)]">
+                                                        <span className="text-[var(--text-primary)]/85">{item.subject}</span>
+                                                        <span className="h-1 w-1 rounded-full bg-[var(--text-muted)]/50" />
+                                                        <span>Due: {item.due || "No date set"}</span>
+                                                    </p>
+
+                                                    {item.submitted_at ? (
+                                                        <p className="mt-2 flex items-center gap-1 text-[11px] text-[var(--text-muted)]">
+                                                            <UploadCloud className="h-3 w-3" />
+                                                            Submitted at {item.submitted_at}
+                                                        </p>
+                                                    ) : null}
+
+                                                    {ocrNotes[item.id] && (ocrNotes[item.id]!.reviewRequired || ocrNotes[item.id]!.warning) ? (
+                                                        <div className="mt-4 max-w-md rounded-2xl border border-amber-500/20 bg-amber-500/6 p-3">
+                                                            <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-status-amber">
+                                                                <AlertCircle className="h-3 w-3" />
+                                                                OCR scanning alert
+                                                            </p>
+                                                            <p className="mt-1 text-xs leading-6 text-[var(--text-secondary)]">
+                                                                {typeof ocrNotes[item.id]?.confidence === "number"
+                                                                    ? `Clarity at ${Math.round(ocrNotes[item.id]!.confidence! * 100)}%. `
+                                                                    : ""}
+                                                                Please review your image
+                                                                {ocrNotes[item.id]?.warning ? `: ${ocrNotes[item.id]?.warning}` : "."}
+                                                            </p>
+                                                        </div>
+                                                    ) : null}
+                                                </div>
+                                            </div>
+
+                                            <div className="flex w-full flex-col gap-3 lg:w-auto lg:min-w-[18rem]">
+                                                {isGraded ? (
+                                                    <div className="rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.03)] px-4 py-3 text-center">
+                                                        <p className="mb-1 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--text-muted)]">Score</p>
+                                                        <p className="text-3xl font-black text-[var(--text-primary)]">
+                                                            {item.grade ?? 0}
+                                                            <span className="ml-1 text-sm opacity-50">/100</span>
+                                                        </p>
+                                                    </div>
+                                                ) : null}
+
+                                                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+                                                    <a
+                                                        href="/student/assistant"
+                                                        className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[var(--border)] bg-[rgba(167,139,250,0.08)] px-4 py-3 text-xs font-bold text-status-violet transition hover:bg-[rgba(167,139,250,0.14)]"
+                                                    >
+                                                        <Bot className="h-4 w-4" />
+                                                        Need help?
+                                                    </a>
+
+                                                    <label
+                                                        className={`inline-flex cursor-pointer items-center justify-center gap-2 rounded-2xl px-4 py-3 text-xs font-bold transition ${
+                                                            uploadingId === item.id
+                                                                ? "bg-[var(--text-muted)] text-white"
+                                                                : isPending
+                                                                  ? "bg-[linear-gradient(135deg,rgba(96,165,250,0.96),rgba(79,70,229,0.92))] text-[#06101e] shadow-[0_18px_32px_rgba(59,130,246,0.18)]"
+                                                                  : "border border-[var(--border)] bg-[rgba(148,163,184,0.05)] text-[var(--text-primary)] hover:bg-[rgba(148,163,184,0.08)]"
+                                                        }`}
+                                                    >
+                                                        {uploadingId === item.id ? (
+                                                            <>
+                                                                <Clock className="h-4 w-4 animate-spin" />
+                                                                Uploading...
+                                                            </>
+                                                        ) : isPending ? (
+                                                            <>
+                                                                <UploadCloud className="h-4 w-4" />
+                                                                Upload homework
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <Upload className="h-4 w-4" />
+                                                                Replace file
+                                                            </>
+                                                        )}
+                                                        <input
+                                                            type="file"
+                                                            accept=".pdf,.docx,image/*"
+                                                            capture="environment"
+                                                            className="hidden"
+                                                            disabled={uploadingId !== null}
+                                                            onChange={(event) => {
+                                                                const file = event.target.files?.[0] || null;
+                                                                void submitAssignment(item.id, file);
+                                                                event.target.value = "";
+                                                            }}
+                                                        />
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </PrismPanel>
+            </PrismSection>
+        </PrismPage>
     );
 }

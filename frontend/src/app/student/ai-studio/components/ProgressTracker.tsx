@@ -1,7 +1,17 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Trophy, Target, Clock, Zap, TrendingUp, Award, BookOpen, Brain } from "lucide-react";
+import {
+    Trophy,
+    Target,
+    Clock,
+    Zap,
+    TrendingUp,
+    Award,
+    BookOpen,
+    Brain,
+    type LucideIcon,
+} from "lucide-react";
 
 interface ProgressTrackerProps {
     sessionStats: {
@@ -17,7 +27,7 @@ interface Achievement {
     id: string;
     title: string;
     description: string;
-    icon: React.ElementType;
+    icon: LucideIcon;
     unlocked: boolean;
     color: string;
 }
@@ -142,29 +152,33 @@ export function ProgressTracker({ sessionStats }: ProgressTrackerProps) {
                     <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider mb-2">
                         Achievements
                     </p>
-                    {achievements.map((achievement) => (
-                        <div
-                            key={achievement.id}
-                            className={`flex items-center gap-3 p-2 rounded-lg ${
-                                achievement.unlocked
-                                    ? "bg-[var(--bg-page)]"
-                                    : "bg-[var(--bg-page)] opacity-50"
-                            }`}
-                        >
-                            <achievement.icon className={`w-4 h-4 ${achievement.color}`} />
-                            <div className="flex-1">
-                                <p className="text-xs font-medium text-[var(--text-primary)]">
-                                    {achievement.title}
-                                </p>
-                                <p className="text-[10px] text-[var(--text-muted)]">
-                                    {achievement.description}
-                                </p>
+                    {achievements.map((achievement) => {
+                        const Icon = achievement.icon;
+
+                        return (
+                            <div
+                                key={achievement.id}
+                                className={`flex items-center gap-3 rounded-lg p-2 ${
+                                    achievement.unlocked
+                                        ? "bg-[var(--bg-page)]"
+                                        : "bg-[var(--bg-page)] opacity-50"
+                                }`}
+                            >
+                                <Icon className={`h-4 w-4 ${achievement.color}`} />
+                                <div className="flex-1">
+                                    <p className="text-xs font-medium text-[var(--text-primary)]">
+                                        {achievement.title}
+                                    </p>
+                                    <p className="text-[10px] text-[var(--text-muted)]">
+                                        {achievement.description}
+                                    </p>
+                                </div>
+                                {achievement.unlocked && (
+                                    <Trophy className="h-3 w-3 text-amber-500" />
+                                )}
                             </div>
-                            {achievement.unlocked && (
-                                <Trophy className="w-3 h-3 text-amber-500" />
-                            )}
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             )}
         </div>

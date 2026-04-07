@@ -64,6 +64,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 "detail": f"Rate limit exceeded. Max {limit} governed requests per minute for this {scope}.",
                 "retry_after": max(retry_after, 1),
             },
+            headers={"Retry-After": str(max(retry_after, 1))}
         )
 
     def _check_with_redis(self, redis_client, key: str, limit: int, now: float):

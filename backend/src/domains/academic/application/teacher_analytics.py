@@ -4,9 +4,14 @@ from __future__ import annotations
 
 from collections import Counter
 from datetime import datetime
+import re
 from typing import Any
 
-from sqlalchemy import func
+from sqlalchemy import case, func
+
+
+def _normalized_tokens(value: str) -> list[str]:
+    return [token for token in re.split(r"[^a-z0-9]+", (value or "").lower()) if token]
 
 
 def build_teacher_dashboard_response(
@@ -25,84 +30,86 @@ def build_teacher_dashboard_response(
     assignment_submission_model,
 ) -> dict[str, Any]:
     classes = []
-    for cid in class_ids:
-        cls = (
+    if class_ids:
+        class_rows = (
             db.query(class_model)
             .filter(
-                class_model.id == cid,
+                class_model.id.in_(class_ids),
                 class_model.tenant_id == current_user.tenant_id,
             )
-            .first()
+            .all()
         )
-        if not cls:
-            continue
-        student_count = (
-            db.query(enrollment_model)
+        available_class_ids = [row.id for row in class_rows]
+        student_count_rows = (
+            db.query(
+                enrollment_model.class_id,
+                func.count(enrollment_model.student_id),
+            )
             .filter(
                 enrollment_model.tenant_id == current_user.tenant_id,
-                enrollment_model.class_id == cid,
+                enrollment_model.class_id.in_(available_class_ids),
             )
-            .count()
-        )
-        total_att = (
-            db.query(attendance_model)
-            .filter(
-                attendance_model.tenant_id == current_user.tenant_id,
-                attendance_model.class_id == cid,
-            )
-            .count()
-        )
-        present_att = (
-            db.query(attendance_model)
-            .filter(
-                attendance_model.tenant_id == current_user.tenant_id,
-                attendance_model.class_id == cid,
-                attendance_model.status == "present",
-            )
-            .count()
-        )
-        avg_att = round(present_att / total_att * 100) if total_att > 0 else 0
-        subject_ids = [
-            s.id
-            for s in db.query(subject_model)
-            .filter(
-                subject_model.tenant_id == current_user.tenant_id,
-                subject_model.class_id == cid,
-            )
+            .group_by(enrollment_model.class_id)
             .all()
-        ]
-        exam_ids = (
-            [
-                e.id
-                for e in db.query(exam_model)
-                .filter(
-                    exam_model.tenant_id == current_user.tenant_id,
-                    exam_model.subject_id.in_(subject_ids),
-                )
-                .all()
-            ]
-            if subject_ids
+            if available_class_ids
             else []
         )
-        avg_m = (
-            db.query(func.avg(mark_model.marks_obtained))
-            .filter(
-                mark_model.tenant_id == current_user.tenant_id,
-                mark_model.exam_id.in_(exam_ids),
+        attendance_rows = (
+            db.query(
+                attendance_model.class_id,
+                func.count(attendance_model.student_id),
+                func.sum(case((attendance_model.status == "present", 1), else_=0)),
             )
-            .scalar()
-            if exam_ids
-            else None
+            .filter(
+                attendance_model.tenant_id == current_user.tenant_id,
+                attendance_model.class_id.in_(available_class_ids),
+            )
+            .group_by(attendance_model.class_id)
+            .all()
+            if available_class_ids
+            else []
         )
-        classes.append(
-            {
-                "id": str(cls.id),
-                "name": cls.name,
-                "students": student_count,
-                "avg_attendance": avg_att,
-                "avg_marks": round(float(avg_m)) if avg_m else 0,
-            }
+        avg_mark_rows = (
+            db.query(
+                subject_model.class_id,
+                func.avg(mark_model.marks_obtained),
+            )
+            .join(exam_model, exam_model.subject_id == subject_model.id)
+            .join(mark_model, mark_model.exam_id == exam_model.id)
+            .filter(
+                subject_model.tenant_id == current_user.tenant_id,
+                exam_model.tenant_id == current_user.tenant_id,
+                mark_model.tenant_id == current_user.tenant_id,
+                subject_model.class_id.in_(available_class_ids),
+            )
+            .group_by(subject_model.class_id)
+            .all()
+            if available_class_ids
+            else []
         )
+
+        student_count_by_class = {class_id: count for class_id, count in student_count_rows}
+        attendance_by_class = {
+            class_id: {"total": total or 0, "present": present or 0}
+            for class_id, total, present in attendance_rows
+        }
+        avg_marks_by_class = {class_id: avg for class_id, avg in avg_mark_rows}
+
+        for cls in class_rows:
+            attendance = attendance_by_class.get(cls.id, {"total": 0, "present": 0})
+            total_att = int(attendance["total"] or 0)
+            present_att = int(attendance["present"] or 0)
+            avg_att = round(present_att / total_att * 100) if total_att > 0 else 0
+            avg_m = avg_marks_by_class.get(cls.id)
+            classes.append(
+                {
+                    "id": str(cls.id),
+                    "name": cls.name,
+                    "students": int(student_count_by_class.get(cls.id, 0) or 0),
+                    "avg_attendance": avg_att,
+                    "avg_marks": round(float(avg_m)) if avg_m else 0,
+                }
+            )
 
     today = datetime.now().weekday()
     today_slots = (
@@ -205,27 +212,52 @@ def build_teacher_classes_response(
         )
         .all()
     )
+    class_row_ids = [cls.id for cls in classes]
+    enrollments = (
+        db.query(enrollment_model)
+        .filter(
+            enrollment_model.tenant_id == current_user.tenant_id,
+            enrollment_model.class_id.in_(class_row_ids),
+        )
+        .all()
+        if class_row_ids
+        else []
+    )
+    student_ids = list({enrollment.student_id for enrollment in enrollments})
+    students = (
+        db.query(user_model)
+        .filter(
+            user_model.id.in_(student_ids),
+            user_model.tenant_id == current_user.tenant_id,
+        )
+        .all()
+        if student_ids
+        else []
+    )
+    subjects = (
+        db.query(subject_model)
+        .filter(
+            subject_model.tenant_id == current_user.tenant_id,
+            subject_model.class_id.in_(class_row_ids),
+        )
+        .all()
+        if class_row_ids
+        else []
+    )
+
+    student_by_id = {student.id: student for student in students}
+    enrollments_by_class: dict[Any, list[Any]] = {}
+    for enrollment in enrollments:
+        enrollments_by_class.setdefault(enrollment.class_id, []).append(enrollment)
+    subjects_by_class: dict[Any, list[Any]] = {}
+    for subject in subjects:
+        subjects_by_class.setdefault(subject.class_id, []).append(subject)
 
     result = []
     for cls in classes:
-        enrollments = (
-            db.query(enrollment_model)
-            .filter(
-                enrollment_model.tenant_id == current_user.tenant_id,
-                enrollment_model.class_id == cls.id,
-            )
-            .all()
-        )
         students = []
-        for enrollment in enrollments:
-            student = (
-                db.query(user_model)
-                .filter(
-                    user_model.id == enrollment.student_id,
-                    user_model.tenant_id == current_user.tenant_id,
-                )
-                .first()
-            )
+        for enrollment in enrollments_by_class.get(cls.id, []):
+            student = student_by_id.get(enrollment.student_id)
             if student:
                 students.append(
                     {
@@ -236,21 +268,13 @@ def build_teacher_classes_response(
                     }
                 )
 
-        subjects = (
-            db.query(subject_model)
-            .filter(
-                subject_model.tenant_id == current_user.tenant_id,
-                subject_model.class_id == cls.id,
-            )
-            .all()
-        )
         result.append(
             {
                 "id": str(cls.id),
                 "name": cls.name,
                 "grade": cls.grade_level,
                 "students": students,
-                "subjects": [{"id": str(subject.id), "name": subject.name} for subject in subjects],
+                "subjects": [{"id": str(subject.id), "name": subject.name} for subject in subjects_by_class.get(cls.id, [])],
             }
         )
     return result
@@ -278,38 +302,62 @@ def build_teacher_insights_response(
         .all()
     )
 
+    class_row_ids = [cls.id for cls in classes]
+    subjects = (
+        db.query(subject_model)
+        .filter(
+            subject_model.tenant_id == current_user.tenant_id,
+            subject_model.class_id.in_(class_row_ids),
+        )
+        .all()
+        if class_row_ids
+        else []
+    )
+    subject_ids = [subject.id for subject in subjects]
+    exams = (
+        db.query(exam_model)
+        .filter(
+            exam_model.tenant_id == current_user.tenant_id,
+            exam_model.subject_id.in_(subject_ids),
+        )
+        .all()
+        if subject_ids
+        else []
+    )
+    avg_mark_rows = (
+        db.query(
+            exam_model.subject_id,
+            func.avg(mark_model.marks_obtained),
+        )
+        .join(mark_model, mark_model.exam_id == exam_model.id)
+        .filter(
+            exam_model.tenant_id == current_user.tenant_id,
+            mark_model.tenant_id == current_user.tenant_id,
+            exam_model.subject_id.in_(subject_ids),
+        )
+        .group_by(exam_model.subject_id)
+        .all()
+        if subject_ids
+        else []
+    )
+
+    subjects_by_class: dict[Any, list[Any]] = {}
+    for subject in subjects:
+        subjects_by_class.setdefault(subject.class_id, []).append(subject)
+    exams_by_subject: dict[Any, list[Any]] = {}
+    for exam in exams:
+        exams_by_subject.setdefault(exam.subject_id, []).append(exam)
+    avg_marks_by_subject = {subject_id: avg for subject_id, avg in avg_mark_rows}
+
     insights = []
     for cls in classes:
-        subjects = (
-            db.query(subject_model)
-            .filter(
-                subject_model.tenant_id == current_user.tenant_id,
-                subject_model.class_id == cls.id,
-            )
-            .all()
-        )
         subject_stats = []
-        for subj in subjects:
-            exams = (
-                db.query(exam_model)
-                .filter(
-                    exam_model.tenant_id == current_user.tenant_id,
-                    exam_model.subject_id == subj.id,
-                )
-                .all()
-            )
-            if not exams:
+        for subj in subjects_by_class.get(cls.id, []):
+            subject_exams = exams_by_subject.get(subj.id, [])
+            if not subject_exams:
                 continue
-            exam_ids = [exam.id for exam in exams]
-            avg = (
-                db.query(func.avg(mark_model.marks_obtained))
-                .filter(
-                    mark_model.tenant_id == current_user.tenant_id,
-                    mark_model.exam_id.in_(exam_ids),
-                )
-                .scalar()
-            )
-            max_m = max(exam.max_marks for exam in exams)
+            avg = avg_marks_by_subject.get(subj.id)
+            max_m = max(exam.max_marks for exam in subject_exams)
             pct = round(float(avg) / max_m * 100) if avg and max_m else 0
             subject_stats.append({"subject": subj.name, "avg_pct": pct, "is_weak": pct < 60})
 
@@ -343,22 +391,19 @@ def build_teacher_doubt_heatmap_response(
     if not allowed_class_ids:
         return {"heatmap": []}
 
-    student_ids = []
-    for cid in allowed_class_ids:
-        enrollments = (
-            db.query(enrollment_model)
-            .filter(
-                enrollment_model.tenant_id == current_user.tenant_id,
-                enrollment_model.class_id == cid,
-            )
-            .all()
+    enrollments = (
+        db.query(enrollment_model)
+        .filter(
+            enrollment_model.tenant_id == current_user.tenant_id,
+            enrollment_model.class_id.in_(allowed_class_ids),
         )
-        student_ids.extend([enrollment.student_id for enrollment in enrollments])
+        .all()
+    )
+    student_ids = list({enrollment.student_id for enrollment in enrollments})
 
     if not student_ids:
         return {"heatmap": []}
 
-    student_ids = list(set(student_ids))
     queries = (
         db.query(ai_query_model)
         .filter(
@@ -370,43 +415,59 @@ def build_teacher_doubt_heatmap_response(
         .all()
     )
 
-    subject_map = {}
+    classes = (
+        db.query(class_model)
+        .filter(
+            class_model.id.in_(allowed_class_ids),
+            class_model.tenant_id == current_user.tenant_id,
+        )
+        .all()
+    )
+    subjects = (
+        db.query(subject_model)
+        .filter(
+            subject_model.tenant_id == current_user.tenant_id,
+            subject_model.class_id.in_(allowed_class_ids),
+        )
+        .all()
+    )
+    class_by_id = {cls.id: cls for cls in classes}
+    subjects_by_class: dict[Any, list[Any]] = {}
+    for subject in subjects:
+        subjects_by_class.setdefault(subject.class_id, []).append(subject)
+
+    subject_entries: list[tuple[str, str]] = []
+    token_index: dict[str, list[int]] = {}
     for cid in allowed_class_ids:
-        cls = (
-            db.query(class_model)
-            .filter(
-                class_model.id == cid,
-                class_model.tenant_id == current_user.tenant_id,
-            )
-            .first()
-        )
-        subjects = (
-            db.query(subject_model)
-            .filter(
-                subject_model.tenant_id == current_user.tenant_id,
-                subject_model.class_id == cid,
-            )
-            .all()
-        )
-        for subj in subjects:
-            subject_map[str(subj.id)] = {
-                "subject": subj.name,
-                "class": cls.name if cls else "Unknown",
-            }
+        cls = class_by_id.get(cid)
+        for subj in subjects_by_class.get(cid, []):
+            key = f"{cls.name if cls else 'Unknown'} - {subj.name}"
+            subject_entries.append((subj.name, key))
+            entry_index = len(subject_entries) - 1
+            for token in dict.fromkeys(_normalized_tokens(subj.name)):
+                token_index.setdefault(token, []).append(entry_index)
 
     topic_counter: Counter = Counter()
     subject_counter: Counter = Counter()
     queries_by_subject: dict[str, list[str]] = {}
 
     for query in queries:
-        topic = query.query_text[:60].strip() if query.query_text else "Unknown"
+        query_text = query.query_text or ""
+        topic = query_text[:60].strip() if query_text else "Unknown"
         topic_counter[topic] += 1
 
-        for _, info in subject_map.items():
-            subj_name = info["subject"]
-            cls_name = info["class"]
-            key = f"{cls_name} - {subj_name}"
-            if subj_name.lower() in (query.query_text or "").lower():
+        candidate_indices: list[int] = []
+        seen_indices: set[int] = set()
+        for token in _normalized_tokens(query_text):
+            for index in token_index.get(token, []):
+                if index not in seen_indices:
+                    seen_indices.add(index)
+                    candidate_indices.append(index)
+
+        lowered_query = query_text.lower()
+        for index in candidate_indices:
+            subj_name, key = subject_entries[index]
+            if subj_name.lower() in lowered_query:
                 subject_counter[key] += 1
                 if key not in queries_by_subject:
                     queries_by_subject[key] = []

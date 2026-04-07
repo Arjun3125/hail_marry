@@ -171,5 +171,5 @@ def ensure_db_ready() -> bool:
     """Run migrations + seed. Called by both API and worker on startup."""
     migration_ok = run_migrations()
     if migration_ok:
-        seed_if_empty()
-    return migration_ok
+        return seed_if_empty()
+    return False

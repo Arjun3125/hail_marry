@@ -30,15 +30,18 @@ def _parse_uuid(value: str) -> UUID:
     return UUID(str(value))
 
 
-def _serialize_notification(row: Notification) -> dict[str, Any]:
+def serialize_notification(row: Notification) -> dict[str, Any]:
     created_at = row.created_at
     created_ts = created_at.timestamp() if created_at else time.time()
     return {
         "id": str(row.id),
+        "tenant_id": str(row.tenant_id) if row.tenant_id else None,
         "user_id": str(row.user_id),
         "title": row.title,
         "body": row.body,
         "category": row.category,
+        "recipient_channel": row.recipient_channel,
+        "status": row.status,
         "data": row.data or {},
         "read": bool(row.read),
         "created_at": created_ts,
@@ -82,6 +85,14 @@ def _push_to_subscribers(user_id: str, notification: dict[str, Any]) -> None:
             queue.put_nowait(notification)
         except asyncio.QueueFull:
             pass
+
+
+def publish_notification_event(notification: dict[str, Any]) -> dict[str, Any]:
+    """Push an already-persisted notification event to active subscribers."""
+    user_id = str(notification.get("user_id") or "")
+    if user_id:
+        _push_to_subscribers(user_id, notification)
+    return notification
 
 
 def _cleanup_db(db, user_uuid: UUID) -> None:
@@ -139,7 +150,7 @@ def add_notification(
             db.refresh(row)
             _cleanup_db(db, user_uuid)
             db.commit()
-            notification = _serialize_notification(row)
+            notification = serialize_notification(row)
         finally:
             db.close()
     except Exception:
@@ -172,7 +183,7 @@ def get_notifications(user_id: str, *, unread_only: bool = False) -> list[dict[s
             if unread_only:
                 query = query.filter(Notification.read.is_(False))
             rows = query.order_by(desc(Notification.created_at)).limit(MAX_PER_USER).all()
-            return [_serialize_notification(row) for row in rows]
+            return [serialize_notification(row) for row in rows]
         finally:
             db.close()
     except Exception:

@@ -1,8 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Plus, Loader2, Star, CheckCircle, Brain, Zap } from "lucide-react";
+import { type ReactNode, useEffect, useState } from "react";
+import { Plus, Loader2, Star, CheckCircle, Brain, Zap, Clock3, Sparkles } from "lucide-react";
 
+import EmptyState from "@/components/EmptyState";
+import { PrismInput } from "@/components/prism/PrismControls";
+import { PrismHeroKicker, PrismPage, PrismPanel, PrismSection } from "@/components/prism/PrismPage";
+import ErrorRemediation from "@/components/ui/ErrorRemediation";
 import { api } from "@/lib/api";
 
 type ReviewItem = {
@@ -84,165 +88,215 @@ export default function ReviewsPage() {
     };
 
     return (
-        <div className="max-w-3xl mx-auto">
-            {/* Header */}
-            <div className="mb-6">
-                <div className="flex items-center gap-3 mb-1">
-                    <div className="p-2.5 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 shadow-lg">
-                        <Brain className="w-5 h-5 text-white" />
+        <PrismPage className="space-y-6">
+            <PrismSection className="space-y-6">
+                <div className="grid gap-6 xl:grid-cols-[1.12fr_0.88fr]">
+                    <div className="space-y-4">
+                        <PrismHeroKicker>
+                            <Sparkles className="h-3.5 w-3.5" />
+                            Student retention loop
+                        </PrismHeroKicker>
+                        <div className="space-y-3">
+                            <h1 className="prism-title text-4xl font-black leading-[0.98] text-[var(--text-primary)] md:text-5xl">
+                                Keep hard-won concepts alive with a <span className="premium-gradient">clear spaced repetition ledger</span>
+                            </h1>
+                            <p className="max-w-3xl text-base leading-7 text-[var(--text-secondary)] md:text-lg">
+                                This route now separates due reviews, upcoming reviews, and topic creation so you can protect recall without losing flow in the rest of the student workspace.
+                            </p>
+                        </div>
                     </div>
-                    <div>
-                        <h1 className="text-2xl font-bold text-[var(--text-primary)]">
-                            Spaced Repetition
-                        </h1>
-                        <p className="text-xs text-[var(--text-muted)]">
-                            SM-2 Algorithm • Long-term memory builder
+
+                    <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
+                        <MetricCard
+                            icon={<Zap className="h-5 w-5 text-rose-400" />}
+                            label="Due now"
+                            value={`${data?.due.length ?? 0}`}
+                            detail="Cards and concepts that need recall work right away."
+                            bg="bg-[linear-gradient(135deg,rgba(251,113,133,0.18),rgba(239,68,68,0.08))]"
+                        />
+                        <MetricCard
+                            icon={<Clock3 className="h-5 w-5 text-status-emerald" />}
+                            label="Upcoming"
+                            value={`${data?.upcoming.length ?? 0}`}
+                            detail="Topics already scheduled for later recall reinforcement."
+                            bg="bg-[linear-gradient(135deg,rgba(52,211,153,0.18),rgba(16,185,129,0.08))]"
+                        />
+                        <MetricCard
+                            icon={<Brain className="h-5 w-5 text-[var(--primary)]" />}
+                            label="Total topics"
+                            value={`${data?.total ?? 0}`}
+                            detail="The long-term memory set currently managed by SM-2."
+                            bg="bg-[linear-gradient(135deg,rgba(168,85,247,0.18),rgba(99,102,241,0.08))]"
+                        />
+                    </div>
+                </div>
+
+                {error ? (
+                    <ErrorRemediation
+                        error={error}
+                        scope="student-reviews"
+                        onRetry={() => void loadReviews()}
+                        simplifiedModeHref="/student/tools"
+                    />
+                ) : null}
+
+                <PrismPanel className="p-5">
+                    <div className="space-y-1">
+                        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">Add a topic</p>
+                        <h2 className="text-lg font-semibold text-[var(--text-primary)]">Seed a new long-term memory track</h2>
+                        <p className="text-sm leading-6 text-[var(--text-secondary)]">
+                            Add a concept, chapter, or problem area and let the review engine schedule the next recall checkpoints automatically.
                         </p>
                     </div>
-                </div>
-            </div>
+                    <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+                        <PrismInput
+                            value={newTopic}
+                            onChange={(e) => setNewTopic(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter") void addReview();
+                            }}
+                            placeholder="Add a topic to review, for example Photosynthesis or Newton's Laws"
+                            className="flex-1 text-sm"
+                        />
+                        <button
+                            onClick={() => void addReview()}
+                            disabled={adding || !newTopic.trim()}
+                            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[linear-gradient(135deg,rgba(139,92,246,0.96),rgba(99,102,241,0.94))] px-5 py-3 text-sm font-semibold text-white shadow-[0_18px_34px_rgba(99,102,241,0.22)] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                            {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                            Add Topic
+                        </button>
+                    </div>
+                </PrismPanel>
 
-            {error ? (
-                <div className="mb-4 rounded-xl border border-[var(--error)]/30 bg-error-subtle px-4 py-3 text-sm text-[var(--error)]">
-                    {error}
-                </div>
-            ) : null}
-
-            {/* Add new review card */}
-            <div className="bg-[var(--bg-card)] rounded-2xl shadow-[var(--shadow-card)] p-4 mb-6 border border-[var(--border)]/50">
-                <div className="flex flex-col gap-3 sm:flex-row">
-                    <input
-                        value={newTopic}
-                        onChange={(e) => setNewTopic(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === "Enter") void addReview(); }}
-                        placeholder="Add a topic to review (e.g. Photosynthesis, Newton's Laws)..."
-                        className="flex-1 px-4 py-2.5 text-sm bg-[var(--bg-page)] border-0 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500/50"
+                {loading ? (
+                    <PrismPanel className="p-12 text-center">
+                        <Loader2 className="mx-auto mb-3 h-8 w-8 animate-spin text-[var(--primary)]" />
+                        <p className="text-sm text-[var(--text-muted)]">Loading reviews...</p>
+                    </PrismPanel>
+                ) : !data || data.total === 0 ? (
+                    <EmptyState
+                        icon={Brain}
+                        title="No review topics yet"
+                        description="Add topics above to start building long-term recall with scheduled spaced repetition."
                     />
-                    <button
-                        onClick={() => void addReview()}
-                        disabled={adding || !newTopic.trim()}
-                        className="w-full sm:w-auto px-5 py-2.5 bg-gradient-to-r from-violet-500 to-purple-600 text-white text-sm font-medium rounded-xl hover:shadow-lg transition-all duration-200 disabled:opacity-40 flex items-center justify-center gap-2 hover:scale-[1.02]"
-                    >
-                        {adding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                        Add Topic
-                    </button>
-                </div>
-            </div>
-
-            {loading ? (
-                <div className="bg-[var(--bg-card)] rounded-2xl shadow-[var(--shadow-card)] p-12 text-center border border-[var(--border)]/50">
-                    <Loader2 className="w-8 h-8 mx-auto text-violet-500 animate-spin mb-3" />
-                    <p className="text-sm text-[var(--text-muted)]">Loading reviews...</p>
-                </div>
-            ) : !data || data.total === 0 ? (
-                <div className="bg-[var(--bg-card)] rounded-2xl p-12 shadow-[var(--shadow-card)] text-center border border-[var(--border)]/50">
-                    <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg">
-                        <Brain className="w-8 h-8 text-white" />
-                    </div>
-                    <h3 className="text-lg font-bold text-[var(--text-primary)] mb-2">No review topics yet</h3>
-                    <p className="text-sm text-[var(--text-muted)] max-w-md mx-auto">
-                        Add topics above to start building your long-term memory with scientifically-proven spaced repetition!
-                    </p>
-                </div>
-            ) : (
-                <>
-                    {/* Stats strip */}
-                    <div className="grid grid-cols-1 gap-3 mb-6 sm:grid-cols-3">
-                        <div className="bg-gradient-to-br from-rose-500 to-red-600 rounded-xl p-3 text-center text-white shadow-md">
-                            <p className="text-2xl font-bold">{data.due.length}</p>
-                            <p className="text-[10px] uppercase tracking-wider opacity-80">Due Now</p>
-                        </div>
-                        <div className="bg-gradient-to-br from-emerald-500 to-green-600 rounded-xl p-3 text-center text-white shadow-md">
-                            <p className="text-2xl font-bold">{data.upcoming.length}</p>
-                            <p className="text-[10px] uppercase tracking-wider opacity-80">Upcoming</p>
-                        </div>
-                        <div className="bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl p-3 text-center text-white shadow-md">
-                            <p className="text-2xl font-bold">{data.total}</p>
-                            <p className="text-[10px] uppercase tracking-wider opacity-80">Total Topics</p>
-                        </div>
-                    </div>
-
-                    {/* Due Reviews */}
-                    {data.due.length > 0 ? (
-                        <div className="mb-6">
-                            <h2 className="text-sm font-bold text-[var(--text-primary)] mb-3 flex items-center gap-2 uppercase tracking-wider">
-                                <Zap className="w-4 h-4 text-amber-500" />
-                                Due for Review
-                            </h2>
-                            <div className="space-y-3">
-                                {data.due.map((review) => (
-                                    <div key={review.id} className="bg-[var(--bg-card)] rounded-2xl shadow-[var(--shadow-card)] p-4 border-l-4 border-rose-500 border border-[var(--border)]/50 transition-all duration-200 hover:shadow-md">
-                                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                            <div>
-                                                <p className="text-sm font-bold text-[var(--text-primary)]">{review.topic}</p>
-                                                <div className="flex flex-wrap items-center gap-2 mt-1">
-                                                    <span className="text-[10px] text-[var(--text-muted)] bg-[var(--bg-page)] px-2 py-0.5 rounded-full">
-                                                        {review.review_count}× reviewed
-                                                    </span>
-                                                    <span className="text-[10px] text-[var(--text-muted)] bg-[var(--bg-page)] px-2 py-0.5 rounded-full">
-                                                        {review.interval_days}d interval
-                                                    </span>
-                                                    <span className="text-[10px] text-[var(--text-muted)] bg-[var(--bg-page)] px-2 py-0.5 rounded-full">
-                                                        EF {review.ease_factor}
-                                                    </span>
+                ) : (
+                    <div className="grid gap-6 xl:grid-cols-[1.02fr_0.98fr]">
+                        <PrismPanel className="space-y-4 p-5">
+                            <div className="flex items-center gap-2">
+                                <Zap className="h-4 w-4 text-amber-400" />
+                                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">Due for review</p>
+                            </div>
+                            {data.due.length === 0 ? (
+                                <EmptyState
+                                    icon={CheckCircle}
+                                    title="Nothing due right now"
+                                    description="Your urgent reviews are clear. Check the upcoming list to see what is scheduled next."
+                                />
+                            ) : (
+                                <div className="space-y-3">
+                                    {data.due.map((review) => (
+                                        <div key={review.id} className="rounded-[calc(var(--radius)*0.98)] border border-white/10 bg-black/10 p-4">
+                                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                                <div className="space-y-2">
+                                                    <p className="text-sm font-semibold text-[var(--text-primary)]">{review.topic}</p>
+                                                    <div className="flex flex-wrap items-center gap-2">
+                                                        <span className="rounded-full bg-white/5 px-2.5 py-1 text-[10px] text-[var(--text-muted)]">
+                                                            {review.review_count}x reviewed
+                                                        </span>
+                                                        <span className="rounded-full bg-white/5 px-2.5 py-1 text-[10px] text-[var(--text-muted)]">
+                                                            {review.interval_days}d interval
+                                                        </span>
+                                                        <span className="rounded-full bg-white/5 px-2.5 py-1 text-[10px] text-[var(--text-muted)]">
+                                                            EF {review.ease_factor}
+                                                        </span>
+                                                    </div>
                                                 </div>
+                                                {ratingCard === review.id ? (
+                                                    <div className="flex flex-wrap gap-1.5 sm:justify-end">
+                                                        {ratingLabels.map((r) => (
+                                                            <button
+                                                                key={r.value}
+                                                                onClick={() => void completeReview(review.id, r.value)}
+                                                                disabled={submitting}
+                                                                className={`rounded-xl bg-gradient-to-r ${r.color} px-2.5 py-1.5 text-[10px] font-bold text-white transition hover:-translate-y-0.5 hover:shadow-md disabled:opacity-40`}
+                                                                title={r.desc}
+                                                            >
+                                                                {r.label}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <button
+                                                        onClick={() => setRatingCard(review.id)}
+                                                        className="inline-flex items-center gap-1.5 rounded-2xl bg-[linear-gradient(135deg,rgba(139,92,246,0.96),rgba(99,102,241,0.94))] px-4 py-2 text-xs font-semibold text-white transition hover:-translate-y-0.5"
+                                                    >
+                                                        <Star className="h-3.5 w-3.5" />
+                                                        Review
+                                                    </button>
+                                                )}
                                             </div>
-                                            {ratingCard === review.id ? (
-                                                <div className="flex flex-wrap gap-1.5 sm:justify-end">
-                                                    {ratingLabels.map((r) => (
-                                                        <button
-                                                            key={r.value}
-                                                            onClick={() => void completeReview(review.id, r.value)}
-                                                            disabled={submitting}
-                                                            className={`px-2.5 py-1.5 rounded-lg text-white text-[10px] font-bold bg-gradient-to-r ${r.color} hover:shadow-md transition-all duration-200 hover:scale-105 disabled:opacity-40`}
-                                                            title={r.desc}
-                                                        >
-                                                            {r.label}
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            ) : (
-                                                <button
-                                                    onClick={() => setRatingCard(review.id)}
-                                                    className="px-4 py-2 bg-gradient-to-r from-violet-500 to-purple-600 text-white text-xs font-bold rounded-xl hover:shadow-lg transition-all duration-200 flex items-center gap-1.5 hover:scale-[1.02]"
-                                                >
-                                                    <Star className="w-3.5 h-3.5" />
-                                                    Review
-                                                </button>
-                                            )}
                                         </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    ) : null}
+                                    ))}
+                                </div>
+                            )}
+                        </PrismPanel>
 
-                    {/* Upcoming Reviews */}
-                    {data.upcoming.length > 0 ? (
-                        <div>
-                            <h2 className="text-sm font-bold text-[var(--text-primary)] mb-3 flex items-center gap-2 uppercase tracking-wider">
-                                <CheckCircle className="w-4 h-4 text-emerald-500" />
-                                Upcoming
-                            </h2>
-                            <div className="space-y-2">
-                                {data.upcoming.map((review) => (
-                                    <div key={review.id} className="bg-[var(--bg-card)] rounded-xl shadow-sm p-3 flex items-center justify-between border border-[var(--border)]/50 hover:shadow-md transition-all duration-200">
-                                        <div>
-                                            <p className="text-sm font-medium text-[var(--text-primary)]">{review.topic}</p>
-                                            <p className="text-[10px] text-[var(--text-muted)] mt-0.5">
-                                                Due {new Date(review.next_review_at).toLocaleDateString()} · {review.review_count}× reviewed
-                                            </p>
-                                        </div>
-                                        <span className="text-[10px] font-semibold text-status-emerald bg-emerald-subtle px-2.5 py-1 rounded-full">
-                                            {review.interval_days}d
-                                        </span>
-                                    </div>
-                                ))}
+                        <PrismPanel className="space-y-4 p-5">
+                            <div className="flex items-center gap-2">
+                                <CheckCircle className="h-4 w-4 text-status-emerald" />
+                                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">Upcoming</p>
                             </div>
-                        </div>
-                    ) : null}
-                </>
-            )}
-        </div>
+                            {data.upcoming.length === 0 ? (
+                                <EmptyState
+                                    icon={Clock3}
+                                    title="No upcoming reviews yet"
+                                    description="Upcoming scheduled reviews will appear here after you complete your first passes."
+                                />
+                            ) : (
+                                <div className="space-y-2">
+                                    {data.upcoming.map((review) => (
+                                        <div key={review.id} className="flex items-center justify-between gap-3 rounded-[calc(var(--radius)*0.92)] border border-white/10 bg-black/10 p-4">
+                                            <div>
+                                                <p className="text-sm font-medium text-[var(--text-primary)]">{review.topic}</p>
+                                                <p className="mt-1 text-[11px] text-[var(--text-muted)]">
+                                                    Due {new Date(review.next_review_at).toLocaleDateString()} · {review.review_count}x reviewed
+                                                </p>
+                                            </div>
+                                            <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-[10px] font-semibold text-status-emerald">
+                                                {review.interval_days}d
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </PrismPanel>
+                    </div>
+                )}
+            </PrismSection>
+        </PrismPage>
+    );
+}
+
+function MetricCard({
+    icon,
+    label,
+    value,
+    detail,
+    bg,
+}: {
+    icon: ReactNode;
+    label: string;
+    value: string;
+    detail: string;
+    bg: string;
+}) {
+    return (
+        <PrismPanel className="p-4">
+            <div className={`mb-3 flex h-11 w-11 items-center justify-center rounded-2xl ${bg}`}>{icon}</div>
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">{label}</p>
+            <p className="mt-2 text-2xl font-black text-[var(--text-primary)]">{value}</p>
+            <p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">{detail}</p>
+        </PrismPanel>
     );
 }

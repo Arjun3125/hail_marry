@@ -1,42 +1,27 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import {
+    Skeleton as PrismSkeleton,
+    SkeletonCard as PrismSkeletonCard,
+    SkeletonTable as PrismSkeletonTable,
+} from "@/components/Skeleton";
 
 /* ─── Skeleton Loader ─── */
 
 export function SkeletonCard({ className = "" }: { className?: string }) {
-    return (
-        <div className={`bg-[var(--bg-card)] rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)] ${className}`}>
-            <div className="skeleton h-4 w-1/3 mb-4" />
-            <div className="skeleton h-8 w-1/2 mb-3" />
-            <div className="skeleton h-3 w-full mb-2" />
-            <div className="skeleton h-3 w-4/5" />
-        </div>
-    );
+    return <PrismSkeletonCard className={className} />;
 }
 
 export function SkeletonTable({ rows = 5 }: { rows?: number }) {
-    return (
-        <div className="bg-[var(--bg-card)] rounded-[var(--radius)] p-5 shadow-[var(--shadow-card)]">
-            <div className="skeleton h-4 w-1/4 mb-6" />
-            <div className="space-y-3">
-                {Array.from({ length: rows }).map((_, i) => (
-                    <div key={i} className="flex gap-4">
-                        <div className="skeleton h-4 flex-1" />
-                        <div className="skeleton h-4 w-20" />
-                        <div className="skeleton h-4 w-16" />
-                    </div>
-                ))}
-            </div>
-        </div>
-    );
+    return <PrismSkeletonTable rows={rows} />;
 }
 
 export function SkeletonText({ lines = 3 }: { lines?: number }) {
     return (
         <div className="space-y-2">
             {Array.from({ length: lines }).map((_, i) => (
-                <div key={i} className={`skeleton h-3 ${i === lines - 1 ? "w-3/4" : "w-full"}`} />
+                <PrismSkeleton key={i} className={`h-3 ${i === lines - 1 ? "w-3/4" : "w-full"}`} />
             ))}
         </div>
     );

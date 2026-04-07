@@ -63,17 +63,17 @@ export function EditableNotesSurface({
                         <p className="text-xs text-[var(--text-muted)]">Preview the draft or turn it into editable notes</p>
                     </div>
                 </div>
-                <Tabs.List className="inline-flex rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-1">
+                <Tabs.List className="inline-flex gap-2 rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-1">
                     <Tabs.Trigger
                         value="preview"
-                        className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs text-[var(--text-secondary)] data-[state=active]:bg-[var(--bg-page)] data-[state=active]:text-[var(--text-primary)]"
+                        className="prism-tab px-3 py-1.5 text-xs"
                     >
                         <Eye className="h-3.5 w-3.5" />
                         Preview
                     </Tabs.Trigger>
                     <Tabs.Trigger
                         value="edit"
-                        className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs text-[var(--text-secondary)] data-[state=active]:bg-[var(--bg-page)] data-[state=active]:text-[var(--text-primary)]"
+                        className="prism-tab px-3 py-1.5 text-xs"
                     >
                         <PencilLine className="h-3.5 w-3.5" />
                         Edit

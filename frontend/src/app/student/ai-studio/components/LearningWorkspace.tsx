@@ -23,10 +23,13 @@ import {
     ThumbsDown,
     ThumbsUp,
     Trash2,
+    Target,
 } from "lucide-react";
+import { useLanguage, LanguageToggle } from "@/i18n/LanguageProvider";
+import { useToast } from "@/components/Toast";
 
 import { ActionBar } from "./ActionBar";
-import { AIMessageRenderer } from "./AIMessageRenderer";
+import { AIMessageRenderer, type ToolState } from "./AIMessageRenderer";
 import {
     AIResponse,
     buildThreadPreview,
@@ -42,6 +45,7 @@ import {
     setActivePersistedThreadId,
     upsertPersistedThread,
 } from "./threadPersistence";
+import { MasteryMap } from "./MasteryMap";
 
 interface LearningWorkspaceProps {
     activeTool: string;
@@ -98,6 +102,13 @@ type PersonalizedSuggestion = {
     prompt?: string;
 };
 
+type MasteryInsight = {
+    topic: string;
+    score: number;
+    level: string;
+    last_activity: string;
+};
+
 function buildFallbackPrompts(activeTool: string) {
     const config = toolConfig[activeTool] || toolConfig.qa;
     return [
@@ -144,12 +155,12 @@ function StarterSuggestions({ activeTool, notebookId }: { activeTool: string; no
     }, [activeTool, notebookId]);
 
     return (
-        <div className="flex flex-col items-center justify-center h-full text-center">
-            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-violet-600/20 flex items-center justify-center mb-4">
-                <Sparkles className="w-10 h-10 text-indigo-500" />
+        <div className="flex h-full flex-col items-center justify-center px-4 text-center">
+            <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-[2rem] bg-[linear-gradient(135deg,rgba(96,165,250,0.18),rgba(129,140,248,0.08))] shadow-[0_20px_40px_rgba(15,23,42,0.18)]">
+                <Sparkles className="h-10 w-10 text-status-blue" />
             </div>
-            <h3 className="text-lg font-medium text-[var(--text-primary)] mb-2">Ready to learn?</h3>
-            <p className="text-sm text-[var(--text-muted)] max-w-md mb-6">
+            <h3 className="mb-2 text-2xl font-semibold text-[var(--text-primary)]">Ready to learn?</h3>
+            <p className="mb-6 max-w-xl text-sm leading-7 text-[var(--text-muted)]">
                 {toolConfig[activeTool]?.desc}. Type your query below to get started.
             </p>
             <div className="flex flex-wrap justify-center gap-2">
@@ -158,13 +169,13 @@ function StarterSuggestions({ activeTool, notebookId }: { activeTool: string; no
                         key={suggestion}
                         type="button"
                         onClick={() => aui.composer().setText(suggestion)}
-                        className="px-4 py-2 text-xs bg-[var(--bg-page)] hover:bg-[var(--surface-hover)] text-[var(--text-secondary)] rounded-full border border-[var(--border)] transition-colors"
+                        className="rounded-full border border-[var(--border)] bg-[rgba(148,163,184,0.05)] px-4 py-2 text-xs text-[var(--text-secondary)] transition hover:border-[var(--border-strong)] hover:bg-[rgba(148,163,184,0.08)] hover:text-[var(--text-primary)]"
                     >
                         {suggestion}
                     </button>
                 ))}
             </div>
-            {loading ? <p className="mt-3 text-[10px] text-[var(--text-muted)]">Loading personalized recommendations…</p> : null}
+            {loading ? <p className="mt-3 text-[10px] text-[var(--text-muted)]">Loading personalized recommendations...</p> : null}
         </div>
     );
 }
@@ -184,13 +195,52 @@ function PromptSeed({ seedPrompt }: { seedPrompt?: string | null }) {
 }
 
 function MessageBubble({ activeTool }: { activeTool?: string }) {
+    const { toast } = useToast();
+    const aui = useAui();
     const role = useAuiState((s) => s.message.role);
     const text = useAuiState((s) => extractTextContent(s.message.content as ReadonlyArray<{ type: string; text?: string; data?: unknown }>));
     const createdAt = useAuiState((s) => s.message.createdAt);
     const messageIndex = useAuiState((s) => s.message.index);
+    const messageStatus = useAuiState((s) => s.message.status) || { type: "complete" };
     const threadMessages = useAuiState((s) => s.thread.messages);
-    const metadata = useAuiState((s) => s.message.metadata.custom as { aiResponse?: AIResponse } | undefined);
+    const metadata = useAuiState((s) => s.message.metadata.custom as { aiResponse?: AIResponse; toolState?: ToolState } | undefined);
+    
     const response = metadata?.aiResponse;
+    const toolState = metadata?.toolState;
+    const isLoading = messageStatus.type === "running";
+
+    const handleStateChange = (state: ToolState) => {
+        // Sync state back to message metadata for persistence
+        const repository = aui.thread().export();
+        const entry = repository.messages[messageIndex];
+        if (!entry) return;
+
+        const nextMessages = [...repository.messages];
+        const currentMetadata = entry.message.metadata || {};
+        const nextMetadata = {
+            ...currentMetadata,
+            custom: {
+                ...(currentMetadata.custom || {}),
+                toolState: state,
+            }
+        };
+
+        const nextMessage = {
+            ...entry.message,
+            metadata: nextMetadata,
+        } as typeof entry.message;
+
+        nextMessages[messageIndex] = {
+            ...entry,
+            message: nextMessage,
+        };
+        
+        aui.thread().import({
+            ...repository,
+            messages: nextMessages
+        });
+    };
+
     const previousUserText =
         messageIndex > 0
             ? extractTextContent(
@@ -201,7 +251,7 @@ function MessageBubble({ activeTool }: { activeTool?: string }) {
     if (role === "user") {
         return (
             <div className="flex justify-end">
-                <div className="max-w-[85%] bg-gradient-to-br from-indigo-500 to-violet-600 text-white px-5 py-3 rounded-2xl rounded-br-md shadow-md">
+                <div className="max-w-[85%] rounded-3xl rounded-br-md bg-gradient-to-br from-indigo-500 to-violet-600 px-5 py-3 text-white shadow-[0_18px_32px_rgba(79,70,229,0.24)]">
                     <p className="text-sm">{text}</p>
                 </div>
             </div>
@@ -214,14 +264,21 @@ function MessageBubble({ activeTool }: { activeTool?: string }) {
         mode: activeTool || "qa",
     };
 
+    const handleCopy = () => {
+        if (!text) return;
+        navigator.clipboard.writeText(text).then(() => {
+            toast("Copied to clipboard!", "success");
+        });
+    };
+
     return (
-        <div className="bg-[var(--bg-page)] rounded-2xl border border-[var(--border)]/50 overflow-hidden">
+        <div className="overflow-hidden rounded-[1.75rem] border border-[var(--border)]/60 bg-[rgba(148,163,184,0.05)] shadow-[0_24px_50px_rgba(2,6,23,0.12)]">
             <div className="p-5">
-                <div className="flex items-center gap-2 mb-4">
-                    <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center">
-                        <Bot className="w-4 h-4 text-white" />
+                <div className="mb-4 flex items-center gap-2">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600">
+                        <Bot className="h-4 w-4 text-white" />
                     </div>
-                    <span className="text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">
+                    <span className="text-xs font-medium uppercase tracking-wider text-[var(--text-muted)]">
                         AI Assistant
                     </span>
                     <span className="text-xs text-[var(--text-muted)]">
@@ -229,21 +286,30 @@ function MessageBubble({ activeTool }: { activeTool?: string }) {
                     </span>
                 </div>
 
-                <AIMessageRenderer response={fallbackResponse} />
+                <AIMessageRenderer 
+                    response={fallbackResponse} 
+                    isLoading={isLoading}
+                    initialState={toolState}
+                    onStateChange={handleStateChange}
+                />
             </div>
 
-            <div className="flex items-center gap-1 px-5 py-2 bg-[var(--surface-hover)] border-t border-[var(--border)]/50">
-                <button className="p-1.5 rounded hover:bg-[var(--bg-page)] text-[var(--text-muted)] transition-colors" title="Copy">
-                    <Copy className="w-3.5 h-3.5" />
+            <div className="flex items-center gap-1 border-t border-[var(--border)]/60 bg-[rgba(148,163,184,0.06)] px-5 py-2">
+                <button 
+                    onClick={handleCopy}
+                    className="rounded-lg p-1.5 text-[var(--text-muted)] transition-colors hover:bg-[rgba(148,163,184,0.08)]" 
+                    title="Copy"
+                >
+                    <Copy className="h-3.5 w-3.5" />
                 </button>
-                <button className="p-1.5 rounded hover:bg-[var(--bg-page)] text-[var(--text-muted)] transition-colors" title="Helpful">
-                    <ThumbsUp className="w-3.5 h-3.5" />
+                <button className="rounded-lg p-1.5 text-[var(--text-muted)] transition-colors hover:bg-[rgba(148,163,184,0.08)]" title="Helpful">
+                    <ThumbsUp className="h-3.5 w-3.5" />
                 </button>
-                <button className="p-1.5 rounded hover:bg-[var(--bg-page)] text-[var(--text-muted)] transition-colors" title="Not helpful">
-                    <ThumbsDown className="w-3.5 h-3.5" />
+                <button className="rounded-lg p-1.5 text-[var(--text-muted)] transition-colors hover:bg-[rgba(148,163,184,0.08)]" title="Not helpful">
+                    <ThumbsDown className="h-3.5 w-3.5" />
                 </button>
-                <button className="p-1.5 rounded hover:bg-[var(--bg-page)] text-[var(--text-muted)] transition-colors" title="Save">
-                    <Bookmark className="w-3.5 h-3.5" />
+                <button className="rounded-lg p-1.5 text-[var(--text-muted)] transition-colors hover:bg-[rgba(148,163,184,0.08)]" title="Save">
+                    <Bookmark className="h-3.5 w-3.5" />
                 </button>
                 <div className="flex-1" />
                 <ActionBar response={fallbackResponse} query={previousUserText} />
@@ -257,22 +323,22 @@ function ComposerBox({ activeTool }: { activeTool: string }) {
     const config = toolConfig[activeTool] || toolConfig.qa;
 
     return (
-        <div className="border-t border-[var(--border)] p-4">
+        <div className="border-t border-[var(--border)]/80 bg-[rgba(255,255,255,0.02)] p-4">
             <ComposerPrimitive.Root className="relative">
-                <div className="flex items-end gap-2 bg-[var(--bg-page)] rounded-xl border border-[var(--border)] p-2 focus-within:ring-2 focus-within:ring-[var(--primary)]/50 focus-within:border-[var(--primary)] transition-all">
+                <div className="flex items-end gap-2 rounded-[1.35rem] border border-[var(--border)] bg-[rgba(8,15,30,0.78)] p-2 shadow-[0_18px_36px_rgba(2,6,23,0.2)] transition-all focus-within:border-[var(--primary)] focus-within:ring-2 focus-within:ring-[var(--primary)]/40">
                     <ComposerPrimitive.Input
                         placeholder={config.placeholder}
                         rows={1}
                         maxRows={6}
-                        className="flex-1 min-h-[44px] px-3 py-2.5 text-sm bg-transparent border-0 resize-none focus:outline-none text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
+                        className="min-h-[48px] flex-1 resize-none border-0 bg-transparent px-3 py-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none"
                     />
                     <ComposerPrimitive.Send
-                        className="p-2.5 rounded-lg bg-gradient-to-r from-indigo-500 to-violet-600 text-white hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="rounded-2xl bg-gradient-to-r from-indigo-500 to-violet-600 p-3 text-white transition-all hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                        {isRunning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                        {isRunning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                     </ComposerPrimitive.Send>
                 </div>
-                <p className="mt-2 text-[10px] text-[var(--text-muted)] text-center">
+                <p className="mt-2 text-center text-[10px] text-[var(--text-muted)]">
                     Press Enter to send, Shift+Enter for new line
                 </p>
             </ComposerPrimitive.Root>
@@ -356,6 +422,25 @@ function AssistantStudioThread({
     };
     seedPrompt?: string | null;
 }) {
+    const { t, lang } = useLanguage();
+    const aui = useAui();
+    const [masteryData, setMasteryData] = useState<MasteryInsight[]>([]);
+    const [showMastery, setShowMastery] = useState(false);
+
+    useEffect(() => {
+        api.aiStudio.getMastery().then(data => setMasteryData((data || []) as MasteryInsight[]));
+        
+        const handleHint = (event: Event) => {
+            const prompt = (event as CustomEvent<{ prompt?: string }>).detail?.prompt;
+            if (prompt) {
+                aui.composer().setText(prompt);
+                aui.composer().send();
+            }
+        };
+        window.addEventListener("mascot-hint", handleHint as EventListener);
+        return () => window.removeEventListener("mascot-hint", handleHint as EventListener);
+    }, [aui]);
+
     const chatModel = useMemo(
         () => ({
             run: async ({ messages }: { messages: ReadonlyArray<{ role: string; content: ReadonlyArray<{ type: string; text?: string }> }> }) => {
@@ -367,7 +452,7 @@ function AssistantStudioThread({
                         query,
                         mode: activeTool,
                         notebook_id: notebookId,
-                        language: requestOptions?.language,
+                        language: lang,
                         response_length: requestOptions?.responseLength,
                         expertise_level: requestOptions?.expertiseLevel,
                     }) as {
@@ -426,7 +511,7 @@ function AssistantStudioThread({
                 }
             },
         }),
-        [activeTool, notebookId, requestOptions],
+        [activeTool, lang, notebookId, requestOptions],
     );
 
     const runtime = useLocalRuntime(chatModel);
@@ -436,33 +521,69 @@ function AssistantStudioThread({
             <ThreadBootstrap thread={thread} />
             <PromptSeed seedPrompt={seedPrompt} />
             <ThreadPersistenceSync activeTool={activeTool} thread={thread} onPersist={onPersistThread} />
-            <div className="flex flex-col h-full">
-                <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border)]">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-lg">
-                            <Bot className="w-5 h-5 text-white" />
+            <div className="flex h-full flex-col">
+                <div className="border-b border-[var(--border)]/80 bg-[rgba(255,255,255,0.02)] px-6 py-5">
+                    <div className="flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-3">
+                            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 shadow-[0_18px_32px_rgba(79,70,229,0.24)]">
+                                <Bot className="h-5 w-5 text-white" />
+                            </div>
+                            <div>
+                                <h2 className="text-lg font-semibold text-[var(--text-primary)]">
+                                    {t(`ai_studio.tools.${activeTool}.title`) || toolConfig[activeTool]?.title}
+                                </h2>
+                                <p className="text-xs leading-5 text-[var(--text-muted)]">
+                                    {t(`ai_studio.tools.${activeTool}.desc`) || toolConfig[activeTool]?.desc}
+                                </p>
+                            </div>
                         </div>
-                        <div>
-                            <h2 className="font-semibold text-[var(--text-primary)]">{toolConfig[activeTool]?.title || "AI Studio"}</h2>
-                            <p className="text-xs text-[var(--text-muted)]">{toolConfig[activeTool]?.desc || "Learn with AI"}</p>
+                        <div className="flex items-center gap-3">
+                            <button 
+                                onClick={() => setShowMastery(!showMastery)}
+                                className={`flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-semibold transition-all ${
+                                    showMastery 
+                                        ? "border-indigo-500 bg-indigo-500/20 text-indigo-200" 
+                                        : "border-[var(--border)] bg-white/5 text-[var(--text-muted)] hover:bg-white/10"
+                                }`}
+                            >
+                                <Target className="w-3.5 h-3.5" />
+                                Mastery Insights
+                            </button>
+                            <LanguageToggle />
+                            <div className="hidden rounded-full border border-[var(--border)] bg-[rgba(148,163,184,0.05)] px-3 py-1.5 text-[11px] uppercase tracking-[0.22em] text-[var(--text-muted)] md:block">
+                                {t("ai_studio.title")}
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <ThreadPrimitive.Root className="flex min-h-0 flex-1 flex-col">
-                    <ThreadPrimitive.Viewport className="flex-1 overflow-y-auto px-6 py-4">
-                        <ThreadPrimitive.Empty>
-                            <StarterSuggestions activeTool={activeTool} notebookId={notebookId} />
-                        </ThreadPrimitive.Empty>
-                        <div className="space-y-6">
-                            <ThreadPrimitive.Messages>
-                                {() => <MessageBubble activeTool={activeTool} />}
-                            </ThreadPrimitive.Messages>
+                <ThreadPrimitive.Root className="flex min-h-0 flex-1 flex-row">
+                    <div className="flex flex-1 flex-col overflow-hidden">
+                        <ThreadPrimitive.Viewport className="flex-1 overflow-y-auto px-6 py-5">
+                            <ThreadPrimitive.Empty>
+                                <StarterSuggestions activeTool={activeTool} notebookId={notebookId} />
+                            </ThreadPrimitive.Empty>
+                            <div className="space-y-6">
+                                <ThreadPrimitive.Messages>
+                                    {() => <MessageBubble activeTool={activeTool} />}
+                                </ThreadPrimitive.Messages>
+                            </div>
+                        </ThreadPrimitive.Viewport>
+                        <ThreadPrimitive.ViewportFooter>
+                            <ComposerBox activeTool={activeTool} />
+                        </ThreadPrimitive.ViewportFooter>
+                    </div>
+
+                    {showMastery && (
+                        <div className="w-80 border-l border-[var(--border)] bg-[rgba(2,6,23,0.3)] backdrop-blur-md p-4 overflow-y-auto hidden lg:block">
+                             <MasteryMap 
+                                masteryData={masteryData} 
+                                onFocusTopic={(topic) => {
+                                    aui.composer().setText(`I want to improve my mastery of ${topic}. Can we do a practice session?`);
+                                }}
+                            />
                         </div>
-                    </ThreadPrimitive.Viewport>
-                    <ThreadPrimitive.ViewportFooter>
-                        <ComposerBox activeTool={activeTool} />
-                    </ThreadPrimitive.ViewportFooter>
+                    )}
                 </ThreadPrimitive.Root>
             </div>
         </AssistantRuntimeProvider>
@@ -582,8 +703,8 @@ export function LearningWorkspace({ activeTool, notebookId, requestOptions, init
 
     return (
         <div className="flex h-full min-h-0 flex-col">
-            <div className="flex items-center gap-2 overflow-x-auto border-b border-[var(--border)] bg-[var(--bg-page)]/70 px-4 py-3">
-                <div className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--bg-card)] px-3 py-1.5 text-[11px] uppercase tracking-[0.2em] text-[var(--text-muted)]">
+            <div className="flex items-center gap-2 overflow-x-auto border-b border-[var(--border)]/80 bg-[rgba(255,255,255,0.02)] px-4 py-3">
+                <div className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[rgba(148,163,184,0.05)] px-3 py-1.5 text-[11px] uppercase tracking-[0.2em] text-[var(--text-muted)]">
                     <History className="h-3.5 w-3.5" />
                     Threads
                 </div>
@@ -593,7 +714,7 @@ export function LearningWorkspace({ activeTool, notebookId, requestOptions, init
                         className={`group flex min-w-0 items-center gap-1 rounded-full border px-3 py-1.5 text-sm transition-colors ${
                             thread.id === activeThreadId
                                 ? "border-indigo-500/60 bg-indigo-500/12 text-indigo-100"
-                                : "border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-secondary)] hover:border-[var(--primary)]/40 hover:text-[var(--text-primary)]"
+                                : "border-[var(--border)] bg-[rgba(148,163,184,0.05)] text-[var(--text-secondary)] hover:border-[var(--primary)]/40 hover:text-[var(--text-primary)]"
                         }`}
                     >
                         <button
@@ -617,7 +738,7 @@ export function LearningWorkspace({ activeTool, notebookId, requestOptions, init
                     </div>
                 ))}
                 {threads.length > 6 ? (
-                    <div className="inline-flex items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--bg-card)] px-3 py-1.5 text-xs text-[var(--text-muted)]">
+                    <div className="inline-flex items-center gap-1 rounded-full border border-[var(--border)] bg-[rgba(148,163,184,0.05)] px-3 py-1.5 text-xs text-[var(--text-muted)]">
                         <MoreHorizontal className="h-3.5 w-3.5" />
                         {threads.length - 6} more
                     </div>
@@ -626,7 +747,7 @@ export function LearningWorkspace({ activeTool, notebookId, requestOptions, init
                 <button
                     type="button"
                     onClick={createThread}
-                    className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--bg-card)] px-3 py-1.5 text-sm text-[var(--text-secondary)] transition-colors hover:border-[var(--primary)]/50 hover:text-[var(--text-primary)]"
+                    className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[rgba(148,163,184,0.05)] px-3 py-1.5 text-sm text-[var(--text-secondary)] transition-colors hover:border-[var(--primary)]/50 hover:text-[var(--text-primary)]"
                 >
                     <MessageSquarePlus className="h-3.5 w-3.5" />
                     New thread

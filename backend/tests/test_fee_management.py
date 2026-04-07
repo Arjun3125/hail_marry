@@ -1,6 +1,8 @@
 """Tests for fee management module."""
 import uuid
 from constants import FEE_TYPES, FEE_FREQUENCIES, FEE_INVOICE_STATUSES
+from src.domains.identity.models.tenant import Tenant  # noqa: F401
+from src.domains.identity.models.user import User  # noqa: F401
 
 
 def test_fee_types_defined():

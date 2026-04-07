@@ -14,14 +14,18 @@ from src.domains.platform.routes import (
     notifications,
     personalization,
     support,
+    telemetry,
     whatsapp,
+    whatsapp_bridge,
 )
 
 router = APIRouter()
 router.include_router(support.router)
+router.include_router(telemetry.router)
 router.include_router(i18n.router)
 router.include_router(notifications.router)
 router.include_router(whatsapp.router)
+router.include_router(whatsapp_bridge.router)
 router.include_router(feature_flags.router)
 router.include_router(branding.router)
 router.include_router(ai_history.router)

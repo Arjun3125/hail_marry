@@ -174,6 +174,22 @@ MASCOT_CAPABILITIES: dict[str, MascotCapability] = {
         channels=("web", "whatsapp"),
         description="Generate a teacher assessment from grounded subject context.",
     ),
+    "teacher_attendance_mark": MascotCapability(
+        key="teacher_attendance_mark",
+        kind="teacher_workflow",
+        roles=("teacher", "admin"),
+        channels=("web", "whatsapp"),
+        risk="high",
+        description="Mark class attendance from a conversational instruction.",
+    ),
+    "teacher_homework_create": MascotCapability(
+        key="teacher_homework_create",
+        kind="teacher_workflow",
+        roles=("teacher", "admin"),
+        channels=("web", "whatsapp"),
+        risk="high",
+        description="Create homework/assignment work from a conversational instruction.",
+    ),
     "parent_progress_report": MascotCapability(
         key="parent_progress_report",
         kind="query",

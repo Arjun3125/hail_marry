@@ -8,6 +8,7 @@ import { ThemeToggle } from "./theme/ThemeToggle";
 import { LanguageToggle } from "@/i18n/LanguageProvider";
 import { LucideIcon } from "lucide-react";
 import { API_BASE, clearStoredAccessToken } from "@/lib/api";
+import { PrismDrawer, PrismOverlay } from "@/components/prism/PrismOverlays";
 
 interface NavItem {
     label: string;
@@ -44,13 +45,15 @@ export default function Sidebar({ items, role, userName }: SidebarProps) {
         window.location.href = "/";
     };
 
-    const sidebarWidth = collapsed ? "w-[68px]" : "w-60";
+    const sidebarWidth = collapsed ? "w-[72px]" : "w-72";
 
     const sidebarContent = (
         <>
             {/* Logo */}
-            <div className={`flex h-14 items-center border-b border-[var(--border)] px-4 ${collapsed ? "justify-center" : "gap-2.5"}`}>
-                <GraduationCap className="h-6 w-6 flex-shrink-0 text-status-blue" />
+            <div className={`flex h-16 items-center border-b border-[var(--border)] px-4 ${collapsed ? "justify-center" : "gap-3"}`}>
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,rgba(96,165,250,0.94),rgba(167,139,250,0.94))] shadow-[0_18px_34px_rgba(96,165,250,0.22)]">
+                    <GraduationCap className="h-5 w-5 flex-shrink-0 text-[#06101e]" />
+                </div>
                 {!collapsed && (
                     <div className="flex flex-col justify-center">
                         <div className="flex items-center gap-2">
@@ -60,7 +63,7 @@ export default function Sidebar({ items, role, userName }: SidebarProps) {
                                     By <span className="text-black dark:text-white">Modern</span><span className="text-[#ff3b1f]">Hustlers</span>
                                 </span>
                             </div>
-                            <span className="rounded-full bg-info-badge px-2 py-0.5 text-[10px] font-semibold capitalize text-status-blue h-fit">
+                            <span className="rounded-full bg-info-badge px-2 py-0.5 text-[10px] font-semibold capitalize text-status-blue h-fit border border-[rgba(191,219,254,0.16)]">
                                 {role}
                             </span>
                         </div>
@@ -78,10 +81,10 @@ export default function Sidebar({ items, role, userName }: SidebarProps) {
                             href={item.href}
                             onClick={() => setMobileOpen(false)}
                             title={collapsed ? item.label : undefined}
-                            className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-all duration-150 ${collapsed ? "justify-center" : ""
+                            className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition-all duration-150 ${collapsed ? "justify-center" : ""
                                 } ${isActive
-                                    ? "bg-info-subtle font-semibold text-status-blue shadow-sm"
-                                    : "text-[var(--text-secondary)] hover:bg-[var(--bg-page)] hover:text-[var(--text-primary)]"
+                                    ? "bg-[linear-gradient(135deg,rgba(96,165,250,0.16),rgba(167,139,250,0.12))] font-semibold text-status-blue shadow-[0_12px_24px_rgba(2,6,23,0.18)] border border-[rgba(191,219,254,0.16)]"
+                                    : "text-[var(--text-secondary)] hover:bg-[rgba(148,163,184,0.08)] hover:text-[var(--text-primary)]"
                                 }`}
                         >
                             <item.icon className="h-[18px] w-[18px] flex-shrink-0" />
@@ -92,7 +95,7 @@ export default function Sidebar({ items, role, userName }: SidebarProps) {
             </nav>
 
             {/* User & Settings */}
-            <div className="border-t border-[var(--border)] p-2 flex items-center justify-between">
+            <div className="border-t border-[var(--border)] p-3 flex items-center justify-between bg-[rgba(255,255,255,0.01)]">
                 <div className="flex flex-col min-w-0 flex-1">
                     {userName && !collapsed && (
                         <p className="mb-1 truncate px-3 text-xs text-[var(--text-muted)]">
@@ -122,7 +125,7 @@ export default function Sidebar({ items, role, userName }: SidebarProps) {
     return (
         <>
             {/* ── Mobile top bar ── */}
-            <div className="fixed left-0 right-0 top-0 z-50 flex h-14 items-center gap-3 border-b border-[var(--border)] bg-[var(--bg-card)] px-4 lg:hidden">
+            <div className="fixed left-0 right-0 top-0 z-50 flex h-16 items-center gap-3 border-b border-[var(--border)] bg-[rgba(8,14,28,0.86)] px-4 backdrop-blur-xl lg:hidden">
                 <button
                     onClick={() => setMobileOpen(true)}
                     className="rounded-lg p-2 text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] active:bg-[var(--border)]"
@@ -130,7 +133,9 @@ export default function Sidebar({ items, role, userName }: SidebarProps) {
                 >
                     <Menu className="h-5 w-5" />
                 </button>
-                <GraduationCap className="h-5 w-5 text-[var(--text-primary)]" />
+                <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,rgba(96,165,250,0.94),rgba(167,139,250,0.94))] shadow-[0_14px_28px_rgba(96,165,250,0.2)]">
+                    <GraduationCap className="h-5 w-5 text-[#06101e]" />
+                </div>
                 <div className="flex items-center gap-2 max-w-[130px] sm:max-w-[200px]">
                     <div className="flex flex-col">
                         <span className="font-bold text-lg tracking-tight text-[var(--text-primary)] leading-tight">VidyaOS</span>
@@ -146,15 +151,15 @@ export default function Sidebar({ items, role, userName }: SidebarProps) {
 
             {/* ── Mobile overlay ── */}
             {mobileOpen && (
-                <div
+                <PrismOverlay
                     className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm lg:hidden"
                     onClick={() => setMobileOpen(false)}
                 />
             )}
 
             {/* ── Mobile drawer ── */}
-            <aside
-                className={`fixed left-0 top-0 z-50 flex h-screen w-72 flex-col bg-[var(--bg-card)] shadow-2xl transition-transform duration-300 lg:hidden ${mobileOpen ? "translate-x-0" : "-translate-x-full"
+            <PrismDrawer
+                className={`fixed left-0 top-0 z-50 flex flex-col transition-transform duration-300 lg:hidden ${mobileOpen ? "translate-x-0" : "-translate-x-full"
                     }`}
             >
                 <div className="flex items-center justify-end p-2">
@@ -166,11 +171,11 @@ export default function Sidebar({ items, role, userName }: SidebarProps) {
                     </button>
                 </div>
                 {sidebarContent}
-            </aside>
+            </PrismDrawer>
 
             {/* ── Desktop sidebar ── */}
             <aside
-                className={`fixed left-0 top-0 z-40 hidden h-screen flex-col border-r border-[var(--border)] bg-[var(--bg-card)] transition-all duration-200 lg:flex ${sidebarWidth}`}
+                className={`fixed left-0 top-0 z-40 hidden h-screen flex-col border-r border-[var(--border)] bg-[rgba(8,14,28,0.82)] backdrop-blur-2xl transition-all duration-200 lg:flex ${sidebarWidth}`}
             >
                 {sidebarContent}
                 {/* Collapse toggle */}

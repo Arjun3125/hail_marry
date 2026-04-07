@@ -16,6 +16,10 @@ import {
     Workflow,
 } from "lucide-react";
 
+import { PrismSelect, PrismTableShell, PrismToolbar } from "@/components/prism/PrismControls";
+import { PrismHeroKicker, PrismPage, PrismPanel, PrismSection } from "@/components/prism/PrismPage";
+import { useNetworkAware } from "@/hooks/useNetworkAware";
+import ErrorRemediation from "@/components/ui/ErrorRemediation";
 import { api } from "@/lib/api";
 
 type QueueMetrics = {
@@ -132,6 +136,7 @@ function formatWindow(seconds: number) {
 }
 
 export default function AdminQueuePage() {
+    const { isSlowConnection, saveData } = useNetworkAware();
     const [metrics, setMetrics] = useState<QueueMetrics | null>(null);
     const [jobs, setJobs] = useState<QueueJob[]>([]);
     const [ocrMetrics, setOcrMetrics] = useState<OCRMetricRow[]>([]);
@@ -150,6 +155,7 @@ export default function AdminQueuePage() {
         status: statusFilter !== "all" ? statusFilter : undefined,
         job_type: jobTypeFilter !== "all" ? jobTypeFilter : undefined,
     }), [jobTypeFilter, statusFilter]);
+    const refreshIntervalMs = saveData ? 60000 : isSlowConnection ? 30000 : 10000;
 
     const loadDetail = async (jobId: string) => {
         try {
@@ -209,10 +215,10 @@ export default function AdminQueuePage() {
     useEffect(() => {
         const intervalId = window.setInterval(() => {
             void loadData(true);
-        }, 10000);
+        }, refreshIntervalMs);
         return () => window.clearInterval(intervalId);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [queryParams, selectedId]);
+    }, [queryParams, refreshIntervalMs, selectedId]);
 
     const runAction = async (jobId: string, action: "cancel" | "retry" | "deadLetter") => {
         try {
@@ -233,32 +239,100 @@ export default function AdminQueuePage() {
     };
 
     return (
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)]">
-            <div className="space-y-6 min-w-0">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-                    <div>
-                        <h1 className="text-2xl font-bold text-[var(--text-primary)]">AI Queue Operations</h1>
-                        <p className="text-sm text-[var(--text-secondary)]">
-                            Monitor queue health, control stuck or failed jobs, and review persistent audit history.
-                        </p>
+        <PrismPage className="space-y-6 pb-8">
+            <PrismSection className="space-y-6">
+                <div className="grid gap-4 xl:grid-cols-[1.12fr_0.88fr]">
+                    <div className="space-y-4">
+                        <PrismHeroKicker>
+                            <Workflow className="h-3.5 w-3.5" />
+                            Admin Queue Control Surface
+                        </PrismHeroKicker>
+                        <div className="space-y-3">
+                            <h1 className="prism-title text-4xl font-black leading-[0.98] text-[var(--text-primary)] md:text-5xl">
+                                AI Queue Operations
+                            </h1>
+                            <p className="max-w-3xl text-base leading-7 text-[var(--text-secondary)] md:text-lg">
+                                Monitor queue health, control stuck or failed jobs, and review persistent audit history from one operational admin surface.
+                            </p>
+                        </div>
                     </div>
-                    <button
-                        type="button"
-                        onClick={() => void loadData(true)}
-                        className="inline-flex items-center gap-2 rounded-xl bg-code-block px-4 py-2 text-sm font-medium text-white hover:bg-[var(--bg-hover)]"
-                    >
-                        <RefreshCcw className="h-4 w-4" /> Refresh
-                    </button>
+                    <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
+                        <MetricCard
+                            icon={Activity}
+                            title="Queue depth"
+                            value={metrics ? `${metrics.pending_depth}` : "-"}
+                            summary={metrics ? `Tenant cap ${metrics.max_pending_jobs_per_tenant} / global ${metrics.max_pending_jobs}` : "Pending depth and tenant limits"}
+                            accent="blue"
+                        />
+                        <MetricCard
+                            icon={ServerCrash}
+                            title="Failure window"
+                            value={metrics ? `${metrics.failure_rate_pct}%` : "-"}
+                            summary={metrics ? `${metrics.failed_last_window} failures, ${metrics.dead_letter_count} dead-lettered` : "Recent failures and dead-letter size"}
+                            accent="amber"
+                        />
+                        <MetricCard
+                            icon={RotateCcw}
+                            title="Retries / stuck"
+                            value={metrics ? `${metrics.retry_count} / ${metrics.stuck_jobs}` : "-"}
+                            summary={metrics ? `Stuck after ${formatWindow(metrics.stuck_after_seconds)}` : "Retry pressure and stuck-job threshold"}
+                            accent="emerald"
+                        />
+                    </div>
                 </div>
 
                 {error ? (
-                    <div className="rounded-[var(--radius)] border border-[var(--error)]/30 bg-error-subtle px-4 py-3 text-sm text-[var(--error)]">
-                        {error}
-                    </div>
+                    <ErrorRemediation
+                        error={error}
+                        scope="admin-queue"
+                        onRetry={() => {
+                            void loadData(true);
+                        }}
+                    />
                 ) : null}
 
+                <div className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)]">
+            <div className="space-y-6 min-w-0">
+                <PrismPanel className="p-5">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                        <div>
+                            <h2 className="text-lg font-semibold text-[var(--text-primary)]">Queue command bar</h2>
+                            <p className="text-sm text-[var(--text-secondary)]">
+                                Refresh the live state, review the current filters, and move directly into queue-level control actions.
+                            </p>
+                        </div>
+                        <PrismToolbar className="sm:w-auto">
+                            <PrismSelect
+                                value={statusFilter}
+                                onChange={(event) => setStatusFilter(event.target.value)}
+                                className="min-w-[160px]"
+                            >
+                                {STATUS_OPTIONS.map((option) => (
+                                    <option key={option} value={option}>{option}</option>
+                                ))}
+                            </PrismSelect>
+                            <PrismSelect
+                                value={jobTypeFilter}
+                                onChange={(event) => setJobTypeFilter(event.target.value)}
+                                className="min-w-[180px]"
+                            >
+                                {JOB_TYPE_OPTIONS.map((option) => (
+                                    <option key={option} value={option}>{option}</option>
+                                ))}
+                            </PrismSelect>
+                    <button
+                        type="button"
+                        onClick={() => void loadData(true)}
+                                className="prism-action"
+                    >
+                        <RefreshCcw className="h-4 w-4" /> Refresh
+                    </button>
+                        </PrismToolbar>
+                    </div>
+                </PrismPanel>
+
                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                    <div className="rounded-[var(--radius)] bg-[var(--bg-card)] p-5 shadow-[var(--shadow-card)]">
+                    <PrismPanel className="p-5">
                         <div className="flex items-center justify-between">
                             <span className="text-sm text-[var(--text-secondary)]">Queue Depth</span>
                             <Activity className="h-4 w-4 text-[var(--primary)]" />
@@ -267,8 +341,8 @@ export default function AdminQueuePage() {
                         <p className="mt-1 text-xs text-[var(--text-muted)]">
                             Tenant cap {metrics ? metrics.max_pending_jobs_per_tenant : "-"} / global cap {metrics ? metrics.max_pending_jobs : "-"}.
                         </p>
-                    </div>
-                    <div className="rounded-[var(--radius)] bg-[var(--bg-card)] p-5 shadow-[var(--shadow-card)]">
+                    </PrismPanel>
+                    <PrismPanel className="p-5">
                         <div className="flex items-center justify-between">
                             <span className="text-sm text-[var(--text-secondary)]">Worker Throughput</span>
                             <Workflow className="h-4 w-4 text-[var(--primary)]" />
@@ -279,8 +353,8 @@ export default function AdminQueuePage() {
                         <p className="mt-1 text-xs text-[var(--text-muted)]">
                             Completed in the last {metrics ? formatWindow(metrics.metrics_window_seconds) : "window"}.
                         </p>
-                    </div>
-                    <div className="rounded-[var(--radius)] bg-[var(--bg-card)] p-5 shadow-[var(--shadow-card)]">
+                    </PrismPanel>
+                    <PrismPanel className="p-5">
                         <div className="flex items-center justify-between">
                             <span className="text-sm text-[var(--text-secondary)]">Failure / Dead Letter</span>
                             <ServerCrash className="h-4 w-4 text-[var(--error)]" />
@@ -291,8 +365,8 @@ export default function AdminQueuePage() {
                         <p className="mt-1 text-xs text-[var(--text-muted)]">
                             Recent failures and current dead-letter bucket size.
                         </p>
-                    </div>
-                    <div className="rounded-[var(--radius)] bg-[var(--bg-card)] p-5 shadow-[var(--shadow-card)]">
+                    </PrismPanel>
+                    <PrismPanel className="p-5">
                         <div className="flex items-center justify-between">
                             <span className="text-sm text-[var(--text-secondary)]">Retries / Stuck</span>
                             <RotateCcw className="h-4 w-4 text-[var(--primary)]" />
@@ -303,10 +377,10 @@ export default function AdminQueuePage() {
                         <p className="mt-1 text-xs text-[var(--text-muted)]">
                             Stuck means running longer than {metrics ? formatWindow(metrics.stuck_after_seconds) : "-"}.
                         </p>
-                    </div>
+                    </PrismPanel>
                 </div>
 
-                <div className="rounded-[var(--radius)] bg-[var(--bg-card)] p-5 shadow-[var(--shadow-card)]">
+                <PrismPanel className="p-5">
                     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                         <div>
                             <h2 className="text-lg font-semibold text-[var(--text-primary)]">Queued Jobs</h2>
@@ -314,25 +388,8 @@ export default function AdminQueuePage() {
                                 Tenant-fair, priority-ordered queue with admin controls for cancellation, retry, and dead-lettering.
                             </p>
                         </div>
-                        <div className="flex flex-col gap-2 sm:flex-row">
-                            <select
-                                value={statusFilter}
-                                onChange={(event) => setStatusFilter(event.target.value)}
-                                className="rounded-xl border border-[var(--border)] px-3 py-2 text-sm text-[var(--text-secondary)]"
-                            >
-                                {STATUS_OPTIONS.map((option) => (
-                                    <option key={option} value={option}>{option}</option>
-                                ))}
-                            </select>
-                            <select
-                                value={jobTypeFilter}
-                                onChange={(event) => setJobTypeFilter(event.target.value)}
-                                className="rounded-xl border border-[var(--border)] px-3 py-2 text-sm text-[var(--text-secondary)]"
-                            >
-                                {JOB_TYPE_OPTIONS.map((option) => (
-                                    <option key={option} value={option}>{option}</option>
-                                ))}
-                            </select>
+                        <div className="rounded-full border border-[var(--border)] bg-[rgba(148,163,184,0.05)] px-3 py-1.5 text-xs text-[var(--text-secondary)]">
+                            {jobs.length} jobs in current result set
                         </div>
                     </div>
 
@@ -343,22 +400,22 @@ export default function AdminQueuePage() {
                     ) : jobs.length === 0 ? (
                         <p className="mt-4 text-sm text-[var(--text-muted)]">No jobs found for the current filters.</p>
                     ) : (
-                        <div className="mt-4 overflow-x-auto">
-                            <table className="min-w-full divide-y divide-[var(--border)] text-sm">
+                        <PrismTableShell className="mt-4">
+                            <table className="prism-table min-w-full">
                                 <thead>
-                                    <tr className="text-left text-xs uppercase tracking-wide text-[var(--text-muted)]">
-                                        <th className="py-3 pr-4">Job</th>
-                                        <th className="py-3 pr-4">Requester</th>
-                                        <th className="py-3 pr-4">Trace</th>
-                                        <th className="py-3 pr-4">Attempts</th>
-                                        <th className="py-3 pr-4">Priority</th>
-                                        <th className="py-3 pr-4">Worker</th>
-                                        <th className="py-3 pr-4">Duration</th>
-                                        <th className="py-3 pr-4">State</th>
-                                        <th className="py-3">Actions</th>
+                                    <tr>
+                                        <th>Job</th>
+                                        <th>Requester</th>
+                                        <th>Trace</th>
+                                        <th>Attempts</th>
+                                        <th>Priority</th>
+                                        <th>Worker</th>
+                                        <th>Duration</th>
+                                        <th>State</th>
+                                        <th>Actions</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-slate-100">
+                                <tbody>
                                     {jobs.map((job) => {
                                         const actionKeyBase = `${job.job_id}`;
                                         return (
@@ -367,13 +424,13 @@ export default function AdminQueuePage() {
                                                 onClick={() => void loadDetail(job.job_id)}
                                                 className={`transition-colors hover:bg-[var(--bg-page)] ${selectedId === job.job_id ? "bg-info-subtle/60" : ""}`}
                                             >
-                                                <td className="py-3 pr-4 align-top cursor-pointer">
+                                                <td className="align-top cursor-pointer">
                                                     <div className="font-medium text-[var(--text-primary)]">{job.job_type}</div>
                                                     <div className="text-xs text-[var(--text-muted)] break-all">{job.job_id}</div>
                                                     <div className="text-xs text-[var(--text-muted)]">{formatDateTime(job.created_at)}</div>
                                                 </td>
-                                                <td className="py-3 pr-4 align-top cursor-pointer text-[var(--text-secondary)]">{job.user_name || "Unknown"}</td>
-                                                <td className="py-3 pr-4 align-top text-xs text-[var(--text-secondary)]">
+                                                <td className="align-top cursor-pointer text-[var(--text-secondary)]">{job.user_name || "Unknown"}</td>
+                                                <td className="align-top text-xs text-[var(--text-secondary)]">
                                                     {job.trace_id ? (
                                                         <Link
                                                             href={`/admin/traces?trace=${encodeURIComponent(job.trace_id)}`}
@@ -384,16 +441,16 @@ export default function AdminQueuePage() {
                                                         </Link>
                                                     ) : "-"}
                                                 </td>
-                                                <td className="py-3 pr-4 align-top cursor-pointer text-[var(--text-secondary)]">{job.attempts} / {job.max_retries + 1}</td>
-                                                <td className="py-3 pr-4 align-top cursor-pointer text-[var(--text-secondary)]">{job.priority ?? "-"}</td>
-                                                <td className="py-3 pr-4 align-top cursor-pointer text-xs text-[var(--text-secondary)]">{job.worker_id || "-"}</td>
-                                                <td className="py-3 pr-4 align-top cursor-pointer text-[var(--text-secondary)]">{formatDuration(job.duration_ms)}</td>
-                                                <td className="py-3 pr-4 align-top cursor-pointer">
+                                                <td className="align-top cursor-pointer text-[var(--text-secondary)]">{job.attempts} / {job.max_retries + 1}</td>
+                                                <td className="align-top cursor-pointer text-[var(--text-secondary)]">{job.priority ?? "-"}</td>
+                                                <td className="align-top cursor-pointer text-xs text-[var(--text-secondary)]">{job.worker_id || "-"}</td>
+                                                <td className="align-top cursor-pointer text-[var(--text-secondary)]">{formatDuration(job.duration_ms)}</td>
+                                                <td className="align-top cursor-pointer">
                                                     <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${statusClasses[job.status]}`}>
                                                         {job.status}
                                                     </span>
                                                 </td>
-                                                <td className="py-3 align-top">
+                                                <td className="align-top">
                                                     <div className="flex flex-wrap gap-2">
                                                         {job.status === "queued" ? (
                                                             <button
@@ -441,11 +498,11 @@ export default function AdminQueuePage() {
                                     })}
                                 </tbody>
                             </table>
-                        </div>
+                        </PrismTableShell>
                     )}
-                </div>
+                </PrismPanel>
 
-                <div className="rounded-[var(--radius)] bg-[var(--bg-card)] p-5 shadow-[var(--shadow-card)]">
+                <PrismPanel className="p-5">
                     <div className="flex items-center gap-2 mb-4">
                         <ShieldAlert className="h-4 w-4 text-[var(--primary)]" />
                         <h2 className="text-lg font-semibold text-[var(--text-primary)]">Persistent Audit History</h2>
@@ -465,9 +522,9 @@ export default function AdminQueuePage() {
                             </div>
                         ))}
                     </div>
-                </div>
+                </PrismPanel>
 
-                <div className="rounded-[var(--radius)] bg-[var(--bg-card)] p-5 shadow-[var(--shadow-card)]">
+                <PrismPanel className="p-5">
                     <div className="flex items-center gap-2 mb-4">
                         <Workflow className="h-4 w-4 text-[var(--primary)]" />
                         <h2 className="text-lg font-semibold text-[var(--text-primary)]">OCR Observability</h2>
@@ -490,10 +547,10 @@ export default function AdminQueuePage() {
                             ))}
                         </div>
                     )}
-                </div>
+                </PrismPanel>
             </div>
 
-            <div className="h-fit rounded-[var(--radius)] bg-[var(--bg-card)] p-5 shadow-[var(--shadow-card)] xl:sticky xl:top-6">
+            <PrismPanel className="h-fit p-5 xl:sticky xl:top-6">
                 <div className="flex items-center gap-2 mb-4">
                     <Clock3 className="h-4 w-4 text-[var(--primary)]" />
                     <h2 className="text-sm font-semibold text-[var(--text-primary)]">Job Detail</h2>
@@ -575,7 +632,40 @@ export default function AdminQueuePage() {
                         </div>
                     </div>
                 )}
+            </PrismPanel>
+                </div>
+            </PrismSection>
+        </PrismPage>
+    );
+}
+
+function MetricCard({
+    icon: Icon,
+    title,
+    value,
+    summary,
+    accent,
+}: {
+    icon: typeof Activity;
+    title: string;
+    value: string;
+    summary: string;
+    accent: "blue" | "emerald" | "amber";
+}) {
+    const accentClasses = {
+        blue: "bg-[linear-gradient(135deg,rgba(96,165,250,0.22),rgba(59,130,246,0.08))] text-status-blue",
+        emerald: "bg-[linear-gradient(135deg,rgba(45,212,191,0.2),rgba(16,185,129,0.08))] text-status-emerald",
+        amber: "bg-[linear-gradient(135deg,rgba(251,191,36,0.2),rgba(245,158,11,0.08))] text-status-amber",
+    } as const;
+
+    return (
+        <PrismPanel className="p-4">
+            <div className={`mb-3 flex h-11 w-11 items-center justify-center rounded-2xl ${accentClasses[accent]}`}>
+                <Icon className="h-5 w-5" />
             </div>
-        </div>
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">{title}</p>
+            <p className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">{value}</p>
+            <p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">{summary}</p>
+        </PrismPanel>
     );
 }

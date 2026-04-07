@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Bot, TrendingUp, Users, CalendarCheck, ClipboardCheck, LayoutDashboard, Sparkles, AlertCircle, ArrowRight } from "lucide-react";
+import { Bot, TrendingUp, Users, CalendarCheck, ClipboardCheck, LayoutDashboard, Sparkles, AlertCircle, ArrowRight, BarChart2 } from "lucide-react";
 import {
     ResponsiveContainer,
     BarChart,
@@ -15,6 +15,7 @@ import {
 import { api } from "@/lib/api";
 import { AnimatedCounter, ProgressRing } from "@/components/ui/SharedUI";
 import { RoleStartPanel } from "@/components/RoleStartPanel";
+import { PrismHeroKicker, PrismPage } from "@/components/prism/PrismPage";
 
 type TeacherClass = {
     id: string;
@@ -78,7 +79,14 @@ export default function TeacherDashboard() {
     );
 
     return (
-        <div className="max-w-6xl mx-auto space-y-8">
+        <PrismPage className="max-w-6xl space-y-8">
+            <div className="space-y-3">
+                <PrismHeroKicker>Teacher command view</PrismHeroKicker>
+                <div>
+                    <h1 className="prism-title text-4xl font-black text-[var(--text-primary)]">Teacher Dashboard</h1>
+                    <p className="mt-2 text-sm text-[var(--text-secondary)]">A premium operational surface for classes, assessments, and insight-driven intervention.</p>
+                </div>
+            </div>
             <RoleStartPanel role="teacher" />
 
             {error && (
@@ -316,14 +324,20 @@ export default function TeacherDashboard() {
                                 </p>
                             </div>
                             
-                            <button className="mt-4 w-full py-3 bg-[var(--bg-card)] border border-[var(--border)] text-[var(--text-primary)] text-xs font-bold rounded-xl hover:bg-[var(--border-light)] transition-colors shadow-sm flex items-center justify-center gap-2 group">
-                                <Sparkles className="w-3.5 h-3.5 text-purple-500 group-hover:animate-spin" />
-                                Generate Study Guide
-                            </button>
+                            <div className="grid grid-cols-2 gap-3 mt-4">
+                                <a href="/teacher/generate-assessment" className="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-[10px] font-bold rounded-xl hover:opacity-90 transition-opacity shadow-md flex items-center justify-center gap-2 group">
+                                    <Sparkles className="w-3.5 h-3.5 text-white animate-pulse" />
+                                    Gen Assessment
+                                </a>
+                                <a href="/teacher/doubt-heatmap" className="w-full py-3 bg-[var(--bg-card)] border border-[var(--border)] text-[var(--text-primary)] text-[10px] font-bold rounded-xl hover:bg-[var(--border-light)] transition-colors shadow-sm flex items-center justify-center gap-2 group">
+                                    <BarChart2 className="w-3.5 h-3.5 text-blue-500" />
+                                    Doubt Heatmap
+                                </a>
+                            </div>
                         </div>
                     </div>
                 </>
             )}
-        </div>
+        </PrismPage>
     );
 }

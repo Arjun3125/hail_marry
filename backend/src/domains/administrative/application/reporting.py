@@ -5,7 +5,7 @@ from __future__ import annotations
 import csv
 import io
 
-from sqlalchemy import func
+from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
 from constants import performance_color
@@ -21,17 +21,31 @@ from src.domains.platform.models.document import Document
 
 def build_admin_attendance_report(*, db: Session, tenant_id) -> list[dict]:
     classes = db.query(Class).filter(Class.tenant_id == tenant_id).all()
+    class_ids = [class_row.id for class_row in classes]
+    attendance_rows = (
+        db.query(
+            Attendance.class_id,
+            func.count(Attendance.student_id),
+            func.sum(case((Attendance.status == "present", 1), else_=0)),
+        )
+        .filter(
+            Attendance.tenant_id == tenant_id,
+            Attendance.class_id.in_(class_ids),
+        )
+        .group_by(Attendance.class_id)
+        .all()
+        if class_ids
+        else []
+    )
+    attendance_by_class = {
+        class_id: {"total": total or 0, "present": present or 0}
+        for class_id, total, present in attendance_rows
+    }
     report = []
     for class_row in classes:
-        total = db.query(Attendance).filter(
-            Attendance.tenant_id == tenant_id,
-            Attendance.class_id == class_row.id,
-        ).count()
-        present = db.query(Attendance).filter(
-            Attendance.tenant_id == tenant_id,
-            Attendance.class_id == class_row.id,
-            Attendance.status == "present",
-        ).count()
+        counts = attendance_by_class.get(class_row.id, {"total": 0, "present": 0})
+        total = int(counts["total"] or 0)
+        present = int(counts["present"] or 0)
         report.append(
             {
                 "class": class_row.name,
@@ -45,20 +59,44 @@ def build_admin_attendance_report(*, db: Session, tenant_id) -> list[dict]:
 
 def build_admin_performance_report(*, db: Session, tenant_id) -> list[dict]:
     subjects = db.query(Subject).filter(Subject.tenant_id == tenant_id).all()
+    subject_ids = [subject.id for subject in subjects]
+    exams = (
+        db.query(Exam)
+        .filter(
+            Exam.tenant_id == tenant_id,
+            Exam.subject_id.in_(subject_ids),
+        )
+        .all()
+        if subject_ids
+        else []
+    )
+    avg_rows = (
+        db.query(
+            Exam.subject_id,
+            func.avg(Mark.marks_obtained),
+        )
+        .join(Mark, Mark.exam_id == Exam.id)
+        .filter(
+            Exam.tenant_id == tenant_id,
+            Mark.tenant_id == tenant_id,
+            Exam.subject_id.in_(subject_ids),
+        )
+        .group_by(Exam.subject_id)
+        .all()
+        if subject_ids
+        else []
+    )
+    exams_by_subject: dict[object, list[Exam]] = {}
+    for exam in exams:
+        exams_by_subject.setdefault(exam.subject_id, []).append(exam)
+    avg_by_subject = {subject_id: avg for subject_id, avg in avg_rows}
     report = []
     for subject in subjects:
-        exams = db.query(Exam).filter(
-            Exam.tenant_id == tenant_id,
-            Exam.subject_id == subject.id,
-        ).all()
-        if not exams:
+        subject_exams = exams_by_subject.get(subject.id, [])
+        if not subject_exams:
             continue
-        exam_ids = [exam.id for exam in exams]
-        avg = db.query(func.avg(Mark.marks_obtained)).filter(
-            Mark.tenant_id == tenant_id,
-            Mark.exam_id.in_(exam_ids),
-        ).scalar()
-        max_marks = max(exam.max_marks for exam in exams)
+        avg = avg_by_subject.get(subject.id)
+        max_marks = max(exam.max_marks for exam in subject_exams)
         report.append(
             {
                 "subject": subject.name,
@@ -131,27 +169,52 @@ def build_admin_billing_info(*, db: Session, tenant_id) -> dict:
 def build_admin_performance_heatmap(*, db: Session, tenant_id) -> dict:
     classes = db.query(Class).filter(Class.tenant_id == tenant_id).all()
     subjects = db.query(Subject).filter(Subject.tenant_id == tenant_id).all()
+    subject_ids = [subject.id for subject in subjects]
+    exams = (
+        db.query(Exam)
+        .filter(
+            Exam.tenant_id == tenant_id,
+            Exam.subject_id.in_(subject_ids),
+        )
+        .all()
+        if subject_ids
+        else []
+    )
+    avg_rows = (
+        db.query(
+            Exam.subject_id,
+            func.avg(Mark.marks_obtained),
+        )
+        .join(Mark, Mark.exam_id == Exam.id)
+        .filter(
+            Exam.tenant_id == tenant_id,
+            Mark.tenant_id == tenant_id,
+            Exam.subject_id.in_(subject_ids),
+        )
+        .group_by(Exam.subject_id)
+        .all()
+        if subject_ids
+        else []
+    )
+    subjects_by_class: dict[object, list[Subject]] = {}
+    for subject in subjects:
+        subjects_by_class.setdefault(subject.class_id, []).append(subject)
+    exams_by_subject: dict[object, list[Exam]] = {}
+    for exam in exams:
+        exams_by_subject.setdefault(exam.subject_id, []).append(exam)
+    avg_by_subject = {subject_id: avg for subject_id, avg in avg_rows}
 
     heatmap = []
     for class_row in classes:
         row = {"class": class_row.name, "class_id": str(class_row.id), "subjects": []}
-        for subject in subjects:
-            if str(subject.class_id) != str(class_row.id):
-                continue
-            exams = db.query(Exam).filter(
-                Exam.tenant_id == tenant_id,
-                Exam.subject_id == subject.id,
-            ).all()
-            if not exams:
+        for subject in subjects_by_class.get(class_row.id, []):
+            subject_exams = exams_by_subject.get(subject.id, [])
+            if not subject_exams:
                 row["subjects"].append({"subject": subject.name, "avg": 0, "color": "gray"})
                 continue
-            exam_ids = [exam.id for exam in exams]
-            max_marks_val = max(exam.max_marks for exam in exams)
-            avg = db.query(func.avg(Mark.marks_obtained * 100.0 / max_marks_val)).filter(
-                Mark.exam_id.in_(exam_ids),
-                Mark.tenant_id == tenant_id,
-            ).scalar()
-            avg_pct = round(float(avg)) if avg else 0
+            max_marks_val = max(exam.max_marks for exam in subject_exams)
+            avg = avg_by_subject.get(subject.id)
+            avg_pct = round(float(avg) / max_marks_val * 100) if avg and max_marks_val else 0
             row["subjects"].append(
                 {"subject": subject.name, "avg": avg_pct, "color": performance_color(avg_pct)}
             )
@@ -190,6 +253,7 @@ def build_admin_performance_csv_export(*, db: Session, tenant_id) -> dict:
         Mark,
         User.full_name,
         Exam.name.label("exam_name"),
+        Exam.max_marks.label("exam_max_marks"),
         Subject.name.label("subject_name"),
     ).join(
         User,
@@ -207,18 +271,14 @@ def build_admin_performance_csv_export(*, db: Session, tenant_id) -> dict:
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow(["Student", "Subject", "Exam", "Marks Obtained", "Max Marks"])
-    for mark, name, exam_name, subject_name in marks:
-        exam_obj = db.query(Exam).filter(
-            Exam.id == mark.exam_id,
-            Exam.tenant_id == tenant_id,
-        ).first()
+    for mark, name, exam_name, exam_max_marks, subject_name in marks:
         writer.writerow(
             [
                 name,
                 subject_name,
                 exam_name,
                 mark.marks_obtained,
-                exam_obj.max_marks if exam_obj else "",
+                exam_max_marks or "",
             ]
         )
 

@@ -1,11 +1,13 @@
 """FastAPI auth dependencies for route protection."""
 import os
-from config import settings
-from fastapi import Depends, HTTPException, status, Request
-from sqlalchemy.orm import Session
-from database import get_db
 import uuid
+
+from fastapi import Depends, HTTPException, Request, status
+from sqlalchemy.orm import Session
+
 from auth.jwt import decode_access_token
+from config import settings
+from database import get_db
 from src.domains.identity.models.user import User
 
 def is_demo_mode() -> bool:
@@ -138,6 +140,56 @@ async def get_current_user(request: Request, db: Session = Depends(get_db)) -> U
     request.state.user_id = str(user.id)
 
     return user
+
+
+def _resolve_optional_user(request: Request, db: Session) -> User | None:
+    token = request.cookies.get("access_token")
+    if not token:
+        auth_header = request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            token = auth_header.split(" ", 1)[1]
+
+    if not token:
+        return None
+
+    payload = decode_access_token(token)
+    user_id_str = payload.get("user_id") if payload else None
+    if not user_id_str:
+        return None
+
+    try:
+        user_uuid = uuid.UUID(user_id_str)
+    except ValueError:
+        return None
+
+    user = db.query(User).filter(
+        User.id == user_uuid,
+        User.is_active,
+        User.is_deleted.is_(False),
+    ).first()
+    if not user:
+        return None
+
+    request.state.tenant_id = str(user.tenant_id)
+    request.state.user_role = user.role
+    request.state.user_id = str(user.id)
+    return user
+
+
+async def get_current_user_optional(
+    request: Request,
+    db: Session = Depends(get_db),
+) -> uuid.UUID | None:
+    user = _resolve_optional_user(request, db)
+    return user.id if user else None
+
+
+async def get_tenant_id_optional(
+    request: Request,
+    db: Session = Depends(get_db),
+) -> uuid.UUID | None:
+    user = _resolve_optional_user(request, db)
+    return user.tenant_id if user else None
 
 
 def require_role(*roles: str):

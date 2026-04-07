@@ -19,6 +19,7 @@ import {
     Trophy,
     Library,
     Wand2,
+    Target,
 } from "lucide-react";
 import GuidedTour, { studentTourSteps } from "@/components/GuidedTour";
 import { MobileBottomNav } from "@/components/ui/SharedUI";
@@ -26,6 +27,7 @@ import { MascotLauncher } from "@/components/mascot/MascotLauncher";
 
 const studentNav = [
     { label: "Overview", href: "/student/overview", icon: LayoutDashboard },
+    { label: "Mastery Map", href: "/student/mastery", icon: Target },
     { label: "Attendance", href: "/student/attendance", icon: CalendarCheck },
     { label: "Results", href: "/student/results", icon: Award },
     { label: "Assignments", href: "/student/assignments", icon: FileText },

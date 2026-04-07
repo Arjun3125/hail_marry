@@ -1,6 +1,6 @@
 """Academic structure: Classes, Subjects, Enrollments."""
 import uuid
-from sqlalchemy import Column, String, DateTime, ForeignKey, func
+from sqlalchemy import Column, DateTime, ForeignKey, String, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from database import Base
@@ -27,6 +27,16 @@ class Subject(Base):
 
 class Enrollment(Base):
     __tablename__ = "enrollments"
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id",
+            "student_id",
+            "class_id",
+            "academic_year",
+            name="uq_enrollment_tenant_student_class_year",
+        ),
+    )
+
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False, index=True)
     student_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
