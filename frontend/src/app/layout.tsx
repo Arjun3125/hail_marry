@@ -50,11 +50,13 @@ export default async function RootLayout({
   const initialLang = resolveLanguage(cookieStore.get(LANGUAGE_COOKIE_KEY)?.value);
 
   return (
-    <html
+      <html
       lang={initialLang}
       style={{
-        ["--font-body" as string]: '"Manrope", "Segoe UI", sans-serif',
-        ["--font-display" as string]: '"Space Grotesk", "Manrope", sans-serif',
+        ["--font-body" as string]:
+          '"Segoe UI", Tahoma, Verdana, "Noto Sans", sans-serif',
+        ["--font-display" as string]:
+          'Georgia, Cambria, "Times New Roman", serif',
       }}
       suppressHydrationWarning
     >

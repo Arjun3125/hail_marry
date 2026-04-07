@@ -137,7 +137,7 @@ export default function InteractiveMindMapPage() {
                 if (pos.depth > 0) ctx.stroke();
 
                 ctx.fillStyle = pos.depth === 0 ? "#ffffff" : color;
-                ctx.font = `${pos.depth === 0 ? "bold " : ""}13px Space Grotesk, Manrope, system-ui, sans-serif`;
+                ctx.font = `${pos.depth === 0 ? "bold " : ""}13px "Segoe UI", Tahoma, Verdana, sans-serif`;
                 ctx.textAlign = "left";
                 ctx.textBaseline = "middle";
                 const maxTextWidth = width - 20;
