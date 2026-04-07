@@ -114,6 +114,7 @@ def test_worker_health_stays_live_when_heartbeat_is_stale():
 
     try:
         mark_worker_started("test-worker", {"ready": True, "checks": {}})
+        mark_worker_heartbeat(status="idle")
         update_dependency_status({"ready": True, "checks": {}})
 
         with TestClient(worker_health_app) as client:

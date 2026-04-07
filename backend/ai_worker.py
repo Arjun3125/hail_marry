@@ -74,7 +74,10 @@ async def _heartbeat_loop() -> None:
     interval = max(5, min(settings.worker_health.heartbeat_stale_seconds // 3, 20))
     while True:
         await asyncio.sleep(interval)
-        refresh_worker_heartbeat()
+        try:
+            refresh_worker_heartbeat()
+        except Exception as exc:
+            logger.warning("Heartbeat refresh failed: %s", exc)
 
 
 def _raise_if_task_failed(task: asyncio.Task[None], name: str) -> None:
