@@ -96,15 +96,22 @@ class CSRFMiddlewareTests(unittest.IsolatedAsyncioTestCase):
             settings.app.debug = original
 
     async def test_post_no_origin_no_referer_non_debug_returns_403(self):
+        import os
         from middleware.csrf import settings
+        original_testing = os.environ.get("TESTING")
         original = settings.app.debug
         settings.app.debug = False
         try:
+            os.environ.pop("TESTING", None)
             request = _make_request()
             response = await self.middleware.dispatch(request, _ok_handler)
             self.assertEqual(response.status_code, 403)
         finally:
             settings.app.debug = original
+            if original_testing is None:
+                os.environ.pop("TESTING", None)
+            else:
+                os.environ["TESTING"] = original_testing
 
     async def test_exempt_path_bypasses_csrf(self):
         request = _make_request(path="/api/auth/google")
@@ -126,6 +133,21 @@ class CSRFMiddlewareTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(response.status_code, 403)
         finally:
             settings.app.debug = original
+
+    async def test_post_no_origin_no_referer_testing_env_passes(self):
+        import os
+
+        original = os.environ.get("TESTING")
+        os.environ["TESTING"] = "true"
+        try:
+            request = _make_request()
+            response = await self.middleware.dispatch(request, _ok_handler)
+            self.assertEqual(response.status_code, 200)
+        finally:
+            if original is None:
+                os.environ.pop("TESTING", None)
+            else:
+                os.environ["TESTING"] = original
 
 
 if __name__ == "__main__":

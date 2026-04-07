@@ -88,7 +88,7 @@ test("student mascot page creates a notebook and opens AI Studio", async ({ page
     await expect(page.getByText("notebook create")).toBeVisible();
     await expect(page.getByText("Next steps")).toBeVisible();
     await expect(page.getByText("Notebook: Biology Chapter 10")).toBeVisible();
-    await page.getByRole("button", { name: /^Open ai studio$/i }).click();
+    await page.getByRole("button", { name: /^Open ai studio$/i }).last().click();
     await expect(page).toHaveURL(/\/student\/ai-studio/);
 });
 

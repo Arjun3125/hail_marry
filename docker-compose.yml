@@ -56,9 +56,9 @@ services:
     ports:
       - "8000:8000"
     environment:
-      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/vidyaos
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/vidyaos
       REDIS_URL: redis://redis:6379/0
-      JWT_SECRET: ${JWT_SECRET:-change-me-in-production-32-char-secret}
+      JWT_SECRET: ${JWT_SECRET}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       OLLAMA_URL: http://host.docker.internal:11434
@@ -93,9 +93,9 @@ services:
     container_name: vidyaos-worker
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/vidyaos
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/vidyaos
       REDIS_URL: redis://redis:6379/0
-      JWT_SECRET: ${JWT_SECRET:-change-me-in-production-32-char-secret}
+      JWT_SECRET: ${JWT_SECRET}
       OLLAMA_URL: http://host.docker.internal:11434
       APP_ENV: production
       VidyaOS_STORAGE_ROOT: /app/data

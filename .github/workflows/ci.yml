@@ -87,6 +87,7 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/vidyaos_test
           REDIS_URL: redis://localhost:6379/0
           JWT_SECRET: test-secret-key-minimum-256-bits-long-enough
+          REFRESH_SECRET_KEY: test-refresh-key-minimum-256-bits-long-enough
         run: pytest tests/ -q --maxfail=1
 
   frontend_ci:
@@ -143,6 +144,7 @@ jobs:
             -e STARTUP_CHECKS_STRICT=false \
             -e STARTUP_CHECKS_TIMEOUT_SECONDS=2 \
             -e JWT_SECRET=ci-demo-secret-ci-demo-secret-ci-demo-secret \
+            -e REFRESH_SECRET_KEY=ci-refresh-secret-ci-refresh-secret-ci-refresh-secret \
             -e APP_CORS_ORIGINS=http://127.0.0.1:3000 \
             vidyaos-backend-smoke
 

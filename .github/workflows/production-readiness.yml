@@ -75,6 +75,7 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/vidyaos_test
           REDIS_URL: redis://localhost:6379/0
           JWT_SECRET: test-secret-key-minimum-256-bits-long-enough
+          REFRESH_SECRET_KEY: test-refresh-key-minimum-256-bits-long-enough
           NEXT_PUBLIC_API_URL: http://localhost:8000
           CI: "true"
         run: python scripts/production_readiness_gate.py --output production_readiness_report.md
