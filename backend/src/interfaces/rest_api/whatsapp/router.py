@@ -1,4 +1,5 @@
 """Legacy WhatsApp router kept for `/api/whatsapp` compatibility on Meta Cloud API."""
+import logging
 from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Request
@@ -9,9 +10,10 @@ from config import settings
 from database import SessionLocal
 from src.domains.identity.models.tenant import Tenant
 from src.domains.identity.models.user import User
-from src.domains.platform.services.whatsapp_gateway import send_text_message
-
-import logging
+from src.domains.platform.services.whatsapp_gateway import (
+    send_text_message,
+    verify_webhook_signature,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -117,6 +119,11 @@ async def whatsapp_webhook(
 ):
     """Legacy inbound webhook endpoint updated to Meta Cloud API payloads."""
     try:
+        body = await request.body()
+        signature = request.headers.get("X-Hub-Signature-256", "")
+        if not verify_webhook_signature(body, signature):
+            raise HTTPException(status_code=403, detail="Invalid signature")
+
         payload = await request.json()
         for message in _extract_inbound_messages(payload):
             background_tasks.add_task(
@@ -126,6 +133,8 @@ async def whatsapp_webhook(
                 message["media_id"],
             )
         return PlainTextResponse("OK")
+    except HTTPException:
+        raise
     except Exception:
         logger.exception("Legacy WhatsApp webhook failed")
         return PlainTextResponse("OK", status_code=200)
