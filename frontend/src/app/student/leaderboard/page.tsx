@@ -1,9 +1,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Trophy, Medal, Clock, TrendingUp, ChevronDown, CheckCircle2, Crown } from "lucide-react";
-import { api } from "@/lib/api";
+import { CheckCircle2, Clock, Crown, Medal, Trophy, TrendingUp } from "lucide-react";
+
+import EmptyState from "@/components/EmptyState";
+import {
+    PrismHeroKicker,
+    PrismPage,
+    PrismPageIntro,
+    PrismPanel,
+    PrismSection,
+    PrismSectionHeader,
+} from "@/components/prism/PrismPage";
+import ErrorRemediation from "@/components/ui/ErrorRemediation";
 import { useNetworkAware } from "@/hooks/useNetworkAware";
+import { api } from "@/lib/api";
 
 type TestSeries = {
     id: string;
@@ -46,11 +57,10 @@ export default function LeaderboardPage() {
         const load = async () => {
             try {
                 setLoading(true);
+                setError(null);
                 const data = await api.student.testSeries();
                 setSeriesList((data || []) as TestSeries[]);
-                if (Array.isArray(data) && data.length > 0) {
-                    setSelectedId(data[0].id);
-                }
+                if (Array.isArray(data) && data.length > 0) setSelectedId(data[0].id);
             } catch (err) {
                 setError(err instanceof Error ? err.message : "Failed to load test series");
             } finally {
@@ -64,232 +74,131 @@ export default function LeaderboardPage() {
         if (!selectedId) return;
         const load = async () => {
             try {
-                const [lb, rank] = await Promise.all([
-                    api.student.leaderboard(selectedId),
-                    api.student.myRank(selectedId),
-                ]);
+                const [lb, rank] = await Promise.all([api.student.leaderboard(selectedId), api.student.myRank(selectedId)]);
                 setLeaderboard(lb as LeaderboardData);
                 setMyRank(rank as { rank: number | null; percentile: number | null; pct: number });
             } catch {
-                // leaderboard might not exist yet
+                setLeaderboard(null);
+                setMyRank(null);
             }
         };
         void load();
     }, [selectedId]);
 
-    const getRankStyle = (rank: number) => {
-        if (rank === 1) return { color: "text-amber-500", bg: "bg-amber-500/10", border: "border-amber-500/50", icon: <Crown className={`w-6 h-6 text-amber-500 ${reducedVisualMode ? "" : "drop-shadow-md"}`} /> };
-        if (rank === 2) return { color: "text-slate-300", bg: "bg-slate-300/10", border: "border-slate-400/50", icon: <Medal className={`w-5 h-5 text-slate-300 ${reducedVisualMode ? "" : "drop-shadow-md"}`} /> };
-        if (rank === 3) return { color: "text-orange-400", bg: "bg-orange-400/10", border: "border-orange-500/50", icon: <Medal className={`w-5 h-5 text-orange-400 ${reducedVisualMode ? "" : "drop-shadow-md"}`} /> };
-        return { color: "text-[var(--text-primary)]", bg: "bg-[var(--bg-card)]", border: "border-transparent", icon: null };
+    const topIcon = (rank: number) => {
+        if (rank === 1) return <Crown className="h-4 w-4 text-amber-500" />;
+        if (rank === 2) return <Medal className="h-4 w-4 text-slate-400" />;
+        if (rank === 3) return <Medal className="h-4 w-4 text-orange-500" />;
+        return null;
     };
 
     return (
-        <div className="max-w-5xl mx-auto space-y-6 pb-12">
-            
-            {/* Header Area */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
-                <div>
-                    <h1 className={`flex items-center gap-3 text-3xl font-black ${reducedVisualMode ? "text-[var(--text-primary)]" : "bg-gradient-to-r from-yellow-400 via-amber-500 to-orange-500 bg-clip-text text-transparent drop-shadow-sm"}`}>
-                        <Trophy className="w-8 h-8 text-yellow-500" />
-                        Global Rankings
-                    </h1>
-                    <p className="text-sm font-medium text-[var(--text-muted)] mt-1.5 ml-1">
-                        Track your academic standing and compete with peers worldwide.
-                    </p>
+        <PrismPage variant="report" className="space-y-6">
+            <PrismSection className="space-y-6">
+                <PrismPageIntro
+                    kicker={<PrismHeroKicker><Trophy className="h-3.5 w-3.5" />Rankings</PrismHeroKicker>}
+                    title="Use rankings as feedback, not just competition"
+                    description="This page shows how you are performing inside a test series so you can understand your standing, percentile, and where more revision may help."
+                />
+
+                <div className="prism-status-strip">
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">Active series</span>
+                        <strong className="prism-status-value">{seriesList.length}</strong>
+                        <span className="prism-status-detail">Test series currently available for ranking</span>
+                    </div>
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">My rank</span>
+                        <strong className="prism-status-value">{myRank?.rank ?? "—"}</strong>
+                        <span className="prism-status-detail">Current standing in the selected series</span>
+                    </div>
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">My percentile</span>
+                        <strong className="prism-status-value">{myRank?.percentile ?? "—"}{myRank?.percentile !== null && myRank?.percentile !== undefined ? "%" : ""}</strong>
+                        <span className="prism-status-detail">Relative performance against the current cohort</span>
+                    </div>
                 </div>
 
-                {/* Series Selector - Glassmorphic Dropdown */}
-                {seriesList.length > 0 && (
-                    <div className="relative group">
-                        <select
-                            value={selectedId || ""}
-                            onChange={(e) => setSelectedId(e.target.value)}
-                            className={`appearance-none pl-5 pr-12 py-3 text-sm font-bold border border-[var(--border-light)] rounded-2xl bg-[var(--bg-card)] text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-amber-500/50 cursor-pointer hover:bg-[var(--bg-card)] transition-colors w-full md:w-auto min-w-[200px] ${reducedVisualMode ? "" : "shadow-sm"}`}
-                        >
-                            {seriesList.map((s) => (
-                                <option key={s.id} value={s.id}>
-                                    {s.name}
-                                </option>
-                            ))}
-                        </select>
-                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none w-6 h-6 rounded-md bg-[var(--bg-page)] flex items-center justify-center">
-                            <ChevronDown className="w-3.5 h-3.5 text-[var(--text-secondary)]" />
+                {error ? <ErrorRemediation error={error} scope="student-leaderboard" onRetry={() => window.location.reload()} /> : null}
+
+                {loading ? (
+                    <PrismPanel className="p-8"><p className="text-sm text-[var(--text-secondary)]">Loading rankings...</p></PrismPanel>
+                ) : seriesList.length === 0 ? (
+                    <PrismPanel className="p-6">
+                        <EmptyState icon={Trophy} title="No active test series" description="Rankings will appear here once you are enrolled in a competitive test series." eyebrow="No challenges yet" />
+                    </PrismPanel>
+                ) : (
+                    <div className="grid gap-6 xl:grid-cols-[0.92fr_1.08fr]">
+                        <div className="space-y-6">
+                            <PrismPanel className="space-y-5 p-5">
+                                <PrismSectionHeader title="Series selector" description="Switch between test series to compare your position across different assessments." />
+                                <select value={selectedId || ""} onChange={(e) => setSelectedId(e.target.value)} className="w-full rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.03)] px-3 py-3 text-sm text-[var(--text-primary)]">
+                                    {seriesList.map((series) => <option key={series.id} value={series.id}>{series.name}</option>)}
+                                </select>
+                            </PrismPanel>
+
+                            {myRank?.rank ? (
+                                <PrismPanel className="space-y-4 p-5">
+                                    <PrismSectionHeader title="My standing" description="Treat this as feedback for revision planning rather than a scorecard by itself." />
+                                    <InfoTile icon={Trophy} label="Current rank" value={`#${myRank.rank}`} />
+                                    <InfoTile icon={TrendingUp} label="Percentile" value={`${myRank.percentile ?? "—"}%`} />
+                                    <InfoTile icon={CheckCircle2} label="Average score" value={`${myRank.pct}%`} />
+                                </PrismPanel>
+                            ) : null}
                         </div>
+
+                        <PrismPanel className="space-y-5 p-5">
+                            <PrismSectionHeader title={leaderboard?.series_name || "Leaderboard"} description={leaderboard ? `${leaderboard.total_attempts} competitors • ${leaderboard.total_marks} total marks` : "Series standings"} />
+                            {leaderboard && leaderboard.leaderboard.length > 0 ? (
+                                <div className="overflow-x-auto">
+                                    <table className="w-full min-w-[520px]">
+                                        <thead>
+                                            <tr className="border-b border-[var(--border)]">
+                                                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">Rank</th>
+                                                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">Student</th>
+                                                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">Score</th>
+                                                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">Percentile</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {leaderboard.leaderboard.map((entry) => (
+                                                <tr key={entry.student_id} className={`border-b border-[var(--border-light)] ${entry.rank <= 3 && !reducedVisualMode ? "bg-[rgba(255,255,255,0.02)]" : ""}`}>
+                                                    <td className="px-4 py-3">
+                                                        <div className="flex items-center gap-2 text-sm font-semibold text-[var(--text-primary)]">
+                                                            {topIcon(entry.rank)}
+                                                            #{entry.rank}
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-4 py-3">
+                                                        <p className="text-sm font-medium text-[var(--text-primary)]">{entry.student_name}</p>
+                                                        {entry.time_taken ? <p className="mt-1 text-xs text-[var(--text-muted)]"><Clock className="mr-1 inline h-3 w-3" />{entry.time_taken} min</p> : null}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-sm text-[var(--text-primary)]">{entry.marks_obtained} / {entry.total_marks} <span className="text-xs text-[var(--text-muted)]">({entry.pct}%)</span></td>
+                                                    <td className="px-4 py-3 text-sm font-medium text-[var(--text-primary)]">{entry.percentile} P</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            ) : (
+                                <EmptyState icon={Trophy} title="No leaderboard data yet" description="Standings will appear here once this series has recorded enough attempts to rank students." eyebrow="No standings yet" />
+                            )}
+                        </PrismPanel>
                     </div>
                 )}
+            </PrismSection>
+        </PrismPage>
+    );
+}
+
+function InfoTile({ icon: Icon, label, value }: { icon: typeof Trophy; label: string; value: string }) {
+    return (
+        <div className="rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.03)] p-4">
+            <div className="flex items-center gap-2 text-[var(--text-secondary)]">
+                <Icon className="h-4 w-4" />
+                <p className="text-xs font-semibold uppercase tracking-[0.16em]">{label}</p>
             </div>
-
-            {error && (
-                <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-500 shadow-md flex items-center gap-2">
-                    {error}
-                </div>
-            )}
-
-            {loading ? (
-                <div className="flex flex-col items-center justify-center p-20 glass-panel border border-[var(--border-light)] rounded-3xl opacity-70">
-                    <Trophy className={`w-12 h-12 text-[var(--text-muted)] mb-4 ${reducedVisualMode ? "" : "animate-bounce"}`} />
-                    <p className="text-sm font-medium text-[var(--text-muted)]">Calculating percentiles...</p>
-                </div>
-            ) : seriesList.length === 0 ? (
-                <div className="glass-panel border border-[var(--border-light)] rounded-3xl p-12 text-center flex flex-col items-center justify-center">
-                    <div className="w-20 h-20 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900 rounded-full flex items-center justify-center mb-6 shadow-inner">
-                        <Trophy className="w-10 h-10 text-[var(--text-muted)] opacity-50" />
-                    </div>
-                    <h3 className="text-xl font-bold text-[var(--text-primary)] mb-2">No Challenges Active</h3>
-                    <p className="text-sm text-[var(--text-secondary)] max-w-sm">
-                        You&apos;re currently not enrolled in any competitive test series. New challenges will appear here.
-                    </p>
-                </div>
-            ) : (
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                    
-                    {/* Left Column - My Stats */}
-                    {myRank && myRank.rank && (
-                        <div className="lg:col-span-4 space-y-4">
-                            <h2 className="text-sm font-bold uppercase tracking-widest text-[var(--text-muted)] mb-3 flex items-center gap-2">
-                                <TrendingUp className="w-4 h-4" /> My Performance
-                            </h2>
-                            
-                            {/* Primary Rank Card */}
-                            <div className={`relative overflow-hidden border border-amber-500/30 rounded-3xl p-6 group transition-colors ${reducedVisualMode ? "bg-[var(--bg-card)]" : "bg-gradient-to-br from-amber-500/20 via-orange-500/10 to-transparent dark:from-amber-900/30 shadow-lg shadow-amber-500/5 hover:shadow-amber-500/10"}`}>
-                                {/* GPU-heavy blur-[60px] removed for budget device performance */}
-                                
-                                <div className="flex items-center justify-between mb-4">
-                                    <div className="flex bg-amber-500/20 rounded-full p-2 items-center justify-center">
-                                        <Trophy className="w-5 h-5 text-amber-600 dark:text-amber-400" />
-                                    </div>
-                                    <span className="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider bg-amber-500/10 px-2.5 py-1 rounded-full">Current Rank</span>
-                                </div>
-                                
-                                <div className="mt-2 flex items-baseline gap-1">
-                                    <span className={`text-5xl font-black text-amber-600 dark:text-amber-400 ${reducedVisualMode ? "" : "drop-shadow-sm"}`}>#{myRank.rank}</span>
-                                </div>
-                                <p className="text-xs font-medium text-amber-700/70 dark:text-amber-400/70 mt-2">
-                                    Out of {leaderboard?.total_attempts || 0} competitors
-                                </p>
-                            </div>
-
-                            {/* Secondary Stats Grid */}
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="glass-panel border border-[var(--border-light)] rounded-2xl p-5 shadow-sm hover:border-blue-500/30 transition-colors group">
-                                    <div className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-2 group-hover:text-blue-500 transition-colors">Percentile</div>
-                                    <div className="text-2xl font-black text-[var(--text-primary)]">
-                                        {myRank.percentile}<span className="text-sm font-bold text-[var(--text-muted)] ml-0.5">%</span>
-                                    </div>
-                                </div>
-                                <div className="glass-panel border border-[var(--border-light)] rounded-2xl p-5 shadow-sm hover:border-emerald-500/30 transition-colors group">
-                                    <div className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-2 group-hover:text-emerald-500 transition-colors">Avg Score</div>
-                                    <div className="text-2xl font-black text-[var(--text-primary)]">
-                                        {myRank.pct}<span className="text-sm font-bold text-[var(--text-muted)] ml-0.5">%</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Right Column - Leaderboard Table */}
-                    {leaderboard && leaderboard.leaderboard.length > 0 && (
-                        <div className="lg:col-span-8 glass-panel border border-[var(--border-light)] rounded-3xl shadow-lg relative overflow-hidden flex flex-col">
-                            
-                            {/* Subtle background glow */}
-                            {/* GPU-heavy blur-[80px] removed for budget device performance */}
-
-                            {/* Table Header */}
-                            <div className="px-6 py-5 border-b border-[var(--border-light)] bg-gradient-to-r from-[var(--bg-card)]/50 to-transparent">
-                                <h2 className="text-lg font-bold text-[var(--text-primary)] flex items-center gap-2">
-                                    <CheckCircle2 className="w-5 h-5 text-indigo-500" />
-                                    {leaderboard.series_name} Standings
-                                </h2>
-                                <p className="text-xs font-medium text-[var(--text-muted)] mt-1 ml-7">
-                                    Max Scale: {leaderboard.total_marks} Points Formats
-                                </p>
-                            </div>
-
-                            {/* Table Content */}
-                            <div className="overflow-x-auto">
-                                <table className="w-full min-w-[500px] border-collapse">
-                                    <thead>
-                                        <tr className="bg-[var(--bg-page)]/50 text-[10px] uppercase tracking-widest text-[var(--text-muted)] font-black border-b border-[var(--border-light)]">
-                                            <th className="px-6 py-4 text-center w-20">Pos</th>
-                                            <th className="px-6 py-4 text-left">Challenger</th>
-                                            <th className="px-6 py-4 text-center">Score</th>
-                                            <th className="px-6 py-4 text-center hidden sm:table-cell">Tile</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {leaderboard.leaderboard.map((entry) => {
-                                            const style = getRankStyle(entry.rank);
-                                            const isTop3 = entry.rank <= 3;
-                                            
-                                            return (
-                                                <tr
-                                                    key={entry.student_id}
-                                                    className={`group transition-all duration-300 hover:bg-[var(--bg-page)]/80 border-b border-[var(--border-neutral)] last:border-0 relative ${
-                                                        isTop3 ? style.bg : ""
-                                                    }`}
-                                                >
-                                                    {/* Left indicator bar for top 3 */}
-                                                    {isTop3 && (
-                                                        <td className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-transparent via-current to-transparent opacity-50" style={{ color: style.color.replace('text-', 'bg-') }}></td>
-                                                    )}
-
-                                                    <td className="px-6 py-4 text-center">
-                                                        <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full font-black text-sm shadow-sm ${
-                                                            isTop3 
-                                                                ? `${style.bg} ${style.color} border border-current/20` 
-                                                                : "bg-[var(--bg-card)] border border-[var(--border-light)] text-[var(--text-secondary)] group-hover:scale-110 transition-transform"
-                                                        }`}>
-                                                            {entry.rank}
-                                                        </span>
-                                                    </td>
-                                                    <td className="px-6 py-4">
-                                                        <div className="flex items-center gap-3">
-                                                            {isTop3 && style.icon}
-                                                            <div>
-                                                                <p className={`text-sm font-bold ${isTop3 ? style.color : "text-[var(--text-primary)]"} transition-colors`}>
-                                                                    {entry.student_name}
-                                                                </p>
-                                                                {entry.time_taken && (
-                                                                    <p className="text-[10px] text-[var(--text-muted)] flex items-center gap-1 mt-0.5">
-                                                                        <Clock className="w-3 h-3" /> {entry.time_taken}m completed
-                                                                    </p>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-6 py-4 text-center">
-                                                        <div className="flex flex-col items-center">
-                                                            <span className="text-base font-black text-[var(--text-primary)] tracking-tight">
-                                                                {entry.marks_obtained}
-                                                            </span>
-                                                            <span className="text-[10px] font-bold text-[var(--text-muted)]">
-                                                                {entry.pct}%
-                                                            </span>
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-6 py-4 text-center hidden sm:table-cell">
-                                                        <div className="flex items-center justify-center">
-                                                            <span className={`text-xs font-black px-2.5 py-1 rounded-md border ${
-                                                                entry.percentile >= 95 ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20 dark:text-emerald-400"
-                                                                : entry.percentile >= 80 ? "bg-blue-500/10 text-blue-600 border-blue-500/20 dark:text-blue-400"
-                                                                : entry.percentile >= 50 ? "bg-amber-500/10 text-amber-600 border-amber-500/20 dark:text-amber-400"
-                                                                : "bg-[var(--bg-page)] text-[var(--text-muted)] border-[var(--border-light)]"
-                                                            }`}>
-                                                                {entry.percentile} P
-                                                            </span>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    )}
-                </div>
-            )}
+            <p className="mt-3 text-2xl font-semibold text-[var(--text-primary)]">{value}</p>
         </div>
     );
 }

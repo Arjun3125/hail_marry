@@ -19,7 +19,7 @@ import { RoleStartPanel } from "@/components/RoleStartPanel";
 import { GamificationHero } from "@/components/student/GamificationHero";
 import { AIActionCenter } from "@/components/student/AIActionCenter";
 import { AcademicSnapshot } from "@/components/student/AcademicSnapshot";
-import { PrismHeroKicker, PrismPage, PrismPanel } from "@/components/prism/PrismPage";
+import { PrismHeroKicker, PrismPage, PrismPageIntro } from "@/components/prism/PrismPage";
 
 type DashboardStats = {
     attendance_pct: number;
@@ -181,22 +181,20 @@ export default function StudentOverview() {
     );
 
     return (
-        <PrismPage className="space-y-6">
-            {/* Header */}
-            <PrismPanel className="mb-6 p-6">
-                <PrismHeroKicker>Student command view</PrismHeroKicker>
-                <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-                    <div>
-                        <h1 className="prism-title text-4xl font-black text-[var(--text-primary)]">Dashboard</h1>
-                        <p className="mt-2 max-w-2xl text-sm leading-7 text-[var(--text-secondary)]">
-                            Your live academic snapshot from attendance, marks, assignments, and AI usage in one immersive study surface.
+        <PrismPage variant="dashboard" className="space-y-6">
+            <PrismPageIntro
+                kicker={<PrismHeroKicker>Student command view</PrismHeroKicker>}
+                title="Your academic day, organized for action"
+                description="See attendance, marks, assignments, and AI study momentum in one place, then move directly into the next useful study action."
+                aside={(
+                    <div className="prism-briefing-panel">
+                        <p className="prism-status-label">Focus today</p>
+                        <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
+                            {studyPath?.focus_topic || "Keep momentum across assignments, weak topics, and the next revision block."}
                         </p>
                     </div>
-                    <div className="rounded-[var(--radius-sm)] border border-[var(--border)] bg-[rgba(148,163,184,0.05)] px-4 py-3 text-sm text-[var(--text-secondary)]">
-                        Focus today: {studyPath?.focus_topic || "Keep momentum across assignments and weak topics."}
-                    </div>
-                </div>
-            </PrismPanel>
+                )}
+            />
 
             <RoleStartPanel role="student" />
 
@@ -222,7 +220,7 @@ export default function StudentOverview() {
                     {/* Reduced KPI Row -> Stats now natively display in the Hero container above. We only render the action cards remaining here. */}
                     
                     {/* Average Marks */}
-                    <div className="glass-stat glass-stat-green stagger-2">
+                    <div className="prism-support-panel stagger-2 rounded-3xl p-5">
                         <div className="flex items-center justify-between mb-3">
                             <span className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-widest">Marks</span>
                             <Award className="w-4 h-4" style={{ color: stats.avg_marks >= 70 ? "var(--success)" : "var(--warning)" }} />
@@ -249,7 +247,7 @@ export default function StudentOverview() {
                     </div>
 
                     {/* Pending Assignments */}
-                    <div className="glass-stat glass-stat-amber stagger-3">
+                    <div className="prism-support-panel stagger-3 rounded-3xl p-5">
                         <div className="flex items-center justify-between mb-3">
                             <span className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-widest">Due</span>
                             <FileText className="w-4 h-4" style={{ color: stats.pending_assignments > 3 ? "var(--error)" : "var(--primary)" }} />
@@ -261,7 +259,7 @@ export default function StudentOverview() {
                     </div>
 
                     {/* AI Queries */}
-                    <div className="glass-stat glass-stat-purple stagger-4">
+                    <div className="prism-support-panel stagger-4 rounded-3xl p-5">
                         <div className="flex items-center justify-between mb-3">
                             <span className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-widest">AI</span>
                             <Bot className="w-4 h-4 text-[var(--accent-purple)]" />
@@ -279,7 +277,7 @@ export default function StudentOverview() {
                     </div>
 
                     {/* Uploads */}
-                    <div className="glass-stat glass-stat-pink stagger-5">
+                    <div className="prism-support-panel stagger-5 rounded-3xl p-5">
                         <div className="flex items-center justify-between mb-3">
                             <span className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-widest">Notes</span>
                             <Upload className="w-4 h-4 text-pink-500" />

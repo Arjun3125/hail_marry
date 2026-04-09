@@ -36,10 +36,14 @@ def test_demo_seed_populates_six_month_persona_history(tmp_path, monkeypatch):
         import seed_cbse_demo
         from database import SessionLocal
         from src.domains.academic.models.attendance import Attendance
+        from src.domains.academic.models.test_series import MockTestAttempt
+        from src.domains.administrative.models.complaint import Complaint
         from src.domains.identity.models.tenant import Tenant
         from src.domains.identity.models.user import User
         from src.domains.platform.models.ai import AIQuery
         from src.domains.platform.models.audit import AuditLog
+        from src.domains.platform.models.document import Document
+        from src.domains.platform.models.generated_content import GeneratedContent
         from src.domains.platform.models.notification import Notification
         from src.domains.platform.models.study_session import StudySession
         from src.domains.platform.models.usage_counter import UsageCounter
@@ -75,6 +79,23 @@ def test_demo_seed_populates_six_month_persona_history(tmp_path, monkeypatch):
             assert len(attendance_rows) >= 140
             assert min(row.date for row in attendance_rows) <= (now.date() - timedelta(days=150))
 
+            student_documents = db.query(Document).filter(
+                Document.tenant_id == tenant.id,
+                Document.uploaded_by == student.id,
+            ).all()
+            teacher_documents = db.query(Document).filter(
+                Document.tenant_id == tenant.id,
+                Document.uploaded_by == teacher.id,
+            ).all()
+            assert len(student_documents) >= 10
+            assert len(teacher_documents) >= 4
+            student_document_dates = [
+                row.created_at.replace(tzinfo=UTC) if row.created_at.tzinfo is None else row.created_at
+                for row in student_documents
+                if row.created_at is not None
+            ]
+            assert min(student_document_dates) <= (now - timedelta(days=150))
+
             ai_counts = {
                 "student": db.query(AIQuery).filter(AIQuery.tenant_id == tenant.id, AIQuery.user_id == student.id).count(),
                 "teacher": db.query(AIQuery).filter(AIQuery.tenant_id == tenant.id, AIQuery.user_id == teacher.id).count(),
@@ -102,6 +123,31 @@ def test_demo_seed_populates_six_month_persona_history(tmp_path, monkeypatch):
             }
             assert all(count >= 5 for count in audit_counts.values())
 
+            complaint_rows = db.query(Complaint).filter(
+                Complaint.tenant_id == tenant.id,
+                Complaint.student_id == student.id,
+            ).all()
+            assert len(complaint_rows) >= 4
+            assert any(row.status == "resolved" for row in complaint_rows)
+
+            generated_rows = db.query(GeneratedContent).filter(
+                GeneratedContent.tenant_id == tenant.id,
+                GeneratedContent.user_id == student.id,
+            ).all()
+            generated_types = {row.type for row in generated_rows}
+            assert {"audio_overview", "video_overview", "mind_map", "study_guide"} <= generated_types
+            generated_dates = [
+                row.created_at.replace(tzinfo=UTC) if row.created_at.tzinfo is None else row.created_at
+                for row in generated_rows
+                if row.created_at is not None
+            ]
+            assert min(generated_dates) <= (now - timedelta(days=140))
+
+            mock_attempts = db.query(MockTestAttempt).filter(MockTestAttempt.tenant_id == tenant.id).all()
+            assert len(mock_attempts) >= 30
+            assert any(str(row.student_id) != str(student.id) for row in mock_attempts)
+            assert any((row.rank or 0) > 0 for row in mock_attempts)
+
             study_session_count = db.query(StudySession).filter(
                 StudySession.tenant_id == tenant.id,
                 StudySession.user_id == student.id,
@@ -120,6 +166,16 @@ def test_demo_seed_populates_six_month_persona_history(tmp_path, monkeypatch):
             ).count()
             assert user_counter_count >= 120
             assert tenant_counter_count >= 30
+
+            tenant_metrics = {
+                row[0]
+                for row in db.query(UsageCounter.metric).filter(
+                    UsageCounter.tenant_id == tenant.id,
+                    UsageCounter.user_id.is_(None),
+                    UsageCounter.scope == "tenant",
+                ).all()
+            }
+            assert {"ai_requests", "llm_tokens", "qa_requests", "quiz_generations"} <= tenant_metrics
         finally:
             db.close()
     finally:

@@ -14,7 +14,7 @@ import {
 
 import { api } from "@/lib/api";
 import { PrismTabButton, PrismTabList } from "@/components/prism/PrismControls";
-import { PrismHeroKicker, PrismPage, PrismPanel, PrismSection } from "@/components/prism/PrismPage";
+import { PrismHeroKicker, PrismPage, PrismPageIntro, PrismPanel, PrismSection } from "@/components/prism/PrismPage";
 import ErrorRemediation from "@/components/ui/ErrorRemediation";
 
 type AssignmentItem = {
@@ -149,26 +149,19 @@ export default function AssignmentsPage() {
     };
 
     return (
-        <PrismPage className="space-y-6">
+        <PrismPage variant="workspace" className="space-y-6">
             <PrismSection className="space-y-6">
-                <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
-                    <div className="space-y-4">
+                <PrismPageIntro
+                    kicker={(
                         <PrismHeroKicker>
                             <Sparkles className="h-3.5 w-3.5" />
-                            Student Submission Flow
+                            Student submission flow
                         </PrismHeroKicker>
-                        <div className="space-y-3">
-                            <h1 className="prism-title text-4xl font-black leading-[0.98] text-[var(--text-primary)] md:text-5xl">
-                                Keep deadlines, uploads, and grades inside one{" "}
-                                <span className="premium-gradient">clear assignment ledger</span>
-                            </h1>
-                            <p className="max-w-3xl text-base leading-7 text-[var(--text-secondary)] md:text-lg">
-                                This page is now organized around student action: see what needs attention, submit from camera or file, and quickly understand what has already been graded.
-                            </p>
-                        </div>
-                    </div>
-
-                    <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
+                    )}
+                    title="Track due work in one clear assignment ledger"
+                    description="See what needs action, submit from camera or file, and understand what has already been graded without leaving the study workflow."
+                    aside={(
+                        <div className="prism-status-strip">
                         <PrismPanel className="p-4">
                             <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,rgba(251,191,36,0.18),rgba(249,115,22,0.08))]">
                                 <Clock className="h-5 w-5 text-status-amber" />
@@ -202,8 +195,9 @@ export default function AssignmentsPage() {
                             </p>
                             <p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">Latest graded work, normalized into a quick progress signal.</p>
                         </PrismPanel>
-                    </div>
-                </div>
+                        </div>
+                    )}
+                />
 
                 {error ? (
                     <ErrorRemediation

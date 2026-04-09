@@ -36,7 +36,7 @@ test("parent reports page shows monthly snapshot and focus subjects", async ({ p
 
     await page.goto("/parent/reports");
 
-    await expect(page.getByRole("heading", { name: "Progress Report" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "See the month in plain academic language" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Monthly story" })).toBeVisible();
     await expect(page.getByText("Aarav stayed consistent overall, with extra attention needed in Science and History.")).toBeVisible();
     await expect(page.getByText("Science", { exact: true })).toBeVisible();

@@ -2,19 +2,57 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from collections import Counter
+from datetime import datetime, timedelta, timezone
+from typing import Any
 
 from sqlalchemy.orm import Session
 
+from src.domains.academic.models.assignment import AssignmentSubmission
+from src.domains.academic.models.attendance import Attendance
 from src.domains.academic.models.core import Enrollment, Subject
 from src.domains.academic.models.performance import SubjectPerformance
 from src.domains.academic.models.student_profile import StudentProfile
 from src.domains.academic.models.timetable import Timetable
 from src.domains.identity.models.user import User
+from src.domains.platform.models.ai import AIQuery
 from src.domains.platform.models.document import Document
+from src.domains.platform.models.generated_content import GeneratedContent
+from src.domains.platform.models.notebook import Notebook
+from src.domains.platform.models.spaced_repetition import ReviewSchedule
+from src.domains.platform.models.study_session import StudySession
 from src.domains.platform.models.topic_mastery import TopicMastery
 from src.domains.platform.services.mastery_tracking_service import get_topic_mastery_snapshot
 from utils.pagination import paginate
+
+
+def _ensure_tz(value: datetime | None) -> datetime | None:
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value
+
+
+def _month_window(*, months: int = 6) -> list[datetime]:
+    cursor = datetime.now(timezone.utc).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    items: list[datetime] = []
+    for _ in range(months):
+        items.append(cursor)
+        if cursor.month == 1:
+            cursor = cursor.replace(year=cursor.year - 1, month=12)
+        else:
+            cursor = cursor.replace(month=cursor.month - 1)
+    items.reverse()
+    return items
+
+
+def _month_label(value: datetime) -> str:
+    return value.strftime("%b")
+
+
+def _history_cutoff(days: int = 180) -> datetime:
+    return datetime.now(timezone.utc) - timedelta(days=days)
 
 
 def list_student_timetable(
@@ -98,6 +136,37 @@ def list_student_uploads(
         .order_by(Document.created_at.desc())
     )
     result = paginate(query, page, page_size)
+    cutoff = _history_cutoff()
+    upload_history = (
+        db.query(Document)
+        .filter(
+            Document.tenant_id == tenant_id,
+            Document.uploaded_by == student_id,
+            Document.created_at >= cutoff,
+        )
+        .order_by(Document.created_at.desc())
+        .all()
+    )
+
+    month_index = {month.strftime("%Y-%m"): 0 for month in _month_window()}
+    monthly_counts = dict(month_index)
+    file_type_counts: Counter[str] = Counter()
+    completed_ingestions = 0
+    for document in upload_history:
+        created_at = _ensure_tz(document.created_at)
+        if created_at is None:
+            continue
+        month_key = created_at.strftime("%Y-%m")
+        if month_key in monthly_counts:
+            monthly_counts[month_key] += 1
+        file_type_counts[(document.file_type or "unknown").lower()] += 1
+        if (document.ingestion_status or "").lower() == "completed":
+            completed_ingestions += 1
+
+    monthly_activity = []
+    for month in _month_window():
+        month_key = month.strftime("%Y-%m")
+        monthly_activity.append({"month": _month_label(month), "count": monthly_counts.get(month_key, 0)})
 
     return {
         "items": [
@@ -110,9 +179,184 @@ def list_student_uploads(
             }
             for document in result["items"]
         ],
+        "recent_items": [
+            {
+                "id": str(document.id),
+                "file_name": document.file_name,
+                "file_type": document.file_type,
+                "status": document.ingestion_status,
+                "uploaded_at": str(document.created_at),
+            }
+            for document in upload_history[:6]
+        ],
+        "summary": {
+            "total_uploads": len(upload_history),
+            "completed_ingestions": completed_ingestions,
+            "processing_count": sum(1 for document in upload_history if (document.ingestion_status or "").lower() == "processing"),
+            "failed_count": sum(1 for document in upload_history if (document.ingestion_status or "").lower() == "failed"),
+        },
+        "monthly_activity": monthly_activity,
+        "file_types": [{"type": file_type, "count": count} for file_type, count in file_type_counts.most_common()],
         "total": result["total"],
         "page": result["page"],
         "total_pages": result["total_pages"],
+    }
+
+
+def list_student_study_tool_history(
+    *,
+    db: Session,
+    tenant_id,
+    student_id,
+    tool: str | None = None,
+    limit: int = 8,
+) -> dict[str, Any]:
+    type_aliases = {
+        "mindmap": {"mind_map", "mindmap"},
+        "mind_map": {"mind_map", "mindmap"},
+        "audio_overview": {"audio_overview"},
+        "video_overview": {"video_overview"},
+        "quiz": {"quiz"},
+        "flashcards": {"flashcard_set", "flashcards"},
+        "study_guide": {"study_guide"},
+    }
+    allowed_types = type_aliases.get(tool or "", {tool}) if tool else None
+
+    query = (
+        db.query(GeneratedContent, Notebook.subject)
+        .join(Notebook, Notebook.id == GeneratedContent.notebook_id)
+        .filter(
+            GeneratedContent.tenant_id == tenant_id,
+            GeneratedContent.user_id == student_id,
+            GeneratedContent.is_archived.is_(False),
+        )
+    )
+    if allowed_types:
+        query = query.filter(GeneratedContent.type.in_(tuple(allowed_types)))
+
+    rows = query.order_by(GeneratedContent.created_at.desc()).limit(limit).all()
+    return {
+        "items": [
+            {
+                "id": str(content.id),
+                "type": content.type,
+                "title": content.title,
+                "subject": subject,
+                "created_at": _ensure_tz(content.created_at).isoformat() if _ensure_tz(content.created_at) else None,
+                "source_query": content.source_query,
+                "content": content.content,
+            }
+            for content, subject in rows
+        ],
+        "count": len(rows),
+    }
+
+
+def build_student_profile_summary(
+    *,
+    db: Session,
+    tenant_id,
+    student_id,
+) -> dict[str, Any]:
+    cutoff = _history_cutoff()
+    uploads = (
+        db.query(Document)
+        .filter(
+            Document.tenant_id == tenant_id,
+            Document.uploaded_by == student_id,
+            Document.created_at >= cutoff,
+        )
+        .all()
+    )
+    submissions = (
+        db.query(AssignmentSubmission)
+        .filter(
+            AssignmentSubmission.tenant_id == tenant_id,
+            AssignmentSubmission.student_id == student_id,
+            AssignmentSubmission.submitted_at >= cutoff,
+        )
+        .all()
+    )
+    study_sessions = (
+        db.query(StudySession)
+        .filter(
+            StudySession.tenant_id == tenant_id,
+            StudySession.user_id == student_id,
+            StudySession.created_at >= cutoff,
+        )
+        .all()
+    )
+    ai_queries = (
+        db.query(AIQuery)
+        .filter(
+            AIQuery.tenant_id == tenant_id,
+            AIQuery.user_id == student_id,
+            AIQuery.created_at >= cutoff,
+        )
+        .all()
+    )
+    reviews = (
+        db.query(ReviewSchedule)
+        .filter(
+            ReviewSchedule.tenant_id == tenant_id,
+            ReviewSchedule.student_id == student_id,
+        )
+        .all()
+    )
+    attendance = (
+        db.query(Attendance)
+        .filter(
+            Attendance.tenant_id == tenant_id,
+            Attendance.student_id == student_id,
+            Attendance.date >= cutoff.date(),
+        )
+        .all()
+    )
+    generated = (
+        db.query(GeneratedContent)
+        .filter(
+            GeneratedContent.tenant_id == tenant_id,
+            GeneratedContent.user_id == student_id,
+            GeneratedContent.created_at >= cutoff,
+            GeneratedContent.is_archived.is_(False),
+        )
+        .all()
+    )
+
+    active_days = {
+        created_at.date()
+        for created_at in (
+            [_ensure_tz(document.created_at) for document in uploads]
+            + [_ensure_tz(session.created_at) for session in study_sessions]
+            + [_ensure_tz(query.created_at) for query in ai_queries]
+            + [_ensure_tz(submission.submitted_at) for submission in submissions]
+        )
+        if created_at is not None
+    }
+    present_days = sum(1 for record in attendance if (record.status or "").lower() == "present")
+    attendance_average = round((present_days / len(attendance) * 100), 1) if attendance else 0.0
+
+    def _latest_iso(*values: datetime | None) -> str | None:
+        candidates = [_ensure_tz(value) for value in values if value is not None]
+        return max(candidates).isoformat() if candidates else None
+
+    return {
+        "days_active": len(active_days),
+        "uploads": len(uploads),
+        "assignments_submitted": len(submissions),
+        "study_sessions": len(study_sessions),
+        "ai_requests": len(ai_queries),
+        "attendance_average": attendance_average,
+        "generated_artifacts": len(generated),
+        "reviews_completed": sum(max(int(review.review_count or 0), 0) for review in reviews),
+        "latest_milestones": {
+            "last_upload_at": _latest_iso(*[document.created_at for document in uploads]),
+            "last_submission_at": _latest_iso(*[submission.submitted_at for submission in submissions]),
+            "last_study_session_at": _latest_iso(*[session.created_at for session in study_sessions]),
+            "last_ai_request_at": _latest_iso(*[query.created_at for query in ai_queries]),
+            "last_generated_artifact_at": _latest_iso(*[content.created_at for content in generated]),
+            "last_review_completed_at": _latest_iso(*[review.updated_at for review in reviews if (review.review_count or 0) > 0]),
+        },
     }
 
 

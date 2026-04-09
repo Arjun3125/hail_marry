@@ -33,10 +33,11 @@ test("parent assistant page shows supportive entry shell and mascot workspace", 
 
     await page.goto("/parent/assistant");
 
-    await expect(page.getByRole("heading", { name: "Parent Assistant" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Best ways to use it" })).toBeVisible();
-    await expect(page.getByText("Progress summary")).toBeVisible();
-    await expect(page.getByText("Supportive next steps")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Track child progress and reports with guided prompts." })).toBeVisible();
+    await expect(page.getByText("Best starting points")).toBeVisible();
+    await expect(page.getByText("See attendance status")).toBeVisible();
+    await expect(page.getByText("Open reports quickly")).toBeVisible();
+    await expect(page.getByText("Ask for progress summaries")).toBeVisible();
     await expect(page.getByText("Vidya Mascot")).toBeVisible();
     await expect(page.getByText("Show attendance summary")).toBeVisible();
 });

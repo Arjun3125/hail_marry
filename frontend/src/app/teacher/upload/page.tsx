@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { AlertCircle, CheckCircle2, FileText, Loader2, Sparkles, Upload, Youtube } from "lucide-react";
+import { AlertCircle, CheckCircle2, Loader2, Upload, Youtube } from "lucide-react";
 import EmptyState from "@/components/EmptyState";
 import { PrismInput, PrismSelect } from "@/components/prism/PrismControls";
-import { PrismHeroKicker, PrismPage, PrismPanel, PrismSection } from "@/components/prism/PrismPage";
+import { PrismHeroKicker, PrismPage, PrismPageIntro, PrismPanel, PrismSection } from "@/components/prism/PrismPage";
 import ErrorRemediation from "@/components/ui/ErrorRemediation";
 import { api } from "@/lib/api";
 
@@ -12,9 +12,20 @@ type SubjectItem = { id: string; name: string };
 type TeacherClass = { id: string; name: string; subjects: SubjectItem[] };
 type UploadActivity = {
     id: string; name: string; type: "document" | "youtube"; status: "processing" | "completed" | "failed";
-    detail?: string; ocrWarning?: string; ocrReviewRequired?: boolean; ocrPending?: boolean; ocrProcessed?: boolean; ocrConfidence?: number;
+    detail?: string; created_at?: string; ocrWarning?: string; ocrReviewRequired?: boolean; ocrPending?: boolean; ocrProcessed?: boolean; ocrConfidence?: number;
 };
 type AIJobStatus = "queued" | "running" | "completed" | "failed";
+type ResourceHistoryPayload = {
+    summary?: {
+        documents: number;
+        lectures: number;
+        completed: number;
+        processing: number;
+        indexed_chunks: number;
+    };
+    recent_activity?: UploadActivity[];
+    monthly_activity?: Array<{ month: string; count: number }>;
+};
 
 const ALLOWED_EXTENSIONS = ["pdf", "docx", "pptx", "xlsx", "jpg", "jpeg", "png"];
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
@@ -25,6 +36,8 @@ export default function UploadPage() {
     const [youtubeUrl, setYoutubeUrl] = useState("");
     const [youtubeTitle, setYoutubeTitle] = useState("");
     const [activities, setActivities] = useState<UploadActivity[]>([]);
+    const [historySummary, setHistorySummary] = useState<ResourceHistoryPayload["summary"] | null>(null);
+    const [monthlyActivity, setMonthlyActivity] = useState<Array<{ month: string; count: number }>>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -35,11 +48,13 @@ export default function UploadPage() {
     }, [classes]);
 
     const summary = useMemo(() => ({
-        docs: activities.filter((a) => a.type === "document").length,
-        youtube: activities.filter((a) => a.type === "youtube").length,
-        processing: activities.filter((a) => a.status === "processing").length,
+        docs: historySummary?.documents ?? activities.filter((a) => a.type === "document").length,
+        youtube: historySummary?.lectures ?? activities.filter((a) => a.type === "youtube").length,
+        processing: historySummary?.processing ?? activities.filter((a) => a.status === "processing").length,
         review: activities.filter((a) => a.ocrReviewRequired).length,
-    }), [activities]);
+        completed: historySummary?.completed ?? activities.filter((a) => a.status === "completed").length,
+        indexedChunks: historySummary?.indexed_chunks ?? 0,
+    }), [activities, historySummary]);
 
     useEffect(() => {
         if (!allSubjects.some((s) => s.id === subjectId)) setSubjectId(allSubjects[0]?.id || "");
@@ -48,8 +63,26 @@ export default function UploadPage() {
     useEffect(() => {
         const load = async () => {
             try {
-                setLoading(true); setError(null);
-                setClasses(((await api.teacher.classes()) || []) as TeacherClass[]);
+                setLoading(true);
+                setError(null);
+                const [classResult, historyResult] = await Promise.allSettled([
+                    api.teacher.classes() as Promise<TeacherClass[]>,
+                    api.teacher.resourceHistory() as Promise<ResourceHistoryPayload>,
+                ]);
+                if (classResult.status === "fulfilled") {
+                    setClasses(classResult.value || []);
+                } else {
+                    throw classResult.reason;
+                }
+                if (historyResult.status === "fulfilled") {
+                    setActivities(historyResult.value.recent_activity || []);
+                    setHistorySummary(historyResult.value.summary || null);
+                    setMonthlyActivity(historyResult.value.monthly_activity || []);
+                } else {
+                    setActivities([]);
+                    setHistorySummary(null);
+                    setMonthlyActivity([]);
+                }
             } catch (err) {
                 setError(err instanceof Error ? err.message : "Failed to load classes and subjects");
             } finally { setLoading(false); }
@@ -114,20 +147,42 @@ export default function UploadPage() {
     };
 
     return (
-        <PrismPage className="space-y-6 pb-8">
+        <PrismPage variant="workspace" className="space-y-6 pb-8">
             <PrismSection className="space-y-6">
-                <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
-                    <div className="space-y-4">
-                        <PrismHeroKicker><Upload className="h-3.5 w-3.5" />Teacher Ingestion Surface</PrismHeroKicker>
-                        <div className="space-y-3">
-                            <h1 className="prism-title text-4xl font-black leading-[0.98] text-[var(--text-primary)] md:text-5xl">Upload Notes</h1>
-                            <p className="max-w-3xl text-base leading-7 text-[var(--text-secondary)] md:text-lg">Bring in classroom documents, image captures, and YouTube lectures from one teacher-facing workspace with OCR and ingestion feedback kept visible.</p>
+                <PrismPageIntro
+                    kicker={(
+                        <PrismHeroKicker>
+                            <Upload className="h-3.5 w-3.5" />
+                            Teacher Ingestion Surface
+                        </PrismHeroKicker>
+                    )}
+                    title="Bring class materials into one controlled intake flow"
+                    description="Upload classroom documents, image captures, and YouTube lectures while keeping OCR and ingestion feedback visible in the same workspace."
+                    aside={(
+                        <div className="prism-briefing-panel">
+                            <p className="prism-status-label">Ingestion rule</p>
+                            <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
+                                Keep subject selection explicit, check OCR warnings before final use, and treat the upload ledger as the source of truth for ingestion state.
+                            </p>
                         </div>
+                    )}
+                />
+
+                <div className="prism-status-strip">
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">Documents</span>
+                        <span className="prism-status-value">{summary.docs}</span>
+                        <span className="prism-status-detail">Teacher-uploaded files visible across the six-month demo history.</span>
                     </div>
-                    <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
-                        <Metric icon={FileText} title="Documents" value={`${summary.docs}`} summary="Session file uploads" tone="blue" />
-                        <Metric icon={Youtube} title="Lectures" value={`${summary.youtube}`} summary="YouTube ingests queued or done" tone="emerald" />
-                        <Metric icon={Sparkles} title="Attention" value={`${summary.processing || summary.review}`} summary={summary.processing ? "Jobs still processing" : "OCR items flagged for review"} tone="amber" />
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">Lectures</span>
+                        <span className="prism-status-value">{summary.youtube}</span>
+                        <span className="prism-status-detail">Lecture ingests and transcript captures already stored for this teacher.</span>
+                    </div>
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">Attention</span>
+                        <span className="prism-status-value">{summary.processing || summary.review}</span>
+                        <span className="prism-status-detail">{summary.processing ? "Jobs are still processing." : "OCR items flagged for review."}</span>
                     </div>
                 </div>
 
@@ -174,19 +229,20 @@ export default function UploadPage() {
 
                             <PrismPanel className="overflow-hidden p-0">
                                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)]/80 bg-[rgba(255,255,255,0.02)] px-5 py-4">
-                                    <div><p className="text-sm font-semibold text-[var(--text-primary)]">Recent upload activity</p><p className="mt-1 text-xs text-[var(--text-secondary)]">OCR status, ingestion progress, and final indexing details stay visible in one ledger.</p></div>
-                                    <div className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[rgba(148,163,184,0.05)] px-3 py-1.5 text-xs text-[var(--text-secondary)]">{activities.length} session items</div>
+                                    <div><p className="text-sm font-semibold text-[var(--text-primary)]">Recent upload activity</p><p className="mt-1 text-xs text-[var(--text-secondary)]">Six months of OCR status, ingestion progress, and final indexing details stay visible in one ledger.</p></div>
+                                    <div className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[rgba(148,163,184,0.05)] px-3 py-1.5 text-xs text-[var(--text-secondary)]">{activities.length} historical items</div>
                                 </div>
                                 <div className="p-5">
-                                    {activities.length === 0 ? <EmptyState icon={Upload} title="No uploads in this session yet" description="Add a document or lecture above to begin building the teacher knowledge base." /> : <div className="space-y-3">{activities.map((a) => <Activity key={a.id} item={a} />)}</div>}
+                                    {activities.length === 0 ? <EmptyState icon={Upload} title="No uploads in this history yet" description="Add a document or lecture above to keep extending the teacher knowledge base." eyebrow="Ingestion ledger empty" scopeNote="Each file or lecture stays visible here with OCR review state and final indexing feedback." /> : <div className="space-y-3">{activities.map((a) => <Activity key={a.id} item={a} />)}</div>}
                                 </div>
                             </PrismPanel>
                         </div>
 
                         <div className="space-y-4">
                             <PrismPanel className="p-5"><p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">Session summary</p><div className="mt-4 space-y-3">{[
-                                ["Subjects ready", `${allSubjects.length}`], ["Documents", `${summary.docs}`], ["YouTube ingests", `${summary.youtube}`], ["OCR review flags", `${summary.review}`],
+                                ["Subjects ready", `${allSubjects.length}`], ["Documents", `${summary.docs}`], ["YouTube ingests", `${summary.youtube}`], ["Indexed chunks", `${summary.indexedChunks}`],
                             ].map(([l, v]) => <Row key={l} label={l} value={v} />)}</div></PrismPanel>
+                            <PrismPanel className="p-5"><p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">Six-month rhythm</p><div className="mt-4 space-y-3">{monthlyActivity.length > 0 ? monthlyActivity.map((item) => <Row key={item.month} label={item.month} value={`${item.count}`} />) : <p className="text-sm text-[var(--text-secondary)]">No historical upload rhythm yet.</p>}</div></PrismPanel>
                             <PrismPanel className="p-5"><p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">Workflow notes</p><div className="mt-4 space-y-3 text-sm leading-6 text-[var(--text-secondary)]"><p>The intake flow stays unchanged: upload the file or lecture, queue the backend job if needed, then surface the final ingestion state in the same teacher workspace.</p><p>OCR metadata remains attached to each activity so low-confidence image captures are visible immediately instead of being hidden behind logs.</p></div></PrismPanel>
                         </div>
                     </div>
@@ -194,11 +250,6 @@ export default function UploadPage() {
             </PrismSection>
         </PrismPage>
     );
-}
-
-function Metric({ icon: Icon, title, value, summary, tone }: { icon: typeof FileText; title: string; value: string; summary: string; tone: "blue" | "emerald" | "amber" }) {
-    const tones = { blue: "bg-[linear-gradient(135deg,rgba(96,165,250,0.22),rgba(59,130,246,0.08))] text-status-blue", emerald: "bg-[linear-gradient(135deg,rgba(45,212,191,0.2),rgba(16,185,129,0.08))] text-status-emerald", amber: "bg-[linear-gradient(135deg,rgba(251,191,36,0.2),rgba(245,158,11,0.08))] text-status-amber" } as const;
-    return <PrismPanel className="p-4"><div className={`mb-3 flex h-11 w-11 items-center justify-center rounded-2xl ${tones[tone]}`}><Icon className="h-5 w-5" /></div><p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">{title}</p><p className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">{value}</p><p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">{summary}</p></PrismPanel>;
 }
 
 function Row({ label, value }: { label: string; value: string }) {
@@ -213,7 +264,7 @@ function Activity({ item }: { item: UploadActivity }) {
             <div className="flex flex-col gap-4 xl:flex-row xl:items-start">
                 <div className="flex-1">
                     <div className="flex flex-wrap items-center gap-2"><h2 className="text-base font-semibold text-[var(--text-primary)]">{item.name}</h2><span className="rounded-full border border-[var(--border)] bg-[rgba(148,163,184,0.05)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">{item.type}</span></div>
-                    <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">{item.detail || "Pending update"}</p>
+                    <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">{item.detail || "Pending update"}{item.created_at ? ` • ${new Date(item.created_at).toLocaleDateString()}` : ""}</p>
                     <div className="mt-3 flex flex-wrap gap-2">
                         {item.status === "processing" && item.ocrPending ? <Tag text="OCR in progress" tone="info" /> : null}
                         {item.status === "completed" && item.ocrProcessed ? <Tag text="OCR completed" tone="success" /> : null}

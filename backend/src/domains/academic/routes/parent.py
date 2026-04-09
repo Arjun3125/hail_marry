@@ -13,6 +13,7 @@ from src.domains.academic.application.parent_portal import (
     build_parent_dashboard_response as _build_parent_dashboard_response_impl,
     build_parent_digest_preview_response as _build_parent_digest_preview_response_impl,
     build_parent_report_card_payload as _build_parent_report_card_payload_impl,
+    build_parent_results_response as _build_parent_results_response_impl,
     build_parent_reports_response as _build_parent_reports_response_impl,
     get_child_for_parent as _get_child_for_parent_impl,
     get_child_results as _get_child_results_impl,
@@ -30,6 +31,9 @@ from src.domains.academic.services.digest_email import (
 from src.domains.academic.services.report_card import generate_report_card_pdf
 from src.domains.identity.models.user import User
 from src.domains.identity.models.tenant import Tenant
+from src.domains.platform.models.ai import AIQuery
+from src.domains.platform.models.generated_content import GeneratedContent
+from src.domains.platform.models.study_session import StudySession
 
 router = APIRouter(prefix="/api/parent", tags=["Parent"])
 
@@ -87,6 +91,9 @@ async def parent_dashboard(
         assignment_model=Assignment,
         assignment_submission_model=AssignmentSubmission,
         timetable_model=Timetable,
+        study_session_model=StudySession,
+        ai_query_model=AIQuery,
+        generated_content_model=GeneratedContent,
     )
 
 
@@ -112,7 +119,14 @@ async def parent_results(
     db: Session = Depends(get_db),
 ):
     child = _get_child_for_parent(current_user=current_user, db=db, child_id=child_id)
-    return _get_child_results(db=db, tenant_id=current_user.tenant_id, child_id=child.id)
+    return _build_parent_results_response_impl(
+        db=db,
+        current_user=current_user,
+        child=child,
+        mark_model=Mark,
+        exam_model=Exam,
+        subject_model=Subject,
+    )
 
 
 @router.get("/reports")
@@ -130,6 +144,10 @@ async def parent_reports(
         mark_model=Mark,
         exam_model=Exam,
         subject_model=Subject,
+        assignment_submission_model=AssignmentSubmission,
+        study_session_model=StudySession,
+        ai_query_model=AIQuery,
+        generated_content_model=GeneratedContent,
     )
 
 

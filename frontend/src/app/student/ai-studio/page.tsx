@@ -11,7 +11,7 @@ import { FocusMode } from "./components/FocusMode";
 import { NotebookSelector } from "./components/NotebookSelector";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 import { api } from "@/lib/api";
-import { PrismHeroKicker, PrismPage, PrismPanel, PrismSection } from "@/components/prism/PrismPage";
+import { PrismHeroKicker, PrismPage, PrismPageIntro, PrismPanel, PrismSection } from "@/components/prism/PrismPage";
 import "./ai-studio.css";
 
 const validTools = new Set([
@@ -182,53 +182,51 @@ function AIStudioContent() {
         : "All notebooks available";
 
     return (
-        <PrismPage className="space-y-6 pb-10">
+        <PrismPage variant="workspace" className="space-y-5 pb-8">
             <PrismSection className="space-y-6">
-                <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
-                    <div className="space-y-4">
+                <PrismPageIntro
+                    kicker={(
                         <PrismHeroKicker>
                             <Sparkles className="h-3.5 w-3.5" />
                             Student AI Workspace
                         </PrismHeroKicker>
-                        <div className="space-y-3">
-                            <h1 className="prism-title text-4xl font-black leading-[0.98] text-[var(--text-primary)] md:text-5xl">
-                                Study inside a <span className="premium-gradient">single intelligence surface</span> instead of fragmented tools
-                            </h1>
-                            <p className="max-w-3xl text-base leading-7 text-[var(--text-secondary)] md:text-lg">
-                                This route is the Phase 3 student flagship. The layout now keeps learning mode, notebook context, and active thread in one deliberate workspace so students can move from questions to revision artifacts without losing momentum.
+                    )}
+                    title="Ask, revise, and build answers from your own study material"
+                    description="Keep your notebook, active thread, and source context in one study desk so the next action is always visible and grounded."
+                    aside={(
+                        <div className="prism-briefing-panel">
+                            <p className="prism-status-label">Study posture</p>
+                            <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
+                                Use one focused thread at a time, keep notebook scope explicit, and verify every answer against the evidence rail before moving on.
                             </p>
                         </div>
-                    </div>
+                    )}
+                />
 
-                    <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
-                        <PrismPanel className="p-4">
-                            <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,rgba(96,165,250,0.22),rgba(59,130,246,0.08))]">
-                                <Bot className="h-5 w-5 text-status-blue" />
-                            </div>
-                            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">Active mode</p>
-                            <p className="mt-2 text-lg font-semibold text-[var(--text-primary)]">{activeToolMeta.label}</p>
-                            <p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">{activeToolMeta.summary}</p>
-                        </PrismPanel>
-                        <PrismPanel className="p-4">
-                            <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,rgba(45,212,191,0.2),rgba(20,184,166,0.08))]">
-                                <BookMarked className="h-5 w-5 text-status-emerald" />
-                            </div>
-                            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">Context</p>
-                            <p className="mt-2 text-lg font-semibold text-[var(--text-primary)]">
-                                {activeNotebookId ? "Notebook scoped" : "Open scope"}
-                            </p>
-                            <p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">{notebookStatus}</p>
-                        </PrismPanel>
-                        <PrismPanel className="p-4">
-                            <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,rgba(167,139,250,0.2),rgba(129,140,248,0.08))]">
-                                <Command className="h-5 w-5 text-status-violet" />
-                            </div>
-                            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">Flow controls</p>
-                            <p className="mt-2 text-lg font-semibold text-[var(--text-primary)]">Keyboard-ready</p>
-                            <p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">
-                                Toggle focus mode, rail, and context quickly without breaking study momentum.
-                            </p>
-                        </PrismPanel>
+                <div className="prism-status-strip">
+                    <div className="prism-status-item">
+                        <div className="flex items-center gap-2">
+                            <Bot className="h-4 w-4 text-status-blue" />
+                            <span className="prism-status-label">Active mode</span>
+                        </div>
+                        <p className="prism-status-value">{activeToolMeta.label}</p>
+                        <p className="prism-status-detail">{activeToolMeta.summary}</p>
+                    </div>
+                    <div className="prism-status-item">
+                        <div className="flex items-center gap-2">
+                            <BookMarked className="h-4 w-4 text-status-emerald" />
+                            <span className="prism-status-label">Notebook scope</span>
+                        </div>
+                        <p className="prism-status-value">{activeNotebookId ? "Notebook scoped" : "Open scope"}</p>
+                        <p className="prism-status-detail">{notebookStatus}</p>
+                    </div>
+                    <div className="prism-status-item">
+                        <div className="flex items-center gap-2">
+                            <Command className="h-4 w-4 text-status-violet" />
+                            <span className="prism-status-label">Flow controls</span>
+                        </div>
+                        <p className="prism-status-value">Keyboard ready</p>
+                        <p className="prism-status-detail">Toggle focus mode, rail, and context without breaking the study thread.</p>
                     </div>
                 </div>
 

@@ -57,7 +57,7 @@ test.describe("Prism landing runtime safeguards", () => {
         await page.goto("/");
 
         await expect(page.locator("html")).toHaveAttribute("lang", "hi");
-        await expect(page.getByRole("link", { name: /Explore Guided Demo/i })).toBeVisible();
+        await expect(page.getByRole("link", { name: /Explore demo/i })).toBeVisible();
     });
 
     test("landing hero honors reduced-motion preference", async ({ page }) => {
@@ -66,7 +66,7 @@ test.describe("Prism landing runtime safeguards", () => {
 
         await page.goto("/");
 
-        await expect(page.getByRole("link", { name: /Explore Guided Demo/i })).toBeVisible();
+        await expect(page.getByRole("link", { name: /Explore demo/i })).toBeVisible();
         await expect(page.getByTestId("prism-hero-scene")).toHaveAttribute("data-reduced-motion", "true");
     });
 
@@ -80,7 +80,7 @@ test.describe("Prism landing runtime safeguards", () => {
                         return null;
                     }
 
-                    return originalGetContext.call(this, type, ...args);
+                    return Reflect.apply(originalGetContext, this, [type, ...args]);
                 },
             });
         });
@@ -121,6 +121,11 @@ test.describe("Phase 2 adaptive polling safeguards", () => {
 
             const capturedIntervals: number[] = [];
             const originalSetInterval = window.setInterval.bind(window);
+            const browserSetInterval = originalSetInterval as unknown as (
+                handler: TimerHandler,
+                timeout?: number,
+                ...args: unknown[]
+            ) => number;
 
             Object.defineProperty(window.navigator, "connection", {
                 configurable: true,
@@ -140,8 +145,8 @@ test.describe("Phase 2 adaptive polling safeguards", () => {
 
             window.setInterval = ((handler: TimerHandler, timeout?: number, ...args: unknown[]) => {
                 capturedIntervals.push(Number(timeout ?? 0));
-                return originalSetInterval(handler, timeout, ...args);
-            }) as typeof window.setInterval;
+                return browserSetInterval(handler, timeout, ...args);
+            }) as unknown as typeof window.setInterval;
         });
 
         await stubBranding(page);
@@ -248,7 +253,7 @@ test.describe("Phase 2 adaptive polling safeguards", () => {
 
         await page.goto("/admin/queue");
 
-        await expect(page.getByRole("heading", { name: /AI Queue Operations/i })).toBeVisible();
+        await expect(page.getByRole("heading", { name: /Keep the AI job queue controlled before incidents spread/i })).toBeVisible();
 
         const intervals = await page.evaluate(() => {
             return (window as Window & { __capturedIntervals?: number[] }).__capturedIntervals || [];

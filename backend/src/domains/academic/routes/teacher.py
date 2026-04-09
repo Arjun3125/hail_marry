@@ -18,6 +18,8 @@ from src.domains.academic.application.teacher_analytics import (
     build_teacher_dashboard_response as _build_teacher_dashboard_response_impl,
     build_teacher_doubt_heatmap_response as _build_teacher_doubt_heatmap_response_impl,
     build_teacher_insights_response as _build_teacher_insights_response_impl,
+    build_teacher_profile_summary as _build_teacher_profile_summary_impl,
+    build_teacher_resource_history as _build_teacher_resource_history_impl,
 )
 from src.domains.academic.application.teacher_bulk_updates import (
     apply_bulk_attendance_entries,
@@ -590,6 +592,32 @@ async def teacher_classes(
         enrollment_model=Enrollment,
         user_model=User,
         subject_model=Subject,
+    )
+
+
+@router.get("/resource-history")
+async def teacher_resource_history(
+    current_user: User = Depends(require_role("teacher", "admin")),
+    db: Session = Depends(get_db),
+):
+    """Return six-month document and lecture history for teacher demo surfaces."""
+    return _build_teacher_resource_history_impl(
+        db=db,
+        current_user=current_user,
+    )
+
+
+@router.get("/profile-summary")
+async def teacher_profile_summary(
+    current_user: User = Depends(require_role("teacher", "admin")),
+    teacher_class_ids: list = Depends(get_teacher_class_ids),
+    db: Session = Depends(get_db),
+):
+    """Return six-month teaching summary for the profile surface."""
+    return _build_teacher_profile_summary_impl(
+        db=db,
+        current_user=current_user,
+        allowed_class_ids=list(teacher_class_ids),
     )
 
 

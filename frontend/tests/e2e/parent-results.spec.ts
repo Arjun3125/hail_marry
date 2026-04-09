@@ -47,7 +47,7 @@ test("parent results page shows academic snapshot and subject breakdown", async 
 
     await page.goto("/parent/results");
 
-    await expect(page.getByRole("heading", { name: "Results" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Read academic progress clearly before looking at raw marks" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Subject performance" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Mathematics" })).toBeVisible();
     await expect(page.getByText("Average score: 88%")).toBeVisible();

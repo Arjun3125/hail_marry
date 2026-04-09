@@ -3,17 +3,14 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
-    Activity,
-    AlertTriangle,
     Clock3,
     Loader2,
     Search,
-    ShieldAlert,
     Workflow,
 } from "lucide-react";
 
 import EmptyState from "@/components/EmptyState";
-import { PrismHeroKicker, PrismPage, PrismPanel, PrismSection } from "@/components/prism/PrismPage";
+import { PrismHeroKicker, PrismPage, PrismPageIntro, PrismPanel, PrismSection } from "@/components/prism/PrismPage";
 import ErrorRemediation from "@/components/ui/ErrorRemediation";
 import { api } from "@/lib/api";
 
@@ -123,46 +120,44 @@ export default function AdminTracesPage() {
     }, [summary]);
 
     return (
-        <PrismPage className="space-y-6 pb-8">
+        <PrismPage variant="dashboard" className="space-y-6 pb-8">
             <PrismSection className="space-y-6">
-                <div className="grid gap-4 xl:grid-cols-[1.12fr_0.88fr]">
-                    <div className="space-y-4">
+                <PrismPageIntro
+                    kicker={(
                         <PrismHeroKicker>
                             <Workflow className="h-3.5 w-3.5" />
-                            Admin Traceability Surface
+                            Admin Trace Surface
                         </PrismHeroKicker>
-                        <div className="space-y-3">
-                            <h1 className="prism-title text-4xl font-black leading-[0.98] text-[var(--text-primary)] md:text-5xl">
-                                Trace Viewer
-                            </h1>
-                            <p className="max-w-3xl text-base leading-7 text-[var(--text-secondary)] md:text-lg">
-                                Inspect persisted trace events across API, queue, worker, and AI service boundaries with one diagnostics-first admin surface.
+                    )}
+                    title="Read trace failures before they become repeated incidents"
+                    description="Inspect error-code pressure across subsystems, trace one incident end-to-end, and move back into queue control when execution needs intervention."
+                    aside={(
+                        <div className="prism-briefing-panel">
+                            <p className="prism-status-label">Analysis flow</p>
+                            <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
+                                Start with grouped failures, confirm subsystem pressure, then load an individual trace only when sequence-level evidence is needed.
                             </p>
                         </div>
-                    </div>
+                    )}
+                />
 
-                    <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
-                        <MetricCard
-                            icon={AlertTriangle}
-                            title="Total errors"
-                            value={heroMetrics.totalErrors}
-                            summary={summary ? `Last ${summary.period_days} days of traceability diagnostics` : "Traceability window summary"}
-                            accent="amber"
-                        />
-                        <MetricCard
-                            icon={ShieldAlert}
-                            title="Highest pressure code"
-                            value={heroMetrics.highestGroup}
-                            summary="Most frequent grouped error across the active reporting window"
-                            accent="blue"
-                        />
-                        <MetricCard
-                            icon={Activity}
-                            title="Busiest subsystem"
-                            value={heroMetrics.busiestSubsystem}
-                            summary="Subsystem with the highest recent traceability failure count"
-                            accent="emerald"
-                        />
+                <div className="prism-status-strip">
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">Total errors</span>
+                        <span className="prism-status-value">{heroMetrics.totalErrors}</span>
+                        <span className="prism-status-detail">
+                            {summary ? `Last ${summary.period_days} days of traceability diagnostics.` : "Current persisted error reporting window."}
+                        </span>
+                    </div>
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">Highest pressure code</span>
+                        <span className="prism-status-value">{heroMetrics.highestGroup}</span>
+                        <span className="prism-status-detail">Most frequent grouped failure family in the active window.</span>
+                    </div>
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">Busiest subsystem</span>
+                        <span className="prism-status-value">{heroMetrics.busiestSubsystem}</span>
+                        <span className="prism-status-detail">Where traceability pressure is accumulating fastest.</span>
                     </div>
                 </div>
 
@@ -184,7 +179,7 @@ export default function AdminTracesPage() {
                         <PrismPanel className="p-5">
                             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                                 <div>
-                                    <h2 className="text-lg font-semibold text-[var(--text-primary)]">Trace Diagnostics</h2>
+                                    <h2 className="text-lg font-semibold text-[var(--text-primary)]">Trace diagnostics</h2>
                                     <p className="text-sm text-[var(--text-secondary)]">
                                         Review aggregate error pressure before drilling into a single trace.
                                     </p>
@@ -210,6 +205,8 @@ export default function AdminTracesPage() {
                                         icon={Workflow}
                                         title="Diagnostics are not available"
                                         description="The traceability summary could not be loaded for this environment."
+                                        eyebrow="Summary unavailable"
+                                        scopeNote="This panel becomes useful when traceability events are being persisted by the API, queue, and worker paths."
                                     />
                                 </div>
                             )}
@@ -217,7 +214,7 @@ export default function AdminTracesPage() {
 
                         <div className="grid gap-6 lg:grid-cols-[0.98fr_1.02fr]">
                             <PrismPanel className="p-5">
-                                <h2 className="text-base font-semibold text-[var(--text-primary)]">Grouped Error Codes</h2>
+                                <h2 className="text-base font-semibold text-[var(--text-primary)]">Grouped error codes</h2>
                                 <p className="mt-1 text-sm text-[var(--text-secondary)]">
                                     Prioritize the failure families creating the most operational drag.
                                 </p>
@@ -247,7 +244,7 @@ export default function AdminTracesPage() {
                             </PrismPanel>
 
                             <PrismPanel className="p-5">
-                                <h2 className="text-base font-semibold text-[var(--text-primary)]">Subsystem Totals</h2>
+                                <h2 className="text-base font-semibold text-[var(--text-primary)]">Subsystem totals</h2>
                                 <p className="mt-1 text-sm text-[var(--text-secondary)]">
                                     Compare where traceability pressure is accumulating across the stack.
                                 </p>
@@ -267,7 +264,7 @@ export default function AdminTracesPage() {
                         <PrismPanel className="p-5">
                             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                                 <div>
-                                    <h2 className="text-base font-semibold text-[var(--text-primary)]">Recent Failures</h2>
+                                    <h2 className="text-base font-semibold text-[var(--text-primary)]">Recent failures</h2>
                                     <p className="text-sm text-[var(--text-secondary)]">
                                         Use recent path, method, and trace references to decide which incident to open first.
                                     </p>
@@ -320,7 +317,7 @@ export default function AdminTracesPage() {
                         <PrismPanel className="p-5 xl:sticky xl:top-6">
                             <div className="flex items-center gap-2">
                                 <Search className="h-4 w-4 text-[var(--primary)]" />
-                                <h2 className="text-base font-semibold text-[var(--text-primary)]">Trace Lookup</h2>
+                                <h2 className="text-base font-semibold text-[var(--text-primary)]">Trace lookup</h2>
                             </div>
                             <p className="mt-2 text-sm text-[var(--text-secondary)]">
                                 Paste a trace ID from queue, error summaries, or incident notes to inspect the full event chain.
@@ -344,7 +341,7 @@ export default function AdminTracesPage() {
                                     className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[linear-gradient(135deg,rgba(96,165,250,0.96),rgba(129,140,248,0.94))] px-4 py-3 text-sm font-semibold text-[#06101e] shadow-[0_18px_34px_rgba(96,165,250,0.22)] transition-all hover:-translate-y-0.5"
                                 >
                                     {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-                                    Load Trace
+                                    Load trace
                                 </button>
                             </form>
 
@@ -360,7 +357,7 @@ export default function AdminTracesPage() {
                                 </p>
                                 <div className="mt-3 text-sm">
                                     <Link href="/admin/queue" className="font-medium text-[var(--primary)] hover:underline">
-                                        Jump to AI Queue
+                                        Jump to AI queue
                                     </Link>
                                 </div>
                             </div>
@@ -369,7 +366,7 @@ export default function AdminTracesPage() {
                         <PrismPanel className="p-5">
                             <div className="flex items-center gap-2">
                                 <Clock3 className="h-4 w-4 text-[var(--primary)]" />
-                                <h2 className="text-base font-semibold text-[var(--text-primary)]">Trace Timeline</h2>
+                                <h2 className="text-base font-semibold text-[var(--text-primary)]">Trace timeline</h2>
                             </div>
                             <p className="mt-2 text-sm text-[var(--text-secondary)]">
                                 Event-by-event view of the selected trace, including raw metadata snapshots for debugging.
@@ -385,6 +382,8 @@ export default function AdminTracesPage() {
                                         icon={Workflow}
                                         title="No trace events loaded"
                                         description="Load a trace ID from the summary or queue to inspect the event chain."
+                                        eyebrow="Awaiting trace selection"
+                                        scopeNote="Trace IDs from the queue, error summaries, and incident notes all resolve into the same event timeline here."
                                     />
                                 ) : events.map((event, index) => (
                                     <div key={`${event.created_at}-${event.action}-${index}`} className="rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.03)] px-4 py-3">
@@ -408,37 +407,6 @@ export default function AdminTracesPage() {
                 </div>
             </PrismSection>
         </PrismPage>
-    );
-}
-
-function MetricCard({
-    icon: Icon,
-    title,
-    value,
-    summary,
-    accent,
-}: {
-    icon: typeof Activity;
-    title: string;
-    value: string;
-    summary: string;
-    accent: "blue" | "emerald" | "amber";
-}) {
-    const accentClasses = {
-        blue: "bg-[linear-gradient(135deg,rgba(96,165,250,0.22),rgba(59,130,246,0.08))] text-status-blue",
-        emerald: "bg-[linear-gradient(135deg,rgba(45,212,191,0.2),rgba(16,185,129,0.08))] text-status-emerald",
-        amber: "bg-[linear-gradient(135deg,rgba(251,191,36,0.2),rgba(245,158,11,0.08))] text-status-amber",
-    } as const;
-
-    return (
-        <PrismPanel className="p-4">
-            <div className={`mb-3 flex h-11 w-11 items-center justify-center rounded-2xl ${accentClasses[accent]}`}>
-                <Icon className="h-5 w-5" />
-            </div>
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">{title}</p>
-            <p className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">{value}</p>
-            <p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">{summary}</p>
-        </PrismPanel>
     );
 }
 

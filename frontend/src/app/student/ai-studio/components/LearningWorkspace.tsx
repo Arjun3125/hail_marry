@@ -159,10 +159,35 @@ function StarterSuggestions({ activeTool, notebookId }: { activeTool: string; no
             <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-[2rem] bg-[linear-gradient(135deg,rgba(96,165,250,0.18),rgba(129,140,248,0.08))] shadow-[0_20px_40px_rgba(15,23,42,0.18)]">
                 <Sparkles className="h-10 w-10 text-status-blue" />
             </div>
-            <h3 className="mb-2 text-2xl font-semibold text-[var(--text-primary)]">Ready to learn?</h3>
+            <h3 className="mb-2 text-2xl font-semibold text-[var(--text-primary)]">Start with one concrete study move</h3>
             <p className="mb-6 max-w-xl text-sm leading-7 text-[var(--text-muted)]">
-                {toolConfig[activeTool]?.desc}. Type your query below to get started.
+                {toolConfig[activeTool]?.desc}. Ask from your notes, generate a revision artifact, or focus on one weak concept before opening a longer thread.
             </p>
+            <div className="mb-5 grid w-full max-w-3xl gap-3 md:grid-cols-3">
+                <div className="prism-evidence-card text-left">
+                    <p className="prism-status-label">Source scope</p>
+                    <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">
+                        {notebookId ? "Current notebook first" : "All available notebooks"}
+                    </p>
+                    <p className="mt-1 text-xs leading-6 text-[var(--text-secondary)]">
+                        Keep notebook scope explicit so answers stay tied to the material you expect.
+                    </p>
+                </div>
+                <div className="prism-evidence-card text-left">
+                    <p className="prism-status-label">Best next action</p>
+                    <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">Ask, then verify</p>
+                    <p className="mt-1 text-xs leading-6 text-[var(--text-secondary)]">
+                        Use the context rail to confirm citations before you turn an answer into revision work.
+                    </p>
+                </div>
+                <div className="prism-evidence-card text-left">
+                    <p className="prism-status-label">Good prompts</p>
+                    <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">Chapter, concept, or problem set</p>
+                    <p className="mt-1 text-xs leading-6 text-[var(--text-secondary)]">
+                        Narrow prompts produce sharper explanations, cleaner quizzes, and more trustworthy citations.
+                    </p>
+                </div>
+            </div>
             <div className="flex flex-wrap justify-center gap-2">
                 {suggestions.map((suggestion) => (
                     <button
@@ -339,7 +364,7 @@ function ComposerBox({ activeTool }: { activeTool: string }) {
                     </ComposerPrimitive.Send>
                 </div>
                 <p className="mt-2 text-center text-[10px] text-[var(--text-muted)]">
-                    Press Enter to send, Shift+Enter for new line
+                    Press Enter to send, Shift+Enter for new line. Use focused chapter or concept prompts for grounded answers.
                 </p>
             </ComposerPrimitive.Root>
         </div>

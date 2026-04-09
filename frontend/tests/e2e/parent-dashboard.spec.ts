@@ -77,7 +77,7 @@ test("parent dashboard shows progress story and plays audio summary", async ({ p
 
     await page.goto("/parent/dashboard");
 
-    await expect(page.getByRole("heading", { name: "Parent Dashboard" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /See your child's week in one clear family summary/i })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Aarav" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Progress story" })).toBeVisible();
     await expect(page.getByText("Attendance is in a healthy range.")).toBeVisible();

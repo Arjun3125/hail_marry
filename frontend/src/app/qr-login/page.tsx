@@ -130,7 +130,7 @@ export default function QrLoginPage() {
               QR Entry
             </PrismHeroKicker>
             <h1 className="prism-title text-5xl font-black leading-[0.96] text-[var(--text-primary)] md:text-6xl">
-              Fast student entry with a <span className="premium-gradient">camera-first flow</span>
+              Fast student entry with a <span>camera-first flow</span>
             </h1>
             <p className="max-w-xl text-lg leading-8 text-[var(--text-secondary)]">
               Use a school QR card for quick access, or paste the token manually when camera scanning is unavailable.
@@ -191,4 +191,3 @@ export default function QrLoginPage() {
     </PrismPage>
   );
 }
-

@@ -34,8 +34,8 @@ test.describe("Prism representative visual smoke", () => {
 
         await page.goto("/");
 
-        await expect(page.getByRole("link", { name: /Login To Platform/i })).toBeVisible();
-        await expect(page.getByText(/AI Studio, guided learning/i)).toBeVisible();
+        await expect(page.getByRole("link", { name: /Login To Platform/i }).first()).toBeVisible();
+        await expect(page.getByRole("heading", { name: /One product for classroom work,/i })).toBeVisible();
 
         await capture(page, testInfo, "landing-prism");
     });
@@ -45,7 +45,7 @@ test.describe("Prism representative visual smoke", () => {
 
         await page.goto("/demo");
 
-        await expect(page.getByRole("heading", { name: /Walk the product through four role-specific realities/i })).toBeVisible();
+        await expect(page.getByRole("heading", { name: /Enter the product as a real/i })).toBeVisible();
         await expect(page.getByRole("button", { name: /Parent Mrs\. Sharma, Parent/i })).toBeVisible();
 
         await capture(page, testInfo, "demo-prism");
@@ -143,7 +143,7 @@ test.describe("Prism representative visual smoke", () => {
 
             await page.goto("/student/ai-studio");
 
-            await expect(page.getByRole("heading", { name: /single intelligence surface/i })).toBeVisible();
+            await expect(page.getByRole("heading", { name: /Ask, revise, and build answers from your own study material/i })).toBeVisible();
             await expect(page.getByText(/Deep Work Layout/i)).toBeVisible();
             await expect(page.getByText(/Context Lab/i)).toBeVisible();
 
@@ -189,8 +189,8 @@ test.describe("Prism representative visual smoke", () => {
 
             await page.goto("/teacher/dashboard");
 
-            await expect(page.getByRole("heading", { name: /Teacher Dashboard/i })).toBeVisible();
-            await expect(page.getByText(/Educator Console/i)).toBeVisible();
+            await expect(page.getByRole("heading", { name: /Run the school day from one teaching desk/i })).toBeVisible();
+            await expect(page.getByText(/Today's teaching flow/i)).toBeVisible();
             await expect(page.getByText(/Performance Matrix/i)).toBeVisible();
 
             await capture(page, testInfo, "teacher-dashboard-prism");
@@ -325,8 +325,8 @@ test.describe("Prism representative visual smoke", () => {
 
             await page.goto("/admin/dashboard");
 
-            await expect(page.getByRole("heading", { name: /Admin Dashboard/i })).toBeVisible();
-            await expect(page.getByRole("heading", { name: /Queue Health/i })).toBeVisible();
+            await expect(page.getByRole("heading", { name: /Run school health from a calm academic control surface/i })).toBeVisible();
+            await expect(page.getByRole("heading", { name: /WhatsApp release gate/i })).toBeVisible();
             await expect(page.getByRole("heading", { name: /Mascot Release Gate/i })).toBeVisible();
 
             await capture(page, testInfo, "admin-dashboard-prism");
@@ -365,7 +365,7 @@ test.describe("Prism representative visual smoke", () => {
 
             await page.goto("/parent/dashboard");
 
-            await expect(page.getByRole("heading", { name: /Parent Dashboard/i })).toBeVisible();
+            await expect(page.getByRole("heading", { name: /See your child's week in one clear family summary/i })).toBeVisible();
             await expect(page.getByRole("heading", { name: /Listen to update/i })).toBeVisible();
             await expect(page.getByRole("heading", { name: /Next class/i })).toBeVisible();
 

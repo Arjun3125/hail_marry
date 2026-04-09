@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Download, Settings, ShieldCheck, Trash2 } from "lucide-react";
+import { PrismHeroKicker, PrismPage, PrismPageIntro, PrismSection } from "@/components/prism/PrismPage";
 import { api } from "@/lib/api";
 
 type ComplianceSettings = {
@@ -134,17 +135,30 @@ export default function CompliancePage() {
     };
 
     if (loading) {
-        return <div className="p-8 text-center text-[var(--text-muted)]">Loading compliance controls...</div>;
+        return (
+            <PrismPage variant="dashboard" className="space-y-6 pb-8">
+                <PrismSection className="space-y-6">
+                    <div className="p-8 text-center text-[var(--text-muted)]">Loading compliance controls...</div>
+                </PrismSection>
+            </PrismPage>
+        );
     }
 
     return (
-        <div className="space-y-6">
+        <PrismPage variant="dashboard" className="space-y-6 pb-8">
+            <PrismSection className="space-y-6">
             <div className="flex items-start justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-[var(--text-primary)]">Compliance & Data Privacy</h1>
-                    <p className="text-sm text-[var(--text-secondary)]">
-                        Manage exports, deletion workflows, and retention controls for tenant data.
-                    </p>
+                    <PrismPageIntro
+                        kicker={(
+                            <PrismHeroKicker>
+                                <ShieldCheck className="h-3.5 w-3.5" />
+                                Enterprise Compliance Surface
+                            </PrismHeroKicker>
+                        )}
+                        title="Keep privacy and retention controls explicit"
+                        description="Manage exports, deletion workflows, and retention controls for tenant data from one enterprise compliance workspace."
+                    />
                 </div>
                 <button
                     onClick={() => void load()}
@@ -400,6 +414,7 @@ export default function CompliancePage() {
                     </div>
                 </div>
             )}
-        </div>
+            </PrismSection>
+        </PrismPage>
     );
 }

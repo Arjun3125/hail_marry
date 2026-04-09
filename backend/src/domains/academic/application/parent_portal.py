@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 from fastapi import HTTPException
@@ -97,6 +97,206 @@ def get_child_results(
     return result
 
 
+def _ensure_tz(value: datetime | date | None) -> datetime | None:
+    if value is None:
+        return None
+    if isinstance(value, date) and not isinstance(value, datetime):
+        return datetime.combine(value, datetime.min.time(), tzinfo=UTC)
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
+
+
+def _shift_month(value: datetime, delta: int) -> datetime:
+    month_index = value.month - 1 + delta
+    year = value.year + month_index // 12
+    month = month_index % 12 + 1
+    return value.replace(year=year, month=month, day=1)
+
+
+def _month_windows(now: datetime | None = None) -> list[dict[str, Any]]:
+    current = _ensure_tz(now or datetime.now(UTC))
+    assert current is not None
+    first_of_month = current.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    windows: list[dict[str, Any]] = []
+    for offset in range(-5, 1):
+        start = _shift_month(first_of_month, offset)
+        windows.append(
+            {
+                "key": start.strftime("%Y-%m"),
+                "month": start.strftime("%b"),
+                "start": start,
+                "end": _shift_month(start, 1),
+            }
+        )
+    return windows
+
+
+def _history_cutoff(now: datetime | None = None) -> datetime:
+    current = _ensure_tz(now or datetime.now(UTC))
+    assert current is not None
+    return current - timedelta(days=183)
+
+
+def _month_key(value: datetime | date | None) -> str | None:
+    normalized = _ensure_tz(value)
+    if normalized is None:
+        return None
+    return normalized.strftime("%Y-%m")
+
+
+def _summarize_child_activity(
+    *,
+    db,
+    tenant_id,
+    child_id,
+    assignment_submission_model,
+    study_session_model,
+    ai_query_model,
+    generated_content_model,
+) -> dict[str, Any]:
+    cutoff = _history_cutoff()
+    submissions = (
+        db.query(assignment_submission_model)
+        .filter(
+            assignment_submission_model.tenant_id == tenant_id,
+            assignment_submission_model.student_id == child_id,
+            assignment_submission_model.submitted_at >= cutoff,
+        )
+        .all()
+    )
+    study_sessions = (
+        db.query(study_session_model)
+        .filter(
+            study_session_model.tenant_id == tenant_id,
+            study_session_model.user_id == child_id,
+            study_session_model.created_at >= cutoff,
+        )
+        .all()
+    )
+    ai_queries = (
+        db.query(ai_query_model)
+        .filter(
+            ai_query_model.tenant_id == tenant_id,
+            ai_query_model.user_id == child_id,
+            ai_query_model.created_at >= cutoff,
+        )
+        .all()
+    )
+    generated_items = (
+        db.query(generated_content_model)
+        .filter(
+            generated_content_model.tenant_id == tenant_id,
+            generated_content_model.user_id == child_id,
+            generated_content_model.created_at >= cutoff,
+        )
+        .order_by(generated_content_model.created_at.desc())
+        .all()
+    )
+
+    return {
+        "assignments_submitted": len(submissions),
+        "study_sessions": len(study_sessions),
+        "ai_requests": len(ai_queries),
+        "generated_tools": len(generated_items),
+        "latest_milestones": {
+            "last_assignment_submitted_at": str(max((item.submitted_at for item in submissions), default=None) or "") or None,
+            "last_study_session_at": str(max((item.last_active_at or item.updated_at or item.created_at for item in study_sessions), default=None) or "") or None,
+            "last_ai_request_at": str(max((item.created_at for item in ai_queries), default=None) or "") or None,
+            "last_generated_tool_at": str(max((item.created_at for item in generated_items), default=None) or "") or None,
+        },
+        "recent_generated_tools": [
+            {
+                "id": str(item.id),
+                "type": item.type,
+                "title": item.title or item.type.replace("_", " ").title(),
+                "created_at": str(item.created_at),
+            }
+            for item in generated_items[:5]
+        ],
+    }
+
+
+def _attendance_windows(records: list[Any]) -> list[dict[str, Any]]:
+    windows = _month_windows()
+    buckets = {
+        window["key"]: {
+            "month": window["month"],
+            "present": 0,
+            "absent": 0,
+            "late": 0,
+            "attendance_pct": 0,
+            "marked_days": 0,
+        }
+        for window in windows
+    }
+    for record in records:
+        month_key = _month_key(record.date)
+        if month_key not in buckets:
+            continue
+        bucket = buckets[month_key]
+        status = (record.status or "").lower()
+        if status == "present":
+            bucket["present"] += 1
+        elif status == "absent":
+            bucket["absent"] += 1
+        else:
+            bucket["late"] += 1
+        bucket["marked_days"] += 1
+
+    result = []
+    for window in windows:
+        bucket = buckets[window["key"]]
+        marked_days = bucket["marked_days"]
+        bucket["attendance_pct"] = round((bucket["present"] / marked_days * 100) if marked_days else 0)
+        result.append(bucket)
+    return result
+
+
+def _performance_windows(mark_rows: list[tuple[Any, Any, Any]]) -> list[dict[str, Any]]:
+    windows = _month_windows()
+    buckets = {
+        window["key"]: {
+            "month": window["month"],
+            "average_pct": 0,
+            "exams_recorded": 0,
+            "_scores": [],
+        }
+        for window in windows
+    }
+    for mark, exam, _subject_name in mark_rows:
+        month_key = _month_key(exam.exam_date or exam.created_at or mark.created_at)
+        if month_key not in buckets:
+            continue
+        percentage = round(mark.marks_obtained / exam.max_marks * 100) if exam.max_marks else 0
+        bucket = buckets[month_key]
+        bucket["exams_recorded"] += 1
+        bucket["_scores"].append(percentage)
+    result = []
+    for window in windows:
+        bucket = buckets[window["key"]]
+        scores = bucket.pop("_scores")
+        bucket["average_pct"] = round(sum(scores) / len(scores)) if scores else 0
+        result.append(bucket)
+    return result
+
+
+def _assignment_windows(rows: list[Any]) -> list[dict[str, Any]]:
+    windows = _month_windows()
+    buckets = {
+        window["key"]: {
+            "month": window["month"],
+            "assignments_submitted": 0,
+        }
+        for window in windows
+    }
+    for row in rows:
+        month_key = _month_key(row.submitted_at)
+        if month_key in buckets:
+            buckets[month_key]["assignments_submitted"] += 1
+    return [buckets[window["key"]] for window in windows]
+
+
 def get_latest_mark(
     *,
     db,
@@ -188,7 +388,11 @@ def build_parent_dashboard_response(
     assignment_model,
     assignment_submission_model,
     timetable_model,
+    study_session_model,
+    ai_query_model,
+    generated_content_model,
 ) -> dict[str, Any]:
+    cutoff = _history_cutoff()
     attendance_counts = (
         db.query(
             func.count(attendance_model.student_id),
@@ -282,6 +486,47 @@ def build_parent_dashboard_response(
         else None
     )
 
+    attendance_records = (
+        db.query(attendance_model)
+        .filter(
+            attendance_model.tenant_id == current_user.tenant_id,
+            attendance_model.student_id == child.id,
+            attendance_model.date >= cutoff.date(),
+        )
+        .order_by(attendance_model.date.desc())
+        .all()
+    )
+    recent_marks = (
+        db.query(mark_model, exam_model, subject_model.name)
+        .join(exam_model, mark_model.exam_id == exam_model.id)
+        .join(subject_model, exam_model.subject_id == subject_model.id)
+        .filter(
+            mark_model.tenant_id == current_user.tenant_id,
+            mark_model.student_id == child.id,
+            func.coalesce(exam_model.exam_date, func.date(exam_model.created_at)) >= cutoff.date(),
+        )
+        .order_by(exam_model.exam_date.desc().nullslast(), exam_model.created_at.desc())
+        .all()
+    )
+    recent_submissions = (
+        db.query(assignment_submission_model)
+        .filter(
+            assignment_submission_model.tenant_id == current_user.tenant_id,
+            assignment_submission_model.student_id == child.id,
+            assignment_submission_model.submitted_at >= cutoff,
+        )
+        .all()
+    )
+    activity_summary = _summarize_child_activity(
+        db=db,
+        tenant_id=current_user.tenant_id,
+        child_id=child.id,
+        assignment_submission_model=assignment_submission_model,
+        study_session_model=study_session_model,
+        ai_query_model=ai_query_model,
+        generated_content_model=generated_content_model,
+    )
+
     return {
         "child": {
             "id": str(child.id),
@@ -294,6 +539,10 @@ def build_parent_dashboard_response(
         "pending_assignments": pending_assignments,
         "latest_mark": latest_mark,
         "next_class": next_class,
+        "summary": activity_summary,
+        "monthly_attendance": _attendance_windows(attendance_records),
+        "monthly_performance": _performance_windows(recent_marks),
+        "monthly_assignments": _assignment_windows(recent_submissions),
     }
 
 
@@ -303,18 +552,19 @@ def build_parent_attendance_response(
     current_user,
     child,
     attendance_model,
-) -> list[dict[str, Any]]:
+) -> dict[str, Any]:
+    cutoff = _history_cutoff()
     records = (
         db.query(attendance_model)
         .filter(
             attendance_model.tenant_id == current_user.tenant_id,
             attendance_model.student_id == child.id,
+            attendance_model.date >= cutoff.date(),
         )
         .order_by(attendance_model.date.desc())
-        .limit(60)
         .all()
     )
-    return [
+    items = [
         {
             "date": str(record.date),
             "day": record.date.strftime("%a"),
@@ -322,6 +572,20 @@ def build_parent_attendance_response(
         }
         for record in records
     ]
+    present = sum(1 for record in records if (record.status or "").lower() == "present")
+    absent = sum(1 for record in records if (record.status or "").lower() == "absent")
+    late = sum(1 for record in records if (record.status or "").lower() not in {"present", "absent"})
+    return {
+        "items": items[:60],
+        "summary": {
+            "present": present,
+            "absent": absent,
+            "late": late,
+            "marked_days": len(records),
+            "attendance_pct": round((present / len(records) * 100) if records else 0),
+        },
+        "monthly_activity": _attendance_windows(records),
+    }
 
 
 def build_parent_reports_response(
@@ -333,7 +597,12 @@ def build_parent_reports_response(
     mark_model,
     exam_model,
     subject_model,
+    assignment_submission_model,
+    study_session_model,
+    ai_query_model,
+    generated_content_model,
 ) -> dict[str, Any]:
+    cutoff = _history_cutoff()
     results = get_child_results(
         db=db,
         tenant_id=current_user.tenant_id,
@@ -357,6 +626,52 @@ def build_parent_reports_response(
     present_att = len([item for item in attendance if item.status == "present"])
     attendance_pct = round((present_att / total_att * 100) if total_att > 0 else 0)
     weak_subjects = [result["name"] for result in results if result.get("avg", 0) < 60]
+    recent_marks = (
+        db.query(mark_model, exam_model, subject_model.name)
+        .join(exam_model, mark_model.exam_id == exam_model.id)
+        .join(subject_model, exam_model.subject_id == subject_model.id)
+        .filter(
+            mark_model.tenant_id == current_user.tenant_id,
+            mark_model.student_id == child.id,
+            func.coalesce(exam_model.exam_date, func.date(exam_model.created_at)) >= cutoff.date(),
+        )
+        .order_by(exam_model.exam_date.desc().nullslast(), exam_model.created_at.desc())
+        .all()
+    )
+    recent_submissions = (
+        db.query(assignment_submission_model)
+        .filter(
+            assignment_submission_model.tenant_id == current_user.tenant_id,
+            assignment_submission_model.student_id == child.id,
+            assignment_submission_model.submitted_at >= cutoff,
+        )
+        .all()
+    )
+    activity_summary = _summarize_child_activity(
+        db=db,
+        tenant_id=current_user.tenant_id,
+        child_id=child.id,
+        assignment_submission_model=assignment_submission_model,
+        study_session_model=study_session_model,
+        ai_query_model=ai_query_model,
+        generated_content_model=generated_content_model,
+    )
+    monthly_attendance = _attendance_windows(
+        db.query(attendance_model)
+        .filter(
+            attendance_model.tenant_id == current_user.tenant_id,
+            attendance_model.student_id == child.id,
+            attendance_model.date >= cutoff.date(),
+        )
+        .order_by(attendance_model.date.desc())
+        .all()
+    )
+    monthly_performance = _performance_windows(recent_marks)
+    monthly_assignments = _assignment_windows(recent_submissions)
+    average_marks_6m = round(
+        sum(item["average_pct"] for item in monthly_performance if item["exams_recorded"] > 0)
+        / max(1, len([item for item in monthly_performance if item["exams_recorded"] > 0]))
+    ) if any(item["exams_recorded"] > 0 for item in monthly_performance) else 0
 
     return {
         "child": {
@@ -371,6 +686,87 @@ def build_parent_reports_response(
             if weak_subjects
             else "Overall progress is stable."
         ),
+        "six_month_overview": {
+            "attendance_pct": round(
+                sum(item["attendance_pct"] for item in monthly_attendance if item["marked_days"] > 0)
+                / max(1, len([item for item in monthly_attendance if item["marked_days"] > 0]))
+            ) if any(item["marked_days"] > 0 for item in monthly_attendance) else 0,
+            "average_marks": average_marks_6m,
+            "assignments_submitted": activity_summary["assignments_submitted"],
+            "study_sessions": activity_summary["study_sessions"],
+            "ai_requests": activity_summary["ai_requests"],
+            "generated_tools": activity_summary["generated_tools"],
+        },
+        "monthly_snapshots": [
+            {
+                "month": attendance_bucket["month"],
+                "attendance_pct": attendance_bucket["attendance_pct"],
+                "average_marks": performance_bucket["average_pct"],
+                "assignments_submitted": assignment_bucket["assignments_submitted"],
+            }
+            for attendance_bucket, performance_bucket, assignment_bucket in zip(
+                monthly_attendance,
+                monthly_performance,
+                monthly_assignments,
+            )
+        ],
+        "recent_generated_tools": activity_summary["recent_generated_tools"],
+    }
+
+
+def build_parent_results_response(
+    *,
+    db,
+    current_user,
+    child,
+    mark_model,
+    exam_model,
+    subject_model,
+) -> dict[str, Any]:
+    cutoff = _history_cutoff()
+    items = get_child_results(
+        db=db,
+        tenant_id=current_user.tenant_id,
+        child_id=child.id,
+        mark_model=mark_model,
+        exam_model=exam_model,
+        subject_model=subject_model,
+    )
+    recent_marks = (
+        db.query(mark_model, exam_model, subject_model.name)
+        .join(exam_model, mark_model.exam_id == exam_model.id)
+        .join(subject_model, exam_model.subject_id == subject_model.id)
+        .filter(
+            mark_model.tenant_id == current_user.tenant_id,
+            mark_model.student_id == child.id,
+            func.coalesce(exam_model.exam_date, func.date(exam_model.created_at)) >= cutoff.date(),
+        )
+        .order_by(exam_model.exam_date.desc().nullslast(), exam_model.created_at.desc())
+        .all()
+    )
+    strongest = max(items, key=lambda item: item.get("avg", 0), default=None)
+    average = round(sum(item.get("avg", 0) for item in items) / len(items)) if items else 0
+    recent_exams = []
+    for mark, exam, subject_name in recent_marks[:6]:
+        percentage = round(mark.marks_obtained / exam.max_marks * 100) if exam.max_marks else 0
+        recent_exams.append(
+            {
+                "subject": subject_name or "Unknown",
+                "exam": exam.name,
+                "percentage": percentage,
+                "date": str(exam.exam_date or exam.created_at.date() if exam.created_at else None),
+            }
+        )
+    return {
+        "items": items,
+        "summary": {
+            "subjects": len(items),
+            "average": average,
+            "strongest": strongest["name"] if strongest else None,
+            "exams_recorded": sum(len(item.get("exams", [])) for item in items),
+        },
+        "monthly_trend": _performance_windows(recent_marks),
+        "recent_exams": recent_exams,
     }
 
 

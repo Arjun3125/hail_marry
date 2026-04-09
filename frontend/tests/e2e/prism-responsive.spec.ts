@@ -58,7 +58,7 @@ test.describe("Prism representative responsive smoke", () => {
 
         await page.goto("/");
 
-        await expect(page.getByRole("link", { name: /Explore Guided Demo/i })).toBeVisible();
+        await expect(page.getByRole("link", { name: /Explore demo/i })).toBeVisible();
         await expectNoHorizontalOverflow(page);
     });
 
@@ -103,7 +103,7 @@ test.describe("Prism representative responsive smoke", () => {
 
         await page.goto("/student/ai-studio");
 
-        await expect(page.getByRole("heading", { name: /single intelligence surface/i })).toBeVisible();
+        await expect(page.getByRole("heading", { name: /Ask, revise, and build answers from your own study material/i })).toBeVisible();
         await expectNoHorizontalOverflow(page);
     });
 
@@ -137,7 +137,7 @@ test.describe("Prism representative responsive smoke", () => {
 
         await page.goto("/teacher/dashboard");
 
-        await expect(page.getByRole("heading", { name: /Teacher Dashboard/i })).toBeVisible();
+        await expect(page.getByRole("heading", { name: /Run the school day from one teaching desk/i })).toBeVisible();
         await expectNoHorizontalOverflow(page);
     });
 
@@ -264,7 +264,7 @@ test.describe("Prism representative responsive smoke", () => {
 
         await page.goto("/admin/dashboard");
 
-        await expect(page.getByRole("heading", { name: /Admin Dashboard/i })).toBeVisible();
+        await expect(page.getByRole("heading", { name: /Run school health from a calm academic control surface/i })).toBeVisible();
         await expectNoHorizontalOverflow(page);
     });
 
@@ -304,7 +304,7 @@ test.describe("Prism representative responsive smoke", () => {
 
         await page.goto("/parent/dashboard");
 
-        await expect(page.getByRole("heading", { name: /Parent Dashboard/i })).toBeVisible();
+        await expect(page.getByRole("heading", { name: /See your child's week in one clear family summary/i })).toBeVisible();
         await expectNoHorizontalOverflow(page);
     });
 });

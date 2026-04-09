@@ -5,7 +5,6 @@ import { useSearchParams } from "next/navigation";
 import {
     CalendarCheck,
     Check,
-    CheckCheck,
     Clock,
     Save,
     Upload,
@@ -15,7 +14,7 @@ import {
 
 import EmptyState from "@/components/EmptyState";
 import { PrismTableShell } from "@/components/prism/PrismControls";
-import { PrismHeroKicker, PrismPage, PrismPanel, PrismSection } from "@/components/prism/PrismPage";
+import { PrismHeroKicker, PrismPage, PrismPageIntro, PrismPanel, PrismSection } from "@/components/prism/PrismPage";
 import ErrorRemediation from "@/components/ui/ErrorRemediation";
 import { api } from "@/lib/api";
 
@@ -259,46 +258,42 @@ export default function TeacherAttendanceClient() {
     };
 
     return (
-        <PrismPage className="space-y-6 pb-8">
+        <PrismPage variant="workspace" className="space-y-6 pb-8">
             <PrismSection className="space-y-6">
-                <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
-                    <div className="space-y-4">
+                <PrismPageIntro
+                    kicker={(
                         <PrismHeroKicker>
                             <CalendarCheck className="h-3.5 w-3.5" />
                             Teacher Attendance Workflow
                         </PrismHeroKicker>
-                        <div className="space-y-3">
-                            <h1 className="prism-title text-4xl font-black leading-[0.98] text-[var(--text-primary)] md:text-5xl">
-                                Attendance Entry
-                            </h1>
-                            <p className="max-w-3xl text-base leading-7 text-[var(--text-secondary)] md:text-lg">
-                                Mark the room quickly, import OCR-led registers when needed, and keep exceptions visible without slowing down the classroom workflow.
+                    )}
+                    title="Mark the register as a fast classroom workflow"
+                    description="Choose the class, confirm the date, import OCR-led registers when needed, and keep absent or late exceptions visible without slowing down the session."
+                    aside={(
+                        <div className="prism-briefing-panel">
+                            <p className="prism-status-label">Best use</p>
+                            <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
+                                Start with OCR import if you have a register image or sheet, then sweep the roster for the few students who need manual attention.
                             </p>
                         </div>
-                    </div>
+                    )}
+                />
 
-                    <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
-                        <MetricCard
-                            icon={Users}
-                            title="Class size"
-                            value={studentCount.toString()}
-                            accent="blue"
-                            summary={selectedClass ? `${selectedClass.name} roster loaded` : "Choose a class to load the roster"}
-                        />
-                        <MetricCard
-                            icon={CheckCheck}
-                            title="Marked present"
-                            value={attendanceCounts.present.toString()}
-                            accent="emerald"
-                            summary={studentCount > 0 ? "Default-ready for rapid confirmation" : "Waiting for roster"}
-                        />
-                        <MetricCard
-                            icon={Clock}
-                            title="Needs attention"
-                            value={(attendanceCounts.absent + attendanceCounts.late).toString()}
-                            accent="amber"
-                            summary="Absent and late students grouped for follow-up"
-                        />
+                <div className="prism-status-strip">
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">Class size</span>
+                        <span className="prism-status-value">{studentCount}</span>
+                        <span className="prism-status-detail">{selectedClass ? `${selectedClass.name} roster loaded` : "Choose a class to load the roster."}</span>
+                    </div>
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">Marked present</span>
+                        <span className="prism-status-value">{attendanceCounts.present}</span>
+                        <span className="prism-status-detail">{studentCount > 0 ? "Default-ready for rapid confirmation." : "Waiting for the roster to load."}</span>
+                    </div>
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">Needs attention</span>
+                        <span className="prism-status-value">{attendanceCounts.absent + attendanceCounts.late}</span>
+                        <span className="prism-status-detail">Absent and late students grouped for follow-up.</span>
                     </div>
                 </div>
 
@@ -421,6 +416,8 @@ export default function TeacherAttendanceClient() {
                                             icon={Users}
                                             title="No students in this class"
                                             description="Choose a different class or add students before taking attendance."
+                                            eyebrow="Roster unavailable"
+                                            scopeNote="Attendance entry only becomes useful after the selected class has an active student roster."
                                         />
                                     </div>
                                 ) : (
@@ -518,37 +515,6 @@ export default function TeacherAttendanceClient() {
                 </PrismPanel>
             </PrismSection>
         </PrismPage>
-    );
-}
-
-function MetricCard({
-    icon: Icon,
-    title,
-    value,
-    summary,
-    accent,
-}: {
-    icon: typeof Users;
-    title: string;
-    value: string;
-    summary: string;
-    accent: "blue" | "emerald" | "amber";
-}) {
-    const accentClasses = {
-        blue: "bg-[linear-gradient(135deg,rgba(96,165,250,0.22),rgba(59,130,246,0.08))] text-status-blue",
-        emerald: "bg-[linear-gradient(135deg,rgba(45,212,191,0.2),rgba(16,185,129,0.08))] text-status-emerald",
-        amber: "bg-[linear-gradient(135deg,rgba(251,191,36,0.2),rgba(245,158,11,0.08))] text-status-amber",
-    } as const;
-
-    return (
-        <PrismPanel className="p-4">
-            <div className={`mb-3 flex h-11 w-11 items-center justify-center rounded-2xl ${accentClasses[accent]}`}>
-                <Icon className="h-5 w-5" />
-            </div>
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">{title}</p>
-            <p className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">{value}</p>
-            <p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">{summary}</p>
-        </PrismPanel>
     );
 }
 

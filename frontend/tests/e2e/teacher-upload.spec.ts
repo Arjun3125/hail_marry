@@ -97,7 +97,7 @@ test("teacher upload page handles document OCR intake and YouTube ingestion", as
 
     await page.goto("/teacher/upload");
 
-    await expect(page.getByRole("heading", { name: "Upload Notes" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Bring class materials into one controlled intake flow" })).toBeVisible();
 
     await page.locator('input[type="file"]').setInputFiles({
         name: "photosynthesis-note.jpg",

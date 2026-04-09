@@ -4,11 +4,23 @@ import { useRef, useState, useEffect, useCallback } from "react";
 import { Loader2, Maximize2, Network, Sparkles, ZoomIn, ZoomOut } from "lucide-react";
 
 import { api } from "@/lib/api";
-import { PrismHeroKicker, PrismPage, PrismPanel, PrismSection } from "@/components/prism/PrismPage";
+import {
+    PrismHeroKicker,
+    PrismPage,
+    PrismPageIntro,
+    PrismPanel,
+    PrismSection,
+} from "@/components/prism/PrismPage";
 import ErrorRemediation from "@/components/ui/ErrorRemediation";
 
 type MindNode = { label: string; children?: MindNode[] };
 type NodePos = { x: number; y: number; label: string; depth: number; parent?: { x: number; y: number } };
+type MindMapHistoryItem = {
+    id: string;
+    title: string;
+    created_at: string | null;
+    content: MindNode;
+};
 
 function flattenTree(
     node: MindNode,
@@ -30,6 +42,7 @@ function flattenTree(
 }
 
 const COLORS = ["#6366f1", "#8b5cf6", "#ec4899", "#f43f5e", "#f97316", "#eab308", "#22c55e", "#14b8a6", "#06b6d4", "#3b82f6"];
+const EXAMPLES = ["Cell Biology", "Newton's Laws", "The Water Cycle", "Photosynthesis", "World War II"];
 
 export default function InteractiveMindMapPage() {
     const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -41,6 +54,25 @@ export default function InteractiveMindMapPage() {
     const [pan, setPan] = useState({ x: 60, y: 0 });
     const [dragging, setDragging] = useState(false);
     const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+    const [history, setHistory] = useState<MindMapHistoryItem[]>([]);
+
+    useEffect(() => {
+        const loadHistory = async () => {
+            try {
+                const payload = await api.student.studyToolHistory("mindmap", 6) as { items?: MindMapHistoryItem[] };
+                const items = payload.items || [];
+                setHistory(items);
+                if (items.length > 0) {
+                    setData(items[0].content);
+                    setTopic(items[0].title);
+                }
+            } catch {
+                // History is optional outside demo mode.
+            }
+        };
+
+        void loadHistory();
+    }, []);
 
     const generate = async () => {
         if (!topic.trim() || loading) return;
@@ -180,49 +212,47 @@ export default function InteractiveMindMapPage() {
     const handleMouseUp = () => setDragging(false);
 
     return (
-        <PrismPage className="space-y-6">
+        <PrismPage variant="workspace" className="space-y-6">
             <PrismSection className="space-y-6">
-                <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
-                    <div className="space-y-4">
+                <PrismPageIntro
+                    kicker={(
                         <PrismHeroKicker>
                             <Sparkles className="h-3.5 w-3.5" />
-                            Spatial Learning Surface
+                            Spatial Learning Tool
                         </PrismHeroKicker>
-                        <div className="space-y-3">
-                            <h1 className="prism-title text-4xl font-black leading-[0.98] text-[var(--text-primary)] md:text-5xl">
-                                Turn a topic into a <span className="premium-gradient">navigable concept structure</span> instead of a flat summary
-                            </h1>
-                            <p className="max-w-3xl text-base leading-7 text-[var(--text-secondary)] md:text-lg">
-                                Mind Map is now framed as a spatial study tool: generate a hierarchy, inspect relationships, zoom into branches, and reset the view without leaving the student learning flow.
+                    )}
+                    title="Turn a topic into a visual concept structure"
+                    description="Use the mind-map workspace to see branches, dependencies, and supporting ideas before you switch into quizzes, notes, or deeper AI study."
+                    aside={(
+                        <div className="prism-briefing-panel">
+                            <p className="prism-status-label">Best use</p>
+                            <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
+                                Start with one chapter or process. Narrower topics produce cleaner branches and more useful revision planning.
                             </p>
                         </div>
-                    </div>
+                    )}
+                />
 
-                    <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
-                        <PrismPanel className="p-4">
-                            <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,rgba(45,212,191,0.18),rgba(16,185,129,0.08))]">
-                                <Network className="h-5 w-5 text-status-emerald" />
-                            </div>
-                            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">Mode</p>
-                            <p className="mt-2 text-lg font-semibold text-[var(--text-primary)]">Hierarchical map</p>
-                            <p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">Best for topic structure, branches, and conceptual dependencies.</p>
-                        </PrismPanel>
-                        <PrismPanel className="p-4">
-                            <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,rgba(96,165,250,0.18),rgba(129,140,248,0.08))]">
-                                <ZoomIn className="h-5 w-5 text-status-blue" />
-                            </div>
-                            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">Interaction</p>
-                            <p className="mt-2 text-lg font-semibold text-[var(--text-primary)]">Pan and zoom</p>
-                            <p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">Move across the map canvas and reset focus when the structure expands.</p>
-                        </PrismPanel>
-                        <PrismPanel className="p-4">
-                            <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,rgba(167,139,250,0.18),rgba(129,140,248,0.08))]">
-                                <Sparkles className="h-5 w-5 text-status-violet" />
-                            </div>
-                            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">Use case</p>
-                            <p className="mt-2 text-lg font-semibold text-[var(--text-primary)]">Revision planning</p>
-                            <p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">See where a concept sits before you dive into details or assessment prep.</p>
-                        </PrismPanel>
+                <div className="prism-status-strip">
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">Mode</span>
+                        <span className="prism-status-value">Hierarchical map</span>
+                        <span className="prism-status-detail">Best for topic structure, branches, and conceptual dependencies.</span>
+                    </div>
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">Interaction</span>
+                        <span className="prism-status-value">Pan and zoom</span>
+                        <span className="prism-status-detail">Move across the canvas, inspect branches, then reset when the structure expands.</span>
+                    </div>
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">Use case</span>
+                        <span className="prism-status-value">Revision planning</span>
+                        <span className="prism-status-detail">See where a concept sits before moving into details, recall practice, or exam prep.</span>
+                    </div>
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">Saved maps</span>
+                        <span className="prism-status-value">{history.length}</span>
+                        <span className="prism-status-detail">Seeded mind maps already available in the student demo workspace.</span>
                     </div>
                 </div>
 
@@ -253,10 +283,10 @@ export default function InteractiveMindMapPage() {
                                 </button>
                             </div>
 
-                            <div className="rounded-[1.5rem] border border-[var(--border)] bg-[rgba(148,163,184,0.04)] p-4">
+                            <div className="prism-support-panel rounded-[1.5rem] p-4">
                                 <p className="mb-3 text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">Good prompts</p>
                                 <div className="flex flex-wrap gap-2">
-                                    {["Cell Biology", "Newton's Laws", "The Water Cycle", "Photosynthesis", "World War II"].map((example) => (
+                                    {EXAMPLES.map((example) => (
                                         <button
                                             key={example}
                                             onClick={() => setTopic(example)}
@@ -283,61 +313,89 @@ export default function InteractiveMindMapPage() {
                 ) : null}
 
                 {!loading && data ? (
-                    <PrismPanel className="overflow-hidden p-0">
-                        <div className="flex flex-wrap items-center gap-3 border-b border-[var(--border)]/80 bg-[rgba(255,255,255,0.02)] px-5 py-4">
-                            <div className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[rgba(148,163,184,0.08)] px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">
-                                <Network className="h-3.5 w-3.5" />
-                                Canvas Mode
+                    <div className="space-y-5">
+                        <PrismPanel className="overflow-hidden p-0">
+                            <div className="flex flex-wrap items-center gap-3 border-b border-[var(--border)]/80 bg-[rgba(255,255,255,0.02)] px-5 py-4">
+                                <div className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[rgba(148,163,184,0.08)] px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">
+                                    <Network className="h-3.5 w-3.5" />
+                                    Canvas mode
+                                </div>
+                                <div className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[rgba(148,163,184,0.04)] px-3 py-1.5 text-xs text-[var(--text-secondary)]">
+                                    Topic: {topic}
+                                </div>
+                                <div className="ml-auto flex gap-2">
+                                    <button
+                                        onClick={() => setZoom((z) => Math.min(z + 0.15, 2.5))}
+                                        className="rounded-xl border border-[var(--border)] bg-[rgba(148,163,184,0.05)] p-2 text-[var(--text-secondary)] transition hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
+                                    >
+                                        <ZoomIn className="h-4 w-4" />
+                                    </button>
+                                    <button
+                                        onClick={() => setZoom((z) => Math.max(z - 0.15, 0.3))}
+                                        className="rounded-xl border border-[var(--border)] bg-[rgba(148,163,184,0.05)] p-2 text-[var(--text-secondary)] transition hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
+                                    >
+                                        <ZoomOut className="h-4 w-4" />
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            setZoom(1);
+                                            setPan({ x: 60, y: 0 });
+                                        }}
+                                        className="rounded-xl border border-[var(--border)] bg-[rgba(148,163,184,0.05)] p-2 text-[var(--text-secondary)] transition hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
+                                    >
+                                        <Maximize2 className="h-4 w-4" />
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            setData(null);
+                                            setTopic("");
+                                        }}
+                                        className="rounded-xl border border-[var(--border)] bg-[rgba(148,163,184,0.05)] px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)] transition hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
+                                    >
+                                        New
+                                    </button>
+                                </div>
                             </div>
-                            <div className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[rgba(148,163,184,0.04)] px-3 py-1.5 text-xs text-[var(--text-secondary)]">
-                                Topic: {topic}
-                            </div>
-                            <div className="ml-auto flex gap-2">
-                                <button
-                                    onClick={() => setZoom((z) => Math.min(z + 0.15, 2.5))}
-                                    className="rounded-xl border border-[var(--border)] bg-[rgba(148,163,184,0.05)] p-2 text-[var(--text-secondary)] transition hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
-                                >
-                                    <ZoomIn className="h-4 w-4" />
-                                </button>
-                                <button
-                                    onClick={() => setZoom((z) => Math.max(z - 0.15, 0.3))}
-                                    className="rounded-xl border border-[var(--border)] bg-[rgba(148,163,184,0.05)] p-2 text-[var(--text-secondary)] transition hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
-                                >
-                                    <ZoomOut className="h-4 w-4" />
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        setZoom(1);
-                                        setPan({ x: 60, y: 0 });
-                                    }}
-                                    className="rounded-xl border border-[var(--border)] bg-[rgba(148,163,184,0.05)] p-2 text-[var(--text-secondary)] transition hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
-                                >
-                                    <Maximize2 className="h-4 w-4" />
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        setData(null);
-                                        setTopic("");
-                                    }}
-                                    className="rounded-xl border border-[var(--border)] bg-[rgba(148,163,184,0.05)] px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)] transition hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
-                                >
-                                    New
-                                </button>
-                            </div>
-                        </div>
 
-                        <div className="bg-[linear-gradient(180deg,rgba(8,15,30,0.88),rgba(5,10,20,0.92))]">
-                            <canvas
-                                ref={canvasRef}
-                                className="w-full cursor-grab active:cursor-grabbing"
-                                style={{ height: "550px" }}
-                                onMouseDown={handleMouseDown}
-                                onMouseMove={handleMouseMove}
-                                onMouseUp={handleMouseUp}
-                                onMouseLeave={handleMouseUp}
-                            />
-                        </div>
-                    </PrismPanel>
+                            <div className="bg-[linear-gradient(180deg,rgba(8,15,30,0.88),rgba(5,10,20,0.92))]">
+                                <canvas
+                                    ref={canvasRef}
+                                    className="w-full cursor-grab active:cursor-grabbing"
+                                    style={{ height: "550px" }}
+                                    onMouseDown={handleMouseDown}
+                                    onMouseMove={handleMouseMove}
+                                    onMouseUp={handleMouseUp}
+                                    onMouseLeave={handleMouseUp}
+                                />
+                            </div>
+                        </PrismPanel>
+                        {history.length > 1 ? (
+                            <PrismPanel className="p-5">
+                                <div className="mb-4">
+                                    <p className="text-sm font-semibold text-[var(--text-primary)]">Recent saved maps</p>
+                                    <p className="mt-1 text-xs text-[var(--text-secondary)]">Load one of the seeded concept structures to show how this tool has been used over the last six months.</p>
+                                </div>
+                                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                                    {history.map((item) => (
+                                        <button
+                                            key={item.id}
+                                            type="button"
+                                            onClick={() => {
+                                                setData(item.content);
+                                                setTopic(item.title);
+                                                setZoom(1);
+                                                setPan({ x: 60, y: 0 });
+                                            }}
+                                            className="rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.03)] p-4 text-left transition hover:border-[var(--primary)] hover:bg-[rgba(96,165,250,0.08)]"
+                                        >
+                                            <p className="text-sm font-semibold text-[var(--text-primary)]">{item.title}</p>
+                                            <p className="mt-1 text-xs text-[var(--text-secondary)]">{item.created_at ? new Date(item.created_at).toLocaleDateString() : "Saved map"}</p>
+                                        </button>
+                                    ))}
+                                </div>
+                            </PrismPanel>
+                        ) : null}
+                    </div>
                 ) : null}
             </PrismSection>
         </PrismPage>

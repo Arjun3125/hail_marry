@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { CheckCircle2, Circle, HelpCircle, X } from "lucide-react";
+import { ArrowRight, CheckCircle2, Circle, HelpCircle, X } from "lucide-react";
 
 type RoleKey = "admin" | "teacher" | "student" | "parent";
 
@@ -25,7 +25,7 @@ const roleConfig: Record<RoleKey, { title: string; checklist: ChecklistItem[]; t
             { label: "Review queue and AI health", href: "/admin/queue" },
         ],
         todayTasks: [
-            { label: "Today’s tasks: resolve open complaints", href: "/admin/complaints" },
+            { label: "Today's tasks: resolve open complaints", href: "/admin/complaints" },
             { label: "Set up class timetable", href: "/admin/timetable" },
             { label: "Review AI usage", href: "/admin/ai-usage" },
         ],
@@ -42,7 +42,7 @@ const roleConfig: Record<RoleKey, { title: string; checklist: ChecklistItem[]; t
             { label: "Generate first assessment", href: "/teacher/generate-assessment" },
         ],
         todayTasks: [
-            { label: "Today’s tasks: mark attendance", href: "/teacher/attendance" },
+            { label: "Today's tasks: mark attendance", href: "/teacher/attendance" },
             { label: "Assign assessment", href: "/teacher/assignments" },
             { label: "Review class insights", href: "/teacher/insights" },
         ],
@@ -59,7 +59,7 @@ const roleConfig: Record<RoleKey, { title: string; checklist: ChecklistItem[]; t
             { label: "Upload study material", href: "/student/upload" },
         ],
         todayTasks: [
-            { label: "Today’s tasks: complete pending assignment", href: "/student/assignments" },
+            { label: "Today's tasks: complete pending assignment", href: "/student/assignments" },
             { label: "Revise weak topics", href: "/student/reviews" },
             { label: "Continue in AI Studio", href: "/student/ai-studio" },
         ],
@@ -76,7 +76,7 @@ const roleConfig: Record<RoleKey, { title: string; checklist: ChecklistItem[]; t
             { label: "Download report", href: "/parent/reports" },
         ],
         todayTasks: [
-            { label: "Today’s tasks: check weekly attendance", href: "/parent/attendance" },
+            { label: "Today's tasks: check weekly attendance", href: "/parent/attendance" },
             { label: "Review results and action points", href: "/parent/results" },
             { label: "Open narrative report", href: "/parent/dashboard" },
         ],
@@ -92,40 +92,49 @@ export function RoleStartPanel({ role }: { role: RoleKey }) {
     const config = useMemo(() => roleConfig[role], [role]);
 
     return (
-        <section className="glass-panel mb-6 rounded-[calc(var(--radius)*1.05)] p-4">
+        <section className="prism-panel prism-operational-card mb-6 rounded-[calc(var(--radius)*1.05)] p-4">
             <div className="flex items-start justify-between gap-4">
-                <div>
-                    <p className="text-xs font-bold uppercase tracking-[0.24em] text-[var(--text-muted)]">Getting started</p>
+                <div className="space-y-1">
+                    <p className="text-xs font-bold uppercase tracking-[0.24em] text-[var(--text-muted)]">Start here</p>
                     <h2 className="text-lg font-semibold text-[var(--text-primary)]">{config.title}</h2>
+                    <p className="max-w-2xl text-sm leading-6 text-[var(--text-secondary)]">
+                        Begin with the setup essentials, then move directly into today&apos;s live work.
+                    </p>
                 </div>
                 <button
                     onClick={() => setShowHelp((v) => !v)}
-                    className="inline-flex items-center gap-1 rounded-xl border border-[var(--border)] bg-[rgba(148,163,184,0.06)] px-3 py-1 text-xs text-[var(--text-secondary)] hover:border-[var(--primary)]"
+                    className="prism-action-secondary inline-flex items-center gap-1 !rounded-xl !px-3 !py-1.5 text-xs"
                 >
                     {showHelp ? <X className="h-3.5 w-3.5" /> : <HelpCircle className="h-3.5 w-3.5" />} Help
                 </button>
             </div>
 
-            <div className="mt-3 grid gap-4 md:grid-cols-2">
-                <div>
-                    <p className="mb-2 text-xs font-semibold text-[var(--text-secondary)]">First-run checklist</p>
-                    <ul className="space-y-2">
+            <div className="prism-operational-grid mt-4 md:grid-cols-2">
+                <div className="prism-briefing-panel">
+                    <p className="mb-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">First-run checklist</p>
+                    <ul className="prism-operational-list">
                         {config.checklist.map((item) => (
-                            <li key={item.label}>
-                                <Link href={item.href} className="inline-flex items-center gap-2 text-sm text-[var(--text-primary)] hover:text-[var(--primary)]">
-                                    <Circle className="h-4 w-4" /> {item.label}
+                            <li key={item.label} className="prism-operational-row">
+                                <Link href={item.href} className="flex items-center justify-between gap-3 text-sm text-[var(--text-primary)] transition-colors hover:text-[var(--primary)]">
+                                    <span className="inline-flex items-center gap-2">
+                                        <Circle className="h-4 w-4 text-[var(--text-secondary)]" /> {item.label}
+                                    </span>
+                                    <ArrowRight className="h-4 w-4 text-[var(--text-muted)]" />
                                 </Link>
                             </li>
                         ))}
                     </ul>
                 </div>
-                <div>
-                    <p className="mb-2 text-xs font-semibold text-[var(--text-secondary)]">Task-first navigation</p>
-                    <ul className="space-y-2">
+                <div className="prism-briefing-panel">
+                    <p className="mb-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Today&apos;s live work</p>
+                    <ul className="prism-operational-list">
                         {config.todayTasks.map((item) => (
-                            <li key={item.label}>
-                                <Link href={item.href} className="inline-flex items-center gap-2 text-sm text-[var(--text-primary)] hover:text-[var(--primary)]">
-                                    <CheckCircle2 className="h-4 w-4 text-status-emerald" /> {item.label}
+                            <li key={item.label} className="prism-operational-row">
+                                <Link href={item.href} className="flex items-center justify-between gap-3 text-sm text-[var(--text-primary)] transition-colors hover:text-[var(--primary)]">
+                                    <span className="inline-flex items-center gap-2">
+                                        <CheckCircle2 className="h-4 w-4 text-status-emerald" /> {item.label}
+                                    </span>
+                                    <ArrowRight className="h-4 w-4 text-[var(--text-muted)]" />
                                 </Link>
                             </li>
                         ))}
@@ -134,11 +143,11 @@ export function RoleStartPanel({ role }: { role: RoleKey }) {
             </div>
 
             {showHelp && (
-                <div className="mt-4 rounded-xl border border-[var(--primary)]/20 bg-[rgba(148,163,184,0.06)] p-3">
-                    <p className="mb-2 text-xs font-semibold text-[var(--text-secondary)]">Quick help overlays</p>
-                    <div className="space-y-2">
+                <div className="prism-support-panel mt-4 rounded-xl p-4">
+                    <p className="mb-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Quick guidance</p>
+                    <div className="space-y-3">
                         {config.help.map((h) => (
-                            <div key={h.title}>
+                            <div key={h.title} className="prism-operational-row">
                                 <p className="text-sm font-medium text-[var(--text-primary)]">{h.title}</p>
                                 <p className="text-xs text-[var(--text-muted)]">{h.detail}</p>
                             </div>

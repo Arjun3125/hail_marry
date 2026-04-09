@@ -27,9 +27,11 @@ from src.domains.academic.application.student_dashboard import (
     build_student_dashboard_response as _build_student_dashboard_response_impl,
 )
 from src.domains.academic.application.student_learning_insights import (
+    build_student_profile_summary as _build_student_profile_summary_impl,
     build_student_mastery_map as _build_student_mastery_map_impl,
     build_student_weak_topics as _build_student_weak_topics_impl,
     list_student_timetable as _list_student_timetable_impl,
+    list_student_study_tool_history as _list_student_study_tool_history_impl,
     list_student_uploads as _list_student_uploads_impl,
 )
 from src.domains.academic.application.student_lectures import (
@@ -524,6 +526,36 @@ async def student_uploads(
         student_id=current_user.id,
         page=page,
         page_size=page_size,
+    )
+
+
+@router.get("/study-tools/history")
+async def student_study_tool_history(
+    current_user: User = Depends(require_role("student")),
+    db: Session = Depends(get_db),
+    tool: str | None = None,
+    limit: int = 8,
+):
+    """List recently generated study artifacts for seeded demo recovery and history panels."""
+    return _list_student_study_tool_history_impl(
+        db=db,
+        tenant_id=current_user.tenant_id,
+        student_id=current_user.id,
+        tool=tool,
+        limit=limit,
+    )
+
+
+@router.get("/profile-summary")
+async def student_profile_summary(
+    current_user: User = Depends(require_role("student")),
+    db: Session = Depends(get_db),
+):
+    """Return six-month activity summary for the student profile surface."""
+    return _build_student_profile_summary_impl(
+        db=db,
+        tenant_id=current_user.tenant_id,
+        student_id=current_user.id,
     )
 
 

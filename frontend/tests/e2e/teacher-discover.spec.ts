@@ -81,7 +81,7 @@ test("teacher discover page searches sources and ingests a result", async ({ pag
 
     await page.goto("/teacher/discover");
 
-    await expect(page.getByRole("heading", { name: "Source Discovery" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Find relevant external sources before you add them to class knowledge" })).toBeVisible();
     await page.getByPlaceholder(/NCERT Class 10 Photosynthesis/i).fill("NCERT Photosynthesis");
     await page.getByRole("button", { name: /Search Sources/i }).click();
 

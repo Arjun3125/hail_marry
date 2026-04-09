@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { AlertCircle, CheckCircle2, Clock3, RefreshCw, ShieldAlert, Siren, Waypoints } from "lucide-react";
+import { PrismHeroKicker, PrismPage, PrismPageIntro, PrismSection } from "@/components/prism/PrismPage";
 import { api } from "@/lib/api";
 
 type Incident = {
@@ -139,17 +140,30 @@ export default function IncidentManagementPage() {
     };
 
     if (loading) {
-        return <div className="p-8 text-center text-[var(--text-muted)]">Loading incident controls...</div>;
+        return (
+            <PrismPage variant="dashboard" className="space-y-6 pb-8">
+                <PrismSection className="space-y-6">
+                    <div className="p-8 text-center text-[var(--text-muted)]">Loading incident controls...</div>
+                </PrismSection>
+            </PrismPage>
+        );
     }
 
     return (
-        <div className="space-y-6">
+        <PrismPage variant="dashboard" className="space-y-6 pb-8">
+            <PrismSection className="space-y-6">
             <div className="flex items-start justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-[var(--text-primary)]">Incident Management</h1>
-                    <p className="text-sm text-[var(--text-secondary)]">
-                        Monitor operational alerts, acknowledge incidents, and manage notification routes.
-                    </p>
+                    <PrismPageIntro
+                        kicker={(
+                            <PrismHeroKicker>
+                                <Siren className="h-3.5 w-3.5" />
+                                Enterprise Incident Surface
+                            </PrismHeroKicker>
+                        )}
+                        title="Keep operational incidents visible and actionable"
+                        description="Monitor alerts, acknowledge incidents, resolve failures, and maintain notification routes from one enterprise control room."
+                    />
                 </div>
                 <div className="flex gap-2">
                     <button
@@ -377,6 +391,7 @@ export default function IncidentManagementPage() {
                     </div>
                 </div>
             </div>
-        </div>
+            </PrismSection>
+        </PrismPage>
     );
 }

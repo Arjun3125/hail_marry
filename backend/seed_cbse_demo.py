@@ -35,6 +35,7 @@ from src.domains.academic.models.performance import SubjectPerformance
 from src.domains.academic.services.student_profile_sync import sync_student_profile_context
 from src.domains.academic.models.test_series import TestSeries, MockTestAttempt
 from src.domains.academic.models.parent_link import ParentLink
+from src.domains.administrative.models.complaint import Complaint
 from src.domains.platform.models.notebook import Notebook
 from src.domains.platform.models.document import Document
 from src.domains.platform.models.ai import AIFolder, AIQuery
@@ -227,6 +228,104 @@ PERSONA_AUDIT_TEMPLATES = {
     ],
 }
 
+USAGE_ACTIVITY_BLUEPRINTS = {
+    "student": {
+        "model": "meta/llama-3.1-70b-instruct",
+        "metrics": [
+            {"metric": "qa_requests", "count_range": (1, 4), "tokens_per_request": (320, 780), "active_probability": 0.92},
+            {"metric": "quiz_generations", "count_range": (0, 2), "tokens_per_request": (360, 620), "active_probability": 0.58},
+            {"metric": "flashcard_generations", "count_range": (0, 2), "tokens_per_request": (250, 520), "active_probability": 0.52},
+            {"metric": "study_guide_generations", "count_range": (0, 1), "tokens_per_request": (520, 920), "active_probability": 0.36},
+            {"metric": "mindmap_generations", "count_range": (0, 1), "tokens_per_request": (420, 760), "active_probability": 0.24},
+            {"metric": "socratic_sessions", "count_range": (0, 2), "tokens_per_request": (280, 640), "active_probability": 0.42},
+            {"metric": "audio_overviews", "count_range": (0, 1), "tokens_per_request": (650, 1200), "active_probability": 0.16},
+            {"metric": "video_overviews", "count_range": (0, 1), "tokens_per_request": (800, 1400), "active_probability": 0.08},
+        ],
+    },
+    "teacher": {
+        "model": "meta/llama-3.1-70b-instruct",
+        "metrics": [
+            {"metric": "qa_requests", "count_range": (0, 2), "tokens_per_request": (320, 760), "active_probability": 0.74},
+            {"metric": "quiz_generations", "count_range": (0, 2), "tokens_per_request": (420, 780), "active_probability": 0.46},
+            {"metric": "study_guide_generations", "count_range": (0, 1), "tokens_per_request": (540, 960), "active_probability": 0.34},
+            {"metric": "weak_topic_plans", "count_range": (0, 1), "tokens_per_request": (480, 860), "active_probability": 0.26},
+            {"metric": "essay_reviews", "count_range": (0, 1), "tokens_per_request": (420, 800), "active_probability": 0.28},
+        ],
+    },
+    "parent": {
+        "model": "meta/llama-3.1-8b-instruct",
+        "metrics": [
+            {"metric": "qa_requests", "count_range": (0, 1), "tokens_per_request": (200, 480), "active_probability": 0.5},
+            {"metric": "study_guide_generations", "count_range": (0, 1), "tokens_per_request": (360, 620), "active_probability": 0.18},
+            {"metric": "flashcard_generations", "count_range": (0, 1), "tokens_per_request": (200, 420), "active_probability": 0.12},
+        ],
+    },
+    "admin": {
+        "model": "meta/llama-3.1-70b-instruct",
+        "metrics": [
+            {"metric": "qa_requests", "count_range": (0, 1), "tokens_per_request": (260, 620), "active_probability": 0.52},
+            {"metric": "study_guide_generations", "count_range": (0, 1), "tokens_per_request": (480, 860), "active_probability": 0.22},
+            {"metric": "concept_map_generations", "count_range": (0, 1), "tokens_per_request": (420, 760), "active_probability": 0.18},
+        ],
+    },
+}
+
+COHORT_STUDENT_NAMES = [
+    "Aarav Mehta",
+    "Ananya Gupta",
+    "Vihaan Patel",
+    "Isha Singh",
+    "Aditya Verma",
+    "Saanvi Nair",
+    "Krish Shah",
+    "Diya Kulkarni",
+    "Arjun Rao",
+    "Myra Joshi",
+    "Reyansh Kapoor",
+    "Aadhya Iyer",
+    "Kabir Bansal",
+    "Kiara Malhotra",
+    "Yash Tiwari",
+    "Riya Desai",
+    "Atharv Menon",
+    "Navya Reddy",
+    "Dhruv Khanna",
+    "Meher Chawla",
+]
+
+COMPLAINT_TEMPLATES = [
+    {
+        "category": "facilities",
+        "description": "Physics lab ventilation was poor during the practical block and the class had to pause twice.",
+        "status": "resolved",
+        "resolution_note": "Facilities team serviced the lab exhaust system and rescheduled the practical revision slot.",
+    },
+    {
+        "category": "academics",
+        "description": "Chemistry assignment rubric was missing marks breakup for organic naming questions.",
+        "status": "resolved",
+        "resolution_note": "Teacher published a revised rubric with question-wise allocation on the assignments page.",
+    },
+    {
+        "category": "transport",
+        "description": "The late bus on Thursday caused two consecutive late attendance marks after extra class.",
+        "status": "in_review",
+        "resolution_note": "Transport coordinator is aligning the evening route with the current timetable.",
+    },
+    {
+        "category": "digital_access",
+        "description": "Uploaded scanned notes stayed in processing longer than expected before revision time.",
+        "status": "open",
+        "resolution_note": None,
+    },
+    {
+        "category": "canteen",
+        "description": "The lunch queue overlap with remedial class made it hard to get back before attendance.",
+        "status": "resolved",
+        "resolution_note": "Section timing was staggered for senior classes and the attendance grace window was extended.",
+    },
+]
+
 
 def _history_start(now: datetime, *, days: int = 180) -> date:
     return (now - timedelta(days=days - 1)).date()
@@ -250,6 +349,57 @@ def _month_start(value: date) -> date:
     return value.replace(day=1)
 
 
+def _usage_intensity(bucket_day: date, *, history_start: date, history_end: date) -> float:
+    total_span = max((history_end - history_start).days, 1)
+    progress = (bucket_day - history_start).days / total_span
+    adoption_factor = 0.58 + (progress * 0.72)
+    weekday_factor = 1.0 if bucket_day.weekday() < 5 else 0.72
+    if bucket_day >= history_end - timedelta(days=45):
+        exam_factor = 1.22
+    elif bucket_day >= history_end - timedelta(days=90):
+        exam_factor = 1.1
+    else:
+        exam_factor = 1.0
+    return adoption_factor * weekday_factor * exam_factor
+
+
+def _rollup_usage(
+    store: dict,
+    key,
+    *,
+    count: int = 0,
+    token_total: int = 0,
+    cache_hits: int = 0,
+    cost_units: float = 0.0,
+) -> None:
+    bucket = store.setdefault(key, {"count": 0, "tokens": 0, "cache_hits": 0, "cost_units": 0.0})
+    bucket["count"] += count
+    bucket["tokens"] += token_total
+    bucket["cache_hits"] += cache_hits
+    bucket["cost_units"] += cost_units
+
+
+def _apply_test_series_rankings(db, *, tenant_id: uuid.UUID, test_series_id: uuid.UUID) -> None:
+    attempts = (
+        db.query(MockTestAttempt)
+        .filter(
+            MockTestAttempt.tenant_id == tenant_id,
+            MockTestAttempt.test_series_id == test_series_id,
+        )
+        .all()
+    )
+    scored = []
+    for attempt in attempts:
+        pct = (attempt.marks_obtained / attempt.total_marks * 100) if attempt.total_marks else 0
+        scored.append((attempt, pct))
+    scored.sort(key=lambda item: (-item[1], item[0].time_taken_minutes or 999))
+
+    total = len(scored)
+    for rank_index, (attempt, pct) in enumerate(scored, start=1):
+        attempt.rank = rank_index
+        attempt.percentile = round((total - rank_index) / total * 100, 1) if total > 1 else 100.0
+
+
 def cleanup_existing(db):
     """Remove existing Modern Hustlers Academy tenant and all associated data."""
     tenant = db.query(Tenant).filter(Tenant.name == TENANT_NAME).first()
@@ -264,7 +414,7 @@ def cleanup_existing(db):
         Notification, StudySession, KGRelationship, KGConcept,
         ReviewSchedule, StudyPathPlan, LearnerProfile, TopicMastery,
         GeneratedContent, AIQuery, AIFolder, AssignmentSubmission, Assignment,
-        Mark, Exam, Attendance, Lecture, Timetable, SubjectPerformance,
+        Mark, Exam, Attendance, Lecture, Timetable, SubjectPerformance, Complaint,
         ParentLink, Document, Notebook, Enrollment, Subject, Class, User, Tenant,
     ]:
         try:
@@ -341,8 +491,33 @@ def seed(skip_embeddings: bool = False):
                      full_name="Mrs. Sharma (Parent)", role="parent",
                      preferred_locale="en", phone_number="+919800000104",
                      whatsapp_linked=True, last_login=now - timedelta(days=1, hours=2)))
+        cohort_students: list[dict[str, object]] = []
+        for index, full_name in enumerate(COHORT_STUDENT_NAMES, start=1):
+            cohort_id = uuid.uuid4()
+            score_bias = random.randint(-10, 12)
+            email = f"cohort{index:02d}@modernhustlers.com"
+            cohort_students.append(
+                {
+                    "id": cohort_id,
+                    "name": full_name,
+                    "email": email,
+                    "roll_number": str(101 + index),
+                    "score_bias": score_bias,
+                }
+            )
+            db.add(User(
+                id=cohort_id,
+                tenant_id=tenant_id,
+                email=email,
+                full_name=full_name,
+                role="student",
+                preferred_locale="en",
+                phone_number=f"+9198010{index:04d}",
+                whatsapp_linked=index % 4 != 0,
+                last_login=now - timedelta(days=random.randint(0, 4), hours=random.randint(1, 18)),
+            ))
         db.flush()
-        logger.info("✓ Users created (student + teacher + admin + parent)")
+        logger.info("✓ Users created (student + teacher + admin + parent + cohort)")
 
         # ── 2b. Parent Link ──────────────────────────────────────
         db.add(ParentLink(tenant_id=tenant_id, parent_id=parent_id,
@@ -378,8 +553,16 @@ def seed(skip_embeddings: bool = False):
         db.flush()
         db.add(Enrollment(tenant_id=tenant_id, student_id=student_id,
                            class_id=class_id, roll_number="101", academic_year="2025-26"))
+        for cohort in cohort_students:
+            db.add(Enrollment(
+                tenant_id=tenant_id,
+                student_id=cohort["id"],
+                class_id=class_id,
+                roll_number=cohort["roll_number"],
+                academic_year="2025-26",
+            ))
         db.flush()
-        logger.info("✓ Class, 5 subjects, enrollment created")
+        logger.info("✓ Class, 5 subjects, and cohort enrollments created")
 
         # ── 4. Timetable (Mon-Sat) ───────────────────────────────
         schedule = {
@@ -460,6 +643,19 @@ def seed(skip_embeddings: bool = False):
                              exam_id=eid,
                              marks_obtained=min(max_marks, random.randint(score_floor, min(score_floor + 18, max_marks))),
                              created_at=_history_timestamp(exam_date_obj, hour=15)))
+                for cohort in cohort_students:
+                    cohort_base = min(
+                        max_marks - 6,
+                        max(35, baseline_scores[subj_name] + int(cohort["score_bias"]) + (exam_idx * 2)),
+                    )
+                    cohort_ceiling = min(max_marks, max(cohort_base + 18, cohort_base + 4))
+                    db.add(Mark(
+                        tenant_id=tenant_id,
+                        student_id=cohort["id"],
+                        exam_id=eid,
+                        marks_obtained=random.randint(cohort_base, cohort_ceiling),
+                        created_at=_history_timestamp(exam_date_obj, hour=13 + (int(cohort["roll_number"]) % 5)),
+                    ))
         db.flush()
         logger.info("✓ Exams & marks seeded across the full six-month window")
 
@@ -619,20 +815,77 @@ def seed(skip_embeddings: bool = False):
         total_chunks = 0
         notebook_ids = {}
 
-        for subj_name, nb_data in NOTEBOOKS.items():
+        for subject_index, (subj_name, nb_data) in enumerate(NOTEBOOKS.items()):
+            nb_created_day = history_days[min(len(history_days) - 1, 6 + (subject_index * 10))]
             nb_id = uuid.uuid4()
             notebook_ids[subj_name] = nb_id
-            db.add(Notebook(id=nb_id, tenant_id=tenant_id, user_id=student_id,
-                             name=nb_data["name"], subject=subj_name,
-                             color=nb_data["color"], icon=nb_data["icon"], is_active=True))
+            db.add(Notebook(
+                id=nb_id,
+                tenant_id=tenant_id,
+                user_id=student_id,
+                name=nb_data["name"],
+                subject=subj_name,
+                color=nb_data["color"],
+                icon=nb_data["icon"],
+                is_active=True,
+                created_at=_history_timestamp(nb_created_day, hour=7, minute=40),
+                updated_at=_history_timestamp(nb_created_day, hour=7, minute=55),
+            ))
             db.flush()
 
+            source_file_name = f"{nb_data['name']}.pdf"
             doc_id = uuid.uuid4()
-            db.add(Document(id=doc_id, tenant_id=tenant_id, subject_id=subjects[subj_name],
-                             uploaded_by=student_id, notebook_id=nb_id,
-                             file_name=f"{nb_data['name']}.pdf", file_type="pdf",
-                             ingestion_status="completed", chunk_count=len(nb_data["chunks"])))
+            source_created_at = _history_timestamp(nb_created_day, hour=8, minute=15)
+            db.add(Document(
+                id=doc_id,
+                tenant_id=tenant_id,
+                subject_id=subjects[subj_name],
+                uploaded_by=student_id,
+                notebook_id=nb_id,
+                file_name=source_file_name,
+                file_type="pdf",
+                ingestion_status="completed",
+                chunk_count=len(nb_data["chunks"]),
+                created_at=source_created_at,
+            ))
             db.flush()
+
+            extra_uploads = [
+                (
+                    f"{subj_name} revision notes.docx",
+                    "docx",
+                    "completed",
+                    4 + (subject_index % 3),
+                    history_days[min(len(history_days) - 1, 24 + (subject_index * 11))],
+                ),
+                (
+                    f"{subj_name} formula sheet.pdf",
+                    "pdf",
+                    "completed",
+                    3 + ((subject_index + 1) % 3),
+                    history_days[min(len(history_days) - 1, 58 + (subject_index * 9))],
+                ),
+                (
+                    f"{subj_name} classroom scan.jpg",
+                    "jpg",
+                    "processing" if subject_index % 2 == 0 else "completed",
+                    0 if subject_index % 2 == 0 else 2,
+                    history_days[min(len(history_days) - 1, 96 + (subject_index * 7))],
+                ),
+            ]
+            for upload_index, (file_name, file_type, status, chunk_count, upload_day) in enumerate(extra_uploads):
+                db.add(Document(
+                    id=uuid.uuid4(),
+                    tenant_id=tenant_id,
+                    subject_id=subjects[subj_name],
+                    uploaded_by=student_id,
+                    notebook_id=nb_id,
+                    file_name=file_name,
+                    file_type=file_type,
+                    ingestion_status=status,
+                    chunk_count=chunk_count,
+                    created_at=_history_timestamp(upload_day, hour=17 + (upload_index % 3), minute=10 + (upload_index * 8)),
+                ))
 
             logger.info(f"  → Embedding {len(nb_data['chunks'])} chunks for {subj_name}...")
             if skip_embeddings:
@@ -647,14 +900,36 @@ def seed(skip_embeddings: bool = False):
                         "document_id": str(doc_id), "text": text,
                         "subject_id": str(subjects[subj_name]),
                         "notebook_id": str(nb_id), "chunk_index": idx,
-                        "source_file": f"{nb_data['name']}.pdf",
+                        "source_file": source_file_name,
                     })
 
                 vs.add_chunks(chunks_for_vs, embeddings)
                 total_chunks += len(chunks_for_vs)
                 logger.info(f"  ✓ {subj_name}: {len(chunks_for_vs)} chunks indexed")
 
-        logger.info(f"✓ All notebooks indexed — {total_chunks} total FAISS vectors")
+        teacher_resource_docs = [
+            ("Physics", "Projectile Motion Remediation Pack.pdf", "pdf", "completed", 9, history_days[18]),
+            ("Chemistry", "Organic Naming Classroom Slides.pptx", "pptx", "completed", 7, history_days[42]),
+            ("Mathematics", "Differentiation Exit Ticket.xlsx", "xlsx", "completed", 5, history_days[74]),
+            ("English", "Hornbill Guided Reading.docx", "docx", "completed", 4, history_days[101]),
+            ("Computer Science", "Python Function Lab Photos.png", "png", "processing", 0, history_days[128]),
+        ]
+        for index, (subj_name, file_name, file_type, status, chunk_count, created_day) in enumerate(teacher_resource_docs):
+            db.add(Document(
+                id=uuid.uuid4(),
+                tenant_id=tenant_id,
+                subject_id=subjects[subj_name],
+                notebook_id=None,
+                uploaded_by=teacher_id,
+                file_name=file_name,
+                file_type=file_type,
+                ingestion_status=status,
+                chunk_count=chunk_count,
+                created_at=_history_timestamp(created_day, hour=11 + (index % 4), minute=20),
+            ))
+
+        db.flush()
+        logger.info(f"✓ All notebooks indexed and upload history seeded — {total_chunks} total FAISS vectors")
 
         # ── 12. TopicMastery ─────────────────────────────────────
         mastery_data = [
@@ -777,10 +1052,40 @@ def seed(skip_embeddings: bool = False):
                 tenant_id=tenant_id, student_id=student_id,
                 subject_id=subjects[subj], topic=topic,
                 next_review_at=now + timedelta(days=random.randint(-3, interval)),
-                interval_days=interval, ease_factor=ease, review_count=review_ct,
+                interval_days=interval,
+                ease_factor=ease,
+                review_count=review_ct,
+                created_at=_history_timestamp(
+                    history_days[min(len(history_days) - 1, 38 + (review_ct * 3))],
+                    hour=18,
+                    minute=10,
+                ),
+                updated_at=_history_timestamp(
+                    history_days[min(len(history_days) - 1, 118 + review_ct)],
+                    hour=20,
+                    minute=5,
+                ),
             ))
         db.flush()
         logger.info(f"✓ {len(sr_topics)} ReviewSchedule entries seeded")
+
+        complaint_days = history_days[::27][:len(COMPLAINT_TEMPLATES)]
+        for index, template in enumerate(COMPLAINT_TEMPLATES):
+            created_at = _history_timestamp(complaint_days[index], hour=14 + (index % 4), minute=25)
+            resolved_at = created_at + timedelta(days=5 + index) if template["status"] == "resolved" else None
+            db.add(Complaint(
+                tenant_id=tenant_id,
+                student_id=student_id,
+                category=template["category"],
+                description=template["description"],
+                status=template["status"],
+                resolved_by=admin_id if template["status"] == "resolved" else None,
+                resolution_note=template["resolution_note"],
+                created_at=created_at,
+                resolved_at=resolved_at,
+            ))
+        db.flush()
+        logger.info(f"✓ {len(COMPLAINT_TEMPLATES)} complaints seeded across the six-month window")
 
         # ── 16. Knowledge Graph ──────────────────────────────────
         kg_concepts = {}
@@ -842,65 +1147,197 @@ def seed(skip_embeddings: bool = False):
                 {"front": "1 + tan²θ", "back": "sec²θ"},
             ]}),
         ]
-        for gtype, title, subj, content in gen_content:
+        gen_content = [
+            ("quiz", "Kinematics Quick Quiz", "Physics", {
+                "questions": [
+                    {"q": "What is displacement?", "options": ["Vector distance", "Scalar distance"], "answer": 0},
+                    {"q": "SI unit of velocity?", "options": ["m/s", "km/h", "m/s^2"], "answer": 0},
+                ],
+            }, "quiz", history_days[22]),
+            ("flashcard_set", "Newton's Laws Flashcards", "Physics", {
+                "cards": [
+                    {"front": "First Law", "back": "Law of Inertia"},
+                    {"front": "F = ?", "back": "ma (mass x acceleration)"},
+                ],
+            }, "flashcards", history_days[49]),
+            ("mind_map", "Derivatives Concept Map", "Mathematics", {
+                "label": "Derivatives",
+                "children": [
+                    {"label": "Definition", "children": [{"label": "Limit definition"}, {"label": "Slope of tangent"}]},
+                    {"label": "Rules", "children": [{"label": "Power rule"}, {"label": "Chain rule"}, {"label": "Product rule"}]},
+                    {"label": "Applications", "children": [{"label": "Maxima and minima"}, {"label": "Rate of change"}]},
+                ],
+            }, "mindmap", history_days[73]),
+            ("study_guide", "Thermodynamics Recovery Guide", "Chemistry", {
+                "sections": [
+                    {"title": "Core ideas", "points": ["State functions", "Sign convention", "Enthalpy change"]},
+                    {"title": "Practice order", "points": ["Review formulas", "Solve two solved examples", "Attempt a mixed worksheet"]},
+                ],
+            }, "study_guide", history_days[96]),
+            ("audio_overview", "Kinematics Audio Overview", "Physics", {
+                "title": "Kinematics in Conversation",
+                "duration_estimate": "6 min",
+                "dialogue": [
+                    {"speaker": "Anika", "text": "Start with displacement versus distance before touching velocity."},
+                    {"speaker": "Rohan", "text": "Then connect average velocity to slope so the formulas feel less abstract."},
+                    {"speaker": "Anika", "text": "Finish with one projectile range example and one graph-reading question."},
+                ],
+            }, "audio overview", history_days[118]),
+            ("video_overview", "Chemical Bonding Slide Deck", "Chemistry", {
+                "presentation_title": "Chemical Bonding Revision",
+                "total_slides": 4,
+                "slides": [
+                    {"title": "Big idea", "bullets": ["Atoms bond for stability", "Valence electrons matter"], "narration": "Bonding starts with valence electrons and the search for stable configurations."},
+                    {"title": "Covalent bond", "bullets": ["Shared electron pair", "Directional bond"], "narration": "Covalent bonds form when atoms share electron pairs."},
+                    {"title": "VSEPR", "bullets": ["Repulsion model", "Predict geometry"], "narration": "VSEPR helps predict shape by looking at electron pair repulsion."},
+                    {"title": "Exam cues", "bullets": ["Geometry", "Bond angle", "Lone pair effect"], "narration": "Most exam errors come from ignoring lone pairs when predicting shape."},
+                ],
+            }, "video overview", history_days[134]),
+            ("quiz", "Python Data Types Quiz", "Computer Science", {
+                "questions": [
+                    {"q": "Is list mutable?", "options": ["Yes", "No"], "answer": 0},
+                    {"q": "type(3.14)?", "options": ["int", "float", "str"], "answer": 1},
+                ],
+            }, "quiz", history_days[150]),
+            ("flashcard_set", "Trig Identities", "Mathematics", {
+                "cards": [
+                    {"front": "sin^2(theta) + cos^2(theta)", "back": "1"},
+                    {"front": "1 + tan^2(theta)", "back": "sec^2(theta)"},
+                ],
+            }, "flashcards", history_days[148]),
+            ("mind_map", "Python Functions Map", "Computer Science", {
+                "label": "Python Functions",
+                "children": [
+                    {"label": "Syntax", "children": [{"label": "def keyword"}, {"label": "parameters"}]},
+                    {"label": "Flow", "children": [{"label": "return"}, {"label": "scope"}]},
+                    {"label": "Practice", "children": [{"label": "lab questions"}, {"label": "debugging"}]},
+                ],
+            }, "mindmap", history_days[-8]),
+        ]
+        for gtype, title, subj, content, source_label, created_day in gen_content:
             nb = notebook_ids.get(subj)
             if nb:
                 db.add(GeneratedContent(
                     tenant_id=tenant_id, notebook_id=nb, user_id=student_id,
                     type=gtype, title=title, content=content,
-                    source_query=f"Generate {gtype} for {subj}",
+                    source_query=f"Generate {source_label} for {subj}",
+                    created_at=_history_timestamp(created_day, hour=19, minute=20),
+                    updated_at=_history_timestamp(created_day, hour=19, minute=32),
                 ))
         db.flush()
         logger.info(f"✓ {len(gen_content)} GeneratedContent items seeded")
 
         # ── 18. UsageCounter (6-month analytics) ─────────────────
         usage_profiles = {
-            student_id: {"metric": "ai_requests", "count_range": (2, 9), "tokens_per_request": (260, 720), "model": "meta/llama-3.1-70b-instruct"},
-            teacher_id: {"metric": "teacher_assistant_requests", "count_range": (1, 5), "tokens_per_request": (320, 820), "model": "meta/llama-3.1-70b-instruct"},
-            parent_id: {"metric": "parent_assistant_requests", "count_range": (0, 3), "tokens_per_request": (180, 520), "model": "meta/llama-3.1-8b-instruct"},
-            admin_id: {"metric": "admin_ai_requests", "count_range": (0, 4), "tokens_per_request": (280, 760), "model": "meta/llama-3.1-70b-instruct"},
+            student_id: {"role": "student", **USAGE_ACTIVITY_BLUEPRINTS["student"]},
+            teacher_id: {"role": "teacher", **USAGE_ACTIVITY_BLUEPRINTS["teacher"]},
+            parent_id: {"role": "parent", **USAGE_ACTIVITY_BLUEPRINTS["parent"]},
+            admin_id: {"role": "admin", **USAGE_ACTIVITY_BLUEPRINTS["admin"]},
         }
         uc_count = 0
-        month_rollups: dict[tuple[uuid.UUID, str, date], dict[str, float]] = {}
-        tenant_day_rollups: dict[date, dict[str, float]] = {}
-        tenant_month_rollups: dict[date, dict[str, float]] = {}
+        user_month_rollups: dict[tuple[uuid.UUID, str, date], dict[str, float]] = {}
+        tenant_day_rollups: dict[tuple[str, date], dict[str, float]] = {}
+        tenant_month_rollups: dict[tuple[str, date], dict[str, float]] = {}
+        history_end = now.date()
         for bucket_day in history_days:
+            day_intensity = _usage_intensity(bucket_day, history_start=history_start, history_end=history_end)
             for user_id, profile in usage_profiles.items():
-                min_count, max_count = profile["count_range"]
-                count = random.randint(min_count, max_count)
-                if count <= 0:
+                month_key_base = _month_start(bucket_day)
+                day_total_requests = 0
+                day_total_tokens = 0
+                day_total_cache_hits = 0
+                day_total_cost_units = 0.0
+                role_bonus = {
+                    "student": 1.0,
+                    "teacher": 0.78,
+                    "parent": 0.36,
+                    "admin": 0.3,
+                }[profile["role"]]
+                effective_intensity = day_intensity * role_bonus
+                for metric_profile in profile["metrics"]:
+                    if random.random() > metric_profile["active_probability"]:
+                        continue
+                    base_count = random.randint(*metric_profile["count_range"])
+                    count = int(round(base_count * effective_intensity))
+                    if count <= 0:
+                        continue
+                    tokens = sum(random.randint(*metric_profile["tokens_per_request"]) for _ in range(count))
+                    cache_hits = min(count, max(0, int(round(count * random.uniform(0.12, 0.38)))))
+                    cost_units = round(tokens * 0.00002, 4)
+                    metric_name = metric_profile["metric"]
+                    db.add(UsageCounter(
+                        tenant_id=tenant_id, user_id=user_id, scope="user",
+                        metric=metric_name, bucket_type="day", bucket_start=bucket_day,
+                        count=count, token_total=tokens, cache_hits=cache_hits,
+                        estimated_cost_units=cost_units, last_model=profile["model"],
+                    ))
+                    uc_count += 1
+                    _rollup_usage(
+                        user_month_rollups,
+                        (user_id, metric_name, month_key_base),
+                        count=count,
+                        token_total=tokens,
+                        cache_hits=cache_hits,
+                        cost_units=cost_units,
+                    )
+                    _rollup_usage(
+                        tenant_day_rollups,
+                        (metric_name, bucket_day),
+                        count=count,
+                        token_total=tokens,
+                        cache_hits=cache_hits,
+                        cost_units=cost_units,
+                    )
+                    _rollup_usage(
+                        tenant_month_rollups,
+                        (metric_name, month_key_base),
+                        count=count,
+                        token_total=tokens,
+                        cache_hits=cache_hits,
+                        cost_units=cost_units,
+                    )
+                    day_total_requests += count
+                    day_total_tokens += tokens
+                    day_total_cache_hits += cache_hits
+                    day_total_cost_units += cost_units
+                if day_total_requests <= 0:
                     continue
-                tokens = sum(random.randint(*profile["tokens_per_request"]) for _ in range(count))
-                cache_hits = min(count, random.randint(0, max(1, count // 2)))
-                cost_units = round(tokens * 0.00002, 4)
-                db.add(UsageCounter(
-                    tenant_id=tenant_id, user_id=user_id, scope="user",
-                    metric=profile["metric"], bucket_type="day", bucket_start=bucket_day,
-                    count=count, token_total=tokens, cache_hits=cache_hits,
-                    estimated_cost_units=cost_units, last_model=profile["model"],
-                ))
-                uc_count += 1
-
-                month_key = (user_id, profile["metric"], _month_start(bucket_day))
-                month_rollups.setdefault(month_key, {"count": 0, "tokens": 0, "cache_hits": 0, "cost_units": 0.0})
-                month_rollups[month_key]["count"] += count
-                month_rollups[month_key]["tokens"] += tokens
-                month_rollups[month_key]["cache_hits"] += cache_hits
-                month_rollups[month_key]["cost_units"] += cost_units
-
-                tenant_day_rollups.setdefault(bucket_day, {"count": 0, "tokens": 0, "cache_hits": 0, "cost_units": 0.0})
-                tenant_day_rollups[bucket_day]["count"] += count
-                tenant_day_rollups[bucket_day]["tokens"] += tokens
-                tenant_day_rollups[bucket_day]["cache_hits"] += cache_hits
-                tenant_day_rollups[bucket_day]["cost_units"] += cost_units
-
-                tenant_month = _month_start(bucket_day)
-                tenant_month_rollups.setdefault(tenant_month, {"count": 0, "tokens": 0, "cache_hits": 0, "cost_units": 0.0})
-                tenant_month_rollups[tenant_month]["count"] += count
-                tenant_month_rollups[tenant_month]["tokens"] += tokens
-                tenant_month_rollups[tenant_month]["cache_hits"] += cache_hits
-                tenant_month_rollups[tenant_month]["cost_units"] += cost_units
-        for (user_id, metric, bucket_start), totals in month_rollups.items():
+                for aggregate_metric, aggregate_count, aggregate_tokens in [
+                    ("ai_requests", day_total_requests, day_total_tokens),
+                    ("llm_tokens", 0, day_total_tokens),
+                ]:
+                    db.add(UsageCounter(
+                        tenant_id=tenant_id, user_id=user_id, scope="user",
+                        metric=aggregate_metric, bucket_type="day", bucket_start=bucket_day,
+                        count=aggregate_count, token_total=aggregate_tokens, cache_hits=day_total_cache_hits,
+                        estimated_cost_units=round(day_total_cost_units, 4), last_model=profile["model"],
+                    ))
+                    uc_count += 1
+                    _rollup_usage(
+                        user_month_rollups,
+                        (user_id, aggregate_metric, month_key_base),
+                        count=aggregate_count,
+                        token_total=aggregate_tokens,
+                        cache_hits=day_total_cache_hits,
+                        cost_units=day_total_cost_units,
+                    )
+                    _rollup_usage(
+                        tenant_day_rollups,
+                        (aggregate_metric, bucket_day),
+                        count=aggregate_count,
+                        token_total=aggregate_tokens,
+                        cache_hits=day_total_cache_hits,
+                        cost_units=day_total_cost_units,
+                    )
+                    _rollup_usage(
+                        tenant_month_rollups,
+                        (aggregate_metric, month_key_base),
+                        count=aggregate_count,
+                        token_total=aggregate_tokens,
+                        cache_hits=day_total_cache_hits,
+                        cost_units=day_total_cost_units,
+                    )
+        for (user_id, metric, bucket_start), totals in user_month_rollups.items():
             db.add(UsageCounter(
                 tenant_id=tenant_id, user_id=user_id, scope="user",
                 metric=metric, bucket_type="month", bucket_start=bucket_start,
@@ -910,22 +1347,20 @@ def seed(skip_embeddings: bool = False):
                 last_model=usage_profiles[user_id]["model"],
             ))
             uc_count += 1
-
-        for bucket_day, totals in tenant_day_rollups.items():
+        for (metric, bucket_day), totals in tenant_day_rollups.items():
             db.add(UsageCounter(
                 tenant_id=tenant_id, user_id=None, scope="tenant",
-                metric="ai_requests", bucket_type="day", bucket_start=bucket_day,
+                metric=metric, bucket_type="day", bucket_start=bucket_day,
                 count=int(totals["count"]), token_total=int(totals["tokens"]),
                 cache_hits=int(totals["cache_hits"]),
                 estimated_cost_units=round(float(totals["cost_units"]), 4),
                 last_model="meta/llama-3.1-70b-instruct",
             ))
             uc_count += 1
-
-        for bucket_month, totals in tenant_month_rollups.items():
+        for (metric, bucket_month), totals in tenant_month_rollups.items():
             db.add(UsageCounter(
                 tenant_id=tenant_id, user_id=None, scope="tenant",
-                metric="ai_requests", bucket_type="month", bucket_start=bucket_month,
+                metric=metric, bucket_type="month", bucket_start=bucket_month,
                 count=int(totals["count"]), token_total=int(totals["tokens"]),
                 cache_hits=int(totals["cache_hits"]),
                 estimated_cost_units=round(float(totals["cost_units"]), 4),
@@ -940,26 +1375,56 @@ def seed(skip_embeddings: bool = False):
         db.add(TestSeries(id=ts1_id, tenant_id=tenant_id, name="CBSE Midterm Practice",
                            description="Practice tests for midterm exams",
                            class_id=class_id, total_marks=100, duration_minutes=90,
-                           is_active=True, created_by=teacher_id))
+                           status="published", published_at=_history_timestamp(history_days[84], hour=9),
+                           is_active=True, created_by=teacher_id,
+                           created_at=_history_timestamp(history_days[80], hour=11)))
         ts2_id = uuid.uuid4()
         db.add(TestSeries(id=ts2_id, tenant_id=tenant_id, name="JEE Foundation Series",
                            description="JEE preparation mock tests",
                            subject_id=subjects["Physics"], class_id=class_id,
                            total_marks=120, duration_minutes=60,
-                           is_active=True, created_by=teacher_id))
+                           status="published", published_at=_history_timestamp(history_days[126], hour=9),
+                           is_active=True, created_by=teacher_id,
+                           created_at=_history_timestamp(history_days[122], hour=11)))
         db.flush()
 
+        primary_attempt_bias = {str(ts1_id): 0.0, str(ts2_id): 3.5}
         for ts_id, total in [(ts1_id, 100), (ts2_id, 120)]:
-            for attempt_num in range(random.randint(3, 5)):
+            attempt_days = history_days[88::19] if ts_id == ts1_id else history_days[132::14]
+            for attempt_index, attempt_day in enumerate(attempt_days[:4]):
                 db.add(MockTestAttempt(
-                    tenant_id=tenant_id, test_series_id=ts_id, student_id=student_id,
-                    marks_obtained=round(random.uniform(total * 0.55, total * 0.88), 1),
+                    tenant_id=tenant_id,
+                    test_series_id=ts_id,
+                    student_id=student_id,
+                    marks_obtained=round(min(total, random.uniform(total * 0.68, total * 0.86) + primary_attempt_bias[str(ts_id)]), 1),
                     total_marks=float(total),
-                    time_taken_minutes=random.randint(40, 85),
-                    percentile=round(random.uniform(60, 92), 1),
-                    rank=random.randint(5, 45),
+                    time_taken_minutes=random.randint(42, 78),
+                    created_at=_history_timestamp(attempt_day, hour=17, minute=10 + (attempt_index * 5)),
                 ))
+
+            for cohort_index, cohort in enumerate(cohort_students):
+                attempt_total = 2 if cohort_index % 3 == 0 else 1
+                for attempt_index in range(attempt_total):
+                    attempt_day = attempt_days[min(len(attempt_days) - 1, (cohort_index + attempt_index) % len(attempt_days))]
+                    pct_floor = max(42, 58 + int(cohort["score_bias"]))
+                    pct_ceiling = min(96, pct_floor + 18)
+                    pct_score = random.randint(pct_floor, pct_ceiling)
+                    db.add(MockTestAttempt(
+                        tenant_id=tenant_id,
+                        test_series_id=ts_id,
+                        student_id=cohort["id"],
+                        marks_obtained=round(total * (pct_score / 100), 1),
+                        total_marks=float(total),
+                        time_taken_minutes=random.randint(39, 92),
+                        created_at=_history_timestamp(
+                            attempt_day,
+                            hour=15 + (cohort_index % 4),
+                            minute=(cohort_index * 3) % 60,
+                        ),
+                    ))
         db.flush()
+        _apply_test_series_rankings(db, tenant_id=tenant_id, test_series_id=ts1_id)
+        _apply_test_series_rankings(db, tenant_id=tenant_id, test_series_id=ts2_id)
         logger.info("✓ TestSeries + MockTestAttempts seeded")
 
         # ── 20. 6-Month AI Query History ─────────────────────────

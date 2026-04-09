@@ -1,20 +1,18 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
     BookOpen,
     CheckCircle2,
-    Database,
     ExternalLink,
     Globe,
     Loader2,
     Plus,
     Search,
-    Sparkles,
 } from "lucide-react";
 
 import EmptyState from "@/components/EmptyState";
-import { PrismHeroKicker, PrismPage, PrismPanel, PrismSection } from "@/components/prism/PrismPage";
+import { PrismHeroKicker, PrismPage, PrismPageIntro, PrismPanel, PrismSection } from "@/components/prism/PrismPage";
 import { useNetworkAware } from "@/hooks/useNetworkAware";
 import ErrorRemediation from "@/components/ui/ErrorRemediation";
 import { api } from "@/lib/api";
@@ -23,6 +21,15 @@ type SearchResult = {
     title: string;
     url: string;
     snippet: string;
+};
+
+type ResourceHistoryItem = {
+    id: string;
+    name: string;
+    type: "document" | "youtube";
+    status: "processing" | "completed" | "failed";
+    detail?: string;
+    created_at?: string | null;
 };
 
 type AIJobStatus = "queued" | "running" | "completed" | "failed";
@@ -35,6 +42,8 @@ export default function DiscoverSourcesPage() {
     const [error, setError] = useState<string | null>(null);
     const [ingesting, setIngesting] = useState<Record<number, boolean>>({});
     const [ingested, setIngested] = useState<Record<number, { chunks: number }>>({});
+    const [historyItems, setHistoryItems] = useState<ResourceHistoryItem[]>([]);
+    const [historyIndexedChunks, setHistoryIndexedChunks] = useState(0);
 
     const summary = useMemo(() => {
         const activeIngestions = Object.values(ingesting).filter(Boolean).length;
@@ -48,6 +57,23 @@ export default function DiscoverSourcesPage() {
         };
     }, [ingested, ingesting]);
     const fallbackPollMs = saveData ? 6000 : isSlowConnection ? 4000 : 2000;
+
+    useEffect(() => {
+        const loadHistory = async () => {
+            try {
+                const payload = await api.teacher.resourceHistory() as {
+                    summary?: { indexed_chunks?: number };
+                    recent_activity?: ResourceHistoryItem[];
+                };
+                setHistoryItems((payload.recent_activity || []).filter((item) => item.type === "youtube" || item.type === "document").slice(0, 6));
+                setHistoryIndexedChunks(payload.summary?.indexed_chunks || 0);
+            } catch {
+                // Discovery history is additive only.
+            }
+        };
+
+        void loadHistory();
+    }, []);
 
     const resetSearchState = () => {
         setResults([]);
@@ -126,46 +152,44 @@ export default function DiscoverSourcesPage() {
     };
 
     return (
-        <PrismPage className="space-y-6 pb-8">
+        <PrismPage variant="workspace" className="space-y-6 pb-8">
             <PrismSection className="space-y-6">
-                <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
-                    <div className="space-y-4">
+                <PrismPageIntro
+                    kicker={(
                         <PrismHeroKicker>
                             <Globe className="h-3.5 w-3.5" />
-                            Teacher Source Discovery
+                            Teacher Discovery Surface
                         </PrismHeroKicker>
-                        <div className="space-y-3">
-                            <h1 className="prism-title text-4xl font-black leading-[0.98] text-[var(--text-primary)] md:text-5xl">
-                                Source Discovery
-                            </h1>
-                            <p className="max-w-3xl text-base leading-7 text-[var(--text-secondary)] md:text-lg">
-                                Search for external learning resources, review relevance before ingestion, and add useful material into the product knowledge base without breaking the teacher workflow.
+                    )}
+                    title="Find relevant external sources before you add them to class knowledge"
+                    description="Search for instructional resources, review relevance before ingestion, and add only the best material into the shared learning base."
+                    aside={(
+                        <div className="prism-briefing-panel">
+                            <p className="prism-status-label">Best use</p>
+                            <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
+                                Keep queries narrow and curriculum-specific so the results are easier to vet before they become searchable class knowledge.
                             </p>
                         </div>
-                    </div>
+                    )}
+                />
 
-                    <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
-                        <MetricCard
-                            icon={Search}
-                            title="Results in view"
-                            value={`${results.length}`}
-                            accent="blue"
-                            summary="Current resource candidates returned by the discovery query"
-                        />
-                        <MetricCard
-                            icon={Database}
-                            title="Sources indexed"
-                            value={`${summary.completedIngestions}`}
-                            accent="emerald"
-                            summary="Results already added into the knowledge base during this session"
-                        />
-                        <MetricCard
-                            icon={Sparkles}
-                            title="Indexed chunks"
-                            value={summary.completedIngestions ? `${summary.indexedChunks}` : "0"}
-                            accent="amber"
-                            summary={summary.activeIngestions ? `${summary.activeIngestions} ingestion job running` : "Ready to ingest selected sources"}
-                        />
+                <div className="prism-status-strip">
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">Results in view</span>
+                        <span className="prism-status-value">{results.length}</span>
+                        <span className="prism-status-detail">Current candidates returned by the active discovery query.</span>
+                    </div>
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">Sources indexed</span>
+                        <span className="prism-status-value">{summary.completedIngestions || historyItems.length}</span>
+                        <span className="prism-status-detail">Results already added into the knowledge base for this teacher workspace.</span>
+                    </div>
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">Indexed chunks</span>
+                        <span className="prism-status-value">{summary.completedIngestions ? summary.indexedChunks : historyIndexedChunks}</span>
+                        <span className="prism-status-detail">
+                            {summary.activeIngestions ? `${summary.activeIngestions} ingestion job running.` : "Ready to ingest selected sources."}
+                        </span>
                     </div>
                 </div>
 
@@ -320,12 +344,16 @@ export default function DiscoverSourcesPage() {
                                     icon={Globe}
                                     title="No discovery matches yet"
                                     description="Try a tighter subject, chapter, or curriculum phrase to improve the result set."
+                                    eyebrow="No source matches"
+                                    scopeNote="Discovery works best when the query names the board, class, chapter, or concept you actually teach."
                                 />
                             ) : (
                                 <EmptyState
                                     icon={Search}
                                     title="No search started yet"
                                     description="Enter a teaching query to discover external learning resources worth ingesting."
+                                    eyebrow="Awaiting discovery query"
+                                    scopeNote="Start with one concept or chapter at a time so the search results stay instructional instead of generic."
                                 />
                             )}
                         </div>
@@ -336,8 +364,20 @@ export default function DiscoverSourcesPage() {
                                 <div className="mt-4 space-y-4">
                                     <SummaryRow label="Query" value={query.trim() || "No active search"} />
                                     <SummaryRow label="Results returned" value={`${results.length}`} />
-                                    <SummaryRow label="Sources indexed" value={`${summary.completedIngestions}`} />
-                                    <SummaryRow label="Indexed chunks" value={`${summary.indexedChunks}`} />
+                                    <SummaryRow label="Sources indexed" value={`${summary.completedIngestions || historyItems.length}`} />
+                                    <SummaryRow label="Indexed chunks" value={`${summary.completedIngestions ? summary.indexedChunks : historyIndexedChunks}`} />
+                                </div>
+                            </PrismPanel>
+
+                            <PrismPanel className="p-5">
+                                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">Recent curated sources</p>
+                                <div className="mt-4 space-y-3">
+                                    {historyItems.length > 0 ? historyItems.map((item) => (
+                                        <div key={item.id} className="rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.03)] px-4 py-3">
+                                            <p className="text-sm font-semibold text-[var(--text-primary)]">{item.name}</p>
+                                            <p className="mt-1 text-xs text-[var(--text-secondary)]">{item.type} • {item.created_at ? new Date(item.created_at).toLocaleDateString() : "Saved source"}</p>
+                                        </div>
+                                    )) : <p className="text-sm text-[var(--text-secondary)]">No discovery history has been saved yet.</p>}
                                 </div>
                             </PrismPanel>
 
@@ -362,37 +402,6 @@ export default function DiscoverSourcesPage() {
                 </PrismPanel>
             </PrismSection>
         </PrismPage>
-    );
-}
-
-function MetricCard({
-    icon: Icon,
-    title,
-    value,
-    summary,
-    accent,
-}: {
-    icon: typeof Search;
-    title: string;
-    value: string;
-    summary: string;
-    accent: "blue" | "emerald" | "amber";
-}) {
-    const accentClasses = {
-        blue: "bg-[linear-gradient(135deg,rgba(96,165,250,0.22),rgba(59,130,246,0.08))] text-status-blue",
-        emerald: "bg-[linear-gradient(135deg,rgba(45,212,191,0.2),rgba(16,185,129,0.08))] text-status-emerald",
-        amber: "bg-[linear-gradient(135deg,rgba(251,191,36,0.2),rgba(245,158,11,0.08))] text-status-amber",
-    } as const;
-
-    return (
-        <PrismPanel className="p-4">
-            <div className={`mb-3 flex h-11 w-11 items-center justify-center rounded-2xl ${accentClasses[accent]}`}>
-                <Icon className="h-5 w-5" />
-            </div>
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">{title}</p>
-            <p className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">{value}</p>
-            <p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">{summary}</p>
-        </PrismPanel>
     );
 }
 

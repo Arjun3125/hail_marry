@@ -39,7 +39,7 @@ export default function ErrorRemediation({
     };
 
     return (
-        <div className="prism-error-shell mb-6">
+        <div className="prism-error-shell prism-remediation-card mb-6">
             <div className="flex items-start gap-4">
                 <div className="prism-error-icon">
                     <AlertTriangle className="h-4 w-4 text-[var(--error)]" />
@@ -56,11 +56,11 @@ export default function ErrorRemediation({
                         <span className="prism-chip font-mono">Ref ID: {ids.refId}</span>
                     </div>
 
-                    <div className="mt-4 flex flex-wrap gap-2">
+                    <div className="prism-empty-actions mt-4">
                         {onRetry ? (
                             <button
                                 onClick={onRetry}
-                                className="prism-action inline-flex items-center gap-1.5 !bg-[linear-gradient(135deg,rgba(251,113,133,0.92),rgba(244,114,182,0.88))] !text-white !shadow-[0_20px_36px_rgba(244,63,94,0.22)]"
+                                className="prism-action inline-flex items-center gap-1.5 !bg-[linear-gradient(135deg,rgba(226,232,240,0.96),rgba(186,200,222,0.94))] !text-[#0b1527] !shadow-[0_16px_30px_rgba(15,23,42,0.18)]"
                             >
                                 <RefreshCw className="h-3.5 w-3.5" /> {meta.actionLabel}
                             </button>

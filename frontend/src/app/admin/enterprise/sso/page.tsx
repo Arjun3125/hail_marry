@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Key, Save, ShieldCheck, Globe, UserCheck } from "lucide-react";
+import { PrismHeroKicker, PrismPage, PrismPageIntro, PrismSection } from "@/components/prism/PrismPage";
 import { api } from "@/lib/api";
 
 export default function SSOSettingsPage() {
@@ -45,14 +46,29 @@ export default function SSOSettingsPage() {
         }
     };
 
-    if (loading) return <div className="p-8 text-center text-[var(--text-muted)]">Loading SSO Configuration...</div>;
+    if (loading) {
+        return (
+            <PrismPage variant="form" className="space-y-6 pb-8">
+                <PrismSection className="space-y-6">
+                    <div className="p-8 text-center text-[var(--text-muted)]">Loading SSO configuration...</div>
+                </PrismSection>
+            </PrismPage>
+        );
+    }
 
     return (
-        <div className="max-w-4xl">
-            <div className="mb-6">
-                <h1 className="text-2xl font-bold text-[var(--text-primary)]">SAML SSO Configuration</h1>
-                <p className="text-sm text-[var(--text-secondary)]">Manage Enterprise Single Sign-On (SAML 2.0)</p>
-            </div>
+        <PrismPage variant="form" className="max-w-4xl space-y-6 pb-8">
+            <PrismSection className="space-y-6">
+                <PrismPageIntro
+                    kicker={(
+                        <PrismHeroKicker>
+                            <ShieldCheck className="h-3.5 w-3.5" />
+                            Enterprise SSO Surface
+                        </PrismHeroKicker>
+                    )}
+                    title="Manage SAML identity control without leaving the admin shell"
+                    description="Configure enterprise single sign-on, metadata routing, and attribute mapping from one dedicated SSO workspace."
+                />
 
             {message && (
                 <div className={`mb-6 p-4 rounded-[var(--radius)] text-sm ${
@@ -150,6 +166,7 @@ export default function SSOSettingsPage() {
                     </button>
                 </div>
             </form>
-        </div>
+            </PrismSection>
+        </PrismPage>
     );
 }

@@ -16,7 +16,7 @@ import {
 
 import { api } from "@/lib/api";
 import { RoleStartPanel } from "@/components/RoleStartPanel";
-import { PrismHeroKicker, PrismPage, PrismPanel, PrismSection } from "@/components/prism/PrismPage";
+import { PrismHeroKicker, PrismPage, PrismPageIntro, PrismPanel, PrismSection } from "@/components/prism/PrismPage";
 import ErrorRemediation from "@/components/ui/ErrorRemediation";
 
 type ParentDashboard = {
@@ -41,6 +41,71 @@ type ParentDashboard = {
         end_time: string;
         subject: string;
     } | null;
+    summary: {
+        assignments_submitted: number;
+        study_sessions: number;
+        ai_requests: number;
+        generated_tools: number;
+        latest_milestones: {
+            last_assignment_submitted_at: string | null;
+            last_study_session_at: string | null;
+            last_ai_request_at: string | null;
+            last_generated_tool_at: string | null;
+        };
+        recent_generated_tools: Array<{
+            id: string;
+            type: string;
+            title: string;
+            created_at: string;
+        }>;
+    };
+    monthly_attendance: Array<{
+        month: string;
+        present: number;
+        absent: number;
+        late: number;
+        attendance_pct: number;
+        marked_days: number;
+    }>;
+    monthly_performance: Array<{
+        month: string;
+        average_pct: number;
+        exams_recorded: number;
+    }>;
+    monthly_assignments: Array<{
+        month: string;
+        assignments_submitted: number;
+    }>;
+};
+
+const EMPTY_PARENT_DASHBOARD: ParentDashboard = {
+    child: {
+        id: "",
+        name: "",
+        email: "",
+        class: null,
+    },
+    attendance_pct: 0,
+    avg_marks: 0,
+    pending_assignments: 0,
+    latest_mark: null,
+    next_class: null,
+    summary: {
+        assignments_submitted: 0,
+        study_sessions: 0,
+        ai_requests: 0,
+        generated_tools: 0,
+        latest_milestones: {
+            last_assignment_submitted_at: null,
+            last_study_session_at: null,
+            last_ai_request_at: null,
+            last_generated_tool_at: null,
+        },
+        recent_generated_tools: [],
+    },
+    monthly_attendance: [],
+    monthly_performance: [],
+    monthly_assignments: [],
 };
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -49,6 +114,42 @@ function formatDate(value: string | null) {
     if (!value) return "No recent date";
     const parsed = new Date(value);
     return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleDateString();
+}
+
+function normalizeParentDashboard(payload: unknown): ParentDashboard {
+    if (!payload || typeof payload !== "object") {
+        return EMPTY_PARENT_DASHBOARD;
+    }
+    const candidate = payload as Partial<ParentDashboard>;
+    return {
+        child: {
+            id: candidate.child?.id ?? "",
+            name: candidate.child?.name ?? "",
+            email: candidate.child?.email ?? "",
+            class: candidate.child?.class ?? null,
+        },
+        attendance_pct: candidate.attendance_pct ?? 0,
+        avg_marks: candidate.avg_marks ?? 0,
+        pending_assignments: candidate.pending_assignments ?? 0,
+        latest_mark: candidate.latest_mark ?? null,
+        next_class: candidate.next_class ?? null,
+        summary: {
+            assignments_submitted: candidate.summary?.assignments_submitted ?? 0,
+            study_sessions: candidate.summary?.study_sessions ?? 0,
+            ai_requests: candidate.summary?.ai_requests ?? 0,
+            generated_tools: candidate.summary?.generated_tools ?? 0,
+            latest_milestones: {
+                last_assignment_submitted_at: candidate.summary?.latest_milestones?.last_assignment_submitted_at ?? null,
+                last_study_session_at: candidate.summary?.latest_milestones?.last_study_session_at ?? null,
+                last_ai_request_at: candidate.summary?.latest_milestones?.last_ai_request_at ?? null,
+                last_generated_tool_at: candidate.summary?.latest_milestones?.last_generated_tool_at ?? null,
+            },
+            recent_generated_tools: candidate.summary?.recent_generated_tools ?? [],
+        },
+        monthly_attendance: candidate.monthly_attendance ?? [],
+        monthly_performance: candidate.monthly_performance ?? [],
+        monthly_assignments: candidate.monthly_assignments ?? [],
+    };
 }
 
 export default function ParentDashboardPage() {
@@ -63,7 +164,7 @@ export default function ParentDashboardPage() {
             setLoading(true);
             setError(null);
             const payload = await api.parent.dashboard();
-            setData(payload as ParentDashboard);
+            setData(normalizeParentDashboard(payload));
         } catch (loadError) {
             setError(loadError instanceof Error ? loadError.message : "Failed to load dashboard");
         } finally {
@@ -99,24 +200,19 @@ export default function ParentDashboardPage() {
     };
 
     return (
-        <PrismPage className="space-y-6">
+        <PrismPage variant="dashboard" className="space-y-6">
             <PrismSection className="space-y-6">
-                <div className="grid gap-4 xl:grid-cols-[1.08fr_0.92fr]">
-                    <div className="space-y-4">
+                <PrismPageIntro
+                    kicker={(
                         <PrismHeroKicker>
                             <ShieldCheck className="h-3.5 w-3.5" />
                             Parent Support Surface
                         </PrismHeroKicker>
-                        <div className="space-y-3">
-                            <h1 className="prism-title text-4xl font-black text-[var(--text-primary)] md:text-5xl">
-                                Parent Dashboard
-                            </h1>
-                            <p className="max-w-3xl text-base leading-7 text-[var(--text-secondary)] md:text-lg">
-                                A calmer, more supportive view of attendance, recent marks, upcoming classes, and the next actions that matter this week.
-                            </p>
-                        </div>
-                    </div>
-                    <PrismPanel className="p-5">
+                    )}
+                    title="See your child's week in one clear family summary"
+                    description="Track attendance, marks, upcoming classes, and the next action that matters without needing to decode an admin dashboard."
+                    aside={(
+                        <PrismPanel className="p-5">
                         <div className="flex items-start gap-4">
                             <button
                                 type="button"
@@ -138,8 +234,9 @@ export default function ParentDashboardPage() {
                                 </p>
                             </div>
                         </div>
-                    </PrismPanel>
-                </div>
+                        </PrismPanel>
+                    )}
+                />
 
                 <RoleStartPanel role="parent" />
 
@@ -213,7 +310,7 @@ export default function ParentDashboardPage() {
                                 icon={Activity}
                                 title="Latest score"
                                 value={data.latest_mark ? `${data.latest_mark.percentage}%` : "No marks"}
-                                summary={data.latest_mark ? `${data.latest_mark.subject} · ${data.latest_mark.exam}` : "No recent marks have been recorded."}
+                                summary={data.latest_mark ? `${data.latest_mark.subject} - ${data.latest_mark.exam}` : "No recent marks have been recorded."}
                                 tone="blue"
                             />
                             <MetricCard
@@ -261,6 +358,56 @@ export default function ParentDashboardPage() {
                                 )}
                             </PrismPanel>
                         </div>
+
+                        <div className="grid gap-4 lg:grid-cols-[1.06fr_0.94fr]">
+                            <PrismPanel className="p-5">
+                                <div className="flex items-center gap-2">
+                                    <Activity className="h-4 w-4 text-status-blue" />
+                                    <h2 className="text-base font-semibold text-[var(--text-primary)]">Six-month learning rhythm</h2>
+                                </div>
+                                <div className="mt-4 grid gap-3 md:grid-cols-3">
+                                    {data.monthly_attendance.map((month, index) => (
+                                        <div key={`${month.month}-${index}`} className="rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.03)] p-4">
+                                            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">{month.month}</p>
+                                            <p className="mt-2 text-lg font-semibold text-[var(--text-primary)]">{month.attendance_pct}% attendance</p>
+                                            <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                                                {month.marked_days} marked day{month.marked_days === 1 ? "" : "s"} and {data.monthly_assignments[index]?.assignments_submitted ?? 0} assignment submission{(data.monthly_assignments[index]?.assignments_submitted ?? 0) === 1 ? "" : "s"}.
+                                            </p>
+                                            <p className="mt-2 text-xs text-[var(--text-muted)]">
+                                                Result average: {data.monthly_performance[index]?.average_pct ?? 0}% from {data.monthly_performance[index]?.exams_recorded ?? 0} exam{(data.monthly_performance[index]?.exams_recorded ?? 0) === 1 ? "" : "s"}.
+                                            </p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </PrismPanel>
+
+                            <PrismPanel className="p-5">
+                                <div className="flex items-center gap-2">
+                                    <FileText className="h-4 w-4 text-status-amber" />
+                                    <h2 className="text-base font-semibold text-[var(--text-primary)]">Study activity trail</h2>
+                                </div>
+                                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                                    <DetailCard label="Assignments done" value={`${data.summary.assignments_submitted}`} detail="Submitted across the last six months" />
+                                    <DetailCard label="Study sessions" value={`${data.summary.study_sessions}`} detail="Focused learning sessions captured in demo history" />
+                                    <DetailCard label="AI requests" value={`${data.summary.ai_requests}`} detail="Child questions and guided support moments" />
+                                    <DetailCard label="Generated tools" value={`${data.summary.generated_tools}`} detail="Audio, video, mind maps, and revision artifacts" />
+                                </div>
+                                <div className="mt-5 space-y-3">
+                                    {data.summary.recent_generated_tools.length > 0 ? (
+                                        data.summary.recent_generated_tools.map((item) => (
+                                            <div key={item.id} className="rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.03)] px-4 py-3">
+                                                <p className="text-sm font-medium text-[var(--text-primary)]">{item.title}</p>
+                                                <p className="mt-1 text-xs text-[var(--text-muted)]">
+                                                    {item.type.replace(/_/g, " ")} • {formatDate(item.created_at)}
+                                                </p>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <p className="text-sm text-[var(--text-secondary)]">Saved study tools will appear here once the learner generates them.</p>
+                                    )}
+                                </div>
+                            </PrismPanel>
+                        </div>
                     </>
                 ) : null}
             </PrismSection>
@@ -304,6 +451,16 @@ function DetailRow({ label, value }: { label: string; value: string }) {
         <div className="flex items-center justify-between gap-3 rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.03)] px-4 py-3">
             <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">{label}</span>
             <span className="text-sm font-medium text-[var(--text-primary)]">{value}</span>
+        </div>
+    );
+}
+
+function DetailCard({ label, value, detail }: { label: string; value: string; detail: string }) {
+    return (
+        <div className="rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.03)] p-4">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">{label}</p>
+            <p className="mt-2 text-lg font-semibold text-[var(--text-primary)]">{value}</p>
+            <p className="mt-1 text-xs leading-5 text-[var(--text-secondary)]">{detail}</p>
         </div>
     );
 }

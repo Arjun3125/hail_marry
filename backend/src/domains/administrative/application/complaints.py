@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, date, datetime, timedelta
 
 from fastapi import HTTPException
 from sqlalchemy import desc
@@ -12,15 +12,50 @@ from src.domains.administrative.models.complaint import Complaint
 from src.domains.identity.models.user import User
 
 
+def _ensure_tz(value: datetime | date | None) -> datetime | None:
+    if value is None:
+        return None
+    if isinstance(value, date) and not isinstance(value, datetime):
+        return datetime.combine(value, datetime.min.time(), tzinfo=UTC)
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
+
+
+def _shift_month(value: datetime, delta: int) -> datetime:
+    month_index = value.month - 1 + delta
+    year = value.year + month_index // 12
+    month = month_index % 12 + 1
+    return value.replace(year=year, month=month, day=1)
+
+
+def _month_windows(now: datetime | None = None) -> list[dict]:
+    current = _ensure_tz(now or datetime.now(UTC))
+    assert current is not None
+    first_of_month = current.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    windows = []
+    for offset in range(-5, 1):
+        start = _shift_month(first_of_month, offset)
+        windows.append({"key": start.strftime("%Y-%m"), "month": start.strftime("%b")})
+    return windows
+
+
+def _month_key(value: datetime | date | None) -> str | None:
+    normalized = _ensure_tz(value)
+    if normalized is None:
+        return None
+    return normalized.strftime("%Y-%m")
+
+
 def build_admin_complaints_response(
     *,
     db: Session,
     tenant_id,
-) -> list[dict]:
+) -> dict:
     complaints = db.query(Complaint, User.full_name).join(User, Complaint.student_id == User.id).filter(
         Complaint.tenant_id == tenant_id,
     ).order_by(desc(Complaint.created_at)).all()
-    return [
+    items = [
         {
             "id": str(complaint.id),
             "student": name,
@@ -32,6 +67,54 @@ def build_admin_complaints_response(
         }
         for complaint, name in complaints
     ]
+    status_counts = {
+        "open": 0,
+        "in_review": 0,
+        "resolved": 0,
+    }
+    categories: dict[str, int] = {}
+    monthly = {
+        window["key"]: {
+            "month": window["month"],
+            "total": 0,
+            "resolved": 0,
+        }
+        for window in _month_windows()
+    }
+    resolved_last_30d = 0
+    last_30_days = datetime.now(UTC) - timedelta(days=30)
+    for complaint, _name in complaints:
+        status = complaint.status or "open"
+        if status in status_counts:
+            status_counts[status] += 1
+        category = complaint.category or "General"
+        categories[category] = categories.get(category, 0) + 1
+        month_key = _month_key(complaint.created_at)
+        if month_key in monthly:
+            monthly[month_key]["total"] += 1
+        resolved_key = _month_key(complaint.resolved_at)
+        if resolved_key in monthly:
+            monthly[resolved_key]["resolved"] += 1
+        resolved_at = _ensure_tz(complaint.resolved_at)
+        if resolved_at and resolved_at >= last_30_days:
+            resolved_last_30d += 1
+    total = len(complaints)
+    return {
+        "items": items,
+        "summary": {
+            "total": total,
+            "open": status_counts["open"],
+            "in_review": status_counts["in_review"],
+            "resolved": status_counts["resolved"],
+            "resolved_last_30d": resolved_last_30d,
+            "resolution_rate_pct": round((status_counts["resolved"] / total * 100) if total else 100),
+        },
+        "monthly_activity": [monthly[window["key"]] for window in _month_windows()],
+        "categories": [
+            {"category": category, "count": count}
+            for category, count in sorted(categories.items(), key=lambda item: (-item[1], item[0]))
+        ],
+    }
 
 
 def update_admin_complaint(

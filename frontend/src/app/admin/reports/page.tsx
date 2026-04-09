@@ -93,26 +93,36 @@ export default function AdminReportsPage() {
     };
 
     return (
-        <PrismPage className="space-y-6 pb-8">
+        <PrismPage variant="report" className="space-y-6 pb-8">
             <PrismSection className="space-y-6">
                 <PrismPageIntro
-                    className="grid gap-4 xl:grid-cols-[1.12fr_0.88fr]"
                     kicker={(
                         <PrismHeroKicker>
                             <BarChart3 className="h-3.5 w-3.5" />
-                            Admin Reporting Surface
+                            Institutional Reporting
                         </PrismHeroKicker>
                     )}
-                    title="Reports"
-                    description="Generate institutional reporting snapshots, export the underlying data, and inspect the latest output without leaving the admin workflow."
-                    aside={(
-                        <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
-                            <MetricCard title="Available reports" value={`${summary.availableReports}`} summary="Attendance, performance, and AI usage exports" accent="blue" />
-                            <MetricCard title="Last report rows" value={`${summary.lastRows}`} summary="Visible row count from the most recent generation" accent="emerald" />
-                            <MetricCard title="Last output" value={summary.lastType} summary="Most recently generated report type" accent="amber" />
-                        </div>
-                    )}
+                    title="Generate school reports without leaving the academic workflow"
+                    description="Use this surface to produce attendance, performance, and AI usage snapshots that support school leadership, not just platform monitoring."
                 />
+
+                <div className="prism-status-strip">
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">Available reports</span>
+                        <strong className="prism-status-value">{summary.availableReports}</strong>
+                        <span className="prism-status-detail">Core report types ready to generate or export</span>
+                    </div>
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">Last report rows</span>
+                        <strong className="prism-status-value">{summary.lastRows}</strong>
+                        <span className="prism-status-detail">Visible row count from the most recent run</span>
+                    </div>
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">Last output</span>
+                        <strong className="prism-status-value">{summary.lastType}</strong>
+                        <span className="prism-status-detail">Most recent report generated on this surface</span>
+                    </div>
+                </div>
 
                 {error ? (
                     <ErrorRemediation
@@ -143,10 +153,10 @@ export default function AdminReportsPage() {
 
                         <div className="grid gap-4 p-5">
                             {reports.map((report) => (
-                                <PrismPanel key={report.type} className="rounded-[28px] border border-[var(--border)] bg-[rgba(8,15,30,0.58)] p-5 shadow-[0_18px_40px_rgba(2,6,23,0.16)]">
+                                <PrismPanel key={report.type} className="p-5">
                                     <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                                         <div className="flex items-start gap-3">
-                                            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,rgba(96,165,250,0.18),rgba(129,140,248,0.14))] text-[var(--text-primary)]">
+                                            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[rgba(96,165,250,0.12)] text-[var(--text-primary)]">
                                                 <report.icon className="h-5 w-5" />
                                             </div>
                                             <div>
@@ -157,14 +167,14 @@ export default function AdminReportsPage() {
 
                                         <div className="grid gap-2 sm:grid-cols-2 xl:min-w-[240px]">
                                             <button
-                                                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[linear-gradient(135deg,rgba(96,165,250,0.96),rgba(129,140,248,0.94))] px-4 py-3 text-sm font-semibold text-[#06101e] shadow-[0_18px_34px_rgba(96,165,250,0.22)] transition-all hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+                                                className="prism-action"
                                                 onClick={() => void generateReport(report)}
                                                 disabled={loadingType !== null}
                                             >
                                                 {loadingType === report.type ? "Generating..." : "Generate"}
                                             </button>
                                             <button
-                                                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.03)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:border-[rgba(96,165,250,0.28)] hover:bg-[rgba(96,165,250,0.08)]"
+                                                className="prism-action-secondary"
                                                 onClick={() => downloadReport(report)}
                                             >
                                                 <Download className="h-4 w-4" />
@@ -207,7 +217,7 @@ export default function AdminReportsPage() {
                                 title="Preview sample"
                                 description="A quick sample row from the last generated payload."
                             />
-                            <pre className="mt-4 overflow-auto rounded-2xl border border-[var(--border)] bg-[rgba(8,15,30,0.72)] p-4 text-xs leading-6 text-[var(--text-secondary)]">
+                            <pre className="mt-4 overflow-auto rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.03)] p-4 text-xs leading-6 text-[var(--text-secondary)]">
                                 {preview}
                             </pre>
                         </PrismPanel>
@@ -227,33 +237,6 @@ export default function AdminReportsPage() {
                 </div>
             </PrismSection>
         </PrismPage>
-    );
-}
-
-function MetricCard({
-    title,
-    value,
-    summary,
-    accent,
-}: {
-    title: string;
-    value: string;
-    summary: string;
-    accent: "blue" | "emerald" | "amber";
-}) {
-    const accentClasses = {
-        blue: "bg-[linear-gradient(135deg,rgba(96,165,250,0.22),rgba(59,130,246,0.08))]",
-        emerald: "bg-[linear-gradient(135deg,rgba(45,212,191,0.2),rgba(16,185,129,0.08))]",
-        amber: "bg-[linear-gradient(135deg,rgba(251,191,36,0.2),rgba(245,158,11,0.08))]",
-    } as const;
-
-    return (
-        <PrismPanel className="p-4">
-            <div className={`mb-3 h-2 w-16 rounded-full ${accentClasses[accent]}`} />
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">{title}</p>
-            <p className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">{value}</p>
-            <p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">{summary}</p>
-        </PrismPanel>
     );
 }
 

@@ -35,7 +35,7 @@ test("parent attendance page shows attendance story and recent records", async (
 
     await page.goto("/parent/attendance");
 
-    await expect(page.getByRole("heading", { name: "Attendance", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "See the attendance story without operational noise" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Recent record" })).toBeVisible();
     await expect(page.getByText("2026-04-04")).toBeVisible();
     await expect(page.getByText("Friday")).toBeVisible();

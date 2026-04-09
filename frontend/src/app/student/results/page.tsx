@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Award, BookOpen, Sparkles, TrendingUp } from "lucide-react";
+import { Award, Sparkles, TrendingUp } from "lucide-react";
 
 import { api } from "@/lib/api";
+import EmptyState from "@/components/EmptyState";
 import {
     PrismHeroKicker,
     PrismPage,
@@ -47,9 +48,7 @@ function getColor(pct: number) {
 }
 
 function Sparkline({ points }: { points: number[] }) {
-    if (points.length === 0) {
-        return null;
-    }
+    if (points.length === 0) return null;
 
     if (points.length === 1) {
         const y = 30 - (points[0] / 100) * 28;
@@ -121,51 +120,48 @@ export default function ResultsPage() {
     const subjectCount = subjects.length;
 
     return (
-        <PrismPage className="space-y-6">
+        <PrismPage variant="workspace" className="space-y-6">
             <PrismSection className="space-y-6">
                 <PrismPageIntro
-                    className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]"
                     kicker={(
                         <PrismHeroKicker>
                             <Sparkles className="h-3.5 w-3.5" />
                             Student Academic Outcomes
                         </PrismHeroKicker>
                     )}
-                    title={<>Read performance as a <span className="premium-gradient">clear progression story</span>, not a scattered marks dump</>}
-                    description="This view now separates overall standing, subject trends, and exam-level detail so students can see both where they are strong and where they need to recover."
+                    title="Read marks as a progression story, not an exam dump"
+                    description="Use this view to identify where you are stable, where momentum is improving, and which subject needs the next focused study block."
                     aside={(
-                        <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
-                            <PrismPanel className="p-4">
-                                <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,rgba(96,165,250,0.18),rgba(129,140,248,0.08))]">
-                                    <Award className="h-5 w-5 text-status-blue" />
-                                </div>
-                                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">Overall average</p>
-                                <p className="mt-2 text-2xl font-black" style={{ color: getColor(overallAvg) }}>
-                                    {loading ? "--" : `${overallAvg}%`}
-                                </p>
-                                <p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">Normalized across all reported subjects.</p>
-                            </PrismPanel>
-                            <PrismPanel className="p-4">
-                                <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,rgba(45,212,191,0.18),rgba(16,185,129,0.08))]">
-                                    <BookOpen className="h-5 w-5 text-status-emerald" />
-                                </div>
-                                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">Strongest subject</p>
-                                <p className="mt-2 text-lg font-semibold text-[var(--text-primary)]">{strongestSubject?.name || "--"}</p>
-                                <p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">
-                                    {strongestSubject ? `${strongestSubject.avg}% current average.` : "Will appear after results are available."}
-                                </p>
-                            </PrismPanel>
-                            <PrismPanel className="p-4">
-                                <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,rgba(251,191,36,0.18),rgba(249,115,22,0.08))]">
-                                    <TrendingUp className="h-5 w-5 text-status-amber" />
-                                </div>
-                                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">Subjects tracked</p>
-                                <p className="mt-2 text-2xl font-black text-[var(--text-primary)]">{loading ? "--" : subjectCount}</p>
-                                <p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">Distinct subjects with exam-level marks in the current dataset.</p>
-                            </PrismPanel>
+                        <div className="prism-briefing-panel">
+                            <p className="prism-status-label">How to use it</p>
+                            <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
+                                Start with the trend view, compare the strongest and weakest subjects, then turn weak areas into a review plan or quiz session.
+                            </p>
                         </div>
                     )}
                 />
+
+                <div className="prism-status-strip">
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">Overall average</span>
+                        <span className="prism-status-value" style={{ color: getColor(overallAvg) }}>
+                            {loading ? "--" : `${overallAvg}%`}
+                        </span>
+                        <span className="prism-status-detail">Normalized across all published subjects in the current dataset.</span>
+                    </div>
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">Strongest subject</span>
+                        <span className="prism-status-value">{strongestSubject?.name || "--"}</span>
+                        <span className="prism-status-detail">
+                            {strongestSubject ? `${strongestSubject.avg}% current average.` : "Will appear after results are available."}
+                        </span>
+                    </div>
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">Subjects tracked</span>
+                        <span className="prism-status-value">{loading ? "--" : subjectCount}</span>
+                        <span className="prism-status-detail">Distinct subjects with exam-level marks in the active dataset.</span>
+                    </div>
+                </div>
 
                 {error ? (
                     <ErrorRemediation
@@ -196,14 +192,14 @@ export default function ResultsPage() {
                     <PrismPanel className="p-5">
                         <PrismSectionHeader
                             className="mb-4"
-                            kicker="Insights"
+                            kicker="Momentum"
                             title={(
                                 <span className="inline-flex items-center gap-2">
                                     <TrendingUp className="h-4 w-4 text-[var(--primary)]" />
-                                    Performance Trend
+                                    Subject trend
                                 </span>
                             )}
-                            description="Read subject-level momentum before dropping into exam-level detail."
+                            description="Read subject-level movement before dropping into exam-level detail."
                         />
 
                         {loading ? (
@@ -211,9 +207,12 @@ export default function ResultsPage() {
                                 Loading trend chart...
                             </div>
                         ) : trends.length === 0 ? (
-                            <div className="rounded-[1.5rem] border border-[var(--border)] bg-[rgba(148,163,184,0.04)] p-8 text-sm text-[var(--text-muted)]">
-                                No trend data available yet.
-                            </div>
+                            <EmptyState
+                                title="No trend data available yet"
+                                description="Trend lines will appear once multiple results are published for the same subject."
+                                eyebrow="Awaiting history"
+                                scopeNote="When enough exams exist, this section helps you spot whether performance is improving, stable, or slipping."
+                            />
                         ) : (
                             <div className="grid gap-4">
                                 {trends.map((trend) => {
@@ -251,11 +250,11 @@ export default function ResultsPage() {
                     <PrismPanel className="p-5">
                         <PrismSectionHeader
                             className="mb-4"
-                            kicker="Detail"
+                            kicker="Breakdown"
                             title={(
                                 <span className="inline-flex items-center gap-2">
                                     <Award className="h-4 w-4 text-[var(--primary)]" />
-                                    Subject Breakdown
+                                    Subject detail
                                 </span>
                             )}
                             description="Compare subject averages and exam-level performance in one scan."
@@ -266,9 +265,13 @@ export default function ResultsPage() {
                                 Loading results...
                             </div>
                         ) : subjects.length === 0 ? (
-                            <div className="rounded-[1.5rem] border border-[var(--border)] bg-[rgba(148,163,184,0.04)] p-8 text-sm text-[var(--text-muted)]">
-                                No results published yet.
-                            </div>
+                            <EmptyState
+                                title="No results published yet"
+                                description="Results will appear here once exams are graded and released."
+                                eyebrow="Awaiting publication"
+                                scopeNote="Use assignments and reviews to keep studying while this section waits for published marks."
+                                action={{ label: "Open Reviews", href: "/student/reviews" }}
+                            />
                         ) : (
                             <div className="grid gap-4 md:grid-cols-2">
                                 {subjects.map((subject) => (
@@ -277,7 +280,10 @@ export default function ResultsPage() {
                                         className="rounded-[1.5rem] border border-[var(--border)] bg-[rgba(148,163,184,0.04)] p-4"
                                     >
                                         <div className="mb-4 flex items-center justify-between gap-3">
-                                            <h3 className="text-base font-semibold text-[var(--text-primary)]">{subject.name}</h3>
+                                            <div>
+                                                <h3 className="text-base font-semibold text-[var(--text-primary)]">{subject.name}</h3>
+                                                <p className="mt-1 text-[11px] text-[var(--text-muted)]">Use this subject view to decide your next revision block.</p>
+                                            </div>
                                             <span className="text-sm font-bold" style={{ color: getColor(subject.avg) }}>
                                                 {subject.avg}%
                                             </span>

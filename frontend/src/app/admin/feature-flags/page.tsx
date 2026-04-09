@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Search, Loader2, ShieldAlert, Zap, BookOpen, Settings2 } from "lucide-react";
+import { PrismHeroKicker, PrismPage, PrismPageIntro, PrismSection } from "@/components/prism/PrismPage";
 import { api } from "@/lib/api";
 
 type FeatureFlag = {
@@ -88,9 +89,13 @@ export default function FeatureFlagsPage() {
 
     if (loading && features.length === 0) {
         return (
-            <div className="flex items-center justify-center min-h-[400px]">
-                <Loader2 className="w-8 h-8 animate-spin text-[var(--primary)]" />
-            </div>
+            <PrismPage variant="dashboard" className="space-y-6 pb-8">
+                <PrismSection className="space-y-6">
+                    <div className="flex min-h-[400px] items-center justify-center">
+                        <Loader2 className="w-8 h-8 animate-spin text-[var(--primary)]" />
+                    </div>
+                </PrismSection>
+            </PrismPage>
         );
     }
 
@@ -155,16 +160,22 @@ export default function FeatureFlagsPage() {
     };
 
     return (
-        <div className="space-y-6 max-w-6xl mx-auto pb-12">
+        <PrismPage variant="dashboard" className="max-w-6xl space-y-6 pb-12">
+            <PrismSection className="space-y-6">
             <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+                <PrismPageIntro
+                    kicker={(
+                        <PrismHeroKicker>
+                            <ShieldAlert className="h-3.5 w-3.5" />
+                            Admin Feature Surface
+                        </PrismHeroKicker>
+                    )}
+                    title="Control platform capabilities without losing operational clarity"
+                    description="Search features, bulk-apply system profiles, and toggle AI or ERP modules from one global control layer."
+                />
+                
                 <div>
-                    <h1 className="text-2xl font-bold text-[var(--text-primary)] flex items-center gap-2">
-                        <ShieldAlert className="w-6 h-6 text-[var(--primary)]" />
-                        Platform Feature Management
-                    </h1>
-                    <p className="text-sm text-[var(--text-secondary)] mt-1 max-w-2xl">
-                        Globally configure system capabilities. Set predefined System Profiles to rapidly adapt the platform for different school usage patterns.
-                    </p>
+                    
                 </div>
                 
                 <div className="relative shrink-0">
@@ -263,6 +274,7 @@ export default function FeatureFlagsPage() {
                     </div>
                 </div>
             </div>
-        </div>
+            </PrismSection>
+        </PrismPage>
     );
 }

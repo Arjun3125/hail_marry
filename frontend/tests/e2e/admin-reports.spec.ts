@@ -40,7 +40,7 @@ test("admin reports page generates a report and shows recent output metadata", a
 
     await page.goto("/admin/reports");
 
-    await expect(page.getByRole("heading", { name: "Reports", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Generate school reports without leaving the academic workflow" })).toBeVisible();
     await page.getByRole("button", { name: "Generate" }).first().click();
 
     await expect(page.getByRole("heading", { name: "Attendance Report" })).toBeVisible();

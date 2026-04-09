@@ -194,7 +194,7 @@ test("admin queue page supports cancel, dead-letter, and retry actions", async (
 
     await page.goto("/admin/queue");
 
-    await expect(page.getByRole("heading", { name: "AI Queue Operations" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Keep the AI job queue controlled before incidents spread" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Persistent Audit History" })).toBeVisible();
 
     const queuedRow = page.locator("tr").filter({ hasText: "job-queued" });

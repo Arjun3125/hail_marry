@@ -1,8 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Settings, Save, Shield, Database, Sparkles, CheckCircle2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { CheckCircle2, Database, Save, Settings, Shield, Sparkles } from "lucide-react";
 
+import EmptyState from "@/components/EmptyState";
+import { PrismHeroKicker, PrismPage, PrismPageIntro, PrismPanel, PrismSection } from "@/components/prism/PrismPage";
+import ErrorRemediation from "@/components/ui/ErrorRemediation";
 import { api } from "@/lib/api";
 
 type TenantSettings = {
@@ -46,7 +49,7 @@ export default function AdminSettingsPage() {
                 name: settings.name,
                 ai_daily_limit: settings.ai_daily_limit,
             });
-            setSuccess("Infrastructure parameters successfully synced.");
+            setSuccess("Tenant configuration was updated successfully.");
         } catch (err) {
             setError(err instanceof Error ? err.message : "Failed to save settings");
         } finally {
@@ -54,132 +57,161 @@ export default function AdminSettingsPage() {
         }
     };
 
-    return (
-        <div className="relative max-w-4xl mx-auto py-8">
-            {/* Ambient Background Glow */}
-            <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl from-[var(--primary)]/10 to-transparent blur-[120px] -z-10 rounded-full pointer-events-none" />
-            <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-gradient-to-tr from-cyan-500/5 to-transparent blur-[120px] -z-10 rounded-full pointer-events-none" />
-            
-            <div className="mb-10 stagger-1">
-                <div className="inline-flex items-center gap-2 px-3 py-1 mb-4 rounded-full glass-panel border-[var(--border)] text-[var(--text-secondary)] text-sm font-medium shadow-sm">
-                    <Shield className="w-4 h-4 text-[var(--primary)]" />
-                    Global Configuration
-                </div>
-                <h1 className="text-3xl md:text-5xl font-extrabold text-[var(--text-primary)] tracking-tight">
-                    Tenant <span className="premium-gradient">Settings</span>
-                </h1>
-                <p className="text-base text-[var(--text-secondary)] mt-4 max-w-xl font-light leading-relaxed">
-                    Fine-tune your institution&apos;s digital infrastructure, AI token allocation, and core identity parameters across the VidyaOS network.
-                </p>
-            </div>
+    const summary = useMemo(() => ({
+        plan: settings?.plan_tier || "-",
+        capacity: settings ? `${settings.max_students}` : "-",
+        aiLimit: settings ? `${settings.ai_daily_limit}` : "-",
+    }), [settings]);
 
-            <div className="stagger-2 mb-8">
-                {error && (
-                    <div className="rounded-2xl border border-[var(--error)]/30 bg-error-subtle px-5 py-4 text-sm text-[var(--error)] flex items-center gap-3 shadow-lg shadow-[var(--error)]/5">
-                        <div className="w-2 h-2 rounded-full bg-[var(--error)] animate-pulse shrink-0" />
-                        {error}
+    return (
+        <PrismPage variant="form" className="space-y-6 pb-8">
+            <PrismSection className="space-y-6">
+                <PrismPageIntro
+                    kicker={(
+                        <PrismHeroKicker>
+                            <Shield className="h-3.5 w-3.5" />
+                            Admin Settings Surface
+                        </PrismHeroKicker>
+                    )}
+                    title="Keep tenant controls explicit and reviewable"
+                    description="Adjust institution identity and AI allowance without losing sight of plan limits, capacity, and the active network domain."
+                    aside={(
+                        <div className="prism-briefing-panel">
+                            <p className="prism-status-label">Update scope</p>
+                            <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
+                                This surface is for controlled tenant-level changes only. Treat plan tier and capacity as reference constraints, not editable runtime switches.
+                            </p>
+                        </div>
+                    )}
+                />
+
+                <div className="prism-status-strip">
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">Plan tier</span>
+                        <span className="prism-status-value">{summary.plan}</span>
+                        <span className="prism-status-detail">Current commercial and infrastructure tier for this tenant.</span>
                     </div>
-                )}
-                {success && (
-                    <div className="rounded-2xl border border-success-subtle bg-success-subtle px-5 py-4 text-sm text-[var(--success)] flex items-center gap-3 shadow-lg shadow-[var(--success)]/5">
-                        <CheckCircle2 className="w-5 h-5 shrink-0" />
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">Capacity</span>
+                        <span className="prism-status-value">{summary.capacity}</span>
+                        <span className="prism-status-detail">Maximum student volume currently allocated to the tenant.</span>
+                    </div>
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">AI daily limit</span>
+                        <span className="prism-status-value">{summary.aiLimit}</span>
+                        <span className="prism-status-detail">Per-student daily AI allowance currently configured.</span>
+                    </div>
+                </div>
+
+                {error ? (
+                    <ErrorRemediation
+                        error={error}
+                        scope="admin-settings"
+                        onRetry={() => {
+                            window.location.reload();
+                        }}
+                    />
+                ) : null}
+
+                {success ? (
+                    <div className="rounded-2xl border border-success-subtle bg-success-subtle px-5 py-4 text-sm text-[var(--success)] flex items-center gap-3">
+                        <CheckCircle2 className="h-5 w-5 shrink-0" />
                         {success}
                     </div>
-                )}
-            </div>
+                ) : null}
 
-            {loading ? (
-                <div className="glass-panel rounded-3xl p-12 flex flex-col items-center justify-center text-center stagger-3 shadow-inner">
-                    <div className="w-12 h-12 border-4 border-[var(--border-strong)] border-t-[var(--primary)] rounded-full animate-spin mb-4" />
-                    <p className="text-sm font-semibold text-[var(--text-muted)] animate-pulse">Initializing Configuration Matrix...</p>
-                </div>
-            ) : settings ? (
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 stagger-3">
-                    <div className="lg:col-span-2 space-y-6">
-                        {/* Main Settings Card */}
-                        <div className="glass-panel border border-[var(--border-strong)] rounded-3xl shadow-xl shadow-[var(--primary)]/5 p-6 sm:p-8 relative overflow-hidden group">
-                            {/* Decorative Top Glow */}
-                            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-[var(--primary)]/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-                            
-                            <h2 className="text-lg font-bold text-[var(--text-primary)] mb-6 flex items-center gap-3">
-                                <div className="p-2 glass-panel rounded-xl text-[var(--primary)] shadow-inner">
-                                    <Settings className="w-5 h-5" />
-                                </div>
-                                System Parameters
-                            </h2>
-                            
+                {loading ? (
+                    <PrismPanel className="p-10">
+                        <div className="flex items-center gap-3 text-sm text-[var(--text-muted)]">
+                            <Settings className="h-4 w-4 animate-pulse" />
+                            Loading tenant configuration...
+                        </div>
+                    </PrismPanel>
+                ) : !settings ? (
+                    <EmptyState
+                        icon={Settings}
+                        title="Settings are unavailable"
+                        description="The tenant configuration could not be loaded for this environment."
+                        eyebrow="Configuration unavailable"
+                        scopeNote="This surface depends on the admin settings endpoint being available and returning tenant metadata."
+                    />
+                ) : (
+                    <div className="grid gap-6 xl:grid-cols-[minmax(0,1.08fr)_minmax(320px,0.92fr)]">
+                        <PrismPanel className="p-6">
                             <div className="space-y-6">
                                 <div>
-                                    <label className="text-xs font-bold tracking-wider uppercase text-[var(--text-muted)] mb-2 block">Institution Identifier</label>
-                                    <input
-                                        type="text"
-                                        value={settings.name}
-                                        onChange={(e) => setSettings({ ...settings, name: e.target.value })}
-                                        className="w-full px-5 py-3.5 text-sm bg-[var(--bg-page)]/50 border border-[var(--border-strong)] rounded-2xl focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent transition-all shadow-inner text-[var(--text-primary)] font-medium"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="text-xs font-bold tracking-wider uppercase text-[var(--text-muted)] mb-2 block flex items-center gap-2">
-                                        <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                                        AI Query Allocation (Per Student/Day)
-                                    </label>
-                                    <input
-                                        type="number"
-                                        value={settings.ai_daily_limit}
-                                        onChange={(e) => setSettings({ ...settings, ai_daily_limit: Number(e.target.value) || 0 })}
-                                        className="w-full px-5 py-3.5 text-sm bg-[var(--bg-page)]/50 border border-[var(--border-strong)] rounded-2xl focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent transition-all shadow-inner text-[var(--text-primary)] font-medium"
-                                    />
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Save Actions */}
-                        <div className="flex justify-end p-2">
-                            <button
-                                className="px-8 py-3.5 bg-[var(--primary)] text-white text-sm font-bold rounded-full hover:bg-[var(--primary-hover)] transition-all flex items-center gap-3 shadow-xl shadow-[var(--primary)]/30 disabled:opacity-60 hover:-translate-y-0.5"
-                                onClick={() => void saveSettings()}
-                                disabled={saving}
-                            >
-                                <Save className="w-4 h-4" /> 
-                                {saving ? "Ammending Matrix..." : "Commit Configuration"}
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Sidebar / Readonly Specs */}
-                    <div className="space-y-6">
-                        <div className="glass-panel border border-[var(--border-strong)] rounded-3xl shadow-lg p-6 relative group overflow-hidden">
-                            <div className="absolute inset-0 bg-gradient-to-br from-[var(--bg-page)] to-transparent -z-10" />
-                            <h2 className="text-sm font-bold text-[var(--text-primary)] mb-5 flex items-center gap-2">
-                                <Database className="w-4 h-4 text-[var(--text-secondary)]" />
-                                Hardware & Licensing
-                            </h2>
-
-                            <div className="space-y-5">
-                                <div className="p-4 rounded-2xl bg-[var(--bg-page)]/50 border border-[var(--border)]">
-                                    <label className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] block mb-1">Active Plan Tier</label>
-                                    <p className="text-sm font-black premium-text capitalize">{settings.plan_tier}</p>
+                                    <h2 className="text-lg font-semibold text-[var(--text-primary)]">Tenant configuration</h2>
+                                    <p className="mt-1 text-sm text-[var(--text-secondary)]">
+                                        Update the institution label and AI allowance while keeping infrastructure limits visible.
+                                    </p>
                                 </div>
 
-                                <div className="p-4 rounded-2xl bg-[var(--bg-page)]/50 border border-[var(--border)]">
-                                    <label className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] block mb-1 flex items-center gap-2">Max User Nodes</label>
-                                    <p className="text-sm font-bold text-[var(--text-primary)] font-mono">{settings.max_students}</p>
-                                    <p className="text-[10px] text-[var(--text-muted)] mt-1.5 font-medium leading-relaxed">Hard limit reached. Scale infrastructure via enterprise support.</p>
+                                <div className="space-y-5">
+                                    <div>
+                                        <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">
+                                            Institution name
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={settings.name}
+                                            onChange={(event) => setSettings({ ...settings, name: event.target.value })}
+                                            className="w-full rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.03)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[rgba(96,165,250,0.4)] focus:bg-[rgba(96,165,250,0.06)]"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">
+                                            <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+                                            AI daily limit
+                                        </label>
+                                        <input
+                                            type="number"
+                                            value={settings.ai_daily_limit}
+                                            onChange={(event) => setSettings({ ...settings, ai_daily_limit: Number(event.target.value) || 0 })}
+                                            className="w-full rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.03)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[rgba(96,165,250,0.4)] focus:bg-[rgba(96,165,250,0.06)]"
+                                        />
+                                    </div>
                                 </div>
 
-                                <div className="p-4 rounded-2xl bg-[var(--bg-page)]/50 border border-[var(--border)]">
-                                    <label className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] block mb-1">Network Domain</label>
-                                    <p className="text-sm font-semibold text-[var(--text-secondary)] font-mono truncate">{settings.domain || "N/A"}</p>
+                                <div className="flex justify-end">
+                                    <button
+                                        className="prism-action inline-flex items-center gap-2"
+                                        onClick={() => void saveSettings()}
+                                        disabled={saving}
+                                    >
+                                        <Save className="h-4 w-4" />
+                                        {saving ? "Saving configuration..." : "Save configuration"}
+                                    </button>
                                 </div>
                             </div>
+                        </PrismPanel>
+
+                        <div className="space-y-6">
+                            <PrismPanel className="p-5">
+                                <div className="flex items-center gap-2">
+                                    <Database className="h-4 w-4 text-[var(--primary)]" />
+                                    <h2 className="text-base font-semibold text-[var(--text-primary)]">Infrastructure reference</h2>
+                                </div>
+                                <div className="mt-4 space-y-3">
+                                    <ReferenceCard title="Plan tier" value={settings.plan_tier} summary="Current commercial and support tier." />
+                                    <ReferenceCard title="Maximum students" value={`${settings.max_students}`} summary="Allocated student capacity for this tenant." />
+                                    <ReferenceCard title="Network domain" value={settings.domain || "N/A"} summary="Current public domain or tenant routing label." />
+                                </div>
+                            </PrismPanel>
                         </div>
                     </div>
-                </div>
-            ) : (
-                <div className="glass-panel rounded-3xl p-12 flex items-center justify-center border-dashed border-2 border-[var(--border)] stagger-3">
-                    <p className="text-sm font-medium text-[var(--text-muted)]">Configuration node offline.</p>
-                </div>
-            )}
+                )}
+            </PrismSection>
+        </PrismPage>
+    );
+}
+
+function ReferenceCard({ title, value, summary }: { title: string; value: string; summary: string }) {
+    return (
+        <div className="rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.03)] px-4 py-3">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">{title}</p>
+            <p className="mt-2 break-all text-sm font-semibold text-[var(--text-primary)]">{value}</p>
+            <p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">{summary}</p>
         </div>
     );
 }

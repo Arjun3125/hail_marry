@@ -3,6 +3,7 @@
 import { Suspense } from "react";
 import { Bot, Compass, GraduationCap, ShieldCheck, Sparkles, Users } from "lucide-react";
 
+import { PrismHeroKicker, PrismPage, PrismPageIntro, PrismPanel, PrismSection } from "@/components/prism/PrismPage";
 import { MascotLauncher } from "./MascotLauncher";
 
 const ROLE_CONTENT: Record<
@@ -56,23 +57,19 @@ export function MascotAssistantPage({ role }: { role: string }) {
     const Icon = content.icon;
 
     return (
-        <div className="min-h-[calc(100vh-6rem)] bg-[radial-gradient(circle_at_top_left,_rgba(251,191,36,0.18),_transparent_38%),linear-gradient(180deg,var(--bg-page),var(--bg-page))] px-4 py-6 sm:px-6 lg:px-8">
-            <div className="mx-auto flex max-w-7xl flex-col gap-6">
-                <section className="overflow-hidden rounded-[32px] border border-[var(--border)] bg-[var(--bg-card)] shadow-[var(--shadow-card)]">
-                    <div className="grid gap-6 px-6 py-6 lg:grid-cols-[1.3fr_0.7fr] lg:px-8">
-                        <div>
-                            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--bg-page)] px-3 py-1 text-xs font-medium text-[var(--text-secondary)]">
-                                <Sparkles className="h-3.5 w-3.5 text-[var(--primary)]" />
-                                {content.eyebrow}
-                            </div>
-                            <h1 className="max-w-3xl text-3xl font-semibold tracking-tight text-[var(--text-primary)] sm:text-4xl">
-                                {content.title}
-                            </h1>
-                            <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--text-secondary)] sm:text-base">
-                                {content.description}
-                            </p>
-                        </div>
-                        <div className="grid gap-3 rounded-[28px] border border-[var(--border)] bg-[var(--bg-page)] p-5">
+        <PrismPage variant="workspace" className="space-y-6 pb-8">
+            <PrismSection className="space-y-6">
+                <PrismPageIntro
+                    kicker={(
+                        <PrismHeroKicker>
+                            <Sparkles className="h-3.5 w-3.5" />
+                            {content.eyebrow}
+                        </PrismHeroKicker>
+                    )}
+                    title={content.title}
+                    description={content.description}
+                    aside={(
+                        <PrismPanel className="prism-briefing-panel p-5">
                             <div className="flex items-center gap-3">
                                 <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-orange-500 to-amber-500 text-white">
                                     <Icon className="h-5 w-5" />
@@ -82,23 +79,23 @@ export function MascotAssistantPage({ role }: { role: string }) {
                                     <p className="text-xs text-[var(--text-muted)]">The mascot adapts to your role and current page context.</p>
                                 </div>
                             </div>
-                            <div className="space-y-2">
+                            <div className="mt-4 space-y-2">
                                 {content.highlights.map((item) => (
                                     <div key={item} className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-3 text-sm text-[var(--text-secondary)]">
                                         {item}
                                     </div>
                                 ))}
                             </div>
-                        </div>
-                    </div>
-                </section>
+                        </PrismPanel>
+                    )}
+                />
 
                 <section className="min-h-[720px]">
-                    <Suspense fallback={<div className="rounded-3xl border border-[var(--border)] bg-[var(--bg-card)] p-8 text-sm text-[var(--text-secondary)]">Loading assistant…</div>}>
+                    <Suspense fallback={<div className="rounded-3xl border border-[var(--border)] bg-[var(--bg-card)] p-8 text-sm text-[var(--text-secondary)]">Loading assistant...</div>}>
                         <MascotLauncher role={role} fullPage />
                     </Suspense>
                 </section>
-            </div>
-        </div>
+            </PrismSection>
+        </PrismPage>
     );
 }

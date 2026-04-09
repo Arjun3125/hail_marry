@@ -176,7 +176,7 @@ export default function PersonalMasteryMap() {
     const readinessScore = summary?.exam_readiness_pct ?? summary?.overall_score_pct ?? 0;
 
     return (
-        <PrismPage className="space-y-6">
+        <PrismPage variant="workspace" className="space-y-6">
             <PrismSection className="space-y-6">
                 <PrismPageIntro
                     className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]"
@@ -186,8 +186,8 @@ export default function PersonalMasteryMap() {
                             Intelligence Layer
                         </PrismHeroKicker>
                     )}
-                    title={<>See your <span className="premium-gradient">real mastery signal</span> down to the sub-topic level</>}
-                    description="This view blends your unified student profile with live topic mastery records so you can see readiness, risk, and weak concepts without relying on demo-only placeholders."
+                    title="See your real mastery signal down to the topic level"
+                    description="Blend profile data with live topic mastery records so readiness, risk, and weak concepts stay visible without relying on placeholders or guesswork."
                     aside={(
                         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-2">
                             <MetricCard

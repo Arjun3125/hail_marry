@@ -277,19 +277,19 @@ test.beforeEach(async ({ page }) => {
 
 test("Verify demo role entry points load current dashboards", async ({ page }) => {
     await page.goto("/demo");
-    await expect(page.getByRole("heading", { name: /Walk the product through four role-specific realities/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Enter the product as a real/i })).toBeVisible();
 
     await page.getByRole("button", { name: /Student/i }).first().click();
     await page.waitForURL("**/student/overview");
-    await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Your academic day, organized for action/i })).toBeVisible();
 
     await page.goto("/demo");
     await page.getByRole("button", { name: /Teacher/i }).first().click();
     await page.waitForURL("**/teacher/dashboard");
-    await expect(page.getByText(/Educator Console/i)).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Run the school day from one teaching desk/i })).toBeVisible();
 
     await page.goto("/demo");
     await page.getByRole("button", { name: /Admin/i }).first().click();
     await page.waitForURL("**/admin/dashboard");
-    await expect(page.getByRole("heading", { name: /Admin Dashboard/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Run school health from a calm academic control surface/i })).toBeVisible();
 });

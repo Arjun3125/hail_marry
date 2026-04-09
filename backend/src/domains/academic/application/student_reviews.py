@@ -64,7 +64,23 @@ def list_student_reviews(
         else:
             upcoming.append(entry)
 
-    return {"due": due, "upcoming": upcoming, "total": len(reviews)}
+    completion_history = [
+        {
+            "id": str(review.id),
+            "topic": review.topic,
+            "subject_id": str(review.subject_id) if review.subject_id else None,
+            "completed_at": str(review.updated_at),
+            "review_count": review.review_count,
+            "interval_days": review.interval_days,
+        }
+        for review in sorted(
+            (item for item in reviews if (item.review_count or 0) > 0),
+            key=lambda item: item.updated_at or datetime.min.replace(tzinfo=timezone.utc),
+            reverse=True,
+        )[:6]
+    ]
+
+    return {"due": due, "upcoming": upcoming, "recent_completion_history": completion_history, "total": len(reviews)}
 
 
 def _sm2_update(interval: int, ease_factor: float, rating: int) -> tuple[int, float]:

@@ -47,7 +47,7 @@ test("admin branding page loads config, extracts palette, and saves settings", a
 
     await page.goto("/admin/branding");
 
-    await expect(page.getByRole("heading", { name: "Branding Engine" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Tune the institution identity without affecting platform behavior" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Live Interface Preview" })).toBeVisible();
 
     const logoUpload = page.getByRole("button", { name: /upload organization logo/i });

@@ -147,8 +147,8 @@ test("admin users page supports role updates, activation changes, and guardian b
 
     await page.goto("/admin/users");
 
-    await expect(page.getByRole("heading", { name: "User Management" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "User Directory" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Govern the school directory without leaving the control room" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /User directory/i })).toBeVisible();
 
     const teacherRoleSelect = page.getByLabel("Change role for Teacher One");
     await teacherRoleSelect.selectOption("admin");

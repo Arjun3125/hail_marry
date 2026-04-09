@@ -5,7 +5,7 @@ import { Clock, Loader2, Plus, Sparkles, Trash2 } from "lucide-react";
 
 import EmptyState from "@/components/EmptyState";
 import { PrismInput, PrismSelect, PrismTableShell, PrismTextarea } from "@/components/prism/PrismControls";
-import { PrismHeroKicker, PrismPage, PrismPanel, PrismSection } from "@/components/prism/PrismPage";
+import { PrismHeroKicker, PrismPage, PrismPageIntro, PrismPanel, PrismSection } from "@/components/prism/PrismPage";
 import ErrorRemediation from "@/components/ui/ErrorRemediation";
 import { api } from "@/lib/api";
 
@@ -216,27 +216,42 @@ export default function AdminTimetablePage() {
     };
 
     return (
-        <PrismPage className="space-y-6 pb-8">
+        <PrismPage variant="workspace" className="space-y-6 pb-8">
             <PrismSection className="space-y-6">
-                <div className="grid gap-4 xl:grid-cols-[1.12fr_0.88fr]">
-                    <div className="space-y-4">
+                <PrismPageIntro
+                    kicker={(
                         <PrismHeroKicker>
                             <Clock className="h-3.5 w-3.5" />
                             Admin Scheduling Surface
                         </PrismHeroKicker>
-                        <div className="space-y-3">
-                            <h1 className="prism-title text-4xl font-black leading-[0.98] text-[var(--text-primary)] md:text-5xl">
-                                Timetable Management
-                            </h1>
-                            <p className="max-w-3xl text-base leading-7 text-[var(--text-secondary)] md:text-lg">
-                                Create, review, and auto-generate class schedules from one controlled admin scheduling workspace.
+                    )}
+                    title="Keep the school timetable editable and generation-safe"
+                    description="Create manual timetable slots, inspect the class grid, and run schedule generation from one controlled scheduling workspace."
+                    aside={(
+                        <div className="prism-briefing-panel">
+                            <p className="prism-status-label">Scheduling rule</p>
+                            <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
+                                Use manual controls for targeted fixes and the generator only when the payload reflects real class and teacher constraints.
                             </p>
                         </div>
+                    )}
+                />
+
+                <div className="prism-status-strip">
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">Classes</span>
+                        <span className="prism-status-value">{classes.length}</span>
+                        <span className="prism-status-detail">Classes currently available for scheduling.</span>
                     </div>
-                    <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
-                        <MetricCard title="Classes" value={`${classes.length}`} summary="Classes available for scheduling." accent="blue" />
-                        <MetricCard title="Teachers" value={`${teachers.length}`} summary="Active teacher or admin resources available." accent="emerald" />
-                        <MetricCard title="Visible slots" value={`${slots.length}`} summary={currentClass ? `Current timetable for ${currentClass.name}.` : "Select a class to inspect the schedule."} accent="amber" />
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">Teachers</span>
+                        <span className="prism-status-value">{teachers.length}</span>
+                        <span className="prism-status-detail">Active teacher or admin resources available for assignment.</span>
+                    </div>
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">Visible slots</span>
+                        <span className="prism-status-value">{slots.length}</span>
+                        <span className="prism-status-detail">{currentClass ? `Current timetable for ${currentClass.name}.` : "Select a class to inspect the schedule."}</span>
                     </div>
                 </div>
 
@@ -409,22 +424,6 @@ export default function AdminTimetablePage() {
                 </div>
             </PrismSection>
         </PrismPage>
-    );
-}
-
-function MetricCard({ title, value, summary, accent }: { title: string; value: string; summary: string; accent: "blue" | "emerald" | "amber" }) {
-    const accentClasses = {
-        blue: "bg-[linear-gradient(135deg,rgba(96,165,250,0.22),rgba(59,130,246,0.08))]",
-        emerald: "bg-[linear-gradient(135deg,rgba(45,212,191,0.2),rgba(16,185,129,0.08))]",
-        amber: "bg-[linear-gradient(135deg,rgba(251,191,36,0.2),rgba(245,158,11,0.08))]",
-    } as const;
-    return (
-        <PrismPanel className="p-4">
-            <div className={`mb-3 h-2 w-16 rounded-full ${accentClasses[accent]}`} />
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">{title}</p>
-            <p className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">{value}</p>
-            <p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">{summary}</p>
-        </PrismPanel>
     );
 }
 

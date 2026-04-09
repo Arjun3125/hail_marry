@@ -45,7 +45,7 @@ test("teacher insights page renders class analytics and recommendations", async 
 
     await page.goto("/teacher/insights");
 
-    await expect(page.getByRole("heading", { name: "AI Class Insights" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Read class signals as a teaching intervention board" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Class 10 A" })).toBeVisible();
     await expect(page.getByText("Biology")).toBeVisible();
     await expect(page.getByText("Photosynthesis", { exact: true })).toBeVisible();

@@ -136,6 +136,19 @@ def _bucket_start(bucket_type: str, *, today: date | None = None) -> date:
     return current
 
 
+def _month_starts_ending_on(reference: date, *, count: int) -> list[date]:
+    cursor = reference.replace(day=1)
+    months: list[date] = []
+    for _ in range(count):
+        months.append(cursor)
+        if cursor.month == 1:
+            cursor = date(cursor.year - 1, 12, 1)
+        else:
+            cursor = date(cursor.year, cursor.month - 1, 1)
+    months.reverse()
+    return months
+
+
 def _supports_usage_counter_storage(db: Session) -> bool:
     return all(hasattr(db, attr) for attr in ("get_bind", "query", "add"))
 
@@ -541,6 +554,9 @@ def _aggregate_tenant_counter(
 def build_usage_snapshot(db: Session, *, tenant_id: UUID, days: int = 7) -> dict[str, Any]:
     today = _bucket_start("day")
     week_start = today - timedelta(days=max(days - 1, 0))
+    six_month_day_start = today - timedelta(days=179)
+    month_starts = _month_starts_ending_on(today, count=6)
+    aggregate_metrics = {"ai_requests", "llm_tokens"}
     rows = _aggregate_tenant_counter(db, tenant_id=tenant_id, bucket_type="day")
     by_metric: dict[str, dict[str, Any]] = {}
     for row in rows:
@@ -564,7 +580,7 @@ def build_usage_snapshot(db: Session, *, tenant_id: UUID, days: int = 7) -> dict
         )
         .all()
     )
-    role_totals = {"students": 0, "teachers": 0, "admin": 0}
+    role_totals = {"students": 0, "teachers": 0, "admin": 0, "parents": 0}
 
     user_rows = (
         db.query(User, UsageCounter)
@@ -574,24 +590,55 @@ def build_usage_snapshot(db: Session, *, tenant_id: UUID, days: int = 7) -> dict
             & (UsageCounter.tenant_id == User.tenant_id)
             & (UsageCounter.scope == "user")
             & (UsageCounter.bucket_type == "day")
-            & (UsageCounter.bucket_start == _bucket_start("day"))
-            & (UsageCounter.metric == "ai_requests"),
+            & (UsageCounter.bucket_start == today),
         )
         .filter(User.tenant_id == tenant_id)
         .all()
     )
 
-    heavy_users: list[dict[str, Any]] = []
+    user_summaries: dict[UUID, dict[str, Any]] = {}
     for user, counter in user_rows:
-        total = int(counter.count if counter else 0)
-        role_key = "students" if user.role == "student" else user.role
+        summary = user_summaries.setdefault(
+            user.id,
+            {
+                "name": user.full_name,
+                "role": user.role,
+                "requests_primary": 0,
+                "requests_fallback": 0,
+                "tokens_primary": 0,
+                "tokens_fallback": 0,
+                "tokens_llm": 0,
+            },
+        )
+        if counter is None:
+            continue
+        if counter.metric == "ai_requests":
+            summary["requests_primary"] += int(counter.count or 0)
+            summary["tokens_primary"] += int(counter.token_total or 0)
+        elif counter.metric == "llm_tokens":
+            summary["tokens_llm"] += int(counter.token_total or 0)
+        else:
+            summary["requests_fallback"] += int(counter.count or 0)
+            summary["tokens_fallback"] += int(counter.token_total or 0)
+
+    heavy_users: list[dict[str, Any]] = []
+    for summary in user_summaries.values():
+        total = summary["requests_primary"] or summary["requests_fallback"]
+        tokens_today = summary["tokens_llm"] or summary["tokens_primary"] or summary["tokens_fallback"]
+        role_key = {
+            "student": "students",
+            "teacher": "teachers",
+            "admin": "admin",
+            "parent": "parents",
+        }.get(summary["role"])
         if role_key in role_totals:
             role_totals[role_key] += total
         heavy_users.append(
             {
-                "name": user.full_name,
+                "name": summary["name"],
+                "role": summary["role"],
                 "queries": total,
-                "tokens_today": int(counter.token_total if counter else 0),
+                "tokens_today": tokens_today,
             }
         )
     heavy_users.sort(key=lambda item: item["queries"], reverse=True)
@@ -599,8 +646,122 @@ def build_usage_snapshot(db: Session, *, tenant_id: UUID, days: int = 7) -> dict
     total_role_usage = max(sum(role_totals.values()), 1)
     model_mix: dict[str, int] = {}
     for row in rows:
-        if row.last_model:
+        if row.metric not in aggregate_metrics and row.last_model:
             model_mix[row.last_model] = model_mix.get(row.last_model, 0) + int(row.count or 0)
+
+    recent_day_rows = (
+        db.query(UsageCounter)
+        .filter(
+            UsageCounter.tenant_id == tenant_id,
+            UsageCounter.user_id.is_(None),
+            UsageCounter.scope == "tenant",
+            UsageCounter.bucket_type == "day",
+            UsageCounter.bucket_start >= six_month_day_start,
+            UsageCounter.bucket_start <= today,
+        )
+        .all()
+    )
+    month_rows = (
+        db.query(UsageCounter)
+        .filter(
+            UsageCounter.tenant_id == tenant_id,
+            UsageCounter.user_id.is_(None),
+            UsageCounter.scope == "tenant",
+            UsageCounter.bucket_type == "month",
+            UsageCounter.bucket_start >= month_starts[0],
+            UsageCounter.bucket_start <= month_starts[-1],
+        )
+        .all()
+    )
+    month_lookup = {(row.metric, row.bucket_start): row for row in month_rows}
+    monthly_trend = []
+    for month_start in month_starts:
+        ai_row = month_lookup.get(("ai_requests", month_start))
+        token_row = month_lookup.get(("llm_tokens", month_start))
+        requests = int(ai_row.count or 0) if ai_row else 0
+        tokens = int(token_row.token_total or 0) if token_row else int(ai_row.token_total or 0) if ai_row else 0
+        cache_hits = int(token_row.cache_hits or 0) if token_row else int(ai_row.cache_hits or 0) if ai_row else 0
+        estimated_cost = float(token_row.estimated_cost_units or 0.0) if token_row else float(ai_row.estimated_cost_units or 0.0) if ai_row else 0.0
+        monthly_trend.append(
+            {
+                "month": month_start.isoformat(),
+                "label": month_start.strftime("%b"),
+                "requests": requests,
+                "tokens": tokens,
+                "cache_hits": cache_hits,
+                "estimated_cost_units": round(estimated_cost, 3),
+            }
+        )
+
+    workflow_rollups: dict[str, dict[str, Any]] = {}
+    for row in month_rows:
+        if row.metric in aggregate_metrics:
+            continue
+        entry = workflow_rollups.setdefault(
+            row.metric,
+            {"count": 0, "token_total": 0, "cache_hits": 0, "estimated_cost_units": 0.0},
+        )
+        entry["count"] += int(row.count or 0)
+        entry["token_total"] += int(row.token_total or 0)
+        entry["cache_hits"] += int(row.cache_hits or 0)
+        entry["estimated_cost_units"] += float(row.estimated_cost_units or 0.0)
+
+    ai_day_rows = [row for row in recent_day_rows if row.metric == "ai_requests"]
+    llm_day_lookup = {
+        row.bucket_start: row for row in recent_day_rows if row.metric == "llm_tokens"
+    }
+    peak_ai_row = max(ai_day_rows, key=lambda row: int(row.count or 0), default=None)
+    peak_day = None
+    if peak_ai_row is not None:
+        peak_llm_row = llm_day_lookup.get(peak_ai_row.bucket_start)
+        peak_day = {
+            "date": peak_ai_row.bucket_start.isoformat(),
+            "requests": int(peak_ai_row.count or 0),
+            "tokens": int(peak_llm_row.token_total or 0) if peak_llm_row else int(peak_ai_row.token_total or 0),
+            "cache_hits": int(peak_llm_row.cache_hits or 0) if peak_llm_row else int(peak_ai_row.cache_hits or 0),
+        }
+
+    role_month_rows = (
+        db.query(User.role, UsageCounter.metric, UsageCounter.bucket_start, UsageCounter.count)
+        .join(
+            User,
+            (UsageCounter.user_id == User.id)
+            & (UsageCounter.tenant_id == User.tenant_id),
+        )
+        .filter(
+            UsageCounter.tenant_id == tenant_id,
+            UsageCounter.scope == "user",
+            UsageCounter.bucket_type == "month",
+            UsageCounter.bucket_start >= month_starts[0],
+            UsageCounter.bucket_start <= month_starts[-1],
+        )
+        .all()
+    )
+    role_month_totals: dict[tuple[date, str], dict[str, int]] = {}
+    for role, metric, bucket_start, count in role_month_rows:
+        if role is None or bucket_start is None or metric is None:
+            continue
+        bucket = role_month_totals.setdefault((bucket_start, role), {"primary": 0, "fallback": 0})
+        if metric == "ai_requests":
+            bucket["primary"] += int(count or 0)
+        elif metric != "llm_tokens":
+            bucket["fallback"] += int(count or 0)
+
+    role_monthly = []
+    for month_start in month_starts:
+        month_counts = {
+            "students": role_month_totals.get((month_start, "student"), {}).get("primary", 0)
+            or role_month_totals.get((month_start, "student"), {}).get("fallback", 0),
+            "teachers": role_month_totals.get((month_start, "teacher"), {}).get("primary", 0)
+            or role_month_totals.get((month_start, "teacher"), {}).get("fallback", 0),
+            "admin": role_month_totals.get((month_start, "admin"), {}).get("primary", 0)
+            or role_month_totals.get((month_start, "admin"), {}).get("fallback", 0),
+            "parents": role_month_totals.get((month_start, "parent"), {}).get("primary", 0)
+            or role_month_totals.get((month_start, "parent"), {}).get("fallback", 0),
+        }
+        month_counts["month"] = month_start.isoformat()
+        month_counts["label"] = month_start.strftime("%b")
+        role_monthly.append(month_counts)
 
     quota_saturation: list[dict[str, Any]] = []
     for metric, limits in USER_QUOTAS.items():
@@ -619,12 +780,30 @@ def build_usage_snapshot(db: Session, *, tenant_id: UUID, days: int = 7) -> dict
         )
     quota_saturation.sort(key=lambda item: item["saturation_pct"], reverse=True)
 
+    token_usage_today = int(by_metric.get("llm_tokens", {}).get("token_total", 0))
+    if token_usage_today == 0:
+        token_usage_today = int(by_metric.get("ai_requests", {}).get("token_total", 0))
+    estimated_cost_units_today = round(float(by_metric.get("llm_tokens", {}).get("estimated_cost_units", 0.0)), 3)
+    if estimated_cost_units_today == 0.0:
+        estimated_cost_units_today = round(float(by_metric.get("ai_requests", {}).get("estimated_cost_units", 0.0)), 3)
+    cache_hits_today = int(by_metric.get("llm_tokens", {}).get("cache_hits", 0))
+    if cache_hits_today == 0:
+        cache_hits_today = int(by_metric.get("ai_requests", {}).get("cache_hits", 0))
+
+    six_month_totals = {
+        "requests": int(sum(item["requests"] for item in monthly_trend)),
+        "tokens": int(sum(item["tokens"] for item in monthly_trend)),
+        "cache_hits": int(sum(item["cache_hits"] for item in monthly_trend)),
+        "estimated_cost_units": round(sum(item["estimated_cost_units"] for item in monthly_trend), 3),
+    }
+
     return {
         "total_week": int(sum((row.count or 0) for row in week_rows if row.metric == "ai_requests")),
         "by_role": {
             "students": round(role_totals["students"] / total_role_usage * 100),
             "teachers": round(role_totals["teachers"] / total_role_usage * 100),
             "admin": round(role_totals["admin"] / total_role_usage * 100),
+            "parents": round(role_totals["parents"] / total_role_usage * 100),
         },
         "heavy_users": heavy_users[:5],
         "tool_usage": [
@@ -635,11 +814,11 @@ def build_usage_snapshot(db: Session, *, tenant_id: UUID, days: int = 7) -> dict
                 "cache_hits": int(values["cache_hits"]),
             }
             for metric, values in sorted(by_metric.items(), key=lambda item: (-item[1]["count"], item[0]))
-            if metric not in {"llm_tokens"}
+            if metric not in aggregate_metrics
         ],
-        "token_usage_today": int(by_metric.get("llm_tokens", {}).get("token_total", 0)),
-        "estimated_cost_units_today": round(float(by_metric.get("llm_tokens", {}).get("estimated_cost_units", 0.0)), 3),
-        "cache_hits_today": int(sum(int(row.cache_hits or 0) for row in rows)),
+        "token_usage_today": token_usage_today,
+        "estimated_cost_units_today": estimated_cost_units_today,
+        "cache_hits_today": cache_hits_today,
         "guardrails": {
             "tenant_requests_per_minute": get_tenant_requests_per_minute(),
             "tenant_daily_cost_units_threshold": DEFAULT_TENANT_COST_GUARDRAIL_UNITS,
@@ -648,4 +827,18 @@ def build_usage_snapshot(db: Session, *, tenant_id: UUID, days: int = 7) -> dict
         },
         "quota_saturation": quota_saturation[:8],
         "model_mix": model_mix,
+        "monthly_trend": monthly_trend,
+        "role_monthly": role_monthly,
+        "six_month_totals": six_month_totals,
+        "top_workflows_6m": [
+            {
+                "metric": metric,
+                "count": int(values["count"]),
+                "token_total": int(values["token_total"]),
+                "cache_hits": int(values["cache_hits"]),
+                "estimated_cost_units": round(float(values["estimated_cost_units"]), 3),
+            }
+            for metric, values in sorted(workflow_rollups.items(), key=lambda item: (-item[1]["count"], item[0]))[:8]
+        ],
+        "peak_day": peak_day,
     }

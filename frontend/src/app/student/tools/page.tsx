@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 
 import EmptyState from "@/components/EmptyState";
-import { PrismHeroKicker, PrismPage, PrismPanel, PrismSection } from "@/components/prism/PrismPage";
+import { PrismHeroKicker, PrismPage, PrismPageIntro, PrismPanel, PrismSection } from "@/components/prism/PrismPage";
 import { useNetworkAware } from "@/hooks/useNetworkAware";
 import ErrorRemediation from "@/components/ui/ErrorRemediation";
 import { api } from "@/lib/api";
@@ -211,31 +211,19 @@ export default function StudyToolsPage() {
     };
 
     return (
-        <PrismPage className="space-y-6">
+        <PrismPage variant="workspace" className="space-y-6">
             <PrismSection className="space-y-6">
-                <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-                    <div className="space-y-4">
+                <PrismPageIntro
+                    kicker={(
                         <PrismHeroKicker>
                             <Sparkles className="h-3.5 w-3.5" />
                             Student tool studio
                         </PrismHeroKicker>
-                        <div className="space-y-3">
-                            <div className="flex flex-wrap items-center gap-3">
-                                <h1 className="text-3xl font-semibold tracking-tight text-[var(--text-primary)] md:text-4xl">
-                                    Build revision assets from your learning material.
-                                </h1>
-                                <span className="rounded-full border border-white/10 bg-white/6 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--text-muted)]">
-                                    Prism Phase 3
-                                </span>
-                            </div>
-                            <p className="max-w-3xl text-sm leading-7 text-[var(--text-secondary)] md:text-base">
-                                Generate quizzes, flashcards, mind maps, flowcharts, and concept maps in a workspace designed around creation, saved
-                                assets, and grounded outputs rather than a single flat tool panel.
-                            </p>
-                        </div>
-                    </div>
-
-                    <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-1">
+                    )}
+                    title="Build revision assets from your learning material"
+                    description="Generate quizzes, flashcards, mind maps, flowcharts, and concept maps in a workspace organized around creation, saved assets, and grounded outputs."
+                    aside={(
+                        <div className="prism-status-strip">
                         <MetricPanel
                             label="Active workspace"
                             value={selectedTool?.label || "Select a tool"}
@@ -251,8 +239,9 @@ export default function StudyToolsPage() {
                             value={toolHistory.length > 0 ? `${toolHistory.length} recent` : "Fresh start"}
                             detail={toolHistory.length > 0 ? "Jump back into the latest prompts for this tool." : "Pick a tool and start building your first artifact."}
                         />
-                    </div>
-                </div>
+                        </div>
+                    )}
+                />
 
                 {error ? <ErrorRemediation error={error} scope="student-tools" onRetry={() => void generateResult()} simplifiedModeHref="/student/upload" /> : null}
 

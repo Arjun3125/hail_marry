@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 
 import { PrismSelect, PrismTableShell, PrismToolbar } from "@/components/prism/PrismControls";
-import { PrismHeroKicker, PrismPage, PrismPanel, PrismSection } from "@/components/prism/PrismPage";
+import { PrismHeroKicker, PrismPage, PrismPageIntro, PrismPanel, PrismSection } from "@/components/prism/PrismPage";
 import { useNetworkAware } from "@/hooks/useNetworkAware";
 import ErrorRemediation from "@/components/ui/ErrorRemediation";
 import { api } from "@/lib/api";
@@ -239,45 +239,54 @@ export default function AdminQueuePage() {
     };
 
     return (
-        <PrismPage className="space-y-6 pb-8">
+        <PrismPage variant="dashboard" className="space-y-6 pb-8">
             <PrismSection className="space-y-6">
-                <div className="grid gap-4 xl:grid-cols-[1.12fr_0.88fr]">
-                    <div className="space-y-4">
+                <PrismPageIntro
+                    kicker={(
                         <PrismHeroKicker>
                             <Workflow className="h-3.5 w-3.5" />
-                            Admin Queue Control Surface
+                            Admin Queue Surface
                         </PrismHeroKicker>
-                        <div className="space-y-3">
-                            <h1 className="prism-title text-4xl font-black leading-[0.98] text-[var(--text-primary)] md:text-5xl">
-                                AI Queue Operations
-                            </h1>
-                            <p className="max-w-3xl text-base leading-7 text-[var(--text-secondary)] md:text-lg">
-                                Monitor queue health, control stuck or failed jobs, and review persistent audit history from one operational admin surface.
+                    )}
+                    title="Keep the AI job queue controlled before incidents spread"
+                    description="Review queue pressure, isolate stuck or failed work, and move directly from diagnostics into retry, cancel, or dead-letter intervention."
+                    aside={(
+                        <div className="prism-briefing-panel">
+                            <p className="prism-status-label">Control focus</p>
+                            <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
+                                Start with queue depth and failure pressure, then inspect one job at a time before taking a destructive action.
                             </p>
                         </div>
+                    )}
+                />
+
+                <div className="prism-status-strip">
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">Pending depth</span>
+                        <span className="prism-status-value">{metrics ? metrics.pending_depth : "-"}</span>
+                        <span className="prism-status-detail">
+                            {metrics
+                                ? `Tenant cap ${metrics.max_pending_jobs_per_tenant}, global cap ${metrics.max_pending_jobs}.`
+                                : "Current queued workload and configured caps."}
+                        </span>
                     </div>
-                    <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
-                        <MetricCard
-                            icon={Activity}
-                            title="Queue depth"
-                            value={metrics ? `${metrics.pending_depth}` : "-"}
-                            summary={metrics ? `Tenant cap ${metrics.max_pending_jobs_per_tenant} / global ${metrics.max_pending_jobs}` : "Pending depth and tenant limits"}
-                            accent="blue"
-                        />
-                        <MetricCard
-                            icon={ServerCrash}
-                            title="Failure window"
-                            value={metrics ? `${metrics.failure_rate_pct}%` : "-"}
-                            summary={metrics ? `${metrics.failed_last_window} failures, ${metrics.dead_letter_count} dead-lettered` : "Recent failures and dead-letter size"}
-                            accent="amber"
-                        />
-                        <MetricCard
-                            icon={RotateCcw}
-                            title="Retries / stuck"
-                            value={metrics ? `${metrics.retry_count} / ${metrics.stuck_jobs}` : "-"}
-                            summary={metrics ? `Stuck after ${formatWindow(metrics.stuck_after_seconds)}` : "Retry pressure and stuck-job threshold"}
-                            accent="emerald"
-                        />
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">Failure window</span>
+                        <span className="prism-status-value">{metrics ? `${metrics.failure_rate_pct}%` : "-"}</span>
+                        <span className="prism-status-detail">
+                            {metrics
+                                ? `${metrics.failed_last_window} recent failures and ${metrics.dead_letter_count} dead-lettered jobs.`
+                                : "Recent failure rate and dead-letter pressure."}
+                        </span>
+                    </div>
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">Retries / stuck</span>
+                        <span className="prism-status-value">{metrics ? `${metrics.retry_count} / ${metrics.stuck_jobs}` : "-"}</span>
+                        <span className="prism-status-detail">
+                            {metrics
+                                ? `Jobs are marked stuck after ${formatWindow(metrics.stuck_after_seconds)}.`
+                                : "Retry pressure and stale-work threshold."}
+                        </span>
                     </div>
                 </div>
 
@@ -636,36 +645,5 @@ export default function AdminQueuePage() {
                 </div>
             </PrismSection>
         </PrismPage>
-    );
-}
-
-function MetricCard({
-    icon: Icon,
-    title,
-    value,
-    summary,
-    accent,
-}: {
-    icon: typeof Activity;
-    title: string;
-    value: string;
-    summary: string;
-    accent: "blue" | "emerald" | "amber";
-}) {
-    const accentClasses = {
-        blue: "bg-[linear-gradient(135deg,rgba(96,165,250,0.22),rgba(59,130,246,0.08))] text-status-blue",
-        emerald: "bg-[linear-gradient(135deg,rgba(45,212,191,0.2),rgba(16,185,129,0.08))] text-status-emerald",
-        amber: "bg-[linear-gradient(135deg,rgba(251,191,36,0.2),rgba(245,158,11,0.08))] text-status-amber",
-    } as const;
-
-    return (
-        <PrismPanel className="p-4">
-            <div className={`mb-3 flex h-11 w-11 items-center justify-center rounded-2xl ${accentClasses[accent]}`}>
-                <Icon className="h-5 w-5" />
-            </div>
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">{title}</p>
-            <p className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">{value}</p>
-            <p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">{summary}</p>
-        </PrismPanel>
     );
 }

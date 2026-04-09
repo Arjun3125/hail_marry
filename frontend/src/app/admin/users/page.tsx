@@ -12,7 +12,7 @@ import {
 
 import EmptyState from "@/components/EmptyState";
 import { PrismSearchField, PrismSelect, PrismTableShell, PrismToolbar } from "@/components/prism/PrismControls";
-import { PrismHeroKicker, PrismPage, PrismPanel, PrismSection } from "@/components/prism/PrismPage";
+import { PrismHeroKicker, PrismPage, PrismPageIntro, PrismPanel, PrismSection } from "@/components/prism/PrismPage";
 import ErrorRemediation from "@/components/ui/ErrorRemediation";
 import { api } from "@/lib/api";
 
@@ -88,14 +88,8 @@ export default function UsersPage() {
         void load();
     }, []);
 
-    const parents = useMemo(
-        () => users.filter((user) => user.role === "parent" && user.is_active),
-        [users],
-    );
-    const students = useMemo(
-        () => users.filter((user) => user.role === "student" && user.is_active),
-        [users],
-    );
+    const parents = useMemo(() => users.filter((user) => user.role === "parent" && user.is_active), [users]);
+    const students = useMemo(() => users.filter((user) => user.role === "student" && user.is_active), [users]);
 
     useEffect(() => {
         if (!parents.some((parent) => parent.id === selectedParentId)) {
@@ -179,43 +173,44 @@ export default function UsersPage() {
     };
 
     return (
-        <PrismPage className="space-y-6 pb-8">
+        <PrismPage variant="dashboard" className="space-y-6 pb-8">
             <PrismSection className="space-y-6">
-                <div className="grid gap-4 xl:grid-cols-[1.12fr_0.88fr]">
-                    <div className="space-y-4">
+                <PrismPageIntro
+                    kicker={(
                         <PrismHeroKicker>
                             <Users className="h-3.5 w-3.5" />
                             Admin Directory Surface
                         </PrismHeroKicker>
-                        <div className="space-y-3">
-                            <h1 className="prism-title text-4xl font-black leading-[0.98] text-[var(--text-primary)] md:text-5xl">
-                                User Management
-                            </h1>
-                            <p className="max-w-3xl text-base leading-7 text-[var(--text-secondary)] md:text-lg">
-                                Govern directory access, role overrides, and guardian bindings from one operational Prism workspace.
+                    )}
+                    title="Govern the school directory without leaving the control room"
+                    description="Search identities, apply role and activation overrides, and manage guardian bindings from one operational admin workspace."
+                    aside={(
+                        <div className="prism-briefing-panel">
+                            <p className="prism-status-label">Directory rule</p>
+                            <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
+                                Treat role changes and disable actions as operational controls. Use guardian bindings only for active parent and student accounts.
                             </p>
                         </div>
-                    </div>
+                    )}
+                />
 
-                    <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
-                        <MetricCard
-                            title="Directory size"
-                            value={`${users.length}`}
-                            summary="Total identities currently tracked in the admin directory."
-                            accent="blue"
-                        />
-                        <MetricCard
-                            title="Active users"
-                            value={`${activeUsers}`}
-                            summary={`${adminUsers} admin accounts and ${links.length} active guardian bindings.`}
-                            accent="emerald"
-                        />
-                        <MetricCard
-                            title="Filtered view"
-                            value={`${filtered.length}`}
-                            summary={roleFilter === "all" ? "All roles are visible in the current result set." : `Filtered to ${roleFilter} identities.`}
-                            accent="amber"
-                        />
+                <div className="prism-status-strip">
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">Directory size</span>
+                        <span className="prism-status-value">{users.length}</span>
+                        <span className="prism-status-detail">Total identities currently tracked in the admin directory.</span>
+                    </div>
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">Active users</span>
+                        <span className="prism-status-value">{activeUsers}</span>
+                        <span className="prism-status-detail">{adminUsers} admin accounts and {links.length} active guardian bindings.</span>
+                    </div>
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">Filtered view</span>
+                        <span className="prism-status-value">{filtered.length}</span>
+                        <span className="prism-status-detail">
+                            {roleFilter === "all" ? "All roles are visible in the current result set." : `Filtered to ${roleFilter} identities.`}
+                        </span>
                     </div>
                 </div>
 
@@ -234,7 +229,7 @@ export default function UsersPage() {
                         <PrismPanel className="p-5">
                             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                                 <div>
-                                    <h2 className="text-base font-semibold text-[var(--text-primary)]">User Directory</h2>
+                                    <h2 className="text-base font-semibold text-[var(--text-primary)]">User directory</h2>
                                     <p className="text-sm text-[var(--text-secondary)]">
                                         Search, filter, and apply role or activation overrides without leaving the directory surface.
                                     </p>
@@ -272,6 +267,8 @@ export default function UsersPage() {
                                         icon={Users}
                                         title="No identities match the current filters"
                                         description="Adjust the search query or role filter to bring users back into view."
+                                        eyebrow="No directory matches"
+                                        scopeNote="The directory view supports role filtering and free-text matching across name and email."
                                     />
                                 </div>
                             ) : (
@@ -365,7 +362,7 @@ export default function UsersPage() {
                         <PrismPanel className="p-5 xl:sticky xl:top-6">
                             <div className="flex items-center gap-2">
                                 <Link2 className="h-4 w-4 text-[var(--primary)]" />
-                                <h2 className="text-base font-semibold text-[var(--text-primary)]">Guardian Network</h2>
+                                <h2 className="text-base font-semibold text-[var(--text-primary)]">Guardian network</h2>
                             </div>
                             <p className="mt-2 text-sm text-[var(--text-secondary)]">
                                 Link active parents to active students to keep reporting and guardian access aligned.
@@ -419,7 +416,7 @@ export default function UsersPage() {
                                     disabled={linkBusy || !selectedParentId || !selectedChildId}
                                 >
                                     <Link2 className="h-4 w-4" />
-                                    Create Guardian Binding
+                                    Create guardian binding
                                 </button>
                             </div>
                         </PrismPanel>
@@ -427,7 +424,7 @@ export default function UsersPage() {
                         <PrismPanel className="p-5">
                             <div className="flex items-center gap-2">
                                 <Shield className="h-4 w-4 text-[var(--primary)]" />
-                                <h2 className="text-base font-semibold text-[var(--text-primary)]">Active Bindings Registry</h2>
+                                <h2 className="text-base font-semibold text-[var(--text-primary)]">Active bindings registry</h2>
                             </div>
                             <p className="mt-2 text-sm text-[var(--text-secondary)]">
                                 Current parent-child bindings remain editable here without changing the underlying user directory data.
@@ -439,6 +436,8 @@ export default function UsersPage() {
                                         icon={Unlink}
                                         title="No guardian bindings yet"
                                         description="Create the first parent-child link from the panel above."
+                                        eyebrow="Guardian network empty"
+                                        scopeNote="Only active parent and student identities appear in the binding workflow."
                                     />
                                 ) : links.map((link) => (
                                     <div key={link.id} className="rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.03)] px-4 py-3">
@@ -469,32 +468,5 @@ export default function UsersPage() {
                 </div>
             </PrismSection>
         </PrismPage>
-    );
-}
-
-function MetricCard({
-    title,
-    value,
-    summary,
-    accent,
-}: {
-    title: string;
-    value: string;
-    summary: string;
-    accent: "blue" | "emerald" | "amber";
-}) {
-    const accentClasses = {
-        blue: "bg-[linear-gradient(135deg,rgba(96,165,250,0.22),rgba(59,130,246,0.08))]",
-        emerald: "bg-[linear-gradient(135deg,rgba(45,212,191,0.2),rgba(16,185,129,0.08))]",
-        amber: "bg-[linear-gradient(135deg,rgba(251,191,36,0.2),rgba(245,158,11,0.08))]",
-    } as const;
-
-    return (
-        <PrismPanel className="p-4">
-            <div className={`mb-3 h-2 w-16 rounded-full ${accentClasses[accent]}`} />
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">{title}</p>
-            <p className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">{value}</p>
-            <p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">{summary}</p>
-        </PrismPanel>
     );
 }

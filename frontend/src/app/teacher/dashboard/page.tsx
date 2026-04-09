@@ -15,7 +15,7 @@ import {
 import { api } from "@/lib/api";
 import { AnimatedCounter, ProgressRing } from "@/components/ui/SharedUI";
 import { RoleStartPanel } from "@/components/RoleStartPanel";
-import { PrismHeroKicker, PrismPage } from "@/components/prism/PrismPage";
+import { PrismHeroKicker, PrismPage, PrismPageIntro } from "@/components/prism/PrismPage";
 
 type TeacherClass = {
     id: string;
@@ -79,14 +79,20 @@ export default function TeacherDashboard() {
     );
 
     return (
-        <PrismPage className="max-w-6xl space-y-8">
-            <div className="space-y-3">
-                <PrismHeroKicker>Teacher command view</PrismHeroKicker>
-                <div>
-                    <h1 className="prism-title text-4xl font-black text-[var(--text-primary)]">Teacher Dashboard</h1>
-                    <p className="mt-2 text-sm text-[var(--text-secondary)]">A premium operational surface for classes, assessments, and insight-driven intervention.</p>
-                </div>
-            </div>
+        <PrismPage variant="dashboard" className="max-w-6xl space-y-8">
+            <PrismPageIntro
+                kicker={<PrismHeroKicker>Teacher command view</PrismHeroKicker>}
+                title="Run the school day from one teaching desk"
+                description="See today&apos;s classes, grading load, assignment progress, and intervention signals before you move into attendance or assessment work."
+                aside={(
+                    <div className="prism-briefing-panel">
+                        <p className="prism-status-label">Today at a glance</p>
+                        <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
+                            {todayClasses.length} sessions scheduled, {pendingReviews} reviews waiting, and {openAssignments} active assignments still in motion.
+                        </p>
+                    </div>
+                )}
+            />
             <RoleStartPanel role="teacher" />
 
             {error && (
@@ -104,21 +110,17 @@ export default function TeacherDashboard() {
             ) : (
                 <>
                     {/* ─── Command Center Hero ─── */}
-                    <div className="relative overflow-hidden rounded-3xl glass-panel border border-[var(--border-light)] shadow-2xl isolate stagger-1 flex flex-col lg:flex-row gap-8">
-                        {/* Interactive Gradients */}
-                        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/10 via-indigo-500/5 to-purple-600/10 z-[-1]" />
-                        <div className="absolute top-1/2 left-0 w-72 h-72 bg-blue-500/20 blur-[120px] rounded-full -translate-y-1/2 -ml-10 z-[-1]" />
-                        
+                    <div className="relative overflow-hidden rounded-3xl border border-[var(--border-light)] isolate stagger-1 flex flex-col lg:flex-row gap-8">
                         <div className="p-8 lg:w-1/2 flex flex-col justify-center">
-                            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-[10px] uppercase tracking-widest font-bold text-blue-500 mb-4 w-fit">
+                            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/8 border border-blue-500/16 text-[10px] uppercase tracking-widest font-bold text-blue-300 mb-4 w-fit">
                                 <LayoutDashboard className="w-3 h-3" />
-                                Educator Console
+                                Today&apos;s teaching flow
                             </div>
-                            <h1 className="text-4xl font-black text-[var(--text-primary)] tracking-tight leading-tight mb-2">
-                                Welcome back to class
+                            <h1 className="text-3xl font-black text-[var(--text-primary)] tracking-tight leading-tight mb-2">
+                                Start with what needs attention first
                             </h1>
-                            <p className="text-sm text-[var(--text-muted)] mb-6 max-w-sm">
-                                You have {todayClasses.length} sessions scheduled for today and {pendingReviews} submissions awaiting your review.
+                            <p className="text-sm text-[var(--text-muted)] mb-6 max-w-md">
+                                Begin attendance, open the next assessment draft, or review queued student work before the day fragments into separate tools.
                             </p>
                             
                             <div className="flex gap-4">
@@ -139,7 +141,7 @@ export default function TeacherDashboard() {
                         </div>
 
                         {/* Schedule Quick View */}
-                        <div className="lg:w-1/2 p-8 border-t lg:border-t-0 lg:border-l border-[var(--border-light)] bg-gradient-to-br from-[var(--bg-card)]/50 to-transparent backdrop-blur-sm relative">
+                        <div className="lg:w-1/2 p-8 border-t lg:border-t-0 lg:border-l border-[var(--border-light)] bg-[rgba(255,255,255,0.02)] relative">
                             <div className="flex items-center justify-between mb-6">
                                 <h2 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
                                     <CalendarCheck className="w-4 h-4 text-blue-500" />
@@ -263,7 +265,7 @@ export default function TeacherDashboard() {
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 stagger-4">
                         {/* Multi-class Chart */}
                         {chartData.length > 0 && (
-                            <div className="lg:col-span-2 bg-[var(--bg-card)] rounded-2xl p-6 shadow-[var(--shadow-card)] border border-[var(--border-light)] glass-panel">
+                            <div className="lg:col-span-2 bg-[var(--bg-card)] rounded-2xl p-6 shadow-[var(--shadow-card)] border border-[var(--border-light)]">
                                 <h2 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2 mb-6">
                                     <TrendingUp className="w-4 h-4 text-blue-500" />
                                     Performance Matrix
@@ -303,7 +305,7 @@ export default function TeacherDashboard() {
                         )}
 
                         {/* AI Summary */}
-                        <div className="bg-[var(--bg-card)] rounded-2xl p-6 shadow-[var(--shadow-card)] border border-[var(--border-light)] glass-panel flex flex-col">
+                        <div className="bg-[var(--bg-card)] rounded-2xl p-6 shadow-[var(--shadow-card)] border border-[var(--border-light)] flex flex-col">
                             <div className="flex items-center gap-2 mb-4">
                                 <span className="flex items-center justify-center w-8 h-8 rounded-full bg-purple-500/10 shrink-0">
                                     <Bot className="w-4 h-4 text-purple-500" />

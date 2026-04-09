@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { CreditCard, Zap, FileText, Users } from "lucide-react";
 
+import { PrismHeroKicker, PrismPage, PrismPageIntro, PrismSection } from "@/components/prism/PrismPage";
 import { api } from "@/lib/api";
 
 type BillingData = {
@@ -37,11 +38,18 @@ export default function AdminBillingPage() {
     }, []);
 
     return (
-        <div>
-            <div className="mb-6">
-                <h1 className="text-2xl font-bold text-[var(--text-primary)]">Billing & Plan</h1>
-                <p className="text-sm text-[var(--text-secondary)]">View your plan details and usage</p>
-            </div>
+        <PrismPage variant="dashboard" className="space-y-6 pb-8">
+            <PrismSection className="space-y-6">
+                <PrismPageIntro
+                    kicker={(
+                        <PrismHeroKicker>
+                            <CreditCard className="h-3.5 w-3.5" />
+                            Admin Billing Surface
+                        </PrismHeroKicker>
+                    )}
+                    title="Review plan and usage before cost becomes a surprise"
+                    description="Keep commercial limits, AI usage, and document volume visible in one billing workspace."
+                />
 
             {error ? (
                 <div className="rounded-[var(--radius)] border border-[var(--error)]/30 bg-error-subtle px-4 py-3 text-sm text-[var(--error)] mb-4">
@@ -96,6 +104,7 @@ export default function AdminBillingPage() {
                     </div>
                 </>
             )}
-        </div>
+            </PrismSection>
+        </PrismPage>
     );
 }

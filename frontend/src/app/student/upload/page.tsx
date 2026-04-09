@@ -6,7 +6,7 @@ import { Bot, CheckCircle2, FileText, Loader2, ScanSearch, Sparkles, Upload, XCi
 
 import EmptyState from "@/components/EmptyState";
 import { PrismTableShell } from "@/components/prism/PrismControls";
-import { PrismHeroKicker, PrismPage, PrismPanel, PrismSection } from "@/components/prism/PrismPage";
+import { PrismHeroKicker, PrismPage, PrismPageIntro, PrismPanel, PrismSection } from "@/components/prism/PrismPage";
 import ErrorRemediation from "@/components/ui/ErrorRemediation";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -19,8 +19,22 @@ type UploadRecord = {
     uploaded_at: string;
 };
 
+type UploadSummary = {
+    total_uploads: number;
+    completed_ingestions: number;
+    processing_count: number;
+    failed_count: number;
+};
+
+type MonthlyActivity = { month: string; count: number };
+type FileTypeMix = { type: string; count: number };
+
 type UploadListPayload = {
     items: UploadRecord[];
+    recent_items?: UploadRecord[];
+    summary?: UploadSummary;
+    monthly_activity?: MonthlyActivity[];
+    file_types?: FileTypeMix[];
 };
 
 type ActivityItem = {
@@ -30,6 +44,7 @@ type ActivityItem = {
     status: "uploading" | "completed" | "failed";
     chunks?: number;
     error?: string;
+    createdAt?: string;
     ocrWarning?: string;
     ocrReviewRequired?: boolean;
     ocrPending?: boolean;
@@ -47,6 +62,10 @@ function buildMascotPromptHref(prompt: string) {
 export default function StudentUploadPage() {
     const [uploads, setUploads] = useState<UploadRecord[]>([]);
     const [activity, setActivity] = useState<ActivityItem[]>([]);
+    const [historyActivity, setHistoryActivity] = useState<ActivityItem[]>([]);
+    const [historySummary, setHistorySummary] = useState<UploadSummary | null>(null);
+    const [monthlyActivity, setMonthlyActivity] = useState<MonthlyActivity[]>([]);
+    const [fileTypes, setFileTypes] = useState<FileTypeMix[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [isDragging, setIsDragging] = useState(false);
@@ -55,6 +74,16 @@ export default function StudentUploadPage() {
     const loadUploads = async () => {
         const payload = (await api.student.uploads()) as UploadListPayload;
         setUploads(payload.items || []);
+        setHistoryActivity((payload.recent_items || []).map((item) => ({
+            key: `history-${item.id}`,
+            name: item.file_name,
+            type: item.file_type,
+            status: item.status === "processing" ? "uploading" : item.status,
+            createdAt: item.uploaded_at,
+        })));
+        setHistorySummary(payload.summary || null);
+        setMonthlyActivity(payload.monthly_activity || []);
+        setFileTypes(payload.file_types || []);
     };
 
     useEffect(() => {
@@ -87,18 +116,19 @@ export default function StudentUploadPage() {
         );
     };
 
-    const latestCompletedActivity = activity.find((item) => item.status === "completed");
+    const latestCompletedActivity = activity.find((item) => item.status === "completed")
+        ?? historyActivity.find((item) => item.status === "completed");
+    const displayActivity = activity.length > 0 ? [...activity, ...historyActivity] : historyActivity;
     const summary = useMemo(() => {
-        const completed = uploads.filter((item) => item.status === "completed").length;
-        const processing = uploads.filter((item) => item.status === "processing").length;
         const imageWork = activity.filter((item) => item.ocrPending || item.ocrProcessed || item.ocrReviewRequired).length;
         return {
-            total: uploads.length,
-            completed,
-            processing,
+            total: historySummary?.total_uploads ?? uploads.length,
+            completed: historySummary?.completed_ingestions ?? uploads.filter((item) => item.status === "completed").length,
+            processing: historySummary?.processing_count ?? uploads.filter((item) => item.status === "processing").length,
+            failed: historySummary?.failed_count ?? uploads.filter((item) => item.status === "failed").length,
             imageWork,
         };
-    }, [activity, uploads]);
+    }, [activity, historySummary, uploads]);
 
     const processFiles = async (fileList: FileList | File[]) => {
         const files = Array.from(fileList);
@@ -172,25 +202,19 @@ export default function StudentUploadPage() {
     };
 
     return (
-        <PrismPage className="space-y-6">
+        <PrismPage variant="workspace" className="space-y-6">
             <PrismSection className="space-y-6">
-                <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-                    <div className="space-y-4">
+                <PrismPageIntro
+                    kicker={(
                         <PrismHeroKicker>
                             <Sparkles className="h-3.5 w-3.5" />
                             Student ingestion flow
                         </PrismHeroKicker>
-                        <div className="space-y-3">
-                            <h1 className="prism-title text-4xl font-black leading-[0.98] text-[var(--text-primary)] md:text-5xl">
-                                Bring notes, slides, and photos into one <span className="premium-gradient">study-ready intake surface</span>
-                            </h1>
-                            <p className="max-w-3xl text-base leading-7 text-[var(--text-secondary)] md:text-lg">
-                                This route now frames uploads as the start of the learning loop: drop files, monitor OCR and indexing, then move directly into quiz, assistant, or AI Studio flows.
-                            </p>
-                        </div>
-                    </div>
-
-                    <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
+                    )}
+                    title="Bring material into one study-ready intake surface"
+                    description="Upload notes, slides, and photos, track OCR and indexing, and move straight into grounded AI study flows once the material is ready."
+                    aside={(
+                        <div className="prism-status-strip">
                         <UploadMetric
                             icon={Upload}
                             label="Stored files"
@@ -215,8 +239,9 @@ export default function StudentUploadPage() {
                             tint="from-amber-300/20 to-orange-500/10"
                             iconClass="text-status-amber"
                         />
-                    </div>
-                </div>
+                        </div>
+                    )}
+                />
 
                 {error ? (
                     <ErrorRemediation
@@ -304,7 +329,7 @@ export default function StudentUploadPage() {
                             <h2 className="text-lg font-semibold text-[var(--text-primary)]">Track processing, OCR, and failures</h2>
                         </div>
 
-                        {activity.length === 0 ? (
+                        {displayActivity.length === 0 ? (
                             <EmptyState
                                 icon={Upload}
                                 title="No upload activity yet"
@@ -312,7 +337,7 @@ export default function StudentUploadPage() {
                             />
                         ) : (
                             <div className="space-y-3">
-                                {activity.map((item) => (
+                                {displayActivity.map((item) => (
                                     <div key={item.key} className="rounded-[calc(var(--radius)*0.95)] border border-white/10 bg-black/10 p-4">
                                         <div className="flex items-start justify-between gap-3">
                                             <div className="flex items-start gap-3">
@@ -323,6 +348,7 @@ export default function StudentUploadPage() {
                                                     <p className="text-sm font-semibold text-[var(--text-primary)]">{item.name}</p>
                                                     <p className="text-xs leading-5 text-[var(--text-secondary)]">
                                                         {item.type.toUpperCase()}
+                                                        {item.createdAt ? ` | ${new Date(item.createdAt).toLocaleDateString()}` : ""}
                                                         {item.chunks !== undefined ? ` | ${item.chunks} chunks indexed` : ""}
                                                         {item.status === "uploading" && item.ocrPending ? " | OCR in progress" : ""}
                                                         {item.status === "completed" && item.ocrProcessed ? " | OCR completed" : ""}
@@ -435,9 +461,9 @@ export default function StudentUploadPage() {
 
                     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
                         {[
-                            { label: "PDF", desc: "Textbooks and chapter notes" },
-                            { label: "DOCX", desc: "Reports, essays, and handouts" },
-                            { label: "Images", desc: "OCR from photos and scans" },
+                            { label: "Completed", desc: `${summary.completed} uploads are ready to ground AI answers.` },
+                            { label: "Processing", desc: `${summary.processing} uploads are still moving through ingestion.` },
+                            { label: "Failed", desc: `${summary.failed} uploads need another pass or a cleaner source file.` },
                             { label: "Limit", desc: "Up to 25MB per file" },
                         ].map((item) => (
                             <PrismPanel key={item.label} className="p-4">
@@ -448,6 +474,28 @@ export default function StudentUploadPage() {
                                 <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">{item.desc}</p>
                             </PrismPanel>
                         ))}
+                        <PrismPanel className="p-4">
+                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Six-month upload rhythm</p>
+                            <div className="mt-3 space-y-2">
+                                {monthlyActivity.length > 0 ? monthlyActivity.map((item) => (
+                                    <div key={item.month} className="flex items-center justify-between gap-3 text-sm">
+                                        <span className="text-[var(--text-secondary)]">{item.month}</span>
+                                        <span className="font-semibold text-[var(--text-primary)]">{item.count}</span>
+                                    </div>
+                                )) : <p className="text-sm text-[var(--text-secondary)]">No historical upload rhythm yet.</p>}
+                            </div>
+                        </PrismPanel>
+                        <PrismPanel className="p-4">
+                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">File type mix</p>
+                            <div className="mt-3 space-y-2">
+                                {fileTypes.length > 0 ? fileTypes.map((item) => (
+                                    <div key={item.type} className="flex items-center justify-between gap-3 text-sm">
+                                        <span className="text-[var(--text-secondary)]">{item.type.toUpperCase()}</span>
+                                        <span className="font-semibold text-[var(--text-primary)]">{item.count}</span>
+                                    </div>
+                                )) : <p className="text-sm text-[var(--text-secondary)]">No historical file mix yet.</p>}
+                            </div>
+                        </PrismPanel>
                     </div>
                 </div>
             </PrismSection>

@@ -1,8 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Flame, MessageCircleQuestion, Users, TrendingUp } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Flame, MessageCircleQuestion, TrendingUp } from "lucide-react";
 
+import EmptyState from "@/components/EmptyState";
+import { PrismHeroKicker, PrismPage, PrismPageIntro, PrismPanel, PrismSection } from "@/components/prism/PrismPage";
+import ErrorRemediation from "@/components/ui/ErrorRemediation";
 import { api } from "@/lib/api";
 
 type HeatmapItem = {
@@ -42,6 +45,12 @@ export default function DoubtHeatmapPage() {
         void load();
     }, []);
 
+    const summary = useMemo(() => ({
+        totalQueries: data?.total_queries ?? 0,
+        studentCount: data?.student_count ?? 0,
+        hottestBand: data?.heatmap?.[0]?.label ?? "No active band",
+    }), [data]);
+
     const getHeatGradient = (intensity: number) => {
         if (intensity >= 0.8) return "from-red-500 to-rose-600";
         if (intensity >= 0.6) return "from-orange-400 to-amber-500";
@@ -50,136 +59,148 @@ export default function DoubtHeatmapPage() {
         return "from-green-200 to-emerald-300";
     };
 
-    const getHeatText = (intensity: number) => {
-        return intensity >= 0.4 ? "text-white" : "text-[var(--text-primary)]";
-    };
+    const getHeatText = (intensity: number) => (intensity >= 0.4 ? "text-white" : "text-[var(--text-primary)]");
 
     return (
-        <div className="max-w-3xl mx-auto">
-            {/* Header */}
-            <div className="mb-6">
-                <div className="flex items-center gap-3 mb-1">
-                    <div className="p-2.5 rounded-xl bg-gradient-to-br from-orange-500 to-red-600 shadow-lg">
-                        <Flame className="w-5 h-5 text-white" />
-                    </div>
-                    <div>
-                        <h1 className="text-2xl font-bold text-[var(--text-primary)]">
-                            Doubt Heatmap
-                        </h1>
-                        <p className="text-xs text-[var(--text-muted)]">
-                            Real-time analysis of student AI queries by topic
-                        </p>
-                    </div>
-                </div>
-            </div>
-
-            {error ? (
-                <div className="mb-4 rounded-xl border border-[var(--error)]/30 bg-error-subtle px-4 py-3 text-sm text-[var(--error)]">
-                    {error}
-                </div>
-            ) : null}
-
-            {loading ? (
-                <div className="bg-[var(--bg-card)] rounded-2xl shadow-[var(--shadow-card)] p-12 text-center border border-[var(--border)]/50">
-                    <div className="w-12 h-12 mx-auto mb-4 rounded-xl bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center animate-pulse">
-                        <Flame className="w-6 h-6 text-white" />
-                    </div>
-                    <p className="text-sm text-[var(--text-muted)]">Analyzing student queries...</p>
-                </div>
-            ) : !data || (data.heatmap.length === 0 && data.top_topics.length === 0) ? (
-                <div className="bg-[var(--bg-card)] rounded-2xl p-12 shadow-[var(--shadow-card)] text-center border border-[var(--border)]/50">
-                    <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center shadow-lg opacity-40">
-                        <Flame className="w-8 h-8 text-white" />
-                    </div>
-                    <h3 className="text-lg font-bold text-[var(--text-primary)] mb-2">No data yet</h3>
-                    <p className="text-sm text-[var(--text-muted)]">
-                        Students need to use the AI Assistant first.
-                    </p>
-                </div>
-            ) : (
-                <>
-                    {/* Stats */}
-                    <div className="grid grid-cols-2 gap-3 mb-6">
-                        <div className="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl p-4 text-white shadow-md flex items-center gap-3">
-                            <MessageCircleQuestion className="w-8 h-8 opacity-80" />
-                            <div>
-                                <p className="text-2xl font-bold">{data.total_queries}</p>
-                                <p className="text-[10px] uppercase tracking-wider opacity-70">AI Queries</p>
-                            </div>
+        <PrismPage variant="dashboard" className="space-y-6 pb-8">
+            <PrismSection className="space-y-6">
+                <PrismPageIntro
+                    kicker={(
+                        <PrismHeroKicker>
+                            <Flame className="h-3.5 w-3.5" />
+                            Teacher Doubt Surface
+                        </PrismHeroKicker>
+                    )}
+                    title="Read student doubt pressure before it spreads across the class"
+                    description="Use AI query patterns to spot where confusion is building, which topics are being asked repeatedly, and where reteaching should start first."
+                    aside={(
+                        <div className="prism-briefing-panel">
+                            <p className="prism-status-label">Best use</p>
+                            <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
+                                Start with the hottest subject band, then use the top-topic list to decide whether the next move is revision, examples, or a new assessment.
+                            </p>
                         </div>
-                        <div className="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl p-4 text-white shadow-md flex items-center gap-3">
-                            <Users className="w-8 h-8 opacity-80" />
-                            <div>
-                                <p className="text-2xl font-bold">{data.student_count}</p>
-                                <p className="text-[10px] uppercase tracking-wider opacity-70">Students</p>
-                            </div>
-                        </div>
-                    </div>
+                    )}
+                />
 
-                    {/* Subject Heatmap */}
-                    {data.heatmap.length > 0 ? (
-                        <div className="bg-[var(--bg-card)] rounded-2xl shadow-[var(--shadow-card)] p-5 mb-6 border border-[var(--border)]/50">
-                            <h2 className="text-sm font-bold text-[var(--text-primary)] mb-4 uppercase tracking-wider flex items-center gap-2">
-                                <TrendingUp className="w-4 h-4 text-orange-500" />
-                                Subject Doubt Intensity
-                            </h2>
-                            <div className="space-y-3">
-                                {data.heatmap.map((item) => (
-                                    <div key={item.label} className="flex items-center gap-3">
-                                        <span className="w-36 text-xs font-medium text-[var(--text-secondary)] truncate text-right">{item.label}</span>
-                                        <div className="flex-1 h-9 bg-[var(--bg-page)] rounded-xl overflow-hidden">
-                                            <div
-                                                className={`h-full rounded-xl bg-gradient-to-r ${getHeatGradient(item.intensity)} ${getHeatText(item.intensity)} transition-all duration-500 flex items-center px-3 shadow-sm`}
-                                                style={{ width: `${Math.max(18, item.intensity * 100)}%` }}
-                                            >
-                                                <span className="text-[10px] font-bold whitespace-nowrap">{item.query_count} queries</span>
+                <div className="prism-status-strip">
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">AI queries</span>
+                        <span className="prism-status-value">{summary.totalQueries}</span>
+                        <span className="prism-status-detail">Student questions contributing to the current heatmap.</span>
+                    </div>
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">Students represented</span>
+                        <span className="prism-status-value">{summary.studentCount}</span>
+                        <span className="prism-status-detail">Unique learners contributing to the current signal set.</span>
+                    </div>
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">Hottest band</span>
+                        <span className="prism-status-value">{summary.hottestBand}</span>
+                        <span className="prism-status-detail">The current highest-pressure doubt cluster in the loaded dataset.</span>
+                    </div>
+                </div>
+
+                {error ? (
+                    <ErrorRemediation
+                        error={error}
+                        scope="teacher-doubt-heatmap"
+                        onRetry={() => window.location.reload()}
+                    />
+                ) : null}
+
+                {loading ? (
+                    <PrismPanel className="p-10">
+                        <div className="flex items-center gap-3 text-sm text-[var(--text-muted)]">
+                            <Flame className="h-4 w-4 animate-pulse" />
+                            Analyzing student query patterns...
+                        </div>
+                    </PrismPanel>
+                ) : !data || (data.heatmap.length === 0 && data.top_topics.length === 0) ? (
+                    <EmptyState
+                        icon={Flame}
+                        title="No doubt telemetry yet"
+                        description="Students need to use the assistant before this page can surface real topic pressure."
+                        eyebrow="Awaiting learning signals"
+                        scopeNote="The heatmap is built from student AI queries, so this surface becomes useful only after students begin asking grounded questions."
+                    />
+                ) : (
+                    <div className="space-y-6">
+                        <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
+                            <PrismPanel className="p-5">
+                                <h2 className="text-base font-semibold text-[var(--text-primary)]">Subject doubt intensity</h2>
+                                <p className="mt-1 text-sm text-[var(--text-secondary)]">
+                                    Compare which subjects are attracting the highest question volume and urgency.
+                                </p>
+                                <div className="mt-4 space-y-3">
+                                    {data.heatmap.map((item) => (
+                                        <div key={item.label} className="flex items-center gap-3">
+                                            <span className="w-36 truncate text-right text-xs font-medium text-[var(--text-secondary)]">{item.label}</span>
+                                            <div className="flex-1 rounded-xl bg-[var(--bg-page)]">
+                                                <div
+                                                    className={`flex h-10 items-center rounded-xl bg-gradient-to-r px-3 ${getHeatGradient(item.intensity)} ${getHeatText(item.intensity)} transition-all duration-500`}
+                                                    style={{ width: `${Math.max(18, item.intensity * 100)}%` }}
+                                                >
+                                                    <span className="text-[11px] font-bold">{item.query_count} queries</span>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                ))}
-                            </div>
-                            <div className="flex items-center gap-2 mt-4 text-[9px] text-[var(--text-muted)] uppercase tracking-widest">
-                                <span>Low</span>
-                                <div className="flex gap-0.5">
-                                    <span className="w-5 h-2.5 rounded-sm bg-gradient-to-r from-green-200 to-emerald-300" />
-                                    <span className="w-5 h-2.5 rounded-sm bg-gradient-to-r from-yellow-200 to-amber-200" />
-                                    <span className="w-5 h-2.5 rounded-sm bg-gradient-to-r from-amber-300 to-yellow-400" />
-                                    <span className="w-5 h-2.5 rounded-sm bg-gradient-to-r from-orange-400 to-amber-500" />
-                                    <span className="w-5 h-2.5 rounded-sm bg-gradient-to-r from-red-500 to-rose-600" />
+                                    ))}
                                 </div>
-                                <span>High</span>
-                            </div>
-                        </div>
-                    ) : null}
-
-                    {/* Top Topics */}
-                    {data.top_topics.length > 0 ? (
-                        <div className="bg-[var(--bg-card)] rounded-2xl shadow-[var(--shadow-card)] p-5 border border-[var(--border)]/50">
-                            <h2 className="text-sm font-bold text-[var(--text-primary)] mb-4 uppercase tracking-wider flex items-center gap-2">
-                                <Flame className="w-4 h-4 text-orange-500" />
-                                Most Asked Topics
-                            </h2>
-                            <div className="space-y-2">
-                                {data.top_topics.map((item, idx) => (
-                                    <div key={`${item.topic}-${idx}`} className="flex items-center gap-3 p-2.5 rounded-xl bg-[var(--bg-page)] hover:bg-[var(--border)]/30 transition-colors">
-                                        <span className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold text-white shadow-sm ${idx === 0 ? "bg-gradient-to-br from-red-500 to-rose-600" :
-                                                idx === 1 ? "bg-gradient-to-br from-orange-400 to-amber-500" :
-                                                    idx === 2 ? "bg-gradient-to-br from-amber-400 to-yellow-500" :
-                                                        "bg-gradient-to-br from-gray-400 to-gray-500"
-                                            }`}>
-                                            {idx + 1}
-                                        </span>
-                                        <span className="flex-1 text-sm text-[var(--text-primary)] truncate">{item.topic}</span>
-                                        <span className="text-xs font-bold text-[var(--text-muted)] bg-[var(--bg-card)] px-2.5 py-1 rounded-full shadow-sm">
-                                            {item.count}×
-                                        </span>
+                                <div className="mt-4 flex items-center gap-2 text-[9px] uppercase tracking-widest text-[var(--text-muted)]">
+                                    <span>Low</span>
+                                    <div className="flex gap-0.5">
+                                        <span className="h-2.5 w-5 rounded-sm bg-gradient-to-r from-green-200 to-emerald-300" />
+                                        <span className="h-2.5 w-5 rounded-sm bg-gradient-to-r from-yellow-200 to-amber-200" />
+                                        <span className="h-2.5 w-5 rounded-sm bg-gradient-to-r from-amber-300 to-yellow-400" />
+                                        <span className="h-2.5 w-5 rounded-sm bg-gradient-to-r from-orange-400 to-amber-500" />
+                                        <span className="h-2.5 w-5 rounded-sm bg-gradient-to-r from-red-500 to-rose-600" />
                                     </div>
-                                ))}
+                                    <span>High</span>
+                                </div>
+                            </PrismPanel>
+
+                            <div className="space-y-6">
+                                <PrismPanel className="p-5">
+                                    <div className="flex items-center gap-2">
+                                        <MessageCircleQuestion className="h-4 w-4 text-orange-500" />
+                                        <h2 className="text-base font-semibold text-[var(--text-primary)]">Most asked topics</h2>
+                                    </div>
+                                    <div className="mt-4 space-y-2">
+                                        {data.top_topics.map((item, idx) => (
+                                            <div key={`${item.topic}-${idx}`} className="flex items-center gap-3 rounded-xl bg-[var(--bg-page)] px-3 py-3">
+                                                <span className={`flex h-7 w-7 items-center justify-center rounded-lg text-xs font-bold text-white ${
+                                                    idx === 0 ? "bg-gradient-to-br from-red-500 to-rose-600" :
+                                                    idx === 1 ? "bg-gradient-to-br from-orange-400 to-amber-500" :
+                                                    idx === 2 ? "bg-gradient-to-br from-amber-400 to-yellow-500" :
+                                                    "bg-gradient-to-br from-gray-400 to-gray-500"
+                                                }`}>
+                                                    {idx + 1}
+                                                </span>
+                                                <span className="flex-1 truncate text-sm text-[var(--text-primary)]">{item.topic}</span>
+                                                <span className="rounded-full bg-[var(--bg-card)] px-2.5 py-1 text-xs font-bold text-[var(--text-muted)]">
+                                                    {item.count}x
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </PrismPanel>
+
+                                <PrismPanel className="p-5">
+                                    <div className="flex items-center gap-2">
+                                        <TrendingUp className="h-4 w-4 text-[var(--primary)]" />
+                                        <h2 className="text-base font-semibold text-[var(--text-primary)]">Teaching guidance</h2>
+                                    </div>
+                                    <div className="mt-4 space-y-3 text-sm leading-6 text-[var(--text-secondary)]">
+                                        <p>High-heat bands usually need either a quick reteach, a worked-example sheet, or a narrow revision quiz before the next class.</p>
+                                        <p>Use this surface to choose intervention order, not to replace class-level judgment about why a topic is spiking.</p>
+                                    </div>
+                                </PrismPanel>
                             </div>
                         </div>
-                    ) : null}
-                </>
-            )}
-        </div>
+                    </div>
+                )}
+            </PrismSection>
+        </PrismPage>
     );
 }

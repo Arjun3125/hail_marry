@@ -65,7 +65,7 @@ test("admin setup wizard supports OCR preview, edit, and confirm import for teac
 
     await page.goto("/admin/setup-wizard");
 
-    await expect(page.getByRole("heading", { name: /School Setup Wizard/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Initialize the institution graph in a controlled sequence/i })).toBeVisible();
     await page.getByRole("button", { name: /Advance Pipeline/i }).click();
     await page.getByRole("button", { name: /Advance Pipeline/i }).click();
 
@@ -206,7 +206,7 @@ test("teacher classes page supports OCR preview, edit, and confirm import for st
 
     await page.goto("/teacher/classes");
 
-    await expect(page.getByRole("heading", { name: /My Classes/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Operate class rosters and parent-facing actions from one desk/i })).toBeVisible();
     await page.locator('input[type="file"]').setInputFiles({
         name: "student-roster.jpg",
         mimeType: "image/jpeg",
@@ -254,7 +254,7 @@ test("teacher classes page surfaces OCR preview failures before any import happe
 
     await page.goto("/teacher/classes");
 
-    await expect(page.getByRole("heading", { name: /My Classes/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Operate class rosters and parent-facing actions from one desk/i })).toBeVisible();
     await page.locator('input[type="file"]').setInputFiles({
         name: "bad-student-roster.jpg",
         mimeType: "image/jpeg",

@@ -1,17 +1,34 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Headphones, PlayCircle, StopCircle, Loader2, Mic, Volume2 } from "lucide-react";
+import { Headphones, Loader2, Mic, PlayCircle, StopCircle, Volume2 } from "lucide-react";
+
+import EmptyState from "@/components/EmptyState";
+import {
+    PrismHeroKicker,
+    PrismPage,
+    PrismPageIntro,
+    PrismPanel,
+    PrismSection,
+    PrismSectionHeader,
+} from "@/components/prism/PrismPage";
+import ErrorRemediation from "@/components/ui/ErrorRemediation";
 import { api } from "@/lib/api";
 
 type DialogueLine = { speaker: string; text: string };
 type AudioData = { dialogue: DialogueLine[]; title: string; duration_estimate: string };
 type AIJobStatus = "queued" | "running" | "completed" | "failed";
+type AudioHistoryItem = {
+    id: string;
+    title: string;
+    created_at: string | null;
+    content: AudioData;
+};
 
 const formats = [
-    { id: "deep_dive", label: "🎧 Deep Dive", desc: "2 hosts discuss in-depth" },
-    { id: "brief", label: "⚡ Brief", desc: "Quick 3-min summary" },
-    { id: "debate", label: "⚔️ Debate", desc: "Two sides argue" },
+    { id: "deep_dive", label: "Deep dive", desc: "Two hosts unpack the topic more fully" },
+    { id: "brief", label: "Brief", desc: "A quick summary for revision" },
+    { id: "debate", label: "Debate", desc: "Two perspectives challenge each other" },
 ];
 
 export default function AudioOverviewPage() {
@@ -24,42 +41,49 @@ export default function AudioOverviewPage() {
     const [currentLine, setCurrentLine] = useState(-1);
     const [jobId, setJobId] = useState<string | null>(null);
     const [jobStatus, setJobStatus] = useState<AIJobStatus | null>(null);
+    const [history, setHistory] = useState<AudioHistoryItem[]>([]);
+
+    useEffect(() => {
+        const loadHistory = async () => {
+            try {
+                const payload = await api.student.studyToolHistory("audio_overview", 6) as { items?: AudioHistoryItem[] };
+                const items = payload.items || [];
+                setHistory(items);
+                if (items.length > 0) {
+                    setData(items[0].content);
+                    setTopic(items[0].title);
+                }
+            } catch {
+                // History is a non-blocking enhancement for demo mode.
+            }
+        };
+
+        void loadHistory();
+    }, []);
 
     useEffect(() => {
         if (!jobId) return;
-
         let cancelled = false;
         let timer: ReturnType<typeof setTimeout> | null = null;
 
         const poll = async () => {
             try {
-                const job = await api.ai.jobStatus(jobId) as {
-                    status: AIJobStatus;
-                    error?: string;
-                    result?: AudioData;
-                    poll_after_ms?: number;
-                };
-
+                const job = await api.ai.jobStatus(jobId) as { status: AIJobStatus; error?: string; result?: AudioData; poll_after_ms?: number };
                 if (cancelled) return;
                 setJobStatus(job.status);
-
                 if (job.status === "completed" && job.result) {
                     setData(job.result);
                     setLoading(false);
                     setJobId(null);
                     return;
                 }
-
                 if (job.status === "failed") {
                     setError(job.error || "Failed to generate audio overview");
                     setLoading(false);
                     setJobId(null);
                     return;
                 }
-
-                timer = setTimeout(() => {
-                    void poll();
-                }, job.poll_after_ms ?? 2000);
+                timer = setTimeout(() => void poll(), job.poll_after_ms ?? 2000);
             } catch (err) {
                 if (cancelled) return;
                 setError(err instanceof Error ? err.message : "Failed to load job status");
@@ -69,7 +93,6 @@ export default function AudioOverviewPage() {
         };
 
         void poll();
-
         return () => {
             cancelled = true;
             if (timer) clearTimeout(timer);
@@ -83,10 +106,7 @@ export default function AudioOverviewPage() {
         setData(null);
         setJobStatus("queued");
         try {
-            const job = await api.ai.enqueueAudioOverviewJob({
-                topic: topic.trim(),
-                format,
-            }) as { job_id: string; status: AIJobStatus };
+            const job = await api.ai.enqueueAudioOverviewJob({ topic: topic.trim(), format }) as { job_id: string; status: AIJobStatus };
             setJobId(job.job_id);
             setJobStatus(job.status);
         } catch (err) {
@@ -101,24 +121,24 @@ export default function AudioOverviewPage() {
         setPlaying(true);
 
         const voices = window.speechSynthesis.getVoices();
-        const femaleVoice = voices.find(v => v.name.includes("Female") || v.name.includes("Zira") || v.name.includes("Samantha")) || voices[0];
-        const maleVoice = voices.find(v => v.name.includes("Male") || v.name.includes("David") || v.name.includes("Daniel")) || voices[1] || voices[0];
+        const femaleVoice = voices.find((voice) => voice.name.includes("Female") || voice.name.includes("Zira") || voice.name.includes("Samantha")) || voices[0];
+        const maleVoice = voices.find((voice) => voice.name.includes("Male") || voice.name.includes("David") || voice.name.includes("Daniel")) || voices[1] || voices[0];
 
-        let i = 0;
+        let index = 0;
         const speakNext = () => {
-            if (i >= data.dialogue.length) {
+            if (!data || index >= data.dialogue.length) {
                 setPlaying(false);
                 setCurrentLine(-1);
                 return;
             }
-            const line = data.dialogue[i];
-            setCurrentLine(i);
+            const line = data.dialogue[index];
+            setCurrentLine(index);
             const utt = new SpeechSynthesisUtterance(line.text);
             utt.voice = line.speaker === "Anika" ? femaleVoice : maleVoice;
             utt.pitch = line.speaker === "Anika" ? 1.15 : 0.9;
             utt.rate = 0.95;
-            utt.onend = () => { i++; speakNext(); };
-            utt.onerror = () => { i++; speakNext(); };
+            utt.onend = () => { index += 1; speakNext(); };
+            utt.onerror = () => { index += 1; speakNext(); };
             window.speechSynthesis.speak(utt);
         };
         speakNext();
@@ -131,124 +151,110 @@ export default function AudioOverviewPage() {
     };
 
     return (
-        <div className="max-w-3xl mx-auto">
-            {/* Header */}
-            <div className="mb-5">
-                <div className="flex items-center gap-3">
-                    <div className="p-2.5 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 shadow-lg">
-                        <Headphones className="w-5 h-5 text-white" />
-                    </div>
-                    <div>
-                        <h1 className="text-2xl font-bold text-[var(--text-primary)]">Audio Overview</h1>
-                        <p className="text-xs text-[var(--text-muted)]">AI-generated podcast from your study materials</p>
-                    </div>
-                </div>
-            </div>
-
-            {/* Input */}
-            <div className="bg-[var(--bg-card)] rounded-2xl p-5 shadow-[var(--shadow-card)] border border-[var(--border)]/50 mb-5">
-                <input
-                    value={topic}
-                    onChange={(e) => setTopic(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter") void generate(); }}
-                    placeholder="Enter a topic — e.g. Photosynthesis, French Revolution..."
-                    className="w-full px-4 py-3 text-sm bg-[var(--bg-page)] border-0 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500/50 mb-3"
+        <PrismPage variant="workspace" className="space-y-6">
+            <PrismSection className="space-y-6">
+                <PrismPageIntro
+                    kicker={<PrismHeroKicker><Headphones className="h-3.5 w-3.5" />Audio Overview</PrismHeroKicker>}
+                    title="Turn a topic into an audio revision conversation"
+                    description="Use this tool when reading feels heavy and listening will help you revise. The output is still grounded to the topic you request, but delivered in a more accessible study format."
                 />
-                <div className="flex items-center gap-2 mb-3">
-                    {formats.map((f) => (
-                        <button
-                            key={f.id}
-                            onClick={() => setFormat(f.id)}
-                            className={`flex-1 px-3 py-2.5 rounded-xl text-xs font-medium transition-all ${format === f.id
-                                    ? "bg-gradient-to-r from-violet-500 to-purple-600 text-white shadow-md"
-                                    : "bg-[var(--bg-page)] text-[var(--text-secondary)] hover:bg-[var(--border)]/30"
-                                }`}
-                        >
-                            {f.label}
-                        </button>
-                    ))}
-                </div>
-                <button
-                    onClick={() => void generate()}
-                    disabled={loading || !topic.trim()}
-                    className="w-full px-5 py-3 bg-gradient-to-r from-violet-500 to-purple-600 text-white text-sm font-bold rounded-xl hover:shadow-lg transition-all disabled:opacity-40 flex items-center justify-center gap-2 hover:scale-[1.01]"
-                >
-                    {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mic className="w-4 h-4" />}
-                    Generate Podcast
-                </button>
-            </div>
 
-            {error && (
-                <div className="mb-4 rounded-xl border border-[var(--error)]/30 bg-error-subtle px-4 py-3 text-sm text-[var(--error)]">{error}</div>
-            )}
-
-            {loading && (
-                <div className="bg-[var(--bg-card)] rounded-2xl p-12 shadow-[var(--shadow-card)] text-center border border-[var(--border)]/50">
-                    <div className="w-14 h-14 mx-auto mb-4 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center animate-pulse">
-                        <Headphones className="w-7 h-7 text-white" />
+                <div className="prism-status-strip">
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">Selected format</span>
+                        <strong className="prism-status-value">{formats.find((item) => item.id === format)?.label ?? format}</strong>
+                        <span className="prism-status-detail">Current audio style for the next generation request</span>
                     </div>
-                    <p className="text-sm font-medium text-[var(--text-primary)]">
-                        {jobStatus === "queued" ? "Queued for generation..." : "Generating podcast script..."}
-                    </p>
-                    <p className="text-xs text-[var(--text-muted)] mt-1">
-                        {jobStatus === "queued"
-                            ? "Waiting for the AI worker to pick up your request"
-                            : "The AI hosts are preparing to discuss your topic"}
-                    </p>
-                </div>
-            )}
-
-            {/* Podcast Player */}
-            {!loading && data && (
-                <div className="bg-[var(--bg-card)] rounded-2xl shadow-[var(--shadow-card)] border border-[var(--border)]/50 overflow-hidden">
-                    {/* Player Header */}
-                    <div className="bg-gradient-to-r from-violet-500 to-purple-600 p-5 text-white">
-                        <p className="text-[10px] uppercase tracking-widest opacity-70 mb-1">Now Playing</p>
-                        <h2 className="text-lg font-bold">{data.title}</h2>
-                        <div className="flex items-center gap-3 mt-3">
-                            <p className="text-xs opacity-80">⏱ {data.duration_estimate} • {data.dialogue.length} segments</p>
-                        </div>
-                        <div className="flex items-center gap-2 mt-4">
-                            {!playing ? (
-                                <button onClick={playAll} className="flex items-center gap-2 px-5 py-2.5 bg-white/20 hover:bg-white/30 rounded-xl text-sm font-bold transition-all">
-                                    <PlayCircle className="w-5 h-5" /> Play All
-                                </button>
-                            ) : (
-                                <button onClick={stopPlaying} className="flex items-center gap-2 px-5 py-2.5 bg-white/20 hover:bg-white/30 rounded-xl text-sm font-bold transition-all">
-                                    <StopCircle className="w-5 h-5" /> Stop
-                                </button>
-                            )}
-                        </div>
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">Job status</span>
+                        <strong className="prism-status-value">{jobStatus ?? "Idle"}</strong>
+                        <span className="prism-status-detail">Queue and generation state for the current request</span>
                     </div>
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">Segments ready</span>
+                        <strong className="prism-status-value">{data?.dialogue.length ?? 0}</strong>
+                        <span className="prism-status-detail">Conversation turns available in the current audio draft</span>
+                    </div>
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">Saved drafts</span>
+                        <strong className="prism-status-value">{history.length}</strong>
+                        <span className="prism-status-detail">Seeded audio overviews already available in this demo workspace</span>
+                    </div>
+                </div>
 
-                    {/* Dialogue */}
-                    <div className="p-5 space-y-3 max-h-[500px] overflow-y-auto">
-                        {data.dialogue.map((line, i) => {
-                            const isAnika = line.speaker === "Anika";
-                            const isActive = currentLine === i;
-                            return (
-                                <div
-                                    key={i}
-                                    className={`flex gap-3 p-3 rounded-xl transition-all duration-300 ${isActive ? "bg-violet-badge ring-2 ring-violet-300 scale-[1.01]" : "hover:bg-[var(--bg-page)]"
-                                        }`}
-                                >
-                                    <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-xs text-white shadow-sm ${isAnika ? "bg-gradient-to-br from-pink-500 to-rose-600" : "bg-gradient-to-br from-blue-500 to-indigo-600"
-                                        }`}>
-                                        {line.speaker[0]}
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className={`text-[10px] font-bold uppercase tracking-wider mb-1 ${isAnika ? "text-pink-500" : "text-[var(--primary)]"}`}>
+                {error ? <ErrorRemediation error={error} scope="student-audio-overview" onRetry={() => window.location.reload()} /> : null}
+
+                <PrismPanel className="space-y-5 p-5">
+                    <PrismSectionHeader title="Generate audio" description="Enter a topic, choose the listening style that matches your study goal, and generate a narrated revision conversation." />
+                    <input value={topic} onChange={(e) => setTopic(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") void generate(); }} placeholder="Enter a topic, for example Photosynthesis or French Revolution" className="w-full rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.03)] px-4 py-3 text-sm text-[var(--text-primary)]" />
+                    <div className="grid gap-3 md:grid-cols-3">
+                        {formats.map((item) => (
+                            <button key={item.id} type="button" onClick={() => setFormat(item.id)} className={`rounded-2xl border px-4 py-4 text-left transition ${format === item.id ? "border-[var(--primary)] bg-[rgba(96,165,250,0.08)]" : "border-[var(--border)] bg-[rgba(255,255,255,0.03)]"}`}>
+                                <p className="text-sm font-semibold text-[var(--text-primary)]">{item.label}</p>
+                                <p className="mt-2 text-xs leading-5 text-[var(--text-secondary)]">{item.desc}</p>
+                            </button>
+                        ))}
+                    </div>
+                    <button onClick={() => void generate()} disabled={loading || !topic.trim()} className="prism-action" type="button">
+                        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mic className="h-4 w-4" />}
+                        Generate audio overview
+                    </button>
+                </PrismPanel>
+
+                {loading ? (
+                    <PrismPanel className="p-8">
+                        <p className="text-sm text-[var(--text-secondary)]">{jobStatus === "queued" ? "Waiting for the worker to pick up your audio request..." : "Generating the audio script now..."}</p>
+                    </PrismPanel>
+                ) : data ? (
+                    <div className="space-y-6">
+                        <div className="grid gap-6 xl:grid-cols-[0.92fr_1.08fr]">
+                            <PrismPanel className="space-y-5 p-5">
+                                <PrismSectionHeader title={data.title} description={`Estimated listening time: ${data.duration_estimate}`} actions={playing ? <button onClick={stopPlaying} className="prism-action-secondary" type="button"><StopCircle className="h-4 w-4" />Stop</button> : <button onClick={playAll} className="prism-action" type="button"><PlayCircle className="h-4 w-4" />Play all</button>} />
+                                <p className="text-sm leading-6 text-[var(--text-secondary)]">Listen through the full conversation or read the scripted segments on the right when you want slower revision.</p>
+                            </PrismPanel>
+                            <PrismPanel className="space-y-3 p-5">
+                                <PrismSectionHeader title="Dialogue script" description="Each segment is narrated in order, with the active line highlighted while speech playback is running." />
+                                {data.dialogue.map((line, index) => (
+                                    <div key={`${line.speaker}-${index}`} className={`rounded-2xl border px-4 py-3 transition ${currentLine === index ? "border-[var(--primary)] bg-[rgba(96,165,250,0.08)]" : "border-[var(--border)] bg-[rgba(255,255,255,0.03)]"}`}>
+                                        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
                                             {line.speaker}
-                                            {isActive && <Volume2 className="w-3 h-3 inline ml-1 animate-pulse" />}
+                                            {currentLine === index ? <Volume2 className="ml-1 inline h-3 w-3 text-[var(--primary)]" /> : null}
                                         </p>
-                                        <p className="text-sm text-[var(--text-primary)] leading-relaxed">{line.text}</p>
+                                        <p className="mt-2 text-sm leading-6 text-[var(--text-primary)]">{line.text}</p>
                                     </div>
+                                ))}
+                            </PrismPanel>
+                        </div>
+                        {history.length > 1 ? (
+                            <PrismPanel className="space-y-3 p-5">
+                                <PrismSectionHeader title="Recent audio drafts" description="Load one of the seeded demo conversations to show how revision output evolved over the last six months." />
+                                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                                    {history.map((item) => (
+                                        <button
+                                            key={item.id}
+                                            type="button"
+                                            onClick={() => {
+                                                setData(item.content);
+                                                setTopic(item.title);
+                                                setPlaying(false);
+                                                setCurrentLine(-1);
+                                            }}
+                                            className="rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.03)] p-4 text-left transition hover:border-[var(--primary)] hover:bg-[rgba(96,165,250,0.08)]"
+                                        >
+                                            <p className="text-sm font-semibold text-[var(--text-primary)]">{item.title}</p>
+                                            <p className="mt-1 text-xs text-[var(--text-secondary)]">{item.created_at ? new Date(item.created_at).toLocaleDateString() : "Saved draft"}</p>
+                                        </button>
+                                    ))}
                                 </div>
-                            );
-                        })}
+                            </PrismPanel>
+                        ) : null}
                     </div>
-                </div>
-            )}
-        </div>
+                ) : (
+                    <PrismPanel className="p-6">
+                        <EmptyState icon={Headphones} title="No audio overview yet" description="Generate the first audio draft to turn a topic into a spoken revision aid." eyebrow="Ready to generate" />
+                    </PrismPanel>
+                )}
+            </PrismSection>
+        </PrismPage>
     );
 }

@@ -12,25 +12,28 @@ from config import settings
 
 _redis = None
 _redis_available = None
+_redis_url = None
 
 
 def _get_redis():
     """Lazy-load Redis client."""
-    global _redis, _redis_available
-    if _redis_available is None:
+    global _redis, _redis_available, _redis_url
+    redis_url = (
+        os.getenv("REDIS_STATE_URL")
+        or os.getenv("REDIS_URL")
+        or settings.redis.state_url
+    )
+    if _redis_available is None or _redis_url != redis_url:
         try:
             import redis as redis_lib
-            redis_url = (
-                os.getenv("REDIS_STATE_URL")
-                or os.getenv("REDIS_URL")
-                or settings.redis.state_url
-            )
             _redis = redis_lib.from_url(redis_url, decode_responses=True, socket_timeout=1, socket_connect_timeout=1)
             _redis.ping()
             _redis_available = True
+            _redis_url = redis_url
         except Exception:
             _redis_available = False
             _redis = None
+            _redis_url = redis_url
     return _redis if _redis_available else None
 
 

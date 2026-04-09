@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 
 import { API_BASE, getStoredAccessToken } from "@/lib/api";
-import { PrismHeroKicker, PrismPage, PrismPanel, PrismSection } from "@/components/prism/PrismPage";
+import { PrismHeroKicker, PrismPage, PrismPageIntro, PrismPanel, PrismSection } from "@/components/prism/PrismPage";
 
 /* ─── Step definitions ────────────────────────────────────── */
 const STEPS = [
@@ -132,7 +132,7 @@ export default function SetupWizard() {
             const data = await res.json();
             if (!res.ok) throw new Error(data.detail || "Upload failed");
             const createdCount = Number(data.created || data.imported || 0);
-            setResult(`✅ Imported ${createdCount} records successfully!`);
+            setResult(`Imported ${createdCount} records successfully.`);
             const reviewRequired = Boolean(data.ocr_review_required);
             const warning = typeof data.ocr_warning === "string" ? data.ocr_warning : null;
             const confidence = typeof data.ocr_confidence === "number" ? data.ocr_confidence : null;
@@ -227,37 +227,42 @@ export default function SetupWizard() {
     ][step];
 
     return (
-        <PrismPage className="mx-auto max-w-7xl space-y-6 pb-8">
-            <PrismSection className="space-y-4">
-                <PrismHeroKicker>
-                    <Sparkles className="h-3.5 w-3.5" />
-                    Admin Setup Control Surface
-                </PrismHeroKicker>
-                <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
-                    <div className="space-y-3">
-                        <h1 className="prism-title text-4xl font-black leading-[0.98] text-[var(--text-primary)] md:text-5xl">
-                            School Setup Wizard
-                        </h1>
-                        <p className="max-w-3xl text-base leading-7 text-[var(--text-secondary)] md:text-lg">
-                            Initialize the institution graph in a controlled sequence: school identity, cohorts, onboarding, and the final timetable handoff.
-                        </p>
+        <PrismPage variant="workspace" className="mx-auto max-w-7xl space-y-6 pb-8">
+            <PrismSection className="space-y-6">
+                <PrismPageIntro
+                    kicker={(
+                        <PrismHeroKicker>
+                            <Sparkles className="h-3.5 w-3.5" />
+                            Admin Setup Surface
+                        </PrismHeroKicker>
+                    )}
+                    title="Initialize the institution graph in a controlled sequence"
+                    description="Move from school identity to cohorts, roster onboarding, and timetable handoff without losing visibility into preview state or import health."
+                    aside={(
+                        <div className="prism-briefing-panel">
+                            <p className="prism-status-label">Operator note</p>
+                            <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
+                                Use preview mode before any roster import. The wizard is safest when each completed step is locked in before you advance the pipeline.
+                            </p>
+                        </div>
+                    )}
+                />
+
+                <div className="prism-status-strip">
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">Current step</span>
+                        <span className="prism-status-value">{step + 1} / {STEPS.length}</span>
+                        <span className="prism-status-detail">{currentStep.label}</span>
                     </div>
-                    <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
-                        <PrismPanel className="p-4">
-                            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">Current step</p>
-                            <p className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">{step + 1} / {STEPS.length}</p>
-                            <p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">{currentStep.label}</p>
-                        </PrismPanel>
-                        <PrismPanel className="p-4">
-                            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">Preview state</p>
-                            <p className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">{previewMode ? "Open" : "Idle"}</p>
-                            <p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">{previewRows.length} editable rows loaded</p>
-                        </PrismPanel>
-                        <PrismPanel className="p-4">
-                            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">Pipeline health</p>
-                            <p className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">{busy || previewBusy ? "Running" : "Ready"}</p>
-                            <p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">{ocrNotice ? "OCR review present" : "No blocking import notice"}</p>
-                        </PrismPanel>
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">Preview state</span>
+                        <span className="prism-status-value">{previewMode ? "Open" : "Idle"}</span>
+                        <span className="prism-status-detail">{previewRows.length} editable rows loaded for review.</span>
+                    </div>
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">Pipeline health</span>
+                        <span className="prism-status-value">{busy || previewBusy ? "Running" : "Ready"}</span>
+                        <span className="prism-status-detail">{ocrNotice ? "OCR review is active on the current import flow." : "No blocking import notice detected."}</span>
                     </div>
                 </div>
             </PrismSection>
@@ -409,7 +414,7 @@ export default function SetupWizard() {
                             <div className="flex flex-col sm:flex-row gap-5 pt-4">
                                 <label className="flex-1 group relative cursor-pointer">
                                     <div className="absolute inset-0 bg-gradient-to-br from-[var(--primary)] to-cyan-500 rounded-3xl blur opacity-20 group-hover:opacity-40 transition-opacity" />
-                                    <div className="relative h-full flex flex-col items-center justify-center p-8 glass-panel border-[var(--border-strong)] rounded-3xl group-hover:border-[var(--primary)] transition-colors text-center shadow-lg">
+                                    <div className="relative h-full flex flex-col items-center justify-center p-8 prism-panel border-[var(--border-strong)] rounded-3xl group-hover:border-[var(--primary)] transition-colors text-center shadow-lg">
                                         <div className="w-14 h-14 bg-[var(--primary)]/10 text-[var(--primary)] rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                                             <Upload className="w-7 h-7" />
                                         </div>
@@ -431,7 +436,7 @@ export default function SetupWizard() {
 
                                 <button
                                     onClick={() => downloadTemplate("teachers")}
-                                    className="flex-1 flex flex-col items-center justify-center p-8 glass-panel rounded-3xl hover:bg-[var(--bg-page)] transition-colors text-center group border-[var(--border-strong)]"
+                                    className="flex-1 flex flex-col items-center justify-center p-8 prism-panel rounded-3xl hover:bg-[var(--bg-page)] transition-colors text-center group border-[var(--border-strong)]"
                                 >
                                     <div className="w-14 h-14 bg-[var(--bg-page)] border border-[var(--border)] text-[var(--text-secondary)] rounded-full flex items-center justify-center mb-4 group-hover:text-[var(--primary)] transition-colors">
                                         <Download className="w-7 h-7" />
@@ -509,7 +514,7 @@ export default function SetupWizard() {
                                     </button>
                                     <button
                                         onClick={resetPreview}
-                                        className="px-8 py-3 text-sm font-bold glass-panel border-[var(--border-strong)] rounded-full text-[var(--text-secondary)] hover:border-[var(--text-primary)] hover:text-[var(--text-primary)] transition-colors"
+                                        className="px-8 py-3 text-sm font-bold prism-panel border-[var(--border-strong)] rounded-full text-[var(--text-secondary)] hover:border-[var(--text-primary)] hover:text-[var(--text-primary)] transition-colors"
                                     >
                                         Discard Dataset
                                     </button>
@@ -533,7 +538,7 @@ export default function SetupWizard() {
                             <div className="flex flex-col sm:flex-row gap-5 pt-4">
                                 <label className="flex-1 group relative cursor-pointer">
                                     <div className="absolute inset-0 bg-gradient-to-br from-amber-500 to-orange-500 rounded-3xl blur opacity-20 group-hover:opacity-40 transition-opacity" />
-                                    <div className="relative h-full flex flex-col items-center justify-center p-8 glass-panel border-[var(--border-strong)] rounded-3xl group-hover:border-amber-500 transition-colors text-center shadow-lg">
+                                    <div className="relative h-full flex flex-col items-center justify-center p-8 prism-panel border-[var(--border-strong)] rounded-3xl group-hover:border-amber-500 transition-colors text-center shadow-lg">
                                         <div className="w-14 h-14 bg-amber-500/10 text-amber-500 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                                             <Upload className="w-7 h-7" />
                                         </div>
@@ -555,7 +560,7 @@ export default function SetupWizard() {
 
                                 <button
                                     onClick={() => downloadTemplate("students")}
-                                    className="flex-1 flex flex-col items-center justify-center p-8 glass-panel rounded-3xl hover:bg-[var(--bg-page)] transition-colors text-center group border-[var(--border-strong)]"
+                                    className="flex-1 flex flex-col items-center justify-center p-8 prism-panel rounded-3xl hover:bg-[var(--bg-page)] transition-colors text-center group border-[var(--border-strong)]"
                                 >
                                     <div className="w-14 h-14 bg-[var(--bg-page)] border border-[var(--border)] text-[var(--text-secondary)] rounded-full flex items-center justify-center mb-4 group-hover:text-amber-500 transition-colors">
                                         <Download className="w-7 h-7" />
@@ -641,7 +646,7 @@ export default function SetupWizard() {
                                     </button>
                                     <button
                                         onClick={resetPreview}
-                                        className="px-8 py-3 text-sm font-bold glass-panel border-[var(--border-strong)] rounded-full text-[var(--text-secondary)] hover:border-[var(--text-primary)] hover:text-[var(--text-primary)] transition-colors"
+                                        className="px-8 py-3 text-sm font-bold prism-panel border-[var(--border-strong)] rounded-full text-[var(--text-secondary)] hover:border-[var(--text-primary)] hover:text-[var(--text-primary)] transition-colors"
                                     >
                                         Discard Dataset
                                     </button>
@@ -660,7 +665,7 @@ export default function SetupWizard() {
                                 Map teachers and subjects to specific cohorts globally.
                             </p>
                         </div>
-                        <div className="p-12 rounded-3xl glass-panel border-[var(--border-strong)] text-center shadow-inner mt-4 relative overflow-hidden group">
+                        <div className="p-12 rounded-3xl prism-panel border-[var(--border-strong)] text-center shadow-inner mt-4 relative overflow-hidden group">
                             <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-5" />
                             <div className="absolute -inset-2 bg-gradient-to-br from-purple-500/20 to-pink-500/20 blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
                             
@@ -709,7 +714,7 @@ export default function SetupWizard() {
                             </Link>
                             <Link
                                 href="/admin/users"
-                                className="inline-flex items-center justify-center gap-3 px-10 py-4 glass-panel border-[var(--border-strong)] text-[var(--text-primary)] text-base font-bold rounded-full hover:border-[var(--text-primary)] transition-all hover:-translate-y-1 shadow-md"
+                                className="inline-flex items-center justify-center gap-3 px-10 py-4 prism-panel border-[var(--border-strong)] text-[var(--text-primary)] text-base font-bold rounded-full hover:border-[var(--text-primary)] transition-all hover:-translate-y-1 shadow-md"
                             >
                                 Inspect Users Node
                             </Link>

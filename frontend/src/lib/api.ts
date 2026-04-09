@@ -290,6 +290,8 @@ export const api = {
             }),
         upload: (formData: FormData) => apiFormFetch("/api/student/upload", formData),
         uploads: () => apiFetch("/api/student/uploads"),
+        studyToolHistory: (tool?: string, limit = 8) => apiFetch(`/api/student/study-tools/history?${new URLSearchParams({ ...(tool ? { tool } : {}), limit: String(limit) }).toString()}`),
+        profileSummary: () => apiFetch("/api/student/profile-summary"),
         weakTopics: () => apiFetch("/api/student/weak-topics"),
         mastery: () => apiFetch("/api/student/mastery"),
         generateTool: (data: { tool: "quiz" | "flashcards" | "mindmap" | "flowchart" | "concept_map"; topic: string; subject_id?: string }) =>
@@ -363,6 +365,8 @@ export const api = {
                 body: JSON.stringify(data),
             }),
         uploadDocument: (formData: FormData) => apiFormFetch("/api/teacher/upload", formData),
+        resourceHistory: () => apiFetch("/api/teacher/resource-history"),
+        profileSummary: () => apiFetch("/api/teacher/profile-summary"),
         previewStudentOnboarding: (formData: FormData) => apiFormFetch("/api/teacher/onboard/students?preview=1", formData),
         onboardStudents: (formData: FormData) => apiFormFetch("/api/teacher/onboard/students", formData),
         generateAssessment: (data: { subject_id: string; topic: string; num_questions?: number }) =>

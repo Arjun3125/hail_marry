@@ -48,6 +48,70 @@ const validTools = new Set([
     "concept_map",
 ]);
 
+const sourceExamples: Record<string, { title: string; detail: string; guidance: string }> = {
+    qa: {
+        title: "Verify the current answer before you reuse it",
+        detail: "Confirm notebook scope, chapter, and citation path before turning the answer into revision work.",
+        guidance: "Best for concept clarification and textbook-grounded explanations.",
+    },
+    study_guide: {
+        title: "Check chapter scope before generating a guide",
+        detail: "A useful study guide comes from one clear notebook or chapter boundary.",
+        guidance: "Best for turning one topic into structured revision material.",
+    },
+    socratic: {
+        title: "Keep the same concept in scope",
+        detail: "Use one chapter or notebook so the guided questions deepen understanding instead of drifting.",
+        guidance: "Best for guided discovery, not broad topic switching.",
+    },
+    quiz: {
+        title: "Practice only after source scope is clear",
+        detail: "The cleaner the notebook scope, the more trustworthy the quiz coverage becomes.",
+        guidance: "Best for fast active recall after one focused study block.",
+    },
+    flashcards: {
+        title: "Use stable material for card generation",
+        detail: "Generate cards from chapter-linked notes so definitions and terms match what you studied.",
+        guidance: "Best for repeated short review sessions.",
+    },
+    perturbation: {
+        title: "Stress-test one problem family at a time",
+        detail: "Keep the original source visible so generated variations stay aligned with the real pattern.",
+        guidance: "Best for exam-style confidence building.",
+    },
+    debate: {
+        title: "Separate grounded claims from exploratory claims",
+        detail: "Use the evidence rail to decide what comes from your notes and what needs stronger support.",
+        guidance: "Best for argument testing and reasoning practice.",
+    },
+    essay_review: {
+        title: "Track what actually needs rewriting",
+        detail: "Use notes to capture weak structure, missing evidence, or unclear reasoning before you revise.",
+        guidance: "Best for improving structure, clarity, and source use.",
+    },
+    mindmap: {
+        title: "Map one chapter before you widen scope",
+        detail: "A narrower notebook scope produces a cleaner visual hierarchy and better revision planning.",
+        guidance: "Best for dependencies, branches, and chapter structure.",
+    },
+    flowchart: {
+        title: "Keep the process source explicit",
+        detail: "Use one notebook or chapter so each step stays connected to the same process explanation.",
+        guidance: "Best for ordered procedures and sequences.",
+    },
+    concept_map: {
+        title: "Check relationship chains before memorizing them",
+        detail: "Use the rail to confirm how concepts connect and where the explanation came from.",
+        guidance: "Best for topic relationships and cross-links.",
+    },
+};
+
+const recentStudyMoves = [
+    "Stay in the same notebook if you are still working on one chapter.",
+    "Turn the strongest answer into a quiz, flashcards, or a study guide.",
+    "Write one scratch note before switching tools so the next session starts faster.",
+];
+
 export function ContextPanel({ collapsed, onToggleCollapse, notebookId, activeTool }: ContextPanelProps) {
     const router = useRouter();
     const [activeTab, setActiveTab] = useState<"citations" | "notes" | "suggestions" | "history">("citations");
@@ -63,6 +127,9 @@ export function ContextPanel({ collapsed, onToggleCollapse, notebookId, activeTo
         { id: "suggestions", label: "Hints", icon: Lightbulb },
         { id: "history", label: "Recent", icon: History },
     ] as const;
+
+    const sourceMeta = sourceExamples[activeTool] || sourceExamples.qa;
+    const notebookLabel = notebookId ? `Notebook ${notebookId.slice(0, 8)}` : "All available notebooks";
 
     useEffect(() => {
         let cancelled = false;
@@ -155,7 +222,7 @@ export function ContextPanel({ collapsed, onToggleCollapse, notebookId, activeTo
                     <div>
                         <p className="text-sm font-semibold text-[var(--text-primary)]">Context Lab</p>
                         <p className="mt-1 text-xs leading-5 text-[var(--text-muted)]">
-                            Keep sources, notes, and next-step prompts in sight while you study.
+                            Keep source scope, scratch notes, and next-step prompts in sight while you study.
                         </p>
                     </div>
                     <button
@@ -194,17 +261,30 @@ export function ContextPanel({ collapsed, onToggleCollapse, notebookId, activeTo
             <div className="flex-1 overflow-y-auto p-4">
                 {activeTab === "citations" ? (
                     <div className="space-y-3">
-                        <p className="text-xs text-[var(--text-muted)]">
-                            Sources and citations from the active response will appear here.
-                        </p>
+                        <div className="prism-evidence-card">
+                            <p className="prism-status-label">Evidence check</p>
+                            <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">{sourceMeta.title}</p>
+                            <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
+                                {sourceMeta.detail}
+                            </p>
+                        </div>
+                        <div className="prism-support-panel rounded-2xl p-3">
+                            <p className="prism-status-label">Current source scope</p>
+                            <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">{notebookLabel}</p>
+                            <p className="mt-1 text-xs leading-5 text-[var(--text-secondary)]">{sourceMeta.guidance}</p>
+                        </div>
                         <div className="rounded-2xl border border-[var(--border)] bg-[rgba(148,163,184,0.05)] p-3">
                             <div className="flex items-start gap-3">
                                 <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--border)] bg-[rgba(255,255,255,0.03)]">
                                     <FileText className="h-4 w-4 text-[var(--text-muted)]" />
                                 </div>
                                 <div>
-                                    <p className="text-sm font-medium text-[var(--text-primary)]">Biology Textbook</p>
-                                    <p className="text-[11px] leading-5 text-[var(--text-muted)]">Page 42 • Chapter 3</p>
+                                    <p className="text-sm font-medium text-[var(--text-primary)]">
+                                        {notebookId ? "Notebook-linked citation" : "Biology Textbook"}
+                                    </p>
+                                    <p className="text-[11px] leading-5 text-[var(--text-muted)]">
+                                        {notebookId ? "The next grounded answer will show notebook page and source path here." : "Page 42 • Chapter 3"}
+                                    </p>
                                 </div>
                             </div>
                         </div>
@@ -213,9 +293,14 @@ export function ContextPanel({ collapsed, onToggleCollapse, notebookId, activeTo
 
                 {activeTab === "notes" ? (
                     <div className="space-y-3">
-                        <p className="text-xs text-[var(--text-muted)]">Keep scratch notes beside the active thread.</p>
+                        <div className="prism-evidence-card">
+                            <p className="prism-status-label">Scratchpad</p>
+                            <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
+                                Capture one weak concept, one important definition, or one follow-up prompt before you switch tools.
+                            </p>
+                        </div>
                         <textarea
-                            placeholder="Type quick notes here..."
+                            placeholder="Write one takeaway, one confusion, or one next-step prompt..."
                             className="h-40 w-full resize-none rounded-2xl border border-[var(--border)] bg-[rgba(148,163,184,0.05)] p-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--primary)]/50"
                         />
                     </div>
@@ -261,8 +346,20 @@ export function ContextPanel({ collapsed, onToggleCollapse, notebookId, activeTo
                 ) : null}
 
                 {activeTab === "history" ? (
-                    <div className="space-y-2">
-                        <p className="text-xs text-[var(--text-muted)]">Recent activity and thread jumps will appear here.</p>
+                    <div className="space-y-3">
+                        <div className="prism-evidence-card">
+                            <p className="prism-status-label">Recent study moves</p>
+                            <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
+                                Use recent actions to decide whether to continue the same thread, switch tools, or convert the current answer into revision work.
+                            </p>
+                        </div>
+                        <div className="space-y-2">
+                            {recentStudyMoves.map((item) => (
+                                <div key={item} className="prism-operational-row">
+                                    <p className="text-xs leading-6 text-[var(--text-secondary)]">{item}</p>
+                                </div>
+                            ))}
+                        </div>
                     </div>
                 ) : null}
             </div>

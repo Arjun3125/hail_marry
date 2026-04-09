@@ -3,15 +3,38 @@
 from __future__ import annotations
 
 from collections import Counter
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 import re
 from typing import Any
 
 from sqlalchemy import case, func
 
+from src.domains.academic.models.assignment import Assignment
+from src.domains.academic.models.core import Enrollment
+from src.domains.academic.models.lecture import Lecture
+from src.domains.platform.models.ai import AIQuery
+from src.domains.platform.models.document import Document
+
 
 def _normalized_tokens(value: str) -> list[str]:
     return [token for token in re.split(r"[^a-z0-9]+", (value or "").lower()) if token]
+
+
+def _history_cutoff(days: int = 180) -> datetime:
+    return datetime.now(timezone.utc) - timedelta(days=days)
+
+
+def _month_window(*, months: int = 6) -> list[datetime]:
+    cursor = datetime.now(timezone.utc).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    items: list[datetime] = []
+    for _ in range(months):
+        items.append(cursor)
+        if cursor.month == 1:
+            cursor = cursor.replace(year=cursor.year - 1, month=12)
+        else:
+            cursor = cursor.replace(month=cursor.month - 1)
+    items.reverse()
+    return items
 
 
 def build_teacher_dashboard_response(
@@ -493,4 +516,161 @@ def build_teacher_doubt_heatmap_response(
         "top_topics": top_topics,
         "total_queries": len(queries),
         "student_count": len(student_ids),
+    }
+
+
+def build_teacher_resource_history(
+    *,
+    db,
+    current_user,
+) -> dict[str, Any]:
+    cutoff = _history_cutoff()
+    documents = (
+        db.query(Document)
+        .filter(
+            Document.tenant_id == current_user.tenant_id,
+            Document.uploaded_by == current_user.id,
+            Document.created_at >= cutoff,
+        )
+        .order_by(Document.created_at.desc())
+        .all()
+    )
+    lectures = (
+        db.query(Lecture)
+        .filter(
+            Lecture.tenant_id == current_user.tenant_id,
+            Lecture.teacher_id == current_user.id,
+            Lecture.created_at >= cutoff,
+        )
+        .order_by(Lecture.created_at.desc())
+        .all()
+    )
+
+    monthly_counts = {month.strftime("%Y-%m"): 0 for month in _month_window()}
+    for document in documents:
+        if document.created_at:
+            monthly_counts[document.created_at.strftime("%Y-%m")] = monthly_counts.get(document.created_at.strftime("%Y-%m"), 0) + 1
+    for lecture in lectures:
+        created_at = lecture.created_at or lecture.scheduled_at
+        if created_at:
+            monthly_counts[created_at.strftime("%Y-%m")] = monthly_counts.get(created_at.strftime("%Y-%m"), 0) + 1
+
+    recent_activity: list[dict[str, Any]] = []
+    for document in documents:
+        recent_activity.append(
+            {
+                "id": str(document.id),
+                "name": document.file_name,
+                "type": "document",
+                "status": document.ingestion_status or "processing",
+                "detail": f"{document.chunk_count or 0} indexed chunks" if (document.chunk_count or 0) > 0 else "Awaiting indexing",
+                "created_at": document.created_at.isoformat() if document.created_at else None,
+                "file_type": document.file_type,
+            }
+        )
+    for lecture in lectures:
+        created_at = lecture.created_at or lecture.scheduled_at
+        recent_activity.append(
+            {
+                "id": str(lecture.id),
+                "name": lecture.title,
+                "type": "youtube",
+                "status": "completed" if lecture.transcript_ingested else "processing",
+                "detail": "Transcript indexed for discovery" if lecture.transcript_ingested else "Transcript still processing",
+                "created_at": created_at.isoformat() if created_at else None,
+                "file_type": "youtube",
+            }
+        )
+    recent_activity.sort(key=lambda item: item["created_at"] or "", reverse=True)
+
+    monthly_activity = [
+        {"month": month.strftime("%b"), "count": monthly_counts.get(month.strftime("%Y-%m"), 0)}
+        for month in _month_window()
+    ]
+
+    return {
+        "summary": {
+            "documents": len(documents),
+            "lectures": len(lectures),
+            "completed": sum(1 for item in recent_activity if item["status"] == "completed"),
+            "processing": sum(1 for item in recent_activity if item["status"] == "processing"),
+            "indexed_chunks": sum(int(document.chunk_count or 0) for document in documents),
+        },
+        "monthly_activity": monthly_activity,
+        "recent_activity": recent_activity[:12],
+    }
+
+
+def build_teacher_profile_summary(
+    *,
+    db,
+    current_user,
+    allowed_class_ids: list,
+) -> dict[str, Any]:
+    cutoff = _history_cutoff()
+    documents = (
+        db.query(Document)
+        .filter(
+            Document.tenant_id == current_user.tenant_id,
+            Document.uploaded_by == current_user.id,
+            Document.created_at >= cutoff,
+        )
+        .all()
+    )
+    lectures = (
+        db.query(Lecture)
+        .filter(
+            Lecture.tenant_id == current_user.tenant_id,
+            Lecture.teacher_id == current_user.id,
+            Lecture.created_at >= cutoff,
+        )
+        .all()
+    )
+    assignments_created = (
+        db.query(Assignment)
+        .filter(
+            Assignment.tenant_id == current_user.tenant_id,
+            Assignment.created_by == current_user.id,
+            Assignment.created_at >= cutoff,
+        )
+        .count()
+    )
+    ai_requests = (
+        db.query(AIQuery)
+        .filter(
+            AIQuery.tenant_id == current_user.tenant_id,
+            AIQuery.user_id == current_user.id,
+            AIQuery.created_at >= cutoff,
+        )
+        .count()
+    )
+    students_supported = (
+        db.query(Enrollment.student_id)
+        .filter(
+            Enrollment.tenant_id == current_user.tenant_id,
+            Enrollment.class_id.in_(allowed_class_ids),
+        )
+        .distinct()
+        .count()
+        if allowed_class_ids
+        else 0
+    )
+
+    latest_document = max((document.created_at for document in documents if document.created_at), default=None)
+    latest_lecture = max(
+        (lecture.created_at or lecture.scheduled_at for lecture in lectures if lecture.created_at or lecture.scheduled_at),
+        default=None,
+    )
+
+    return {
+        "classes_in_scope": len(allowed_class_ids),
+        "students_supported": students_supported,
+        "documents_uploaded": len(documents),
+        "lectures_indexed": sum(1 for lecture in lectures if lecture.transcript_ingested),
+        "assignments_created": assignments_created,
+        "ai_requests": ai_requests,
+        "latest_milestones": {
+            "last_upload_at": latest_document.isoformat() if latest_document else None,
+            "last_lecture_at": latest_lecture.isoformat() if latest_lecture else None,
+        },
     }

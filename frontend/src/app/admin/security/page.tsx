@@ -2,15 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-    AlertTriangle,
     Loader2,
     Shield,
     ShieldAlert,
-    User,
 } from "lucide-react";
 
 import EmptyState from "@/components/EmptyState";
-import { PrismHeroKicker, PrismPage, PrismPanel, PrismSection } from "@/components/prism/PrismPage";
+import { PrismHeroKicker, PrismPage, PrismPageIntro, PrismPanel, PrismSection } from "@/components/prism/PrismPage";
 import ErrorRemediation from "@/components/ui/ErrorRemediation";
 import { api } from "@/lib/api";
 
@@ -67,57 +65,54 @@ export default function AdminSecurityPage() {
         }).length;
     }, [logs]);
 
-    const impactedActors = useMemo(() => {
-        return new Set(logs.map((log) => log.user).filter(Boolean)).size;
-    }, [logs]);
-
-    const highestRiskEntries = useMemo(() => {
-        return logs.filter((log) => log.action.includes("failed") || log.action.includes("denied")).slice(0, 5);
-    }, [logs]);
-
+    const impactedActors = useMemo(() => new Set(logs.map((log) => log.user).filter(Boolean)).size, [logs]);
+    const highestRiskEntries = useMemo(
+        () => logs.filter((log) => log.action.includes("failed") || log.action.includes("denied")).slice(0, 5),
+        [logs],
+    );
     const latestEntry = logs[0] ?? null;
 
     return (
-        <PrismPage className="space-y-6 pb-8">
+        <PrismPage variant="dashboard" className="space-y-6 pb-8">
             <PrismSection className="space-y-6">
-                <div className="grid gap-4 xl:grid-cols-[1.12fr_0.88fr]">
-                    <div className="space-y-4">
+                <PrismPageIntro
+                    kicker={(
                         <PrismHeroKicker>
                             <ShieldAlert className="h-3.5 w-3.5" />
                             Admin Security Surface
                         </PrismHeroKicker>
-                        <div className="space-y-3">
-                            <h1 className="prism-title text-4xl font-black leading-[0.98] text-[var(--text-primary)] md:text-5xl">
-                                Security Monitoring
-                            </h1>
-                            <p className="max-w-3xl text-base leading-7 text-[var(--text-secondary)] md:text-lg">
-                                Review audit activity, identify failed access patterns, and keep operator visibility on recent security-sensitive actions.
+                    )}
+                    title="Keep security review disciplined and actor-focused"
+                    description="Review failed access, operator activity, and recent security-sensitive events from one audit-first admin surface."
+                    aside={(
+                        <div className="prism-briefing-panel">
+                            <p className="prism-status-label">Review flow</p>
+                            <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
+                                Start with failed access pressure, then confirm the affected actor and most recent high-risk action before opening the full audit trail.
                             </p>
                         </div>
-                    </div>
+                    )}
+                />
 
-                    <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
-                        <MetricCard
-                            icon={Shield}
-                            title="Security posture"
-                            value={failedLogins24h > 0 ? "Monitor" : "Secure"}
-                            summary={failedLogins24h > 0 ? "Failed sign-ins were detected in the last 24 hours." : "No failed sign-ins detected in the last 24 hours."}
-                            accent={failedLogins24h > 0 ? "amber" : "emerald"}
-                        />
-                        <MetricCard
-                            icon={AlertTriangle}
-                            title="Failed logins"
-                            value={`${failedLogins24h}`}
-                            summary="Count of login failures detected inside the rolling 24-hour window."
-                            accent="amber"
-                        />
-                        <MetricCard
-                            icon={User}
-                            title="Admin activity"
-                            value={`${adminActions7d}`}
-                            summary={`${impactedActors} distinct actors recorded in the last 7 days.`}
-                            accent="blue"
-                        />
+                <div className="prism-status-strip">
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">Security posture</span>
+                        <span className="prism-status-value">{failedLogins24h > 0 ? "Monitor" : "Secure"}</span>
+                        <span className="prism-status-detail">
+                            {failedLogins24h > 0
+                                ? "Failed sign-ins were detected in the last 24 hours."
+                                : "No failed sign-ins were detected in the last 24 hours."}
+                        </span>
+                    </div>
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">Failed logins</span>
+                        <span className="prism-status-value">{failedLogins24h}</span>
+                        <span className="prism-status-detail">Rolling 24-hour count of failed authentication attempts.</span>
+                    </div>
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">Admin activity</span>
+                        <span className="prism-status-value">{adminActions7d}</span>
+                        <span className="prism-status-detail">{impactedActors} distinct actors recorded in the last 7 days.</span>
                     </div>
                 </div>
 
@@ -136,9 +131,9 @@ export default function AdminSecurityPage() {
                         <PrismPanel className="p-5">
                             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                                 <div>
-                                    <h2 className="text-base font-semibold text-[var(--text-primary)]">Security Summary</h2>
+                                    <h2 className="text-base font-semibold text-[var(--text-primary)]">Security summary</h2>
                                     <p className="text-sm text-[var(--text-secondary)]">
-                                        High-level audit indicators for security review before drilling into the log trail.
+                                        Audit indicators to review before drilling into the full log trail.
                                     </p>
                                 </div>
                                 <div className="rounded-full border border-[var(--border)] bg-[rgba(148,163,184,0.05)] px-3 py-1.5 text-xs text-[var(--text-secondary)]">
@@ -156,7 +151,7 @@ export default function AdminSecurityPage() {
                         <PrismPanel className="p-5">
                             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                                 <div>
-                                    <h2 className="text-base font-semibold text-[var(--text-primary)]">Audit Trail</h2>
+                                    <h2 className="text-base font-semibold text-[var(--text-primary)]">Audit trail</h2>
                                     <p className="text-sm text-[var(--text-secondary)]">
                                         Chronological view of authentication and operator activity with raw metadata preserved.
                                     </p>
@@ -173,6 +168,8 @@ export default function AdminSecurityPage() {
                                         icon={Shield}
                                         title="No audit entries found"
                                         description="Security activity will appear here once authentication and admin events are recorded."
+                                        eyebrow="Audit ledger empty"
+                                        scopeNote="Authentication events, permission denials, and operator changes all land in this review table."
                                     />
                                 </div>
                             ) : (
@@ -218,10 +215,10 @@ export default function AdminSecurityPage() {
                         <PrismPanel className="p-5 xl:sticky xl:top-6">
                             <div className="flex items-center gap-2">
                                 <ShieldAlert className="h-4 w-4 text-[var(--primary)]" />
-                                <h2 className="text-base font-semibold text-[var(--text-primary)]">Review Priorities</h2>
+                                <h2 className="text-base font-semibold text-[var(--text-primary)]">Review priorities</h2>
                             </div>
                             <p className="mt-2 text-sm text-[var(--text-secondary)]">
-                                Keep the security review practical: monitor failed access, identify the affected actor, and confirm the latest operator action.
+                                Keep the review practical: monitor failed access, identify the affected actor, and confirm the latest operator action.
                             </p>
 
                             <div className="mt-4 space-y-3">
@@ -244,7 +241,7 @@ export default function AdminSecurityPage() {
                         </PrismPanel>
 
                         <PrismPanel className="p-5">
-                            <h2 className="text-base font-semibold text-[var(--text-primary)]">Risk Highlights</h2>
+                            <h2 className="text-base font-semibold text-[var(--text-primary)]">Risk highlights</h2>
                             <p className="mt-2 text-sm text-[var(--text-secondary)]">
                                 Security-relevant entries are surfaced here first so the audit table remains readable under load.
                             </p>
@@ -273,37 +270,6 @@ export default function AdminSecurityPage() {
                 </div>
             </PrismSection>
         </PrismPage>
-    );
-}
-
-function MetricCard({
-    icon: Icon,
-    title,
-    value,
-    summary,
-    accent,
-}: {
-    icon: typeof Shield;
-    title: string;
-    value: string;
-    summary: string;
-    accent: "blue" | "emerald" | "amber";
-}) {
-    const accentClasses = {
-        blue: "bg-[linear-gradient(135deg,rgba(96,165,250,0.22),rgba(59,130,246,0.08))] text-status-blue",
-        emerald: "bg-[linear-gradient(135deg,rgba(45,212,191,0.2),rgba(16,185,129,0.08))] text-status-emerald",
-        amber: "bg-[linear-gradient(135deg,rgba(251,191,36,0.2),rgba(245,158,11,0.08))] text-status-amber",
-    } as const;
-
-    return (
-        <PrismPanel className="p-4">
-            <div className={`mb-3 flex h-11 w-11 items-center justify-center rounded-2xl ${accentClasses[accent]}`}>
-                <Icon className="h-5 w-5" />
-            </div>
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">{title}</p>
-            <p className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">{value}</p>
-            <p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">{summary}</p>
-        </PrismPanel>
     );
 }
 

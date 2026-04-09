@@ -3,17 +3,15 @@
 import { useEffect, useMemo, useState } from "react";
 import {
     Award,
-    Calculator,
     ClipboardCheck,
     FileSpreadsheet,
     Save,
-    TrendingUp,
     Upload,
     Users,
 } from "lucide-react";
 
 import EmptyState from "@/components/EmptyState";
-import { PrismHeroKicker, PrismPage, PrismPanel, PrismSection } from "@/components/prism/PrismPage";
+import { PrismHeroKicker, PrismPage, PrismPageIntro, PrismPanel, PrismSection } from "@/components/prism/PrismPage";
 import ErrorRemediation from "@/components/ui/ErrorRemediation";
 import { api } from "@/lib/api";
 
@@ -251,46 +249,42 @@ export default function TeacherMarksPage() {
     };
 
     return (
-        <PrismPage className="space-y-6 pb-8">
+        <PrismPage variant="workspace" className="space-y-6 pb-8">
             <PrismSection className="space-y-6">
-                <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
-                    <div className="space-y-4">
+                <PrismPageIntro
+                    kicker={(
                         <PrismHeroKicker>
                             <ClipboardCheck className="h-3.5 w-3.5" />
                             Teacher Assessment Workflow
                         </PrismHeroKicker>
-                        <div className="space-y-3">
-                            <h1 className="prism-title text-4xl font-black leading-[0.98] text-[var(--text-primary)] md:text-5xl">
-                                Marks Entry
-                            </h1>
-                            <p className="max-w-3xl text-base leading-7 text-[var(--text-secondary)] md:text-lg">
-                                Create the exam frame, import OCR-led score sheets when available, and keep grading progress readable while preserving the fast data-entry path.
+                    )}
+                    title="Enter marks from one assessment control surface"
+                    description="Set the exam context, import OCR-led score sheets when available, and keep grading progress readable while preserving the fast manual entry path."
+                    aside={(
+                        <div className="prism-briefing-panel">
+                            <p className="prism-status-label">Best use</p>
+                            <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
+                                Lock the class, subject, exam name, and max marks first. Then use the same assessment frame for either OCR import or manual score entry.
                             </p>
                         </div>
-                    </div>
+                    )}
+                />
 
-                    <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
-                        <MetricCard
-                            icon={Users}
-                            title="Roster size"
-                            value={`${selectedClass?.students.length || 0}`}
-                            accent="blue"
-                            summary={selectedClass ? `${selectedClass.name} ready for entry` : "Choose a class to begin"}
-                        />
-                        <MetricCard
-                            icon={Calculator}
-                            title="Marks entered"
-                            value={`${marksSummary.entered}`}
-                            accent="emerald"
-                            summary={selectedClass ? "Live draft across the current roster" : "Waiting for roster"}
-                        />
-                        <MetricCard
-                            icon={TrendingUp}
-                            title="Draft average"
-                            value={marksSummary.averagePct !== null ? `${marksSummary.averagePct}%` : "-"}
-                            accent="amber"
-                            summary={marksSummary.average !== null ? `Average ${marksSummary.average.toFixed(1)} / ${maxMarks || "0"}` : "Appears as marks are entered"}
-                        />
+                <div className="prism-status-strip">
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">Roster size</span>
+                        <span className="prism-status-value">{selectedClass?.students.length || 0}</span>
+                        <span className="prism-status-detail">{selectedClass ? `${selectedClass.name} ready for entry.` : "Choose a class to begin."}</span>
+                    </div>
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">Marks entered</span>
+                        <span className="prism-status-value">{marksSummary.entered}</span>
+                        <span className="prism-status-detail">{selectedClass ? "Live draft across the current roster." : "Waiting for roster."}</span>
+                    </div>
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">Draft average</span>
+                        <span className="prism-status-value">{marksSummary.averagePct !== null ? `${marksSummary.averagePct}%` : "-"}</span>
+                        <span className="prism-status-detail">{marksSummary.average !== null ? `Average ${marksSummary.average.toFixed(1)} / ${maxMarks || "0"}.` : "Appears as marks are entered."}</span>
                     </div>
                 </div>
 
@@ -541,37 +535,6 @@ export default function TeacherMarksPage() {
                 </PrismPanel>
             </PrismSection>
         </PrismPage>
-    );
-}
-
-function MetricCard({
-    icon: Icon,
-    title,
-    value,
-    summary,
-    accent,
-}: {
-    icon: typeof Users;
-    title: string;
-    value: string;
-    summary: string;
-    accent: "blue" | "emerald" | "amber";
-}) {
-    const accentClasses = {
-        blue: "bg-[linear-gradient(135deg,rgba(96,165,250,0.22),rgba(59,130,246,0.08))] text-status-blue",
-        emerald: "bg-[linear-gradient(135deg,rgba(45,212,191,0.2),rgba(16,185,129,0.08))] text-status-emerald",
-        amber: "bg-[linear-gradient(135deg,rgba(251,191,36,0.2),rgba(245,158,11,0.08))] text-status-amber",
-    } as const;
-
-    return (
-        <PrismPanel className="p-4">
-            <div className={`mb-3 flex h-11 w-11 items-center justify-center rounded-2xl ${accentClasses[accent]}`}>
-                <Icon className="h-5 w-5" />
-            </div>
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">{title}</p>
-            <p className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">{value}</p>
-            <p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">{summary}</p>
-        </PrismPanel>
     );
 }
 

@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 
 import EmptyState from "@/components/EmptyState";
-import { PrismHeroKicker, PrismPage, PrismPanel, PrismSection } from "@/components/prism/PrismPage";
+import { PrismHeroKicker, PrismPage, PrismPageIntro, PrismPanel, PrismSection } from "@/components/prism/PrismPage";
 import ErrorRemediation from "@/components/ui/ErrorRemediation";
 import { api } from "@/lib/api";
 
@@ -126,46 +126,42 @@ export default function TeacherAssignmentsPage() {
     };
 
     return (
-        <PrismPage className="space-y-6 pb-8">
+        <PrismPage variant="workspace" className="space-y-6 pb-8">
             <PrismSection className="space-y-6">
-                <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
-                    <div className="space-y-4">
+                <PrismPageIntro
+                    kicker={(
                         <PrismHeroKicker>
                             <ClipboardList className="h-3.5 w-3.5" />
                             Teacher Assignment Workflow
                         </PrismHeroKicker>
-                        <div className="space-y-3">
-                            <h1 className="prism-title text-4xl font-black leading-[0.98] text-[var(--text-primary)] md:text-5xl">
-                                Assignments
-                            </h1>
-                            <p className="max-w-3xl text-base leading-7 text-[var(--text-secondary)] md:text-lg">
-                                Create classroom work, keep due dates visible, and monitor submission momentum from a single teacher-facing command surface.
+                    )}
+                    title="Publish classroom work from one operational assignment board"
+                    description="Create the task, tie it to the right subject, set the due date if needed, and keep visible submission momentum without leaving the teaching flow."
+                    aside={(
+                        <div className="prism-briefing-panel">
+                            <p className="prism-status-label">Best use</p>
+                            <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
+                                Keep assignments lightweight and specific so students can identify the task immediately on both desktop and mobile views.
                             </p>
                         </div>
-                    </div>
+                    )}
+                />
 
-                    <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
-                        <MetricCard
-                            icon={FileText}
-                            title="Open assignments"
-                            value={`${assignmentSummary.total}`}
-                            accent="blue"
-                            summary="Current published workload across your subjects"
-                        />
-                        <MetricCard
-                            icon={Calendar}
-                            title="With due dates"
-                            value={`${assignmentSummary.scheduled}`}
-                            accent="emerald"
-                            summary="Assignments anchored to a concrete submission date"
-                        />
-                        <MetricCard
-                            icon={Users}
-                            title="Submissions logged"
-                            value={`${assignmentSummary.totalSubmissions}`}
-                            accent="amber"
-                            summary="Visible learner activity across active assignments"
-                        />
+                <div className="prism-status-strip">
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">Open assignments</span>
+                        <span className="prism-status-value">{assignmentSummary.total}</span>
+                        <span className="prism-status-detail">Current published workload across your subjects.</span>
+                    </div>
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">With due dates</span>
+                        <span className="prism-status-value">{assignmentSummary.scheduled}</span>
+                        <span className="prism-status-detail">Assignments anchored to a concrete submission date.</span>
+                    </div>
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">Submissions logged</span>
+                        <span className="prism-status-value">{assignmentSummary.totalSubmissions}</span>
+                        <span className="prism-status-detail">Visible learner activity across active assignments.</span>
                     </div>
                 </div>
 
@@ -328,37 +324,6 @@ export default function TeacherAssignmentsPage() {
                 </PrismPanel>
             </PrismSection>
         </PrismPage>
-    );
-}
-
-function MetricCard({
-    icon: Icon,
-    title,
-    value,
-    summary,
-    accent,
-}: {
-    icon: typeof FileText;
-    title: string;
-    value: string;
-    summary: string;
-    accent: "blue" | "emerald" | "amber";
-}) {
-    const accentClasses = {
-        blue: "bg-[linear-gradient(135deg,rgba(96,165,250,0.22),rgba(59,130,246,0.08))] text-status-blue",
-        emerald: "bg-[linear-gradient(135deg,rgba(45,212,191,0.2),rgba(16,185,129,0.08))] text-status-emerald",
-        amber: "bg-[linear-gradient(135deg,rgba(251,191,36,0.2),rgba(245,158,11,0.08))] text-status-amber",
-    } as const;
-
-    return (
-        <PrismPanel className="p-4">
-            <div className={`mb-3 flex h-11 w-11 items-center justify-center rounded-2xl ${accentClasses[accent]}`}>
-                <Icon className="h-5 w-5" />
-            </div>
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">{title}</p>
-            <p className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">{value}</p>
-            <p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">{summary}</p>
-        </PrismPanel>
     );
 }
 

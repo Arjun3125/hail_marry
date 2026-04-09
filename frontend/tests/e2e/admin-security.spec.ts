@@ -48,8 +48,8 @@ test("admin security page renders audit metrics and audit trail", async ({ page 
 
     await page.goto("/admin/security");
 
-    await expect(page.getByRole("heading", { name: "Security Monitoring" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Audit Trail" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Keep security review disciplined and actor-focused" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Audit trail/i })).toBeVisible();
     await expect(page.getByText("Security posture")).toBeVisible();
     const auditTable = page.getByRole("table");
     await expect(auditTable.getByText("login.failed", { exact: true })).toBeVisible();

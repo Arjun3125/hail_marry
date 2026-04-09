@@ -6,6 +6,8 @@ import QRCode from "react-qr-code";
 
 import { PrismInput, PrismTableShell, PrismTextarea } from "@/components/prism/PrismControls";
 import { PrismDialog, PrismDialogFooter, PrismDialogHeader, PrismOverlay } from "@/components/prism/PrismOverlays";
+import { PrismHeroKicker, PrismPage, PrismPageIntro, PrismPanel, PrismSection } from "@/components/prism/PrismPage";
+import ErrorRemediation from "@/components/ui/ErrorRemediation";
 import { api } from "@/lib/api";
 
 type TeacherClass = {
@@ -233,13 +235,51 @@ export default function TeacherClassesPage() {
     }, []);
 
     return (
-        <div>
-            <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold text-[var(--text-primary)]">My Classes</h1>
-                    <p className="text-sm text-[var(--text-secondary)]">Manage your classes and view student details</p>
+        <PrismPage variant="workspace" className="space-y-6 pb-8">
+            <PrismSection className="space-y-6">
+                <PrismPageIntro
+                    kicker={(
+                        <PrismHeroKicker>
+                            <Users className="h-3.5 w-3.5" />
+                            Teacher Classes Surface
+                        </PrismHeroKicker>
+                    )}
+                    title="Operate class rosters and parent-facing actions from one desk"
+                    description="Review class groups, open QR access, send urgent broadcasts, and import student rosters without losing control of the active teacher workflow."
+                    aside={(
+                        <div className="prism-briefing-panel">
+                            <p className="prism-status-label">Best use</p>
+                            <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
+                                Keep roster imports explicit, use QR access only for the intended class, and treat broadcast as a high-importance parent communication action.
+                            </p>
+                        </div>
+                    )}
+                />
+
+                <div className="prism-status-strip">
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">Assigned classes</span>
+                        <span className="prism-status-value">{classes.length}</span>
+                        <span className="prism-status-detail">Class groups currently assigned to the teacher account.</span>
+                    </div>
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">QR tokens loaded</span>
+                        <span className="prism-status-value">{qrTokens.length}</span>
+                        <span className="prism-status-detail">Login badges generated for the currently selected class.</span>
+                    </div>
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">Roster preview</span>
+                        <span className="prism-status-value">{rosterRows.length}</span>
+                        <span className="prism-status-detail">Student rows currently staged for OCR review or import.</span>
+                    </div>
                 </div>
-                <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-[var(--radius-sm)] border border-[var(--primary)]/20 bg-[var(--primary-light)] px-4 py-2 text-sm font-medium text-[var(--primary)] transition-colors hover:bg-[var(--primary)] hover:text-white">
+
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                    <div>
+                        <h2 className="text-base font-semibold text-[var(--text-primary)]">Class directory</h2>
+                        <p className="text-sm text-[var(--text-secondary)]">Manage active classes, roster onboarding, QR access, and parent alerts.</p>
+                    </div>
+                    <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-[var(--radius-sm)] border border-[var(--primary)]/20 bg-[var(--primary-light)] px-4 py-2 text-sm font-medium text-[var(--primary)] transition-colors hover:bg-[var(--primary)] hover:text-white">
                     <Upload className="h-4 w-4" />
                     Import Student Roster
                     <input
@@ -254,14 +294,10 @@ export default function TeacherClassesPage() {
                             }
                         }}
                     />
-                </label>
-            </div>
-
-            {error ? (
-                <div className="rounded-[var(--radius)] border border-[var(--error)]/30 bg-error-subtle px-4 py-3 text-sm text-[var(--error)] mb-4">
-                    {error}
+                    </label>
                 </div>
-            ) : null}
+
+                {error ? <ErrorRemediation error={error} scope="teacher-classes" onRetry={() => void refreshClasses()} /> : null}
             {success ? (
                 <div className="rounded-[var(--radius)] border border-[var(--success)]/30 bg-success-subtle px-4 py-3 text-sm text-[var(--success)] mb-4">
                     {success}
@@ -270,15 +306,15 @@ export default function TeacherClassesPage() {
 
             <div className="grid md:grid-cols-2 gap-4">
                 {loading ? (
-                    <div className="bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] p-5 text-sm text-[var(--text-muted)]">
+                    <PrismPanel className="p-5 text-sm text-[var(--text-muted)]">
                         Loading classes...
-                    </div>
+                    </PrismPanel>
                 ) : classes.length === 0 ? (
-                    <div className="bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] p-5 text-sm text-[var(--text-muted)]">
+                    <PrismPanel className="p-5 text-sm text-[var(--text-muted)]">
                         No classes assigned.
-                    </div>
+                    </PrismPanel>
                 ) : classes.map((cls) => (
-                    <div key={cls.id} className="bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] p-5">
+                    <PrismPanel key={cls.id} className="p-5">
                         <div className="flex items-center justify-between mb-4">
                             <h3 className="text-lg font-semibold text-[var(--text-primary)]">{cls.name}</h3>
                             <span className="flex items-center gap-1 text-sm text-[var(--text-secondary)]">
@@ -320,7 +356,7 @@ export default function TeacherClassesPage() {
                                 <Megaphone className="w-3 h-3 text-[var(--error)] group-hover:text-white" /> <span className="text-[var(--error)] group-hover:text-white">Broadcast</span>
                             </button>
                         </div>
-                    </div>
+                    </PrismPanel>
                 ))}
             </div>
 
@@ -521,6 +557,7 @@ export default function TeacherClassesPage() {
                     </PrismDialog>
                 </PrismOverlay>
             )}
-        </div>
+            </PrismSection>
+        </PrismPage>
     );
 }

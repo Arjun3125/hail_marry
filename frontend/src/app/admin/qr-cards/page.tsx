@@ -1,9 +1,19 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { QrCode, RefreshCcw, Printer, AlertTriangle } from "lucide-react";
+import { Printer, QrCode, RefreshCcw } from "lucide-react";
 import { QRCodeCanvas } from "qrcode.react";
 
+import EmptyState from "@/components/EmptyState";
+import {
+    PrismHeroKicker,
+    PrismPage,
+    PrismPageIntro,
+    PrismPanel,
+    PrismSection,
+    PrismSectionHeader,
+} from "@/components/prism/PrismPage";
+import ErrorRemediation from "@/components/ui/ErrorRemediation";
 import { api } from "@/lib/api";
 
 type ClassItem = {
@@ -89,124 +99,163 @@ export default function AdminQrCardsPage() {
     };
 
     return (
-        <div className="space-y-6">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold text-[var(--text-primary)]">QR Login Cards</h1>
-                    <p className="text-sm text-[var(--text-secondary)]">
-                        Generate QR codes for students and print login cards.
-                    </p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                    <button
-                        onClick={() => window.print()}
-                        className="px-4 py-2 text-sm border border-[var(--border)] rounded-[var(--radius-sm)] bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] flex items-center gap-2"
-                        disabled={tokens.length === 0}
-                    >
-                        <Printer className="w-4 h-4" /> Print
-                    </button>
-                    <button
-                        onClick={() => void generateTokens()}
-                        disabled={generating || loading || filteredStudents.length === 0}
-                        className="px-4 py-2 text-sm bg-[var(--primary)] text-white rounded-[var(--radius-sm)] hover:bg-[var(--primary-hover)] flex items-center gap-2 disabled:opacity-60"
-                    >
-                        <QrCode className="w-4 h-4" /> Generate QR Codes
-                    </button>
-                </div>
-            </div>
+        <PrismPage variant="workspace" className="space-y-6">
+            <PrismSection className="space-y-6">
+                <PrismPageIntro
+                    kicker={(
+                        <PrismHeroKicker>
+                            <QrCode className="h-3.5 w-3.5" />
+                            Student Access Cards
+                        </PrismHeroKicker>
+                    )}
+                    title="Issue QR login cards that keep classroom access simple"
+                    description="Generate student QR cards for guided sign-in, reissue them when needed, and print a clean set for distribution without exposing the rest of the admin workflow."
+                />
 
-            {error ? (
-                <div className="rounded-[var(--radius)] border border-[var(--error)]/30 bg-error-subtle px-4 py-3 text-sm text-[var(--error)] flex items-start gap-2">
-                    <AlertTriangle className="w-4 h-4 mt-0.5" />
-                    {error}
+                <div className="prism-status-strip">
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">Classes loaded</span>
+                        <strong className="prism-status-value">{classes.length}</strong>
+                        <span className="prism-status-detail">Available class groups for QR distribution</span>
+                    </div>
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">Students in scope</span>
+                        <strong className="prism-status-value">{filteredStudents.length}</strong>
+                        <span className="prism-status-detail">Students included in the current card generation view</span>
+                    </div>
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">Cards generated</span>
+                        <strong className="prism-status-value">{tokens.length}</strong>
+                        <span className="prism-status-detail">Printable access cards prepared for this session</span>
+                    </div>
                 </div>
-            ) : null}
 
-            <div className="bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] p-4 space-y-4">
-                <div className="grid gap-3 sm:grid-cols-[1fr_160px_160px_auto]">
-                    <select
-                        className="px-3 py-2 text-sm border border-[var(--border)] rounded-[var(--radius-sm)]"
-                        value={selectedClassId}
-                        onChange={(e) => setSelectedClassId(e.target.value)}
-                        disabled={loading}
-                    >
-                        <option value="all">All classes</option>
-                        {classes.map((cls) => (
-                            <option key={cls.id} value={cls.id}>
-                                {cls.name} (Grade {cls.grade})
-                            </option>
-                        ))}
-                    </select>
-                    <input
-                        type="number"
-                        min={1}
-                        value={expiresInDays}
-                        onChange={(e) => setExpiresInDays(Number(e.target.value))}
-                        className="px-3 py-2 text-sm border border-[var(--border)] rounded-[var(--radius-sm)]"
-                        placeholder="Expiry (days)"
+                {error ? (
+                    <ErrorRemediation error={error} scope="admin-qr-cards" onRetry={() => window.location.reload()} />
+                ) : null}
+
+                <PrismPanel className="space-y-5 p-5">
+                    <PrismSectionHeader
+                        title="Generation settings"
+                        description="Filter by class, choose how long the cards should stay active, and regenerate only when older cards need to be invalidated."
+                        actions={(
+                            <div className="flex flex-wrap gap-2">
+                                <button
+                                    onClick={() => window.print()}
+                                    className="prism-action-secondary"
+                                    disabled={tokens.length === 0}
+                                    type="button"
+                                >
+                                    <Printer className="h-4 w-4" />
+                                    Print
+                                </button>
+                                <button
+                                    onClick={() => void generateTokens()}
+                                    disabled={generating || loading || filteredStudents.length === 0}
+                                    className="prism-action"
+                                    type="button"
+                                >
+                                    <QrCode className="h-4 w-4" />
+                                    Generate QR codes
+                                </button>
+                            </div>
+                        )}
                     />
-                    <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
-                        <input
-                            type="checkbox"
-                            checked={regenerate}
-                            onChange={(e) => setRegenerate(e.target.checked)}
-                        />
-                        Regenerate tokens
-                    </label>
-                    <button
-                        onClick={() => void generateTokens()}
-                        disabled={generating || loading || filteredStudents.length === 0}
-                        className="px-3 py-2 text-sm border border-[var(--border)] rounded-[var(--radius-sm)] flex items-center gap-2 hover:bg-[var(--bg-hover)] disabled:opacity-60"
-                    >
-                        <RefreshCcw className="w-4 h-4" />
-                        Refresh
-                    </button>
-                </div>
-                <p className="text-xs text-[var(--text-muted)]">
-                    QR codes link to one-time login URLs. Regenerate to invalidate old cards.
-                </p>
-            </div>
 
-            {loading ? (
-                <div className="text-sm text-[var(--text-muted)]">Loading students...</div>
-            ) : tokens.length === 0 ? (
-                <div className="bg-[var(--bg-card)] rounded-[var(--radius)] shadow-[var(--shadow-card)] p-6 text-sm text-[var(--text-muted)]">
-                    Generate QR codes to preview printable cards.
-                </div>
-            ) : (
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    {tokens.map((token) => {
-                        const qrValue = origin ? `${origin}${token.login_url}` : token.login_url;
-                        return (
-                            <div key={token.student_id} className="rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-card)] p-4 shadow-[var(--shadow-card)]">
-                                <div className="flex items-center justify-between mb-3">
-                                    <div>
-                                        <p className="text-sm font-semibold text-[var(--text-primary)]">{token.student_name}</p>
-                                        <p className="text-[10px] text-[var(--text-muted)]">{token.email}</p>
-                                    </div>
-                                    {token.class_name ? (
-                                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-info-badge text-status-blue">
-                                            {token.class_name}
-                                        </span>
-                                    ) : null}
-                                </div>
-                                <div className="flex items-center gap-4">
-                                    <QRCodeCanvas value={qrValue} size={100} includeMargin />
-                                    <div className="text-xs text-[var(--text-secondary)] space-y-1">
-                                        <p className="font-semibold text-[var(--text-primary)]">Login code</p>
-                                        <p className="break-all text-[10px]">{token.qr_token}</p>
-                                        {token.expires_at ? (
-                                            <p className="text-[10px] text-[var(--text-muted)]">
-                                                Expires: {new Date(token.expires_at).toLocaleDateString()}
-                                            </p>
+                    <div className="grid gap-3 sm:grid-cols-[1fr_180px_180px_auto]">
+                        <select
+                            className="rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.03)] px-3 py-3 text-sm text-[var(--text-primary)]"
+                            value={selectedClassId}
+                            onChange={(e) => setSelectedClassId(e.target.value)}
+                            disabled={loading}
+                        >
+                            <option value="all">All classes</option>
+                            {classes.map((cls) => (
+                                <option key={cls.id} value={cls.id}>
+                                    {cls.name} (Grade {cls.grade})
+                                </option>
+                            ))}
+                        </select>
+                        <input
+                            type="number"
+                            min={1}
+                            value={expiresInDays}
+                            onChange={(e) => setExpiresInDays(Number(e.target.value))}
+                            className="rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.03)] px-3 py-3 text-sm text-[var(--text-primary)]"
+                            placeholder="Expiry (days)"
+                        />
+                        <label className="flex items-center gap-2 rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.03)] px-3 py-3 text-sm text-[var(--text-secondary)]">
+                            <input
+                                type="checkbox"
+                                checked={regenerate}
+                                onChange={(e) => setRegenerate(e.target.checked)}
+                            />
+                            Regenerate cards
+                        </label>
+                        <button
+                            onClick={() => void generateTokens()}
+                            disabled={generating || loading || filteredStudents.length === 0}
+                            className="prism-action-secondary"
+                            type="button"
+                        >
+                            <RefreshCcw className="h-4 w-4" />
+                            Refresh
+                        </button>
+                    </div>
+                    <p className="text-xs leading-5 text-[var(--text-secondary)]">
+                        QR cards link to one-time login routes. Regenerate when an older batch should stop working.
+                    </p>
+                </PrismPanel>
+
+                {loading ? (
+                    <PrismPanel className="p-8">
+                        <p className="text-sm text-[var(--text-secondary)]">Loading class and student roster...</p>
+                    </PrismPanel>
+                ) : tokens.length === 0 ? (
+                    <PrismPanel className="p-6">
+                        <EmptyState
+                            icon={QrCode}
+                            title="No QR cards generated yet"
+                            description="Generate cards to preview a printable batch for students in the selected class scope."
+                            eyebrow="Ready for access setup"
+                            scopeNote="This page only prepares sign-in cards. It does not change student records until the cards are actually used."
+                        />
+                    </PrismPanel>
+                ) : (
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        {tokens.map((token) => {
+                            const qrValue = origin ? `${origin}${token.login_url}` : token.login_url;
+                            return (
+                                <PrismPanel key={token.student_id} className="p-4">
+                                    <div className="mb-4 flex items-start justify-between gap-3">
+                                        <div>
+                                            <p className="text-sm font-semibold text-[var(--text-primary)]">{token.student_name}</p>
+                                            <p className="text-[10px] text-[var(--text-muted)]">{token.email}</p>
+                                        </div>
+                                        {token.class_name ? (
+                                            <span className="rounded-full bg-info-badge px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-status-blue">
+                                                {token.class_name}
+                                            </span>
                                         ) : null}
                                     </div>
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
-            )}
-        </div>
+                                    <div className="flex items-center gap-4">
+                                        <QRCodeCanvas value={qrValue} size={100} includeMargin />
+                                        <div className="space-y-1 text-xs text-[var(--text-secondary)]">
+                                            <p className="font-semibold text-[var(--text-primary)]">Login code</p>
+                                            <p className="break-all text-[10px]">{token.qr_token}</p>
+                                            {token.expires_at ? (
+                                                <p className="text-[10px] text-[var(--text-muted)]">
+                                                    Expires {new Date(token.expires_at).toLocaleDateString()}
+                                                </p>
+                                            ) : null}
+                                        </div>
+                                    </div>
+                                </PrismPanel>
+                            );
+                        })}
+                    </div>
+                )}
+            </PrismSection>
+        </PrismPage>
     );
 }

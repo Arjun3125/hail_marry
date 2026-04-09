@@ -15,14 +15,12 @@ import { PrismBackdrop } from "@/components/prism/PrismBackdrop";
 import { configureBoneyard, registerBones } from "boneyard-js/react";
 import { Analytics } from "@vercel/analytics/next";
 
-// Initialize Boneyard global defaults
 configureBoneyard({
   animate: "pulse",
   darkColor: "rgba(255, 255, 255, 0.03)",
   color: "rgba(0, 0, 0, 0.05)",
 });
 
-// Load skeleton registry if built
 try {
   const registryPath = join(process.cwd(), "skeleton-registry.json");
   if (existsSync(registryPath)) {
@@ -30,13 +28,13 @@ try {
     registerBones(registry);
   }
 } catch {
-  // Registry not yet built, skeletons will auto-generate or use fallbacks
+  // Registry not yet built, skeletons will auto-generate or use fallbacks.
 }
 
 export const metadata: Metadata = {
-  title: "ModernHustlers — AI-Powered Learning Infrastructure",
+  title: "VidyaOS - School Operating System",
   description:
-    "Document intelligence platform. Grounded answers, citation-enforced, multi-tenant, privacy-first.",
+    "School operating system with grounded AI, role-aware workflows, and source-backed learning surfaces.",
   keywords: ["AI", "education", "school", "ERP", "learning", "NotebookLM"],
   manifest: "/manifest.json",
 };
@@ -50,7 +48,7 @@ export default async function RootLayout({
   const initialLang = resolveLanguage(cookieStore.get(LANGUAGE_COOKIE_KEY)?.value);
 
   return (
-      <html
+    <html
       lang={initialLang}
       style={{
         ["--font-body" as string]:
@@ -68,8 +66,14 @@ export default async function RootLayout({
           defer
         />
       </head>
-      <body className="prism-app antialiased bg-[var(--bg-page)] text-[var(--text-primary)] transition-colors duration-300" suppressHydrationWarning>
-        <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:px-4 focus:py-2 focus:bg-[var(--bg-page)] focus:text-[var(--text-primary)] focus:outline focus:outline-2 focus:rounded">
+      <body
+        className="prism-app bg-[var(--bg-page)] text-[var(--text-primary)] antialiased transition-colors duration-300"
+        suppressHydrationWarning
+      >
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded focus:bg-[var(--bg-page)] focus:px-4 focus:py-2 focus:text-[var(--text-primary)] focus:outline focus:outline-2"
+        >
           Skip to main content
         </a>
         <ThemeProvider
@@ -88,7 +92,12 @@ export default async function RootLayout({
                     {children}
                   </main>
                   <DemoToolbarWrapper />
-                  <div aria-live="polite" aria-atomic="true" className="sr-only" id="screen-reader-announcer" />
+                  <div
+                    aria-live="polite"
+                    aria-atomic="true"
+                    className="sr-only"
+                    id="screen-reader-announcer"
+                  />
                   <Analytics />
                 </BrandingProvider>
               </QueryProvider>

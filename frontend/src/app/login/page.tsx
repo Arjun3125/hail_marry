@@ -97,7 +97,7 @@ export default function LoginPage() {
           </PrismHeroKicker>
           <div className="space-y-4">
             <h1 className="prism-title text-5xl font-black leading-[0.96] text-[var(--text-primary)] md:text-6xl">
-              Enter the platform through a <span className="premium-gradient">cleaner, calmer control point</span>
+              Enter the platform through a <span>cleaner, calmer control point</span>
             </h1>
             <p className="max-w-xl text-lg leading-8 text-[var(--text-secondary)]">
               Staff, students, and parents all enter the same product through role-aware authentication. In demo mode, you can also step directly into curated personas.

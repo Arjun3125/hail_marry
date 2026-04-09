@@ -130,7 +130,7 @@ test("admin timetable page supports generation and manual slot changes", async (
 
     await page.goto("/admin/timetable");
 
-    await expect(page.getByRole("heading", { name: "Timetable Management" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Keep the school timetable editable and generation-safe" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Class Timetable" })).toBeVisible();
     const timetableTable = page.getByRole("table");
     await expect(timetableTable.getByText("Mathematics")).toBeVisible();

@@ -11,7 +11,7 @@ import {
     Type,
 } from "lucide-react";
 
-import { PrismHeroKicker, PrismPage, PrismPanel, PrismSection } from "@/components/prism/PrismPage";
+import { PrismHeroKicker, PrismPage, PrismPageIntro, PrismPanel, PrismSection } from "@/components/prism/PrismPage";
 import ErrorRemediation from "@/components/ui/ErrorRemediation";
 import { api } from "@/lib/api";
 
@@ -141,43 +141,42 @@ export default function BrandingConfigPage() {
     }
 
     return (
-        <PrismPage className="space-y-6 pb-8">
+        <PrismPage variant="workspace" className="space-y-6 pb-8">
             <PrismSection className="space-y-6">
-                <div className="grid gap-4 xl:grid-cols-[1.12fr_0.88fr]">
-                    <div className="space-y-4">
+                <PrismPageIntro
+                    kicker={(
                         <PrismHeroKicker>
                             <Palette className="h-3.5 w-3.5" />
                             Admin Branding Surface
                         </PrismHeroKicker>
-                        <div className="space-y-3">
-                            <h1 className="prism-title text-4xl font-black leading-[0.98] text-[var(--text-primary)] md:text-5xl">
-                                Branding Engine
-                            </h1>
-                            <p className="max-w-3xl text-base leading-7 text-[var(--text-secondary)] md:text-lg">
-                                Configure brand color, typography, and logo-derived palette decisions from one controlled admin workspace.
+                    )}
+                    title="Tune the institution identity without affecting platform behavior"
+                    description="Adjust theme colors, typography, and logo-derived palette decisions while keeping the resulting interface preview in view."
+                    aside={(
+                        <div className="prism-briefing-panel">
+                            <p className="prism-status-label">Branding rule</p>
+                            <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
+                                Use this surface to change appearance only. Identity updates should never change permissions, routes, or workflow behavior.
                             </p>
                         </div>
-                    </div>
+                    )}
+                />
 
-                    <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
-                        <MetricCard
-                            title="Primary color"
-                            value={form.primary_color}
-                            summary="Core interface tone used across calls to action and emphasis surfaces."
-                            accent="blue"
-                        />
-                        <MetricCard
-                            title="Secondary color"
-                            value={form.secondary_color}
-                            summary="Support tone for positive states, metrics, and success framing."
-                            accent="emerald"
-                        />
-                        <MetricCard
-                            title="Font family"
-                            value={form.font_family}
-                            summary="Selected type system applied through the shared branding provider."
-                            accent="amber"
-                        />
+                <div className="prism-status-strip">
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">Primary color</span>
+                        <span className="prism-status-value">{form.primary_color}</span>
+                        <span className="prism-status-detail">Core emphasis tone for calls to action and key surfaces.</span>
+                    </div>
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">Secondary color</span>
+                        <span className="prism-status-value">{form.secondary_color}</span>
+                        <span className="prism-status-detail">Support tone for positive states and secondary emphasis.</span>
+                    </div>
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">Font family</span>
+                        <span className="prism-status-value">{form.font_family}</span>
+                        <span className="prism-status-detail">Typography choice currently applied by the branding provider.</span>
                     </div>
                 </div>
 
@@ -385,33 +384,6 @@ export default function BrandingConfigPage() {
                 </div>
             </PrismSection>
         </PrismPage>
-    );
-}
-
-function MetricCard({
-    title,
-    value,
-    summary,
-    accent,
-}: {
-    title: string;
-    value: string;
-    summary: string;
-    accent: "blue" | "emerald" | "amber";
-}) {
-    const accentClasses = {
-        blue: "bg-[linear-gradient(135deg,rgba(96,165,250,0.22),rgba(59,130,246,0.08))]",
-        emerald: "bg-[linear-gradient(135deg,rgba(45,212,191,0.2),rgba(16,185,129,0.08))]",
-        amber: "bg-[linear-gradient(135deg,rgba(251,191,36,0.2),rgba(245,158,11,0.08))]",
-    } as const;
-
-    return (
-        <PrismPanel className="p-4">
-            <div className={`mb-3 h-2 w-16 rounded-full ${accentClasses[accent]}`} />
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">{title}</p>
-            <p className="mt-2 break-all text-2xl font-semibold text-[var(--text-primary)]">{value}</p>
-            <p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">{summary}</p>
-        </PrismPanel>
     );
 }
 

@@ -292,11 +292,10 @@ test("admin dashboard shows alerts and dispatches them", async ({ page }) => {
 
     await page.goto("/admin/dashboard");
 
-    await expect(page.getByRole("heading", { name: "Admin Dashboard" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Queue Health" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "WhatsApp Release Gate" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Mascot Release Gate" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Student Risk Radar" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Run school health from a calm academic control surface/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /WhatsApp release gate/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Mascot release gate/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Student risk radar/i })).toBeVisible();
     await expect(page.getByText("Routing failure")).toBeVisible();
     await expect(page.getByText("Overall failure")).toBeVisible();
     await expect(page.getByText("Aarav Kumar")).toBeVisible();
@@ -304,12 +303,12 @@ test("admin dashboard shows alerts and dispatches them", async ({ page }) => {
     await expect(page.getByText("126")).toBeVisible();
     await expect(page.getByText("84", { exact: true })).toBeVisible();
     await expect(page.getByText("Queue depth is 5 / 200 for this tenant.")).toBeVisible();
-    await expect(page.getByRole("link", { name: "Open Trace Viewer" })).toBeVisible();
-    await page.getByRole("button", { name: "Copy Evidence Draft" }).click();
-    await expect(page.getByText(/Evidence draft copied from/i)).toBeVisible();
+    await expect(page.getByRole("link", { name: "Open reports" })).toBeVisible();
+    await page.getByRole("button", { name: "Copy evidence" }).click();
+    await expect(page.getByText(/Mascot evidence copied from/i)).toBeVisible();
     await expect.poll(async () => page.evaluate(() => (window as Window & { __copiedMascotEvidence?: string }).__copiedMascotEvidence || "")).toContain("Mascot Release Gate Evidence");
-    await page.getByRole("button", { name: "Copy Staging Packet" }).click();
-    await expect(page.getByText(/Combined mascot \+ WhatsApp staging packet copied from/i)).toBeVisible();
+    await page.getByRole("button", { name: "Copy staging packet" }).click();
+    await expect(page.getByText(/Combined staging packet copied from/i)).toBeVisible();
     await expect.poll(async () => page.evaluate(() => (window as Window & { __copiedMascotEvidence?: string }).__copiedMascotEvidence || "")).toContain("Mascot WhatsApp Staging Packet");
 
     await page.getByRole("button", { name: "Dispatch Alerts" }).click();

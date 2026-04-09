@@ -2,15 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-    AlertTriangle,
     BarChart3,
     BrainCircuit,
     Sparkles,
-    TrendingUp,
 } from "lucide-react";
 
 import EmptyState from "@/components/EmptyState";
-import { PrismHeroKicker, PrismPage, PrismPanel, PrismSection } from "@/components/prism/PrismPage";
+import { PrismHeroKicker, PrismPage, PrismPageIntro, PrismPanel, PrismSection } from "@/components/prism/PrismPage";
 import ErrorRemediation from "@/components/ui/ErrorRemediation";
 import { SkeletonCard } from "@/components/Skeleton";
 import { api } from "@/lib/api";
@@ -67,46 +65,42 @@ export default function TeacherInsightsPage() {
     }, [insights]);
 
     return (
-        <PrismPage className="space-y-6 pb-8">
+        <PrismPage variant="dashboard" className="space-y-6 pb-8">
             <PrismSection className="space-y-6">
-                <div className="grid gap-4 xl:grid-cols-[1.12fr_0.88fr]">
-                    <div className="space-y-4">
+                <PrismPageIntro
+                    kicker={(
                         <PrismHeroKicker>
                             <BrainCircuit className="h-3.5 w-3.5" />
                             Teacher Insight Surface
                         </PrismHeroKicker>
-                        <div className="space-y-3">
-                            <h1 className="prism-title text-4xl font-black leading-[0.98] text-[var(--text-primary)] md:text-5xl">
-                                AI Class Insights
-                            </h1>
-                            <p className="max-w-3xl text-base leading-7 text-[var(--text-secondary)] md:text-lg">
-                                Scan weak signals, compare subject performance, and review the next intervention recommendation without losing the practical teacher workflow.
+                    )}
+                    title="Read class signals as a teaching intervention board"
+                    description="Scan weak subjects, compare class-level performance, and review the next recommended teaching move without leaving the operational teacher flow."
+                    aside={(
+                        <div className="prism-briefing-panel">
+                            <p className="prism-status-label">Best use</p>
+                            <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
+                                Start with weak signals, then use the recommendation panel to decide whether the next move is revision, reteaching, or assessment follow-up.
                             </p>
                         </div>
-                    </div>
+                    )}
+                />
 
-                    <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
-                        <MetricCard
-                            icon={BarChart3}
-                            title="Classes analyzed"
-                            value={`${summary.totalClasses}`}
-                            accent="blue"
-                            summary="Insight coverage across current classroom cohorts"
-                        />
-                        <MetricCard
-                            icon={AlertTriangle}
-                            title="Weak signals"
-                            value={`${summary.weakSignals}`}
-                            accent="amber"
-                            summary="Subjects currently flagged for intervention"
-                        />
-                        <MetricCard
-                            icon={TrendingUp}
-                            title="Average level"
-                            value={summary.totalClasses ? `${summary.avgPerformance}%` : "-"}
-                            accent="emerald"
-                            summary="Mean subject performance across the loaded dataset"
-                        />
+                <div className="prism-status-strip">
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">Classes analyzed</span>
+                        <span className="prism-status-value">{summary.totalClasses}</span>
+                        <span className="prism-status-detail">Insight coverage across current classroom cohorts.</span>
+                    </div>
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">Weak signals</span>
+                        <span className="prism-status-value">{summary.weakSignals}</span>
+                        <span className="prism-status-detail">Subjects currently flagged for intervention.</span>
+                    </div>
+                    <div className="prism-status-item">
+                        <span className="prism-status-label">Average level</span>
+                        <span className="prism-status-value">{summary.totalClasses ? `${summary.avgPerformance}%` : "-"}</span>
+                        <span className="prism-status-detail">Mean subject performance across the loaded dataset.</span>
                     </div>
                 </div>
 
@@ -131,6 +125,8 @@ export default function TeacherInsightsPage() {
                         icon={BrainCircuit}
                         title="No insight telemetry yet"
                         description="This surface will populate once class performance data is available for analysis."
+                        eyebrow="Awaiting teaching signals"
+                        scopeNote="As results and assessments accumulate, this page becomes the fastest way to identify where reteaching or intervention is needed."
                     />
                 ) : (
                     <div className="grid gap-6">
@@ -141,7 +137,7 @@ export default function TeacherInsightsPage() {
                                         <div>
                                             <h2 className="text-2xl font-black text-[var(--text-primary)]">{classInsight.class}</h2>
                                             <p className="mt-1 text-sm text-[var(--text-secondary)]">
-                                                Performance distribution, weak-topic detection, and an intervention recommendation for this class.
+                                                Performance distribution, weak-topic detection, and one recommended teaching move for this class.
                                             </p>
                                         </div>
                                         <div className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[rgba(148,163,184,0.05)] px-3 py-1.5 text-xs text-[var(--text-secondary)]">
@@ -213,7 +209,7 @@ export default function TeacherInsightsPage() {
                                             <p className="mt-4 text-sm leading-7 text-[var(--text-primary)]">{classInsight.recommendation}</p>
                                             <button className="mt-4 inline-flex items-center gap-2 rounded-2xl bg-[linear-gradient(135deg,rgba(96,165,250,0.96),rgba(129,140,248,0.94))] px-4 py-2.5 text-sm font-semibold text-[#06101e] shadow-[0_18px_34px_rgba(96,165,250,0.22)] transition-all hover:-translate-y-0.5">
                                                 <Sparkles className="h-4 w-4" />
-                                                Deploy Action Plan
+                                                Deploy action plan
                                             </button>
                                         </PrismPanel>
                                     </div>
@@ -224,36 +220,5 @@ export default function TeacherInsightsPage() {
                 )}
             </PrismSection>
         </PrismPage>
-    );
-}
-
-function MetricCard({
-    icon: Icon,
-    title,
-    value,
-    summary,
-    accent,
-}: {
-    icon: typeof BarChart3;
-    title: string;
-    value: string;
-    summary: string;
-    accent: "blue" | "emerald" | "amber";
-}) {
-    const accentClasses = {
-        blue: "bg-[linear-gradient(135deg,rgba(96,165,250,0.22),rgba(59,130,246,0.08))] text-status-blue",
-        emerald: "bg-[linear-gradient(135deg,rgba(45,212,191,0.2),rgba(16,185,129,0.08))] text-status-emerald",
-        amber: "bg-[linear-gradient(135deg,rgba(251,191,36,0.2),rgba(245,158,11,0.08))] text-status-amber",
-    } as const;
-
-    return (
-        <PrismPanel className="p-4">
-            <div className={`mb-3 flex h-11 w-11 items-center justify-center rounded-2xl ${accentClasses[accent]}`}>
-                <Icon className="h-5 w-5" />
-            </div>
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">{title}</p>
-            <p className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">{value}</p>
-            <p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">{summary}</p>
-        </PrismPanel>
     );
 }

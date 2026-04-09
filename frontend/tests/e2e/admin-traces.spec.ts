@@ -86,15 +86,15 @@ test("admin traces page loads diagnostics summary and trace timeline", async ({ 
 
     await page.goto("/admin/traces");
 
-    await expect(page.getByRole("heading", { name: "Trace Viewer" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Trace Diagnostics" })).toBeVisible();
-    await expect(page.getByText("QUEUE_TIMEOUT · 5")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Read trace failures before they become repeated incidents" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Trace diagnostics/i })).toBeVisible();
+    await expect(page.getByText(/QUEUE_TIMEOUT/i).first()).toBeVisible();
     await expect(page.getByText("Worker exceeded execution window")).toBeVisible();
 
     await page.getByPlaceholder("Paste a trace id").fill("trace-001");
     await page.getByRole("button", { name: /load trace/i }).click();
 
-    await expect(page.getByRole("heading", { name: "Trace Timeline" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Trace timeline/i })).toBeVisible();
     await expect(page.getByText("queue.retry.started")).toBeVisible();
     await expect(page.getByText("worker.timeout")).toBeVisible();
     await expect(page.getByText("trace-001").first()).toBeVisible();

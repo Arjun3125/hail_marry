@@ -55,6 +55,7 @@ from src.domains.platform.services.telemetry import extract_context_from_tracepa
 
 _redis = None
 _redis_available = None
+_redis_url = None
 logger = logging.getLogger(__name__)
 
 JOB_KEY_PREFIX = "ai_job:"
@@ -153,23 +154,26 @@ def _tenant_dead_letter_key(tenant_id: str) -> str:
 
 
 def _get_redis_client():
-    global _redis, _redis_available
+    global _redis, _redis_available, _redis_url
 
-    if _redis_available is None:
+    redis_url = (
+        os.getenv("REDIS_BROKER_URL")
+        or os.getenv("REDIS_URL")
+        or settings.redis.broker_url
+    )
+
+    if _redis_available is None or _redis_url != redis_url:
         try:
             import redis as redis_lib
 
-            redis_url = (
-                os.getenv("REDIS_BROKER_URL")
-                or os.getenv("REDIS_URL")
-                or settings.redis.broker_url
-            )
             _redis = redis_lib.from_url(redis_url, decode_responses=True, socket_connect_timeout=1, socket_timeout=1)
             _redis.ping()
             _redis_available = True
+            _redis_url = redis_url
         except Exception:
             _redis = None
             _redis_available = False
+            _redis_url = redis_url
 
     return _redis if _redis_available else None
 

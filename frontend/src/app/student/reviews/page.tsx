@@ -5,7 +5,7 @@ import { Plus, Loader2, Star, CheckCircle, Brain, Zap, Clock3, Sparkles } from "
 
 import EmptyState from "@/components/EmptyState";
 import { PrismInput } from "@/components/prism/PrismControls";
-import { PrismHeroKicker, PrismPage, PrismPanel, PrismSection } from "@/components/prism/PrismPage";
+import { PrismHeroKicker, PrismPage, PrismPageIntro, PrismPanel, PrismSection } from "@/components/prism/PrismPage";
 import ErrorRemediation from "@/components/ui/ErrorRemediation";
 import { api } from "@/lib/api";
 
@@ -88,25 +88,19 @@ export default function ReviewsPage() {
     };
 
     return (
-        <PrismPage className="space-y-6">
+        <PrismPage variant="workspace" className="space-y-6">
             <PrismSection className="space-y-6">
-                <div className="grid gap-6 xl:grid-cols-[1.12fr_0.88fr]">
-                    <div className="space-y-4">
+                <PrismPageIntro
+                    kicker={(
                         <PrismHeroKicker>
                             <Sparkles className="h-3.5 w-3.5" />
                             Student retention loop
                         </PrismHeroKicker>
-                        <div className="space-y-3">
-                            <h1 className="prism-title text-4xl font-black leading-[0.98] text-[var(--text-primary)] md:text-5xl">
-                                Keep hard-won concepts alive with a <span className="premium-gradient">clear spaced repetition ledger</span>
-                            </h1>
-                            <p className="max-w-3xl text-base leading-7 text-[var(--text-secondary)] md:text-lg">
-                                This route now separates due reviews, upcoming reviews, and topic creation so you can protect recall without losing flow in the rest of the student workspace.
-                            </p>
-                        </div>
-                    </div>
-
-                    <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
+                    )}
+                    title="Protect recall with a clear review ledger"
+                    description="Separate due reviews, upcoming reviews, and topic creation so memory work stays visible without breaking the rest of the student workflow."
+                    aside={(
+                        <div className="prism-status-strip">
                         <MetricCard
                             icon={<Zap className="h-5 w-5 text-rose-400" />}
                             label="Due now"
@@ -128,8 +122,9 @@ export default function ReviewsPage() {
                             detail="The long-term memory set currently managed by SM-2."
                             bg="bg-[linear-gradient(135deg,rgba(168,85,247,0.18),rgba(99,102,241,0.08))]"
                         />
-                    </div>
-                </div>
+                        </div>
+                    )}
+                />
 
                 {error ? (
                     <ErrorRemediation
