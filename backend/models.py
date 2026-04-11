@@ -27,7 +27,7 @@ from src.domains.administrative.models.complaint import Complaint  # noqa: F401
 from src.domains.administrative.models.fee import FeeStructure, FeeInvoice, FeePayment  # noqa: F401
 
 # Platform
-from src.domains.platform.models.ai import AIQuery          # noqa: F401
+from src.domains.platform.models.ai import AIQuery, AISessionEvent          # noqa: F401
 from src.domains.platform.models.analytics_event import AnalyticsEvent  # noqa: F401
 from src.domains.platform.models.document import Document    # noqa: F401
 from src.domains.platform.models.audit import AuditLog       # noqa: F401

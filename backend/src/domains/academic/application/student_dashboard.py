@@ -45,23 +45,38 @@ def build_student_dashboard_response(
         Enrollment.student_id == user_id,
     ).first()
     pending_assignments = 0
+    next_assignment = None
     if enrollment:
-        subject_ids = [
-            subject.id
-            for subject in db.query(Subject).filter(
-                Subject.tenant_id == tenant_id,
-                Subject.class_id == enrollment.class_id,
-            ).all()
-        ]
-        total_assignments = db.query(Assignment).filter(
+        subjects = db.query(Subject).filter(
+            Subject.tenant_id == tenant_id,
+            Subject.class_id == enrollment.class_id,
+        ).all()
+        subject_ids = [subject.id for subject in subjects]
+        subject_name_by_id = {subject.id: subject.name for subject in subjects}
+        assignments = db.query(Assignment).filter(
             Assignment.tenant_id == tenant_id,
             Assignment.subject_id.in_(subject_ids),
-        ).count()
-        submitted = db.query(AssignmentSubmission).filter(
+        ).all()
+        submitted_rows = db.query(AssignmentSubmission.assignment_id).filter(
             AssignmentSubmission.tenant_id == tenant_id,
             AssignmentSubmission.student_id == user_id,
-        ).count()
-        pending_assignments = max(0, total_assignments - submitted)
+        ).all()
+        submitted_ids = {assignment_id for assignment_id, in submitted_rows}
+        pending_assignment_rows = [assignment for assignment in assignments if assignment.id not in submitted_ids]
+        pending_assignments = len(pending_assignment_rows)
+        if pending_assignment_rows:
+            pending_assignment_rows.sort(
+                key=lambda assignment: (
+                    assignment.due_date.isoformat() if assignment.due_date else "9999-12-31T23:59:59+00:00",
+                    assignment.created_at.isoformat() if assignment.created_at else "9999-12-31T23:59:59+00:00",
+                )
+            )
+            focus_assignment = pending_assignment_rows[0]
+            next_assignment = {
+                "title": focus_assignment.title,
+                "subject": subject_name_by_id.get(focus_assignment.subject_id, "Unknown"),
+                "due": str(focus_assignment.due_date.date()) if focus_assignment.due_date else None,
+            }
 
     ai_today = db.query(AIQuery).filter(
         AIQuery.tenant_id == tenant_id,
@@ -100,6 +115,7 @@ def build_student_dashboard_response(
         "attendance_pct": attendance_pct,
         "avg_marks": avg_marks,
         "pending_assignments": pending_assignments,
+        "next_assignment": next_assignment,
         "ai_queries_today": ai_today,
         "ai_queries_limit": ai_limit,
         "upcoming_classes": upcoming,

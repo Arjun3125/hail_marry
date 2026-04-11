@@ -549,11 +549,15 @@ def build_teacher_resource_history(
     monthly_counts = {month.strftime("%Y-%m"): 0 for month in _month_window()}
     for document in documents:
         if document.created_at:
-            monthly_counts[document.created_at.strftime("%Y-%m")] = monthly_counts.get(document.created_at.strftime("%Y-%m"), 0) + 1
+            month_key = document.created_at.strftime("%Y-%m")
+            if month_key in monthly_counts:
+                monthly_counts[month_key] += 1
     for lecture in lectures:
         created_at = lecture.created_at or lecture.scheduled_at
         if created_at:
-            monthly_counts[created_at.strftime("%Y-%m")] = monthly_counts.get(created_at.strftime("%Y-%m"), 0) + 1
+            month_key = created_at.strftime("%Y-%m")
+            if month_key in monthly_counts:
+                monthly_counts[month_key] += 1
 
     recent_activity: list[dict[str, Any]] = []
     for document in documents:

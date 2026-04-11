@@ -110,3 +110,21 @@ async def run_digest_loop(stop_event: asyncio.Event) -> None:
         if settings.digest_email.enabled:
             await asyncio.to_thread(_run_digest_cycle)
         await _wait_or_stop(stop_event, interval)
+
+
+async def run_scheduled_notifications_loop(stop_event: asyncio.Event) -> None:
+    """Run the scheduled notifications service (APScheduler).
+    
+    This loop keeps the APScheduler running for daily parent notifications:
+    - 8 AM IST: Check for assignments due tomorrow
+    - 9 AM IST: Check for low attendance
+    """
+    try:
+        from src.domains.academic.services.scheduled_notifications import (
+            ScheduledNotificationsService,
+        )
+
+        await ScheduledNotificationsService.run_scheduled_notifications_loop(stop_event)
+    except Exception as e:
+        logger.error(f"Scheduled notifications loop failed: {str(e)}")
+        raise

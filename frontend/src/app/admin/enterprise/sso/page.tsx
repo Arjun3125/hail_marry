@@ -48,7 +48,7 @@ export default function SSOSettingsPage() {
 
     if (loading) {
         return (
-            <PrismPage variant="form" className="space-y-6 pb-8">
+            <PrismPage variant="form" className="max-w-4xl space-y-6 pb-8">
                 <PrismSection className="space-y-6">
                     <div className="p-8 text-center text-[var(--text-muted)]">Loading SSO configuration...</div>
                 </PrismSection>

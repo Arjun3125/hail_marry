@@ -51,6 +51,7 @@ from src.domains.academic.application.teacher_reporting import (
     queue_teacher_ai_grade_job as _queue_teacher_ai_grade_job_impl,
 )
 from src.domains.platform.services.webhooks import emit_webhook_event
+from src.domains.platform.services.whatsapp_gateway import send_text_message
 from src.infrastructure.llm.cache import invalidate_tenant_cache
 from src.domains.identity.application.passwords import hash_password
 from src.domains.identity.models.tenant import Tenant
@@ -59,12 +60,14 @@ from src.domains.academic.models.core import Class, Subject, Enrollment
 from src.domains.academic.models.attendance import Attendance
 from src.domains.academic.models.marks import Exam, Mark
 from src.domains.academic.models.assignment import Assignment, AssignmentSubmission
+from src.domains.academic.models.parent_link import ParentLink
 from src.domains.academic.models.test_series import TestSeries
 from src.domains.platform.models.document import Document
 from src.domains.platform.models.ai import AIQuery
 from src.domains.academic.models.lecture import Lecture
 from src.domains.academic.models.timetable import Timetable
 from src.domains.academic.services.leaderboard import get_all_series, get_leaderboard
+from src.domains.academic.services.parent_notification_service import ParentNotificationService
 from src.domains.platform.services.ai_queue import enqueue_job
 from src.shared.ocr_imports import (
     StructuredImportParseResult,
@@ -105,6 +108,11 @@ class AttendanceBulk(BaseModel):
     class_id: str
     date: str  # YYYY-MM-DD
     entries: List[AttendanceEntry]
+
+class AttendanceParentNotify(BaseModel):
+    class_id: str
+    date: str
+    absent_student_ids: List[str]
 
 class MarkEntry(BaseModel):
     student_id: str
@@ -369,6 +377,64 @@ async def get_class_attendance(
     )
 
 
+@router.post("/attendance-parent-notifications")
+async def notify_absent_parents(
+    data: AttendanceParentNotify,
+    current_user: User = Depends(require_role("teacher", "admin")),
+    teacher_class_ids: list = Depends(get_teacher_class_ids),
+    db: Session = Depends(get_db),
+):
+    """Send WhatsApp follow-up messages to parents of absent students."""
+    allowed_class_ids = set(teacher_class_ids)
+    class_uuid = _parse_uuid(data.class_id, "class_id")
+    _ensure_class_access(current_user, class_uuid, allowed_class_ids)
+
+    try:
+        att_date = datetime.strptime(data.date, "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date. Expected YYYY-MM-DD.")
+
+    sent = 0
+    skipped = 0
+    failed = 0
+    for student_id in data.absent_student_ids:
+        student_uuid = _validate_student_in_class(db, current_user, student_id, class_uuid)
+        student = db.query(User).filter(
+            User.id == student_uuid,
+            User.tenant_id == current_user.tenant_id,
+        ).first()
+        links = db.query(ParentLink).filter(
+            ParentLink.tenant_id == current_user.tenant_id,
+            ParentLink.child_id == student_uuid,
+        ).all()
+        if not links:
+            skipped += 1
+            continue
+        for link in links:
+            parent = db.query(User).filter(
+                User.id == link.parent_id,
+                User.tenant_id == current_user.tenant_id,
+                User.role == "parent",
+                User.is_active,
+            ).first()
+            if not parent or not parent.phone_number:
+                skipped += 1
+                continue
+            result = await send_text_message(
+                parent.phone_number,
+                (
+                    f"VidyaOS attendance update: {student.full_name if student else 'Your child'} "
+                    f"was marked absent on {att_date.isoformat()}. Please contact the school if this needs correction."
+                ),
+            )
+            if result.get("success"):
+                sent += 1
+            else:
+                failed += 1
+
+    return {"success": failed == 0, "sent": sent, "skipped": skipped, "failed": failed}
+
+
 # ─── Marks Entry ─────────────────────────────────────────────
 @router.post("/exams")
 async def create_exam(
@@ -444,6 +510,21 @@ async def submit_marks(
         # Marks submission should not fail if webhook delivery fails.
         pass
 
+    # ─── Hook: Notify parents of assessment results ───────────────────
+    try:
+        # Get all marks for this exam and notify parents
+        marks = db.query(Mark).filter(Mark.exam_id == exam.id).all()
+        for mark in marks:
+            await ParentNotificationService.notify_assessment_results(
+                db=db,
+                tenant_id=current_user.tenant_id,
+                student_id=mark.student_id,
+                mark_id=mark.id,
+            )
+    except Exception as e:
+        # Parent notifications should not fail the marks submission
+        logger.warning(f"Failed to send parent notifications for exam {exam.id}: {str(e)}")
+
     return {"success": True, "count": count}
 
 
@@ -478,7 +559,7 @@ async def create_assignment(
         allowed_class_ids=allowed_class_ids,
     )
     try:
-        return _build_created_assignment_response_impl(
+        response = _build_created_assignment_response_impl(
             db=db,
             current_user=current_user,
             subject_id=subject.id,
@@ -489,6 +570,37 @@ async def create_assignment(
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+
+    # ─── Hook: Notify parents if assignment is due tomorrow ───────────────
+    try:
+        from datetime import timedelta
+        # Get the newly created assignment
+        assignment_id = response.get("id")
+        assignment = db.query(Assignment).filter(Assignment.id == assignment_id).first()
+        
+        if assignment:
+            tomorrow_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
+            tomorrow_end = tomorrow_start + timedelta(days=1)
+            
+            # Check if due date is tomorrow
+            if tomorrow_start <= assignment.due_date < tomorrow_end:
+                # Get all students in the class and notify their parents
+                enrollments = db.query(Enrollment).filter(
+                    Enrollment.class_id == subject.class_id
+                ).all()
+                
+                for enrollment in enrollments:
+                    await ParentNotificationService.notify_assignment_due_tomorrow(
+                        db=db,
+                        tenant_id=current_user.tenant_id,
+                        student_id=enrollment.student_id,
+                        assignment_id=assignment.id,
+                    )
+    except Exception as e:
+        # Parent notifications should not fail the assignment creation
+        logger.warning(f"Failed to send parent notifications for assignment {assignment.id if 'assignment' in locals() else 'N/A'}: {str(e)}")
+
+    return response
 
 
 # ─── Upload + Ingestion ─────────────────────────────────────

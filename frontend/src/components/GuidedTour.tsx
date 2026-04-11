@@ -66,6 +66,14 @@ export default function GuidedTour({
             setMounted(true);
             setShowButton(!localStorage.getItem(storageKey));
         });
+
+        const handleStartTour = () => {
+            setCurrentStep(0);
+            setShowButton(false);
+        };
+
+        window.addEventListener("start-guided-tour", handleStartTour);
+        return () => window.removeEventListener("start-guided-tour", handleStartTour);
     }, [storageKey]);
 
     const isActive = currentStep >= 0 && currentStep < steps.length;

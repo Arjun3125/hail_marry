@@ -149,7 +149,7 @@ export default function TeacherProfilePage() {
                             </div>
                             <div className="prism-status-item">
                                 <span className="prism-status-label">Students supported</span>
-                                <span className="prism-status-value">{summary?.students_supported ?? "Loading"}</span>
+                                <span className="prism-status-value">{summary?.students_supported ?? "—"}</span>
                                 <span className="prism-status-detail">Distinct students across the teacher&apos;s current class scope over the seeded demo window.</span>
                             </div>
                         </div>
@@ -186,8 +186,9 @@ export default function TeacherProfilePage() {
                                 </div>
 
                                 <div className="space-y-4">
-                                    <Field icon={User} label="Full name">
+                                    <Field icon={User} label="Full name" htmlFor="teacher-full-name">
                                         <input
+                                            id="teacher-full-name"
                                             value={fullName}
                                             onChange={(e) => setFullName(e.target.value)}
                                             className="mt-1 w-full rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.03)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[rgba(96,165,250,0.4)] focus:bg-[rgba(96,165,250,0.06)]"
@@ -244,17 +245,23 @@ function formatDate(value?: string | null) {
 function Field({
     icon: Icon,
     label,
+    htmlFor,
     children,
 }: {
     icon: typeof User;
     label: string;
+    htmlFor?: string;
     children: React.ReactNode;
 }) {
     return (
         <div className="flex items-start gap-3">
             <Icon className="mt-1 h-4 w-4 text-[var(--text-muted)]" />
             <div className="flex-1">
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">{label}</p>
+                {htmlFor ? (
+                    <label htmlFor={htmlFor} className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">{label}</label>
+                ) : (
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">{label}</p>
+                )}
                 {children}
             </div>
         </div>

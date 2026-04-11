@@ -107,9 +107,7 @@ export default function DoubtHeatmapPage() {
                         scope="teacher-doubt-heatmap"
                         onRetry={() => window.location.reload()}
                     />
-                ) : null}
-
-                {loading ? (
+                ) : loading ? (
                     <PrismPanel className="p-10">
                         <div className="flex items-center gap-3 text-sm text-[var(--text-muted)]">
                             <Flame className="h-4 w-4 animate-pulse" />

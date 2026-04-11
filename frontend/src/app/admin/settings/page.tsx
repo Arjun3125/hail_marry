@@ -166,8 +166,16 @@ export default function AdminSettingsPage() {
                                         </label>
                                         <input
                                             type="number"
+                                            min="0"
+                                            step="1"
                                             value={settings.ai_daily_limit}
-                                            onChange={(event) => setSettings({ ...settings, ai_daily_limit: Number(event.target.value) || 0 })}
+                                            onChange={(event) => {
+                                                const parsed = Number.parseInt(event.target.value, 10);
+                                                setSettings({
+                                                    ...settings,
+                                                    ai_daily_limit: Number.isNaN(parsed) ? settings.ai_daily_limit : Math.max(0, parsed),
+                                                });
+                                            }}
                                             className="w-full rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.03)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[rgba(96,165,250,0.4)] focus:bg-[rgba(96,165,250,0.06)]"
                                         />
                                     </div>

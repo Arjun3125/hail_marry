@@ -1555,4 +1555,4 @@ def seed_demo_data(*, skip_embeddings: bool = True) -> bool:
 
 
 if __name__ == "__main__":
-    seed()
+    seed(skip_embeddings=True)

@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { Users, RotateCcw, GraduationCap, BookOpen, Shield, Loader2, X } from "lucide-react";
-import { API_BASE, setStoredAccessToken } from "@/lib/api";
+import { Users, RotateCcw, GraduationCap, BookOpen, Shield, Loader2, X, Sparkles } from "lucide-react";
+import { API_BASE, clearDemoSession, setStoredAccessToken } from "@/lib/api";
 import { useToast } from "./Toast";
 
 const roles = [
@@ -11,6 +11,13 @@ const roles = [
     { id: "teacher", label: "Teacher", icon: BookOpen, path: "/teacher/dashboard", color: "bg-emerald-500" },
     { id: "admin", label: "Admin", icon: Shield, path: "/admin/dashboard", color: "bg-violet-badge0" },
     { id: "parent", label: "Parent", icon: Users, path: "/parent/dashboard", color: "bg-warning-subtle0" },
+];
+const salesBeats = [
+    "Pain recognition: show the chaos of running a school with separate tools.",
+    "Single system: show School Health and live operations.",
+    "Depth proof: open AI Studio with citations.",
+    "Parent trust: show the WhatsApp-style parent summary.",
+    "Call to action: reset or switch roles for the next prospect question.",
 ];
 
 export default function DemoToolbar() {
@@ -71,24 +78,22 @@ export default function DemoToolbar() {
 
     return (
         <>
-            {/* Floating pill button */}
             <button
                 onClick={() => setOpen(!open)}
-                className="fixed right-4 z-50 flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-[11px] sm:text-xs font-bold rounded-full shadow-xl hover:shadow-2xl hover:scale-105 transition-all"
+                className="fixed right-4 z-50 flex items-center gap-2 rounded-full bg-gradient-to-r from-indigo-600 to-violet-600 px-3 py-2 text-[11px] font-bold text-white shadow-xl transition-all hover:scale-105 hover:shadow-2xl sm:px-4 sm:py-2.5 sm:text-xs"
                 style={{ bottom: "calc(var(--bottom-nav-height, 4.5rem) + 1rem)" }}
             >
                 <span className={`w-2 h-2 rounded-full ${currentRole.color} animate-pulse`} />
-                <span className="hidden sm:inline">DEMO:</span> {currentRole.label}
+                <span className="hidden sm:inline">DEMO MODE | Viewing as:</span> {currentRole.label}
             </button>
 
-            {/* Panel */}
             {open && (
                 <div 
                     className="fixed right-4 z-50 w-[calc(100vw-2rem)] sm:w-72 max-w-72 bg-[var(--bg-card)] rounded-2xl shadow-2xl border border-[var(--border)] overflow-hidden animate-[fadeIn_0.15s_ease-out]"
                     style={{ bottom: "calc(var(--bottom-nav-height, 4.5rem) + 3.5rem)" }}
                 >
                     <div className="bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-3 flex items-center justify-between">
-                        <span className="text-xs font-bold text-white">Demo Controls</span>
+                        <span className="text-xs font-bold text-white">DEMO MODE | Viewing as: {currentRole.label}</span>
                         <button onClick={() => setOpen(false)} className="text-white/70 hover:text-white">
                             <X className="w-4 h-4" />
                         </button>
@@ -112,6 +117,26 @@ export default function DemoToolbar() {
                             </button>
                         ))}
                         <hr className="border-[var(--border)]" />
+                        <div className="rounded-xl border border-[var(--border)] bg-[rgba(148,163,184,0.05)] p-3">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">5-beat demo script</p>
+                            <div className="mt-2 space-y-1.5">
+                                {salesBeats.map((beat, index) => (
+                                    <p key={beat} className="text-[10px] leading-4 text-[var(--text-secondary)]">
+                                        {index + 1}. {beat}
+                                    </p>
+                                ))}
+                            </div>
+                        </div>
+                        <button
+                            onClick={() => {
+                                window.dispatchEvent(new Event("start-guided-tour"));
+                                setOpen(false);
+                            }}
+                            className="w-full flex items-center justify-center gap-2 px-3 py-2.5 text-xs font-bold text-status-indigo bg-indigo-badge0 rounded-xl hover:bg-indigo-badge transition-all"
+                        >
+                            <Sparkles className="h-3.5 w-3.5" />
+                            Highlight Features
+                        </button>
                         <button
                             onClick={() => void resetDemo()}
                             disabled={resetting}
@@ -119,6 +144,16 @@ export default function DemoToolbar() {
                         >
                             {resetting ? <Loader2 className="w-3 h-3 animate-spin" /> : <RotateCcw className="w-3 h-3" />}
                             Reset Demo Data
+                        </button>
+                        <button
+                            onClick={() => {
+                                clearDemoSession();
+                                router.push("/login");
+                                setOpen(false);
+                            }}
+                            className="w-full flex items-center justify-center gap-2 rounded-xl border border-[var(--border)] px-3 py-2.5 text-xs font-bold text-[var(--text-secondary)] transition-all hover:bg-[var(--bg-page)]"
+                        >
+                            End Demo
                         </button>
                     </div>
                 </div>

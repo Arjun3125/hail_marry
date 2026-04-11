@@ -180,7 +180,10 @@ export default function AdminQrCardsPage() {
                             type="number"
                             min={1}
                             value={expiresInDays}
-                            onChange={(e) => setExpiresInDays(Number(e.target.value))}
+                            onChange={(e) => {
+                                const parsed = Number.parseInt(e.target.value, 10);
+                                setExpiresInDays(Number.isNaN(parsed) ? 1 : Math.max(1, parsed));
+                            }}
                             className="rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.03)] px-3 py-3 text-sm text-[var(--text-primary)]"
                             placeholder="Expiry (days)"
                         />

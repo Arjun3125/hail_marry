@@ -51,6 +51,13 @@ def create_lifespan(container):
                     task_label="digest email",
                     runner_name="run_digest_loop",
                 )
+            # Always enable scheduled notifications if not testing
+            _maybe_schedule_runtime_task(
+                tasks,
+                stop_event,
+                task_label="scheduled notifications",
+                runner_name="run_scheduled_notifications_loop",
+            )
         yield
         stop_event.set()
         for task in tasks:

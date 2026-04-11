@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, date, datetime, timedelta
+from numbers import Number
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -205,8 +206,8 @@ def _build_monthly_trends(*, db: Session, tenant_id) -> list[dict]:
         month_key = _month_key(exam.exam_date or exam.created_at or mark.created_at)
         if month_key not in buckets:
             continue
-        if exam.max_marks:
-            buckets[month_key]["scores"].append(round(mark.marks_obtained / exam.max_marks * 100))
+        if isinstance(exam.max_marks, Number) and exam.max_marks and isinstance(mark.marks_obtained, Number):
+            buckets[month_key]["scores"].append(round(float(mark.marks_obtained) / float(exam.max_marks) * 100))
 
     result = []
     for window in windows:
@@ -237,15 +238,26 @@ def build_admin_dashboard_response(
     total_students = db.query(User).filter(User.tenant_id == tenant_id, User.role == "student", User.is_active).count()
     total_teachers = db.query(User).filter(User.tenant_id == tenant_id, User.role == "teacher", User.is_active).count()
     total_parents = db.query(User).filter(User.tenant_id == tenant_id, User.role == "parent", User.is_active).count()
+    utc_today = datetime.now(UTC).date()
+    utc_day_start = datetime.combine(utc_today, datetime.min.time(), tzinfo=UTC)
+    utc_day_end = utc_day_start + timedelta(days=1)
     active_users_today = {
         str(user_id)
         for user_id, in db.query(AIQuery.user_id)
-        .filter(AIQuery.tenant_id == tenant_id, func.date(AIQuery.created_at) == date.today())
+        .filter(
+            AIQuery.tenant_id == tenant_id,
+            AIQuery.created_at >= utc_day_start,
+            AIQuery.created_at < utc_day_end,
+        )
         .distinct()
         .all()
     }
     active_today = len(active_users_today) or max(1, total_students // 5)
-    ai_today = db.query(AIQuery).filter(AIQuery.tenant_id == tenant_id, func.date(AIQuery.created_at) == date.today()).count()
+    ai_today = db.query(AIQuery).filter(
+        AIQuery.tenant_id == tenant_id,
+        AIQuery.created_at >= utc_day_start,
+        AIQuery.created_at < utc_day_end,
+    ).count()
     total_att = db.query(Attendance).filter(Attendance.tenant_id == tenant_id).count()
     present_att = db.query(Attendance).filter(Attendance.tenant_id == tenant_id, Attendance.status == "present").count()
     avg_attendance = round(present_att / total_att * 100) if total_att > 0 else 0

@@ -100,12 +100,12 @@ export default function ProfilePage() {
                 <div className="prism-status-strip">
                     <div className="prism-status-item">
                         <span className="prism-status-label">Account name</span>
-                        <strong className="prism-status-value">{profile?.full_name || "Loading"}</strong>
+                        <strong className="prism-status-value">{loading ? "Loading" : (profile?.full_name || "—")}</strong>
                         <span className="prism-status-detail">The name shown across the learning workspace</span>
                     </div>
                     <div className="prism-status-item">
                         <span className="prism-status-label">Role</span>
-                        <strong className="prism-status-value">{profile?.role || "Loading"}</strong>
+                        <strong className="prism-status-value">{loading ? "Loading" : (profile?.role || "—")}</strong>
                         <span className="prism-status-detail">Current account role assigned by the school</span>
                     </div>
                     <div className="prism-status-item">
@@ -146,8 +146,8 @@ export default function ProfilePage() {
                         <p className="mt-4 text-sm text-[var(--text-secondary)]">Loading profile...</p>
                     ) : (
                         <div className="mt-5 space-y-4">
-                            <Field icon={User} label="Full name">
-                                <input value={fullName} onChange={(e) => setFullName(e.target.value)} className="mt-1 w-full rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.03)] px-3 py-3 text-sm text-[var(--text-primary)]" placeholder="Enter your name" />
+                            <Field icon={User} label="Full name" htmlFor="student-full-name">
+                                <input id="student-full-name" value={fullName} onChange={(e) => setFullName(e.target.value)} className="mt-1 w-full rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.03)] px-3 py-3 text-sm text-[var(--text-primary)]" placeholder="Enter your name" />
                             </Field>
                             <Field icon={Mail} label="Email"><p className="text-sm font-medium text-[var(--text-primary)]">{profile.email}</p></Field>
                             <Field icon={Shield} label="Role"><p className="text-sm font-medium capitalize text-[var(--text-primary)]">{profile.role}</p></Field>
@@ -178,12 +178,16 @@ function formatDate(value?: string | null) {
     return new Date(value).toLocaleDateString();
 }
 
-function Field({ icon: Icon, label, children }: { icon: typeof User; label: string; children: React.ReactNode }) {
+function Field({ icon: Icon, label, htmlFor, children }: { icon: typeof User; label: string; htmlFor?: string; children: React.ReactNode }) {
     return (
         <div className="flex items-start gap-3 rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.03)] p-4">
             <Icon className="mt-0.5 h-4 w-4 text-[var(--text-muted)]" />
             <div className="flex-1">
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">{label}</p>
+                {htmlFor ? (
+                    <label htmlFor={htmlFor} className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">{label}</label>
+                ) : (
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">{label}</p>
+                )}
                 <div className="mt-1">{children}</div>
             </div>
         </div>

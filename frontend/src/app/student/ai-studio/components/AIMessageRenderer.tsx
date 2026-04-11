@@ -162,6 +162,30 @@ function renderDefaultText(answer: string) {
     );
 }
 
+function progressLinesForMode(mode: string) {
+    if (mode === "quiz" || mode === "flashcards") {
+        return [
+            "Reading your latest class notes...",
+            "Finding useful recall points for this topic...",
+            "Preparing practice that matches your level...",
+        ];
+    }
+
+    if (mode === "study_guide") {
+        return [
+            "Reading your uploaded material...",
+            "Grouping definitions, examples, and weak areas...",
+            "Preparing a study guide you can revise from...",
+        ];
+    }
+
+    return [
+        "Reading your notes and textbook context...",
+        "Finding relevant sections for your question...",
+        "Preparing a grounded answer with sources...",
+    ];
+}
+
 export function AIMessageRenderer({
     response,
     isLoading = false,
@@ -179,6 +203,7 @@ export function AIMessageRenderer({
         (response.mode === "mindmap" ? renderMindMap(response.answer) : null) ||
         (response.mode === "concept_map" ? renderConceptMap(response.answer) : null) ||
         (response.mode === "flowchart" ? renderFlowchart(response.answer) : null);
+    const showProgressLanguage = isLoading && !response.answer.trim();
 
     return (
         <div className="space-y-4">
@@ -205,7 +230,21 @@ export function AIMessageRenderer({
                 ) : null}
             </div>
 
-            {structured || renderDefaultText(response.answer)}
+            {showProgressLanguage ? (
+                <div className="rounded-[1.5rem] border border-[rgba(79,142,247,0.22)] bg-[rgba(79,142,247,0.08)] p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-status-blue">AI is working</p>
+                    <div className="mt-3 space-y-2">
+                        {progressLinesForMode(response.mode).map((line, index) => (
+                            <div key={line} className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
+                                <span className={`h-2 w-2 rounded-full ${index === 0 ? "animate-pulse bg-status-blue" : "bg-[var(--border)]"}`} />
+                                {line}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            ) : (
+                structured || renderDefaultText(response.answer)
+            )}
 
             {response.citations.length > 0 ? (
                 <div className="space-y-2 border-t border-[var(--border)]/60 pt-4">

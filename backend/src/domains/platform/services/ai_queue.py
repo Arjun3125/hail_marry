@@ -56,7 +56,9 @@ from src.domains.platform.services.telemetry import extract_context_from_tracepa
 _redis = None
 _redis_available = None
 _redis_url = None
+_redis_failed_at = None
 logger = logging.getLogger(__name__)
+RETRY_INTERVAL_SECONDS = 30
 
 JOB_KEY_PREFIX = "ai_job:"
 USER_INDEX_PREFIX = "ai_jobs:user:"
@@ -154,7 +156,7 @@ def _tenant_dead_letter_key(tenant_id: str) -> str:
 
 
 def _get_redis_client():
-    global _redis, _redis_available, _redis_url
+    global _redis, _redis_available, _redis_url, _redis_failed_at
 
     redis_url = (
         os.getenv("REDIS_BROKER_URL")
@@ -162,7 +164,15 @@ def _get_redis_client():
         or settings.redis.broker_url
     )
 
-    if _redis_available is None or _redis_url != redis_url:
+    if _redis_url != redis_url:
+        reset_redis_client()
+        _redis_url = redis_url
+
+    should_retry = (
+        _redis_available is None
+        or (_redis_available is False and (_redis_failed_at is None or (time.time() - _redis_failed_at) > RETRY_INTERVAL_SECONDS))
+    )
+    if should_retry:
         try:
             import redis as redis_lib
 
@@ -170,12 +180,33 @@ def _get_redis_client():
             _redis.ping()
             _redis_available = True
             _redis_url = redis_url
+            _redis_failed_at = None
         except Exception:
             _redis = None
             _redis_available = False
             _redis_url = redis_url
+            _redis_failed_at = time.time()
 
     return _redis if _redis_available else None
+
+
+def reset_redis_client() -> None:
+    global _redis, _redis_available, _redis_url, _redis_failed_at
+
+    if _redis is not None:
+        try:
+            _redis.close()
+        except Exception:
+            pass
+        try:
+            _redis.connection_pool.disconnect()
+        except Exception:
+            pass
+
+    _redis = None
+    _redis_available = None
+    _redis_url = None
+    _redis_failed_at = None
 
 
 def _require_queue_client():

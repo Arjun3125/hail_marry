@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useVidyaContext } from "@/providers/VidyaContextProvider";
 import { Bot, ExternalLink, Youtube } from "lucide-react";
 
 import EmptyState from "@/components/EmptyState";
@@ -23,8 +24,9 @@ type LectureItem = {
 };
 
 export default function LecturesPage() {
+    const { activeSubject, mergeContext } = useVidyaContext();
     const [lectures, setLectures] = useState<LectureItem[]>([]);
-    const [selectedSubject, setSelectedSubject] = useState<string>("all");
+    const [selectedSubject, setSelectedSubject] = useState<string>(activeSubject || "all");
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -48,10 +50,27 @@ export default function LecturesPage() {
     const filteredLectures = useMemo(() => selectedSubject === "all" ? lectures : lectures.filter((lecture) => lecture.subject === selectedSubject), [lectures, selectedSubject]);
 
     useEffect(() => {
+        if (activeSubject && selectedSubject === "all" && subjects.includes(activeSubject)) {
+            setSelectedSubject(activeSubject);
+        }
+    }, [activeSubject, selectedSubject, subjects]);
+
+    useEffect(() => {
         if (selectedSubject !== "all" && !subjects.includes(selectedSubject)) {
             setSelectedSubject("all");
         }
     }, [subjects, selectedSubject]);
+
+    useEffect(() => {
+        if (selectedSubject === "all") {
+            mergeContext({ lastRole: "student" });
+            return;
+        }
+        mergeContext({
+            lastRole: "student",
+            activeSubject: selectedSubject,
+        });
+    }, [mergeContext, selectedSubject]);
 
     return (
         <PrismPage variant="workspace" className="space-y-6">
@@ -87,7 +106,20 @@ export default function LecturesPage() {
                         title="Lecture collection"
                         description="Filter by subject when you want a tighter revision set, or leave the view open to browse everything available."
                         actions={(
-                            <select value={selectedSubject} onChange={(event) => setSelectedSubject(event.target.value)} className="rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.03)] px-3 py-2 text-sm text-[var(--text-primary)]">
+                            <select
+                                value={selectedSubject}
+                                onChange={(event) => {
+                                    const nextSubject = event.target.value;
+                                    setSelectedSubject(nextSubject);
+                                    if (nextSubject === "all") {
+                                        mergeContext({
+                                            lastRole: "student",
+                                            activeSubject: null,
+                                        });
+                                    }
+                                }}
+                                className="rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.03)] px-3 py-2 text-sm text-[var(--text-primary)]"
+                            >
                                 <option value="all">All subjects</option>
                                 {subjects.map((subject) => <option key={subject} value={subject}>{subject}</option>)}
                             </select>
@@ -98,6 +130,8 @@ export default function LecturesPage() {
                         <p className="text-sm text-[var(--text-secondary)]">Loading lectures...</p>
                     ) : lectures.length === 0 ? (
                         <EmptyState icon={Youtube} title="No lectures available yet" description="Recorded lessons will appear here once your teachers publish them for your class." eyebrow="Library empty" />
+                    ) : filteredLectures.length === 0 ? (
+                        <EmptyState icon={Youtube} title="No lectures match your filters" description="Try a different subject filter to bring matching lectures back into view." eyebrow="No matches" />
                     ) : (
                         <div className="grid gap-4 md:grid-cols-2">
                             {filteredLectures.map((lecture, index) => (
@@ -119,7 +153,10 @@ export default function LecturesPage() {
                                                     <ExternalLink className="h-3.5 w-3.5" />
                                                     Open
                                                 </a>
-                                                <a href="/student/assistant" className="prism-action-secondary">
+                                                <a
+                                                    href={`/student/ai-studio?subject=${encodeURIComponent(lecture.subject)}&prompt=${encodeURIComponent(`Help me revise ${lecture.title}`)}`}
+                                                    className="prism-action-secondary"
+                                                >
                                                     <Bot className="h-3.5 w-3.5" />
                                                     Ask AI
                                                 </a>

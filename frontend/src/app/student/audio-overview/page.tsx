@@ -234,10 +234,11 @@ export default function AudioOverviewPage() {
                                             key={item.id}
                                             type="button"
                                             onClick={() => {
-                                                setData(item.content);
-                                                setTopic(item.title);
+                                                stopPlaying();
                                                 setPlaying(false);
                                                 setCurrentLine(-1);
+                                                setData(item.content);
+                                                setTopic(item.title);
                                             }}
                                             className="rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.03)] p-4 text-left transition hover:border-[var(--primary)] hover:bg-[rgba(96,165,250,0.08)]"
                                         >

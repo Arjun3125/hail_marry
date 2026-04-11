@@ -14,6 +14,7 @@ import EmptyState from "@/components/EmptyState";
 import { PrismHeroKicker, PrismPage, PrismPageIntro, PrismPanel, PrismSection } from "@/components/prism/PrismPage";
 import ErrorRemediation from "@/components/ui/ErrorRemediation";
 import { api } from "@/lib/api";
+import { useVidyaContext } from "@/providers/VidyaContextProvider";
 
 type TeacherAssignment = {
     id: string;
@@ -45,6 +46,7 @@ export default function TeacherAssignmentsPage() {
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
+    const { activeClassId, activeSubject, mergeContext } = useVidyaContext();
 
     const allSubjects = useMemo(() => {
         const seen = new Set<string>();
@@ -64,12 +66,30 @@ export default function TeacherAssignmentsPage() {
         [allSubjects, subjectId],
     );
 
-    const assignmentSummary = useMemo(() => {
-        const total = assignments.length;
-        const scheduled = assignments.filter((assignment) => Boolean(assignment.due_date)).length;
-        const totalSubmissions = assignments.reduce((sum, assignment) => sum + Number(assignment.submissions || 0), 0);
-        return { total, scheduled, totalSubmissions };
+    const filteredAssignments = useMemo(() => {
+        let filtered = assignments;
+        if (activeSubject) {
+            filtered = filtered.filter(assignment => assignment.subject === activeSubject);
+        }
+        return filtered;
+    }, [assignments, activeSubject]);
+
+    const availableSubjects = useMemo(() => {
+        const subjects = Array.from(new Set(assignments.map(a => a.subject)));
+        return subjects.sort();
     }, [assignments]);
+
+    const selectedClass = useMemo(() => {
+        return classes.find(c => c.id === activeClassId);
+    }, [classes, activeClassId]);
+
+    const assignmentSummary = useMemo(() => {
+        const filtered = filteredAssignments;
+        const total = filtered.length;
+        const scheduled = filtered.filter((assignment) => Boolean(assignment.due_date)).length;
+        const totalSubmissions = filtered.reduce((sum, assignment) => sum + Number(assignment.submissions || 0), 0);
+        return { total, scheduled, totalSubmissions };
+    }, [filteredAssignments]);
 
     useEffect(() => {
         if (!allSubjects.some((subject) => subject.id === subjectId)) {
@@ -135,7 +155,7 @@ export default function TeacherAssignmentsPage() {
                             Teacher Assignment Workflow
                         </PrismHeroKicker>
                     )}
-                    title="Publish classroom work from one operational assignment board"
+                    title="Manage Assignments"
                     description="Create the task, tie it to the right subject, set the due date if needed, and keep visible submission momentum without leaving the teaching flow."
                     aside={(
                         <div className="prism-briefing-panel">
@@ -259,6 +279,34 @@ export default function TeacherAssignmentsPage() {
                                 </div>
                             ) : null}
 
+                            {/* Subject Filter */}
+                            {availableSubjects.length > 1 && (
+                                <PrismPanel className="mb-4">
+                                    <div className="flex items-center gap-4">
+                                        <FileText className="w-4 h-4 text-secondary" />
+                                        <span className="font-semibold">Filter by Subject</span>
+                                        <select
+                                            value={activeSubject || ""}
+                                            onChange={(e) => mergeContext({ activeSubject: e.target.value || null })}
+                                            className="px-3 py-1 border border-subtle rounded-lg text-sm"
+                                        >
+                                            <option value="">All Subjects</option>
+                                            {availableSubjects.map(subject => (
+                                                <option key={subject} value={subject}>{subject}</option>
+                                            ))}
+                                        </select>
+                                        {activeSubject && (
+                                            <button
+                                                onClick={() => mergeContext({ activeSubject: null })}
+                                                className="text-sm text-primary hover:underline"
+                                            >
+                                                Clear filter
+                                            </button>
+                                        )}
+                                    </div>
+                                </PrismPanel>
+                            )}
+
                             <PrismPanel className="overflow-hidden p-0">
                                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)]/80 bg-[rgba(255,255,255,0.02)] px-5 py-4">
                                     <div>
@@ -278,13 +326,13 @@ export default function TeacherAssignmentsPage() {
                                         Array.from({ length: 4 }).map((_, index) => (
                                             <div key={index} className="h-24 animate-pulse rounded-2xl bg-[rgba(148,163,184,0.08)]" />
                                         ))
-                                    ) : assignments.length === 0 ? (
+                                    ) : filteredAssignments.length === 0 ? (
                                         <EmptyState
                                             icon={FileText}
-                                            title="No assignments created yet"
-                                            description="Publish the first assignment to turn this board into the teacher’s active workload view."
+                                            title={activeSubject ? `No assignments for ${activeSubject}` : "No assignments created yet"}
+                                            description={activeSubject ? `No assignments found for the selected subject. Clear the filter to see all assignments.` : "Publish the first assignment to turn this board into the teacher's active workload view."}
                                         />
-                                    ) : assignments.map((assignment) => (
+                                    ) : filteredAssignments.map((assignment) => (
                                         <AssignmentCard key={assignment.id} assignment={assignment} />
                                     ))}
                                 </div>

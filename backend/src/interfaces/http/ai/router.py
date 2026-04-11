@@ -9,6 +9,7 @@ from src.interfaces.rest_api.ai.routes import discovery
 from src.interfaces.rest_api.ai.routes import documents
 from src.interfaces.rest_api.ai.routes import openai_compat
 from src.interfaces.rest_api.ai.routes import video
+from src.interfaces.rest_api.ai.routes import session_tracking
 
 router = APIRouter()
 router.include_router(ai.router)
@@ -18,5 +19,6 @@ router.include_router(video.router)
 router.include_router(discovery.router)
 router.include_router(documents.router)
 router.include_router(openai_compat.router)
+router.include_router(session_tracking.router)
 
 __all__ = ["router"]

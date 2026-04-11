@@ -1,39 +1,74 @@
 /**
- * VidyaOS Service Worker — Offline-First PWA support.
- * Cache-First for static assets, Network-First for API calls.
+ * VidyaOS service worker: offline-first support for safe cached surfaces.
+ * Static routes use cache-first. Read-only school data uses network-first.
  */
-const CACHE_NAME = "vidyaos-v1";
-const STATIC_ASSETS = ["/", "/manifest.json"];
+const CACHE_NAME = "vidyaos-v2";
+const STATIC_ASSETS = [
+    "/",
+    "/manifest.json",
+    // Student routes
+    "/student/attendance",
+    "/student/assignments",
+    "/student/timetable",
+    "/student/upload",
+    "/student/results",
+    "/student/lectures",
+    // Teacher routes
+    "/teacher/dashboard",
+    "/teacher/classes",
+    "/teacher/attendance",
+    "/teacher/assignments",
+    "/teacher/marks",
+    // Parent routes
+    "/parent/dashboard",
+    "/parent/attendance",
+    "/parent/results",
+];
+const OFFLINE_API_PATTERNS = [
+    // Student APIs
+    "/api/student/attendance",
+    "/api/student/assignments",
+    "/api/student/timetable",
+    "/api/student/materials",
+    "/api/student/results",
+    "/api/student/lectures",
+    // Teacher APIs
+    "/api/teacher/attendance/history",
+    "/api/teacher/assignments/list",
+    "/api/teacher/marks/history",
+    "/api/teacher/classes",
+    // Parent APIs
+    "/api/parent/attendance",
+    "/api/parent/results",
+    "/api/parent/children",
+    // Common read-only APIs
+    "/api/school/timetable",
+    "/api/school/holidays",
+];
 
-// Install — pre-cache shell
 self.addEventListener("install", (event) => {
-    event.waitUntil(
-        caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS))
-    );
+    event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS)));
     self.skipWaiting();
 });
 
-// Activate — clean old caches
 self.addEventListener("activate", (event) => {
     event.waitUntil(
         caches.keys().then((keys) =>
-            Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
-        )
+            Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))),
+        ),
     );
     self.clients.claim();
 });
 
-// Fetch — Network-First for API, Cache-First for static
 self.addEventListener("fetch", (event) => {
     const { request } = event;
+    if (request.method !== "GET" || request.url.includes("/api/notifications/ws")) return;
 
-    // Skip non-GET and WebSocket
-    if (request.method !== "GET" || request.url.includes("/api/notifications/ws")) {
-        return;
-    }
+    const url = new URL(request.url);
+    const canCacheApi = OFFLINE_API_PATTERNS.some((pattern) => url.pathname.startsWith(pattern));
 
-    // API calls: Network-First with cache fallback
-    if (request.url.includes("/api/")) {
+    if (url.pathname.startsWith("/api/")) {
+        if (!canCacheApi) return;
         event.respondWith(
             fetch(request)
                 .then((response) => {
@@ -43,12 +78,11 @@ self.addEventListener("fetch", (event) => {
                     }
                     return response;
                 })
-                .catch(() => caches.match(request))
+                .catch(() => caches.match(request)),
         );
         return;
     }
 
-    // Static assets: Cache-First with network fallback
     event.respondWith(
         caches.match(request).then((cached) => {
             if (cached) return cached;
@@ -59,6 +93,6 @@ self.addEventListener("fetch", (event) => {
                 }
                 return response;
             });
-        })
+        }),
     );
 });

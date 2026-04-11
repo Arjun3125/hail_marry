@@ -116,9 +116,14 @@ export default function StudentUploadPage() {
         );
     };
 
-    const latestCompletedActivity = activity.find((item) => item.status === "completed")
-        ?? historyActivity.find((item) => item.status === "completed");
-    const displayActivity = activity.length > 0 ? [...activity, ...historyActivity] : historyActivity;
+    const activityKey = (item: { id?: string | null; name?: string | null }) => item.id || item.name || "";
+    const activityKeys = new Set(activity.map((item) => activityKey(item)));
+    const dedupedHistoryActivity = historyActivity.filter((item) => {
+        const key = activityKey(item);
+        return !key || !activityKeys.has(key);
+    });
+    const displayActivity = activity.length > 0 ? [...activity, ...dedupedHistoryActivity] : historyActivity;
+    const latestCompletedActivity = displayActivity.find((item) => item.status === "completed") ?? null;
     const summary = useMemo(() => {
         const imageWork = activity.filter((item) => item.ocrPending || item.ocrProcessed || item.ocrReviewRequired).length;
         return {

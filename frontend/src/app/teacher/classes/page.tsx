@@ -28,6 +28,29 @@ type QrTokensPayload = {
     tokens?: Array<{ student_id: string; student_name: string; login_token: string }>;
 };
 
+function sanitizePrintMarkup(markup: string) {
+    if (typeof window === "undefined" || !markup) {
+        return "";
+    }
+
+    const doc = new DOMParser().parseFromString(markup, "text/html");
+    doc.querySelectorAll("script, style, iframe, object, embed, link, meta").forEach((node) => node.remove());
+    doc.body.querySelectorAll("*").forEach((element) => {
+        Array.from(element.attributes).forEach((attribute) => {
+            const name = attribute.name.toLowerCase();
+            const value = attribute.value.trim().toLowerCase();
+            if (name.startsWith("on")) {
+                element.removeAttribute(attribute.name);
+                return;
+            }
+            if ((name === "href" || name === "src") && value.startsWith("javascript:")) {
+                element.removeAttribute(attribute.name);
+            }
+        });
+    });
+    return doc.body.innerHTML;
+}
+
 export default function TeacherClassesPage() {
     const [classes, setClasses] = useState<TeacherClass[]>([]);
     const [loading, setLoading] = useState(true);
@@ -43,6 +66,7 @@ export default function TeacherClassesPage() {
     const [broadcastModalOpen, setBroadcastModalOpen] = useState(false);
     const [broadcastMessage, setBroadcastMessage] = useState("");
     const [sendingBroadcast, setSendingBroadcast] = useState(false);
+    const [broadcastError, setBroadcastError] = useState<string | null>(null);
     const [broadcastSuccess, setBroadcastSuccess] = useState(false);
     const [rosterModalOpen, setRosterModalOpen] = useState(false);
     const [rosterBusy, setRosterBusy] = useState(false);
@@ -54,15 +78,6 @@ export default function TeacherClassesPage() {
     const refreshClasses = async () => {
         const payload = await api.teacher.classes();
         setClasses((payload || []) as TeacherClass[]);
-    };
-
-    const resetRosterModal = () => {
-        setRosterModalOpen(false);
-        setRosterBusy(false);
-        setRosterRows([]);
-        setRosterErrors([]);
-        setRosterNotice(null);
-        setRosterImportedCount(null);
     };
 
     const escapeCsvValue = (value: string) => {
@@ -184,21 +199,31 @@ export default function TeacherClassesPage() {
         setSelectedClassId(classId);
         setSelectedClassName(className);
         setBroadcastMessage("");
+        setBroadcastError(null);
         setBroadcastSuccess(false);
         setBroadcastModalOpen(true);
+    };
+
+    const handleCloseBroadcastModal = () => {
+        setBroadcastModalOpen(false);
+        setBroadcastError(null);
+        setBroadcastSuccess(false);
     };
 
     const handleSendBroadcast = async () => {
         if (!selectedClassId || !broadcastMessage.trim()) return;
         try {
             setSendingBroadcast(true);
+            setBroadcastError(null);
             await api.teacher.broadcast({ class_id: selectedClassId, message: broadcastMessage });
+            setBroadcastError(null);
             setBroadcastSuccess(true);
             setTimeout(() => {
-                setBroadcastModalOpen(false);
+                handleCloseBroadcastModal();
             }, 2000);
         } catch (err) {
             console.error("Broadcast failed", err);
+            setBroadcastError(err instanceof Error ? err.message : "Broadcast failed");
         } finally {
             setSendingBroadcast(false);
         }
@@ -241,7 +266,7 @@ export default function TeacherClassesPage() {
                     kicker={(
                         <PrismHeroKicker>
                             <Users className="h-3.5 w-3.5" />
-                            Teacher Classes Surface
+                            Class Management
                         </PrismHeroKicker>
                     )}
                     title="Operate class rosters and parent-facing actions from one desk"
@@ -261,16 +286,6 @@ export default function TeacherClassesPage() {
                         <span className="prism-status-label">Assigned classes</span>
                         <span className="prism-status-value">{classes.length}</span>
                         <span className="prism-status-detail">Class groups currently assigned to the teacher account.</span>
-                    </div>
-                    <div className="prism-status-item">
-                        <span className="prism-status-label">QR tokens loaded</span>
-                        <span className="prism-status-value">{qrTokens.length}</span>
-                        <span className="prism-status-detail">Login badges generated for the currently selected class.</span>
-                    </div>
-                    <div className="prism-status-item">
-                        <span className="prism-status-label">Roster preview</span>
-                        <span className="prism-status-value">{rosterRows.length}</span>
-                        <span className="prism-status-detail">Student rows currently staged for OCR review or import.</span>
                     </div>
                 </div>
 
@@ -351,9 +366,9 @@ export default function TeacherClassesPage() {
                             </button>
                             <button
                                 onClick={() => handleOpenBroadcast(cls.id, cls.name)}
-                                className="flex-1 py-1.5 text-xs bg-[var(--primary-light)] text-[var(--primary)] border border-[var(--primary)]/20 rounded flex items-center justify-center gap-1 hover:bg-[var(--primary)] hover:text-white transition-colors"
+                                className="group flex flex-1 items-center justify-center gap-1 rounded border border-[var(--error)]/20 bg-error-subtle py-1.5 text-xs text-[var(--error)] transition-colors hover:bg-[var(--error)] hover:text-white"
                             >
-                                <Megaphone className="w-3 h-3 text-[var(--error)] group-hover:text-white" /> <span className="text-[var(--error)] group-hover:text-white">Broadcast</span>
+                                <Megaphone className="h-3 w-3 transition-colors group-hover:text-white" /> <span className="transition-colors group-hover:text-white">Broadcast</span>
                             </button>
                         </div>
                     </PrismPanel>
@@ -371,13 +386,14 @@ export default function TeacherClassesPage() {
                                 </p>
                             </div>
                             <button
-                                onClick={resetRosterModal}
+                                onClick={() => setRosterModalOpen(false)}
                                 className="text-[var(--text-muted)] hover:text-[var(--text-primary)]"
                             >
                                 <X className="h-5 w-5" />
                             </button>
                         </PrismDialogHeader>
                         <div className="flex-1 overflow-auto p-4">
+                            <p className="mb-4 text-sm text-[var(--text-secondary)]">{rosterRows.length} student row{rosterRows.length === 1 ? "" : "s"} staged for review.</p>
                             {rosterNotice ? (
                                 <div className="mb-4 rounded-[var(--radius-sm)] border border-[var(--warning)]/30 bg-warning-subtle px-4 py-3 text-sm text-[var(--warning)]">
                                     {rosterNotice}
@@ -438,7 +454,7 @@ export default function TeacherClassesPage() {
                             </p>
                             <div className="flex items-center gap-3">
                                 <button
-                                    onClick={resetRosterModal}
+                                    onClick={() => setRosterModalOpen(false)}
                                     className="rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--bg-page)] px-4 py-2 text-sm font-medium hover:bg-[var(--bg-hover)]"
                                 >
                                     Close
@@ -467,6 +483,7 @@ export default function TeacherClassesPage() {
                             </button>
                         </PrismDialogHeader>
                         <div className="p-4 overflow-auto flex-1 bg-[var(--bg-page)]">
+                            <p className="mb-4 text-sm text-[var(--text-secondary)]">{qrTokens.length} QR badge{qrTokens.length === 1 ? "" : "s"} loaded for this class.</p>
                             {loadingQr ? (
                                 <p className="text-center text-[var(--text-muted)] py-10">Generating magic tokens...</p>
                             ) : qrTokens.length === 0 ? (
@@ -490,9 +507,18 @@ export default function TeacherClassesPage() {
                                 Close
                             </button>
                             <button onClick={() => {
-                                const printContent = document.getElementById('print-area');
-                                const windowPrint = window.open('', '', 'width=900,height=650');
-                                windowPrint?.document.write(`
+                                const printContent = document.getElementById("print-area");
+                                if (!printContent) {
+                                    setError("No QR badges are available to print right now.");
+                                    return;
+                                }
+                                const windowPrint = window.open("", "", "width=900,height=650");
+                                if (!windowPrint) {
+                                    setError("Popup blocked. Allow popups to print QR badges.");
+                                    return;
+                                }
+                                const safeMarkup = sanitizePrintMarkup(printContent.innerHTML);
+                                windowPrint.document.write(`
                                     <html>
                                         <head>
                                             <title>Print QR Badges</title>
@@ -505,11 +531,12 @@ export default function TeacherClassesPage() {
                                             </style>
                                         </head>
                                         <body>
-                                            <div class="grid">${printContent?.innerHTML || ''}</div>
+                                            <div class="grid">${safeMarkup}</div>
                                             <script>window.print(); window.close();</script>
                                         </body>
                                     </html>
                                 `);
+                                windowPrint.document.close();
                             }} className="px-4 py-2 bg-[var(--primary)] text-white rounded hover:bg-[var(--primary-hover)] flex items-center gap-2 text-sm font-medium">
                                 <Download className="w-4 h-4" /> Print Badges
                             </button>
@@ -524,7 +551,7 @@ export default function TeacherClassesPage() {
                     <PrismDialog className="w-full max-w-md p-5">
                         <PrismDialogHeader className="mb-4 border-b-0 px-0 py-0">
                             <h2 className="text-lg font-bold text-[var(--text-primary)] flex items-center gap-2"><Megaphone className="w-5 h-5 text-[var(--error)]" /> Emergency Broadcast</h2>
-                            <button onClick={() => setBroadcastModalOpen(false)} className="text-[var(--text-muted)] hover:text-[var(--text-primary)]">
+                            <button onClick={handleCloseBroadcastModal} className="text-[var(--text-muted)] hover:text-[var(--text-primary)]">
                                 <X className="w-5 h-5" />
                             </button>
                         </PrismDialogHeader>
@@ -539,6 +566,11 @@ export default function TeacherClassesPage() {
                                 <p className="text-sm text-[var(--text-secondary)] mb-4">
                                     Send an urgent WhatsApp alert to all linked parents of <strong>{selectedClassName}</strong>.
                                 </p>
+                                {broadcastError ? (
+                                    <div className="mb-4 rounded-[var(--radius-sm)] border border-[var(--error)]/30 bg-error-subtle px-4 py-3 text-sm text-[var(--error)]">
+                                        {broadcastError}
+                                    </div>
+                                ) : null}
                                 <PrismTextarea
                                     className="mb-4 h-32 text-sm"
                                     placeholder="Type your emergency message or important update here..."

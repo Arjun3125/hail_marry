@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Activity, Link2, Loader2, RadioTower, Trash2, Webhook } from "lucide-react";
 
 import EmptyState from "@/components/EmptyState";
@@ -50,10 +50,22 @@ export default function AdminWebhooksPage() {
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const loadWebhooks = async () => {
+    const loadWebhooks = useCallback(async () => {
         const data = await api.admin.webhooks();
         setItems((data || []) as WebhookItem[]);
-    };
+    }, []);
+
+    const retryLoadWebhooks = useCallback(async () => {
+        try {
+            setLoading(true);
+            setError(null);
+            await loadWebhooks();
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Failed to load webhooks");
+        } finally {
+            setLoading(false);
+        }
+    }, [loadWebhooks]);
 
     useEffect(() => {
         const load = async () => {
@@ -68,7 +80,7 @@ export default function AdminWebhooksPage() {
             }
         };
         void load();
-    }, []);
+    }, [loadWebhooks]);
 
     useEffect(() => {
         const loadDeliveries = async () => {
@@ -176,7 +188,7 @@ export default function AdminWebhooksPage() {
                         error={error}
                         scope="admin-webhooks"
                         onRetry={() => {
-                            void loadWebhooks();
+                            void retryLoadWebhooks();
                         }}
                     />
                 ) : null}

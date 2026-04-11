@@ -193,6 +193,23 @@ def _summarize_child_activity(
         .order_by(generated_content_model.created_at.desc())
         .all()
     )
+    latest_ai_query = max((item for item in ai_queries), key=lambda item: item.created_at, default=None)
+    latest_study_session = max(
+        (item for item in study_sessions),
+        key=lambda item: item.last_active_at or item.updated_at or item.created_at,
+        default=None,
+    )
+    latest_ai_topic = None
+    latest_ai_duration_minutes = 0
+    latest_ai_timestamp = None
+    if latest_study_session:
+        latest_ai_topic = latest_study_session.topic
+        latest_ai_duration_minutes = round((latest_study_session.duration_seconds or 0) / 60)
+        latest_ai_timestamp = latest_study_session.last_active_at or latest_study_session.updated_at or latest_study_session.created_at
+    if latest_ai_query and not latest_ai_topic:
+        latest_ai_topic = latest_ai_query.title or (latest_ai_query.query_text or "").strip()[:80]
+        latest_ai_timestamp = latest_ai_query.created_at
+        latest_ai_duration_minutes = max(1, round((latest_ai_query.response_time_ms or 0) / 60000))
 
     return {
         "assignments_submitted": len(submissions),
@@ -205,6 +222,15 @@ def _summarize_child_activity(
             "last_ai_request_at": str(max((item.created_at for item in ai_queries), default=None) or "") or None,
             "last_generated_tool_at": str(max((item.created_at for item in generated_items), default=None) or "") or None,
         },
+        "latest_ai_session": (
+            {
+                "topic": latest_ai_topic or "AI Studio",
+                "duration_minutes": max(1, latest_ai_duration_minutes),
+                "last_studied_at": str(latest_ai_timestamp) if latest_ai_timestamp else None,
+            }
+            if latest_ai_topic or latest_ai_timestamp
+            else None
+        ),
         "recent_generated_tools": [
             {
                 "id": str(item.id),
@@ -225,6 +251,10 @@ def _attendance_windows(records: list[Any]) -> list[dict[str, Any]]:
             "present": 0,
             "absent": 0,
             "late": 0,
+            "excused": 0,
+            "sick": 0,
+            "holiday": 0,
+            "other": 0,
             "attendance_pct": 0,
             "marked_days": 0,
         }
@@ -238,11 +268,21 @@ def _attendance_windows(records: list[Any]) -> list[dict[str, Any]]:
         status = (record.status or "").lower()
         if status == "present":
             bucket["present"] += 1
+            bucket["marked_days"] += 1
         elif status == "absent":
             bucket["absent"] += 1
-        else:
+            bucket["marked_days"] += 1
+        elif status == "late":
             bucket["late"] += 1
-        bucket["marked_days"] += 1
+            bucket["marked_days"] += 1
+        elif status == "excused":
+            bucket["excused"] += 1
+        elif status == "sick":
+            bucket["sick"] += 1
+        elif status == "holiday":
+            bucket["holiday"] += 1
+        else:
+            bucket["other"] += 1
 
     result = []
     for window in windows:
@@ -428,6 +468,7 @@ def build_parent_dashboard_response(
     )
     class_name = None
     pending_assignments = 0
+    next_assignment = None
     if enrollment:
         cls = (
             db.query(class_model)
@@ -439,32 +480,48 @@ def build_parent_dashboard_response(
         )
         class_name = cls.name if cls else None
 
-        subject_ids = [
-            subject.id
-            for subject in db.query(subject_model)
+        subjects = (
+            db.query(subject_model)
             .filter(
                 subject_model.tenant_id == current_user.tenant_id,
                 subject_model.class_id == enrollment.class_id,
             )
             .all()
-        ]
-        total_assignments = (
+        )
+        subject_ids = [subject.id for subject in subjects]
+        subject_name_by_id = {subject.id: subject.name for subject in subjects}
+        assignments = (
             db.query(assignment_model)
             .filter(
                 assignment_model.tenant_id == current_user.tenant_id,
                 assignment_model.subject_id.in_(subject_ids),
             )
-            .count()
+            .all()
         )
-        submitted = (
-            db.query(assignment_submission_model)
+        submitted_rows = (
+            db.query(assignment_submission_model.assignment_id)
             .filter(
                 assignment_submission_model.tenant_id == current_user.tenant_id,
                 assignment_submission_model.student_id == child.id,
             )
-            .count()
+            .all()
         )
-        pending_assignments = max(0, total_assignments - submitted)
+        submitted_ids = {assignment_id for assignment_id, in submitted_rows}
+        pending_assignment_rows = [assignment for assignment in assignments if assignment.id not in submitted_ids]
+        pending_assignments = len(pending_assignment_rows)
+        if pending_assignment_rows:
+            pending_assignment_rows.sort(
+                key=lambda assignment: (
+                    assignment.due_date.isoformat() if assignment.due_date else "9999-12-31T23:59:59+00:00",
+                    assignment.created_at.isoformat() if assignment.created_at else "9999-12-31T23:59:59+00:00",
+                )
+            )
+            focus_assignment = pending_assignment_rows[0]
+            next_assignment = {
+                "title": focus_assignment.title,
+                "subject": subject_name_by_id.get(focus_assignment.subject_id, "Unknown"),
+                "due": str(focus_assignment.due_date.date()) if focus_assignment.due_date else None,
+            }
 
     latest_mark = get_latest_mark(
         db=db,
@@ -537,6 +594,7 @@ def build_parent_dashboard_response(
         "attendance_pct": attendance_pct,
         "avg_marks": avg_marks,
         "pending_assignments": pending_assignments,
+        "next_assignment": next_assignment,
         "latest_mark": latest_mark,
         "next_class": next_class,
         "summary": activity_summary,

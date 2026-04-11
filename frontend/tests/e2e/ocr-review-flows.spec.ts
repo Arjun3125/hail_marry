@@ -1,29 +1,8 @@
 import { expect, test } from "@playwright/test";
-
-test.beforeEach(async ({ page }) => {
-    await page.addInitScript(() => {
-        window.localStorage.setItem("vidyaos_access_token", "test-token");
-        window.localStorage.setItem("student-tour", "completed");
-    });
-
-    await page.route("**/api/branding/config", async (route) => {
-        await route.fulfill({
-            status: 200,
-            contentType: "application/json",
-            body: JSON.stringify({
-                name: "VidyaOS",
-                logo_url: null,
-                primary_color: "#2563eb",
-                secondary_color: "#0f172a",
-                accent_color: "#f59e0b",
-                font_family: "Inter",
-                theme_style: "modern",
-            }),
-        });
-    });
-});
+import { authenticateAs } from "../fixtures/auth";
 
 test("admin setup wizard supports OCR preview, edit, and confirm import for teacher rosters", async ({ page }) => {
+    await authenticateAs(page, "admin");
     await page.route("**/api/admin/onboard-teachers?preview=1", async (route) => {
         await route.fulfill({
             status: 200,
@@ -89,6 +68,7 @@ test("admin setup wizard supports OCR preview, edit, and confirm import for teac
 });
 
 test("student assignments page surfaces OCR review warnings after image submission", async ({ page }) => {
+    await authenticateAs(page, "student");
     let assignmentListCalls = 0;
 
     await page.route("**/api/student/assignments", async (route) => {
@@ -152,6 +132,7 @@ test("student assignments page surfaces OCR review warnings after image submissi
 });
 
 test("teacher classes page supports OCR preview, edit, and confirm import for student rosters", async ({ page }) => {
+    await authenticateAs(page, "teacher");
     await page.route("**/api/teacher/classes", async (route) => {
         await route.fulfill({
             status: 200,
@@ -226,6 +207,7 @@ test("teacher classes page supports OCR preview, edit, and confirm import for st
 });
 
 test("teacher classes page surfaces OCR preview failures before any import happens", async ({ page }) => {
+    await authenticateAs(page, "teacher");
     await page.route("**/api/teacher/classes", async (route) => {
         await route.fulfill({
             status: 200,

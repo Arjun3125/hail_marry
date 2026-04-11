@@ -85,7 +85,15 @@ from src.domains.platform.services.mastery_tracking_service import (
     record_study_tool_activity,
 )
 from src.domains.platform.services.metrics_registry import observe_personalization_event
-from src.domains.platform.services.study_path_service import get_active_study_path_for_topic
+from src.domains.platform.application.personalization_queries import (
+    build_personalization_study_path_response as _build_personalization_study_path_response_impl,
+    build_personalized_recommendations_response as _build_personalized_recommendations_response_impl,
+)
+from src.domains.platform.services.study_path_service import (
+    get_active_study_path_for_topic,
+    get_or_create_study_path,
+)
+from src.domains.platform.services.mastery_tracking_service import build_profile_aware_recommendations
 from src.domains.platform.services.usage_governance import (
     evaluate_governance,
     record_usage_event,
@@ -236,6 +244,80 @@ async def student_dashboard(
         tenant_id=current_user.tenant_id,
         user_id=current_user.id,
     )
+
+
+@router.get("/overview-bootstrap")
+async def student_overview_bootstrap(
+    current_user: User = Depends(require_role("student")),
+    db: Session = Depends(get_db),
+):
+    try:
+        study_path = _build_personalization_study_path_response_impl(
+            db=db,
+            tenant_id=current_user.tenant_id,
+            user_id=current_user.id,
+            topic=None,
+            notebook_id=None,
+            subject_id=None,
+            current_surface="overview",
+            force_refresh=False,
+            get_or_create_study_path_fn=get_or_create_study_path,
+            observe_personalization_event_fn=lambda metric, *, surface="unknown", target="unknown", count=1.0: observe_personalization_event(
+                metric,
+                surface=surface,
+                target=target,
+                count=count,
+                db=db,
+                tenant_id=str(current_user.tenant_id),
+                user_id=str(current_user.id),
+                channel="web",
+            ),
+        )
+    except Exception:
+        logger.exception("Failed to build student study path bootstrap for user %s", current_user.id)
+        study_path = {"plan": None}
+
+    return {
+        "dashboard": _build_student_dashboard_response_impl(
+            db=db,
+            tenant_id=current_user.tenant_id,
+            user_id=current_user.id,
+        ),
+        "weak_topics": _build_student_weak_topics_impl(
+            db=db,
+            tenant_id=current_user.tenant_id,
+            student_id=current_user.id,
+        ),
+        "streaks": _get_student_streak_overview_impl(
+            db=db,
+            user_id=current_user.id,
+            tenant_id=current_user.tenant_id,
+            record_login_fn=record_login,
+            get_streak_info_fn=get_streak_info,
+        ),
+        "recommendations": _build_personalized_recommendations_response_impl(
+            db=db,
+            tenant_id=current_user.tenant_id,
+            user_id=current_user.id,
+            active_tool=None,
+            notebook_id=None,
+            current_surface="overview",
+            current_topic=None,
+            current_query=None,
+            build_profile_aware_recommendations_fn=build_profile_aware_recommendations,
+            observe_personalization_event_fn=lambda metric, *, surface="unknown", target="unknown", count=1.0: observe_personalization_event(
+                metric,
+                surface=surface,
+                target=target,
+                count=count,
+                db=db,
+                tenant_id=str(current_user.tenant_id),
+                user_id=str(current_user.id),
+                channel="web",
+            ),
+        ),
+        "study_path": study_path,
+    }
 
 
 @router.get("/attendance")

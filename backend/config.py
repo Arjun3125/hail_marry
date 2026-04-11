@@ -7,6 +7,13 @@ import os
 import secrets
 from pathlib import Path
 from typing import Annotated, Any
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 try:
     import yaml
 except ModuleNotFoundError:  # Lightweight test environments

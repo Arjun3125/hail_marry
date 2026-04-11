@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Clock } from "lucide-react";
+import { Clock, Filter } from "lucide-react";
 
 import EmptyState from "@/components/EmptyState";
 import {
@@ -14,6 +14,7 @@ import {
 } from "@/components/prism/PrismPage";
 import ErrorRemediation from "@/components/ui/ErrorRemediation";
 import { api } from "@/lib/api";
+import { useVidyaContext } from "@/providers/VidyaContextProvider";
 
 type TimetableSlot = {
     day: number;
@@ -42,6 +43,7 @@ export default function TimetablePage() {
     const [slots, setSlots] = useState<TimetableSlot[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const { activeSubject, mergeContext } = useVidyaContext();
 
     useEffect(() => {
         const load = async () => {
@@ -59,24 +61,34 @@ export default function TimetablePage() {
         void load();
     }, []);
 
-    const days = useMemo(() => {
-        const fromData = Array.from(new Set(slots.map((slot) => slot.day))).sort((a, b) => a - b);
-        return fromData.length > 0 ? fromData : [0, 1, 2, 3, 4];
+    const filteredSlots = useMemo(() => {
+        if (!activeSubject) return slots;
+        return slots.filter(slot => slot.subject === activeSubject);
+    }, [slots, activeSubject]);
+
+    const availableSubjects = useMemo(() => {
+        const subjects = Array.from(new Set(slots.map(slot => slot.subject)));
+        return subjects.sort();
     }, [slots]);
 
+    const days = useMemo(() => {
+        const fromData = Array.from(new Set(filteredSlots.map((slot) => slot.day))).sort((a, b) => a - b);
+        return fromData.length > 0 ? fromData : [0, 1, 2, 3, 4];
+    }, [filteredSlots]);
+
     const timeRows = useMemo(() => {
-        const unique = Array.from(new Set(slots.map((slot) => `${slot.start}-${slot.end}`)));
+        const unique = Array.from(new Set(filteredSlots.map((slot) => `${slot.start}-${slot.end}`)));
         return unique.map((value) => {
             const [start, end] = value.split("-");
             return { start, end };
         }).sort((a, b) => toMinutes(a.start) - toMinutes(b.start));
-    }, [slots]);
+    }, [filteredSlots]);
 
     const slotByKey = useMemo(() => {
         const map = new Map<string, TimetableSlot>();
-        for (const slot of slots) map.set(`${slot.day}-${slot.start}-${slot.end}`, slot);
+        for (const slot of filteredSlots) map.set(`${slot.day}-${slot.start}-${slot.end}`, slot);
         return map;
-    }, [slots]);
+    }, [filteredSlots]);
 
     return (
         <PrismPage variant="report" className="space-y-6">
@@ -87,27 +99,62 @@ export default function TimetablePage() {
                     description="Use this timetable to stay clear on which subjects arrive when, who is teaching them, and how your study week is structured."
                 />
 
-                <div className="prism-status-strip">
-                    <div className="prism-status-item">
-                        <span className="prism-status-label">Scheduled days</span>
-                        <strong className="prism-status-value">{days.length}</strong>
-                        <span className="prism-status-detail">Weekdays that currently contain timetable entries</span>
+                {/* Subject Filter */}
+                {availableSubjects.length > 1 && (
+                    <PrismPanel className="mb-6">
+                        <div className="flex items-center gap-4">
+                            <Filter className="w-4 h-4 text-secondary" />
+                            <span className="font-semibold">Filter by Subject</span>
+                            <select
+                                value={activeSubject || ""}
+                                onChange={(e) => mergeContext({ activeSubject: e.target.value || null })}
+                                className="px-3 py-1 border border-subtle rounded-lg text-sm"
+                            >
+                                <option value="">All Subjects</option>
+                                {availableSubjects.map(subject => (
+                                    <option key={subject} value={subject}>{subject}</option>
+                                ))}
+                            </select>
+                            {activeSubject && (
+                                <button
+                                    onClick={() => mergeContext({ activeSubject: null })}
+                                    className="text-sm text-primary hover:underline"
+                                >
+                                    Clear filter
+                                </button>
+                            )}
+                        </div>
+                    </PrismPanel>
+                )}
+
+                {!loading && !error ? (
+                    <div className="prism-status-strip">
+                        <div className="prism-status-item">
+                            <span className="prism-status-label">Scheduled days</span>
+                            <strong className="prism-status-value">{days.length}</strong>
+                            <span className="prism-status-detail">Weekdays that currently contain timetable entries{activeSubject ? ` for ${activeSubject}` : ''}</span>
+                        </div>
+                        <div className="prism-status-item">
+                            <span className="prism-status-label">Time blocks</span>
+                            <strong className="prism-status-value">{timeRows.length}</strong>
+                            <span className="prism-status-detail">Distinct periods across the visible schedule{activeSubject ? ` for ${activeSubject}` : ''}</span>
+                        </div>
+                        <div className="prism-status-item">
+                            <span className="prism-status-label">Total slots</span>
+                            <strong className="prism-status-value">{filteredSlots.length}</strong>
+                            <span className="prism-status-detail">Timetable entries{activeSubject ? ` for ${activeSubject}` : ''}</span>
+                        </div>
+                        <div className="prism-status-item">
+                            <span className="prism-status-label">Total classes</span>
+                            <strong className="prism-status-value">{slots.length}</strong>
+                            <span className="prism-status-detail">Scheduled classroom sessions in the current timetable</span>
+                        </div>
                     </div>
-                    <div className="prism-status-item">
-                        <span className="prism-status-label">Time blocks</span>
-                        <strong className="prism-status-value">{timeRows.length}</strong>
-                        <span className="prism-status-detail">Distinct periods across the visible schedule</span>
-                    </div>
-                    <div className="prism-status-item">
-                        <span className="prism-status-label">Total classes</span>
-                        <strong className="prism-status-value">{slots.length}</strong>
-                        <span className="prism-status-detail">Scheduled classroom sessions in the current timetable</span>
-                    </div>
-                </div>
+                ) : null}
 
                 {error ? <ErrorRemediation error={error} scope="student-timetable" onRetry={() => window.location.reload()} /> : null}
 
-                <PrismPanel className="space-y-5 p-5">
+                <PrismPanel className="space-y-6 p-6">
                     <PrismSectionHeader title="Weekly schedule" description="Check the matrix below to plan your study day, revision windows, and teacher follow-ups." />
                     {loading ? (
                         <p className="text-sm text-[var(--text-secondary)]">Loading timetable...</p>
@@ -118,27 +165,27 @@ export default function TimetablePage() {
                             <table className="w-full min-w-[760px]">
                                 <thead>
                                     <tr className="border-b border-[var(--border)]">
-                                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">Time</th>
+                                        <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">Time</th>
                                         {days.map((day) => (
-                                            <th key={day} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">{dayNameByIndex[day] || `Day ${day}`}</th>
+                                            <th key={day} className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">{dayNameByIndex[day] || `Day ${day}`}</th>
                                         ))}
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {timeRows.map((row) => (
                                         <tr key={`${row.start}-${row.end}`} className="border-b border-[var(--border-light)]">
-                                            <td className="px-4 py-3 text-sm text-[var(--text-secondary)]">{row.start} - {row.end}</td>
+                                            <td className="px-5 py-4 text-sm text-[var(--text-secondary)]">{row.start} - {row.end}</td>
                                             {days.map((day) => {
                                                 const slot = slotByKey.get(`${day}-${row.start}-${row.end}`);
                                                 return (
-                                                    <td key={`${day}-${row.start}-${row.end}`} className="px-4 py-3 align-top">
+                                                    <td key={`${day}-${row.start}-${row.end}`} className="px-5 py-4 align-top">
                                                         {slot ? (
-                                                            <div className="rounded-2xl bg-[var(--primary-light)] p-3">
+                                                            <div className="rounded-2xl bg-[var(--primary-light)] p-4">
                                                                 <p className="text-sm font-medium text-[var(--primary)]">{slot.subject}</p>
                                                                 <p className="text-xs text-[var(--text-muted)]">{slot.teacher}</p>
                                                             </div>
                                                         ) : (
-                                                            <div className="rounded-2xl bg-[var(--bg-page)] p-3 text-xs text-[var(--text-muted)]">Free</div>
+                                                            <div className="rounded-2xl bg-[var(--bg-page)] p-4 text-xs text-[var(--text-muted)]">Free</div>
                                                         )}
                                                     </td>
                                                 );

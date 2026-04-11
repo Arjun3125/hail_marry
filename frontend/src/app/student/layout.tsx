@@ -24,25 +24,28 @@ import {
 import GuidedTour, { studentTourSteps } from "@/components/GuidedTour";
 import { MobileBottomNav } from "@/components/ui/SharedUI";
 import { MascotLauncher } from "@/components/mascot/MascotLauncher";
+import { OnboardingGate } from "@/components/OnboardingGate";
+import { ContextBar } from "@/components/ContextBar";
+
 
 const studentNav = [
-    { label: "Overview", href: "/student/overview", icon: LayoutDashboard },
-    { label: "Mastery Map", href: "/student/mastery", icon: Target },
-    { label: "Attendance", href: "/student/attendance", icon: CalendarCheck },
-    { label: "Results", href: "/student/results", icon: Award },
-    { label: "Assignments", href: "/student/assignments", icon: FileText },
-    { label: "Timetable", href: "/student/timetable", icon: Calendar },
-    { label: "Lectures", href: "/student/lectures", icon: BookOpen },
-    { label: "Upload", href: "/student/upload", icon: Upload },
-    { label: "AI Studio", href: "/student/ai-studio", icon: Wand2 },
-    { label: "AI Library", href: "/student/ai-library", icon: Library },
-    { label: "Mind Map", href: "/student/mind-map", icon: Network },
-    { label: "Audio Overview", href: "/student/audio-overview", icon: Headphones },
-    { label: "Video Overview", href: "/student/video-overview", icon: Presentation },
-    { label: "Reviews", href: "/student/reviews", icon: RotateCcw },
-    { label: "Complaints", href: "/student/complaints", icon: MessageSquare },
-    { label: "Leaderboard", href: "/student/leaderboard", icon: Trophy },
-    { label: "Profile", href: "/student/profile", icon: User },
+    { label: "Overview", href: "/student/overview", icon: LayoutDashboard, group: "Study" },
+    { label: "AI Studio", href: "/student/ai-studio", icon: Wand2, group: "Study" },
+    { label: "Mind Map", href: "/student/mind-map", icon: Network, group: "Study" },
+    { label: "Mastery Map", href: "/student/mastery", icon: Target, group: "Study" },
+    { label: "AI Library", href: "/student/ai-library", icon: Library, group: "Study" },
+    { label: "Your Work", href: "/student/assignments", icon: FileText, group: "Work" },
+    { label: "Timetable", href: "/student/timetable", icon: Calendar, group: "Work" },
+    { label: "Lectures", href: "/student/lectures", icon: BookOpen, group: "Work" },
+    { label: "Add Study Material", href: "/student/upload", icon: Upload, group: "Work" },
+    { label: "Audio Overview", href: "/student/audio-overview", icon: Headphones, group: "Work" },
+    { label: "Video Overview", href: "/student/video-overview", icon: Presentation, group: "Work" },
+    { label: "Attendance", href: "/student/attendance", icon: CalendarCheck, group: "Track" },
+    { label: "Marks & Progress", href: "/student/results", icon: Award, group: "Track" },
+    { label: "Reviews", href: "/student/reviews", icon: RotateCcw, group: "Track" },
+    { label: "Class Rankings", href: "/student/leaderboard", icon: Trophy, group: "Track" },
+    { label: "Report an Issue", href: "/student/complaints", icon: MessageSquare, group: "Connect" },
+    { label: "Profile", href: "/student/profile", icon: User, utility: true },
 ];
 
 const mobileNav = [
@@ -61,14 +64,19 @@ export default function StudentLayout({
     const pathname = usePathname();
     const showMascotLauncher = pathname !== "/student/assistant";
     return (
-        <div className="flex min-h-screen bg-[var(--bg-page)]">
-            <Sidebar items={studentNav} role="student" />
-            <main className="flex-1 min-w-0 p-4 pt-16 sm:p-5 sm:pt-16 lg:p-6 lg:pt-6 has-bottom-nav">
-                <div className="mx-auto max-w-7xl">{children}</div>
-            </main>
-            <GuidedTour steps={studentTourSteps} storageKey="student-tour" />
-            {showMascotLauncher ? <MascotLauncher role="student" /> : null}
-            <MobileBottomNav items={mobileNav} currentPath={pathname} />
-        </div>
+        <OnboardingGate>
+            <div className="flex min-h-screen bg-[var(--bg-page)]">
+                <Sidebar items={studentNav} role="student" />
+                <main className="flex-1 min-w-0 p-4 pt-16 sm:p-5 sm:pt-16 lg:p-6 lg:pt-6 has-bottom-nav">
+                    <div className="mx-auto flex max-w-7xl flex-col gap-4">
+                        <ContextBar role="student" items={studentNav} />
+                        {children}
+                    </div>
+                </main>
+                <GuidedTour steps={studentTourSteps} storageKey="student-tour" />
+                {showMascotLauncher ? <MascotLauncher role="student" /> : null}
+                <MobileBottomNav items={mobileNav} currentPath={pathname} />
+            </div>
+        </OnboardingGate>
     );
 }

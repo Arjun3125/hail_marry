@@ -375,7 +375,7 @@ export default function DiscoverSourcesPage() {
                                     {historyItems.length > 0 ? historyItems.map((item) => (
                                         <div key={item.id} className="rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.03)] px-4 py-3">
                                             <p className="text-sm font-semibold text-[var(--text-primary)]">{item.name}</p>
-                                            <p className="mt-1 text-xs text-[var(--text-secondary)]">{item.type} • {item.created_at ? new Date(item.created_at).toLocaleDateString() : "Saved source"}</p>
+                                            <p className="mt-1 text-xs text-[var(--text-secondary)]">{item.type} • {(item.created_at && !Number.isNaN(Date.parse(item.created_at))) ? new Date(item.created_at).toLocaleDateString() : "Saved source"}</p>
                                         </div>
                                     )) : <p className="text-sm text-[var(--text-secondary)]">No discovery history has been saved yet.</p>}
                                 </div>
@@ -427,3 +427,4 @@ function GuideRow({ label, description }: { label: string; description: string }
         </div>
     );
 }
+

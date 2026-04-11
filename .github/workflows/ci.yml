@@ -218,6 +218,53 @@ jobs:
             frontend/test-results
           if-no-files-found: ignore
 
+  frontend_e2e_mobile:
+    name: Frontend E2E Mobile Responsiveness
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Install Playwright browsers
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Build frontend for E2E
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:8000
+        run: npm run build
+
+      - name: Run mobile responsiveness tests
+        working-directory: frontend
+        env:
+          CI: "true"
+          NEXT_PUBLIC_API_URL: http://localhost:8000
+        run: npm run test:e2e -- tests/e2e/mobile
+
+      - name: Upload Playwright mobile report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-mobile-report
+          path: |
+            frontend/playwright-report
+            frontend/test-results
+          if-no-files-found: ignore
+
   frontend_e2e_full:
     name: Frontend E2E Full
     runs-on: ubuntu-latest
@@ -271,7 +318,7 @@ jobs:
   docker_publish:
     name: Build & Publish Docker Images
     runs-on: ubuntu-latest
-    needs: [backend_ci, backend_container_smoke, frontend_ci, frontend_e2e_smoke, frontend_e2e_full]
+    needs: [backend_ci, backend_container_smoke, frontend_ci, frontend_e2e_smoke, frontend_e2e_mobile, frontend_e2e_full]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
       contents: read

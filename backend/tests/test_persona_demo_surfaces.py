@@ -169,6 +169,13 @@ def test_student_history_routes_return_enriched_demo_payloads(client, db_session
     token = _login(client, student.email)
     headers = {"Authorization": f"Bearer {token}"}
 
+    bootstrap_response = client.get("/api/student/overview-bootstrap", headers=headers)
+    assert bootstrap_response.status_code == 200
+    bootstrap_payload = bootstrap_response.json()
+    assert bootstrap_payload["dashboard"]["my_uploads"] == 2
+    assert len(bootstrap_payload["weak_topics"]["weak_topics"]) + len(bootstrap_payload["weak_topics"]["strong_topics"]) >= 1
+    assert bootstrap_payload["recommendations"]["items"] is not None
+
     uploads_response = client.get("/api/student/uploads", headers=headers)
     assert uploads_response.status_code == 200
     uploads_payload = uploads_response.json()
@@ -568,6 +575,14 @@ def test_admin_routes_return_enriched_demo_history(client, db_session, active_te
 
     token = _login(client, admin.email)
     headers = {"Authorization": f"Bearer {token}"}
+
+    bootstrap_response = client.get("/api/admin/dashboard-bootstrap", headers=headers)
+    assert bootstrap_response.status_code == 200
+    bootstrap_payload = bootstrap_response.json()
+    assert bootstrap_payload["dashboard"]["total_parents"] == 1
+    assert isinstance(bootstrap_payload["security"], list)
+    assert "whatsapp_snapshot" in bootstrap_payload
+    assert "mascot_snapshot" in bootstrap_payload
 
     dashboard_response = client.get("/api/admin/dashboard", headers=headers)
     assert dashboard_response.status_code == 200

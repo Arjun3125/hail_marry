@@ -1,5 +1,14 @@
 # VidyaOS Offensive Security Audit Report
 
+## Report Metadata
+- Audit date: April 9, 2026
+- Engagement period: April 2026 point-in-time code audit
+- Auditor / organization: OpenAI Codex review support
+- Audited code version: `d43a7cfedb2acbf5e71972e70ebbcbb89cfa8cf4`
+- Report version: `v1.1`
+- Distribution list: Engineering leadership, platform team, security owners
+- Classification: Confidential / Internal
+
 ## Audit Overview
 A comprehensive, line-by-line offensive security audit was conducted against the VidyaOS codebase. The analysis focused on backend logic, authentication flows, middleware chains, input sanitization, API routing, and configuration management. 
 

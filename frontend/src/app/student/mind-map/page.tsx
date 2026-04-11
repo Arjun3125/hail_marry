@@ -22,6 +22,24 @@ type MindMapHistoryItem = {
     content: MindNode;
 };
 
+function isMindNode(value: unknown): value is MindNode {
+    if (!value || typeof value !== "object" || typeof (value as MindNode).label !== "string" || !(value as MindNode).label.trim()) {
+        return false;
+    }
+    const children = (value as MindNode).children;
+    return children == null || (Array.isArray(children) && children.every(isMindNode));
+}
+
+function isMindMapHistoryItem(value: unknown): value is MindMapHistoryItem {
+    return Boolean(
+        value
+        && typeof value === "object"
+        && typeof (value as MindMapHistoryItem).id === "string"
+        && typeof (value as MindMapHistoryItem).title === "string"
+        && isMindNode((value as MindMapHistoryItem).content)
+    );
+}
+
 function flattenTree(
     node: MindNode,
     x: number,
@@ -59,14 +77,22 @@ export default function InteractiveMindMapPage() {
     useEffect(() => {
         const loadHistory = async () => {
             try {
-                const payload = await api.student.studyToolHistory("mindmap", 6) as { items?: MindMapHistoryItem[] };
-                const items = payload.items || [];
+                const payload = await api.student.studyToolHistory("mindmap", 6) as { items?: unknown[] };
+                const rawItems = Array.isArray(payload?.items) ? payload.items : [];
+                const items = rawItems.filter((item): item is MindMapHistoryItem => {
+                    const valid = isMindMapHistoryItem(item);
+                    if (!valid) {
+                        console.warn("[MindMap] Ignoring invalid history item", item);
+                    }
+                    return valid;
+                });
                 setHistory(items);
                 if (items.length > 0) {
                     setData(items[0].content);
                     setTopic(items[0].title);
                 }
-            } catch {
+            } catch (err) {
+                console.warn("[MindMap] Failed to load history", err);
                 // History is optional outside demo mode.
             }
         };
@@ -325,18 +351,27 @@ export default function InteractiveMindMapPage() {
                                 </div>
                                 <div className="ml-auto flex gap-2">
                                     <button
+                                        type="button"
+                                        aria-label="Zoom in"
+                                        title="Zoom in"
                                         onClick={() => setZoom((z) => Math.min(z + 0.15, 2.5))}
                                         className="rounded-xl border border-[var(--border)] bg-[rgba(148,163,184,0.05)] p-2 text-[var(--text-secondary)] transition hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
                                     >
                                         <ZoomIn className="h-4 w-4" />
                                     </button>
                                     <button
+                                        type="button"
+                                        aria-label="Zoom out"
+                                        title="Zoom out"
                                         onClick={() => setZoom((z) => Math.max(z - 0.15, 0.3))}
                                         className="rounded-xl border border-[var(--border)] bg-[rgba(148,163,184,0.05)] p-2 text-[var(--text-secondary)] transition hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
                                     >
                                         <ZoomOut className="h-4 w-4" />
                                     </button>
                                     <button
+                                        type="button"
+                                        aria-label="Reset view"
+                                        title="Reset view"
                                         onClick={() => {
                                             setZoom(1);
                                             setPan({ x: 60, y: 0 });

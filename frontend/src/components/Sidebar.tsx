@@ -1,19 +1,31 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { GraduationCap, LogOut, Menu, X, ChevronLeft } from "lucide-react";
-import { ThemeToggle } from "./theme/ThemeToggle";
-import { LanguageToggle } from "@/i18n/LanguageProvider";
+import {
+    ChevronDown,
+    ChevronLeft,
+    GraduationCap,
+    LogOut,
+    Menu,
+    X,
+} from "lucide-react";
 import { LucideIcon } from "lucide-react";
-import { API_BASE, clearStoredAccessToken } from "@/lib/api";
-import { PrismDrawer, PrismOverlay } from "@/components/prism/PrismOverlays";
 
-interface NavItem {
+import { PrismDrawer, PrismOverlay } from "@/components/prism/PrismOverlays";
+import { API_BASE, clearStoredAccessToken } from "@/lib/api";
+import { LanguageToggle } from "@/i18n/LanguageProvider";
+import { ThemeToggle } from "./theme/ThemeToggle";
+import { LowDataToggle } from "./LowDataToggle";
+
+
+export interface NavItem {
     label: string;
     href: string;
     icon: LucideIcon;
+    group?: string;
+    utility?: boolean;
 }
 
 interface SidebarProps {
@@ -22,18 +34,68 @@ interface SidebarProps {
     userName?: string;
 }
 
+const roleMeta: Record<string, { label: string; accent: string; accentSoft: string; accentBorder: string }> = {
+    student: {
+        label: "Student",
+        accent: "var(--role-student)",
+        accentSoft: "rgba(59,130,246,0.14)",
+        accentBorder: "rgba(59,130,246,0.2)",
+    },
+    teacher: {
+        label: "Teacher",
+        accent: "var(--role-teacher)",
+        accentSoft: "rgba(16,185,129,0.14)",
+        accentBorder: "rgba(16,185,129,0.2)",
+    },
+    admin: {
+        label: "Admin",
+        accent: "var(--role-admin)",
+        accentSoft: "rgba(139,92,246,0.14)",
+        accentBorder: "rgba(139,92,246,0.22)",
+    },
+    parent: {
+        label: "Parent",
+        accent: "var(--role-parent)",
+        accentSoft: "rgba(249,115,22,0.14)",
+        accentBorder: "rgba(249,115,22,0.2)",
+    },
+};
+
 export default function Sidebar({ items, role, userName }: SidebarProps) {
     const pathname = usePathname();
     const [mobileOpen, setMobileOpen] = useState(false);
     const [collapsed, setCollapsed] = useState(false);
+    const [hoverExpanded, setHoverExpanded] = useState(false);
+    const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
+    const [utilityOpen, setUtilityOpen] = useState(false);
+    const roleStyle = roleMeta[role] || roleMeta.student;
+    const visuallyCollapsed = collapsed && !hoverExpanded && !mobileOpen;
 
-    // Close mobile drawer on resize to desktop
+    const primaryItems = useMemo(() => items.filter((item) => !item.utility).slice(0, 5), [items]);
+    const overflowItems = useMemo(() => items.filter((item) => !item.utility).slice(5), [items]);
+    const utilityItems = useMemo(() => [...overflowItems, ...items.filter((item) => item.utility)], [items, overflowItems]);
+
+    const groups = useMemo(() => {
+        const grouped = new Map<string, NavItem[]>();
+        for (const item of primaryItems) {
+            const key = item.group || "Navigate";
+            const bucket = grouped.get(key) || [];
+            bucket.push(item);
+            grouped.set(key, bucket);
+        }
+        return Array.from(grouped.entries()).map(([label, groupItems]) => ({ label, items: groupItems }));
+    }, [primaryItems]);
+
     useEffect(() => {
-        const handleResize = () => {
-            if (window.innerWidth >= 1024) setMobileOpen(false);
+        const applyResponsiveState = () => {
+            if (window.innerWidth >= 1024) {
+                setMobileOpen(false);
+            }
+            setCollapsed(window.innerWidth < 1280);
         };
-        window.addEventListener("resize", handleResize);
-        return () => window.removeEventListener("resize", handleResize);
+        applyResponsiveState();
+        window.addEventListener("resize", applyResponsiveState);
+        return () => window.removeEventListener("resize", applyResponsiveState);
     }, []);
 
     const handleLogout = async () => {
@@ -45,122 +107,192 @@ export default function Sidebar({ items, role, userName }: SidebarProps) {
         window.location.href = "/";
     };
 
-    const sidebarWidth = collapsed ? "w-[72px]" : "w-72";
+    const toggleGroup = (label: string) => {
+        setExpandedGroups((prev) => ({ ...prev, [label]: !prev[label] }));
+    };
+
+    const renderItem = (item: NavItem) => {
+        const isActive = pathname === item.href;
+        return (
+            <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => setMobileOpen(false)}
+                title={visuallyCollapsed ? item.label : undefined}
+                className={`flex items-center gap-3 rounded-2xl border px-3 py-3 text-sm transition-all duration-[var(--transition-fast)] ${
+                    visuallyCollapsed ? "justify-center" : ""
+                } ${
+                    isActive
+                        ? "font-semibold text-[var(--text-primary)] shadow-[var(--shadow-level-2)]"
+                        : "border-transparent text-[var(--text-secondary)] hover:border-[var(--border-light)] hover:bg-[rgba(148,163,184,0.08)] hover:text-[var(--text-primary)]"
+                }`}
+                style={
+                    isActive
+                        ? {
+                            borderColor: roleStyle.accentBorder,
+                            background: `linear-gradient(135deg, ${roleStyle.accentSoft}, rgba(255,255,255,0.03))`,
+                            color: roleStyle.accent,
+                        }
+                        : undefined
+                }
+            >
+                <item.icon className="h-[18px] w-[18px] flex-shrink-0" />
+                {!visuallyCollapsed ? <span className="truncate">{item.label}</span> : null}
+            </Link>
+        );
+    };
 
     const sidebarContent = (
         <>
-            {/* Logo */}
-            <div className={`flex h-16 items-center border-b border-[var(--border)] px-4 ${collapsed ? "justify-center" : "gap-3"}`}>
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,rgba(96,165,250,0.94),rgba(167,139,250,0.94))] shadow-[0_18px_34px_rgba(96,165,250,0.22)]">
+            <div className={`flex h-20 items-center border-b border-[var(--border)] px-4 ${visuallyCollapsed ? "justify-center" : "gap-3"}`}>
+                <div
+                    className="flex h-11 w-11 items-center justify-center rounded-3xl shadow-[var(--shadow-level-2)]"
+                    style={{ background: `linear-gradient(135deg, ${roleStyle.accent}, rgba(255,255,255,0.92))` }}
+                >
                     <GraduationCap className="h-5 w-5 flex-shrink-0 text-[#06101e]" />
                 </div>
-                {!collapsed && (
-                    <div className="flex flex-col justify-center">
-                        <div className="flex items-center gap-2">
-                            <div className="flex flex-col">
-                                <span className="font-bold text-lg tracking-tight text-[var(--text-primary)] leading-tight">VidyaOS</span>
-                                <span className="text-[9px] font-bold leading-none mt-0.5">
-                                    By <span className="text-black dark:text-white">Modern</span><span className="text-[#ff3b1f]">Hustlers</span>
-                                </span>
-                            </div>
-                            <span className="rounded-full bg-info-badge px-2 py-0.5 text-[10px] font-semibold capitalize text-status-blue h-fit border border-[rgba(191,219,254,0.16)]">
-                                {role}
+                {!visuallyCollapsed ? (
+                    <div className="min-w-0">
+                        <p className="text-lg font-bold tracking-tight text-[var(--text-primary)]">VidyaOS</p>
+                        <div className="mt-1 flex items-center gap-2">
+                            <span
+                                className="rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em]"
+                                style={{
+                                    borderColor: roleStyle.accentBorder,
+                                    background: roleStyle.accentSoft,
+                                    color: roleStyle.accent,
+                                }}
+                            >
+                                {roleStyle.label}
                             </span>
+                            <span className="text-xs text-[var(--text-muted)]">Daily operating surface</span>
                         </div>
                     </div>
-                )}
+                ) : null}
             </div>
-
-            {/* Nav Items */}
-            <nav className="flex-1 space-y-0.5 overflow-y-auto px-2 py-2">
-                {items.map((item) => {
-                    const isActive = pathname === item.href;
-                    return (
-                        <Link
-                            key={item.href}
-                            href={item.href}
-                            onClick={() => setMobileOpen(false)}
-                            title={collapsed ? item.label : undefined}
-                            className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition-all duration-150 ${collapsed ? "justify-center" : ""
-                                } ${isActive
-                                    ? "bg-[linear-gradient(135deg,rgba(96,165,250,0.16),rgba(167,139,250,0.12))] font-semibold text-status-blue shadow-[0_12px_24px_rgba(2,6,23,0.18)] border border-[rgba(191,219,254,0.16)]"
-                                    : "text-[var(--text-secondary)] hover:bg-[rgba(148,163,184,0.08)] hover:text-[var(--text-primary)]"
-                                }`}
-                        >
-                            <item.icon className="h-[18px] w-[18px] flex-shrink-0" />
-                            {!collapsed && <span className="truncate">{item.label}</span>}
-                        </Link>
-                    );
-                })}
-            </nav>
-
-            {/* User & Settings */}
-            <div className="border-t border-[var(--border)] p-3 flex items-center justify-between bg-[rgba(255,255,255,0.01)]">
-                <div className="flex flex-col min-w-0 flex-1">
-                    {userName && !collapsed && (
-                        <p className="mb-1 truncate px-3 text-xs text-[var(--text-muted)]">
-                            {userName}
-                        </p>
-                    )}
-                    <button
-                        onClick={handleLogout}
-                        title={collapsed ? "Logout" : undefined}
-                        className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-[var(--text-secondary)] transition-colors hover:bg-error-subtle hover:text-status-red ${collapsed ? "justify-center" : ""
-                            }`}
-                    >
-                        <LogOut className="h-[18px] w-[18px] flex-shrink-0" />
-                        {!collapsed && "Logout"}
-                    </button>
-                </div>
-                {!collapsed && (
-                    <div className="px-2 flex items-center gap-1">
-                        <LanguageToggle />
-                        <ThemeToggle />
+            <nav className="flex-1 overflow-y-auto px-3 py-3">
+                {visuallyCollapsed ? (
+                    <div className="space-y-2">
+                        {primaryItems.map(renderItem)}
+                    </div>
+                ) : (
+                    <div className="space-y-3">
+                        {groups.map((group) => {
+                            const open = expandedGroups[group.label] ?? group.items.some((item) => pathname === item.href);
+                            const activeInGroup = group.items.some((item) => pathname === item.href);
+                            return (
+                                <div key={group.label} className="rounded-[var(--radius-sm)] border border-[var(--border-light)] bg-[rgba(255,255,255,0.02)] p-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => toggleGroup(group.label)}
+                                        className="flex w-full items-center justify-between rounded-xl px-2 py-2 text-left transition-colors hover:bg-[rgba(148,163,184,0.08)]"
+                                    >
+                                        <div className="min-w-0">
+                                            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--text-muted)]">{group.label}</p>
+                                            <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                                                {activeInGroup ? "Current section is inside this group" : `${group.items.length} destinations`}
+                                            </p>
+                                        </div>
+                                        <ChevronDown className={`h-4 w-4 text-[var(--text-muted)] transition-transform ${open ? "rotate-180" : ""}`} />
+                                    </button>
+                                    {open ? (
+                                        <div className="mt-2 space-y-2">
+                                            {group.items.map(renderItem)}
+                                        </div>
+                                    ) : null}
+                                </div>
+                            );
+                        })}
                     </div>
                 )}
+            </nav>
+
+            <div
+                className="border-t border-[var(--border)] bg-[rgba(255,255,255,0.02)] p-3"
+                onMouseEnter={() => setUtilityOpen(true)}
+            >
+                {!visuallyCollapsed ? (
+                    <button
+                        type="button"
+                        onClick={() => setUtilityOpen((prev) => !prev)}
+                        className="flex w-full items-center justify-between rounded-xl px-2 py-2 text-left transition-colors hover:bg-[rgba(148,163,184,0.08)]"
+                    >
+                        <div>
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--text-muted)]">Utility</p>
+                            <p className="mt-1 text-xs text-[var(--text-secondary)]">Profile, appearance, language, and account controls</p>
+                        </div>
+                        <ChevronDown className={`h-4 w-4 text-[var(--text-muted)] transition-transform ${utilityOpen ? "rotate-180" : ""}`} />
+                    </button>
+                ) : null}
+
+                {(visuallyCollapsed || utilityOpen) && utilityItems.length > 0 ? (
+                    <div className={`mt-2 space-y-2 ${visuallyCollapsed ? "" : ""}`}>
+                        {utilityItems.map(renderItem)}
+                    </div>
+                ) : null}
+
+                <div className={`mt-3 ${visuallyCollapsed ? "space-y-2" : "space-y-3"}`}>
+                    {!visuallyCollapsed && userName ? (
+                        <p className="truncate px-2 text-xs text-[var(--text-muted)]">{userName}</p>
+                    ) : null}
+                    {!visuallyCollapsed ? (
+                        <>
+                            <div className="px-2">
+                                <LowDataToggle />
+                            </div>
+                            <div className="flex items-center gap-2 px-2">
+                                <LanguageToggle />
+                                <ThemeToggle />
+                            </div>
+                        </>
+                    ) : null}
+                    <button
+                        onClick={handleLogout}
+                        title={visuallyCollapsed ? "Switch account" : undefined}
+                        className={`flex w-full items-center gap-3 rounded-2xl border border-transparent px-3 py-3 text-sm text-[var(--text-secondary)] transition-colors hover:border-error-subtle hover:bg-error-subtle hover:text-status-red ${
+                            visuallyCollapsed ? "justify-center" : ""
+                        }`}
+                    >
+                        <LogOut className="h-[18px] w-[18px] flex-shrink-0" />
+                        {!visuallyCollapsed ? "Switch account" : null}
+                    </button>
+                </div>
             </div>
         </>
     );
 
     return (
         <>
-            {/* ── Mobile top bar ── */}
-            <div className="fixed left-0 right-0 top-0 z-50 flex h-16 items-center gap-3 border-b border-[var(--border)] bg-[rgba(8,14,28,0.86)] px-4 backdrop-blur-xl lg:hidden">
+            <div className="fixed left-0 right-0 top-0 z-50 flex h-16 items-center gap-3 border-b border-[var(--border)] bg-[rgba(8,14,28,0.9)] px-4 backdrop-blur-xl lg:hidden">
                 <button
                     onClick={() => setMobileOpen(true)}
-                    className="rounded-lg p-2 text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] active:bg-[var(--border)]"
+                    className="rounded-xl p-2 text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] active:bg-[var(--border)]"
                     aria-label="Open menu"
                 >
                     <Menu className="h-5 w-5" />
                 </button>
-                <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,rgba(96,165,250,0.94),rgba(167,139,250,0.94))] shadow-[0_14px_28px_rgba(96,165,250,0.2)]">
+                <div
+                    className="flex h-9 w-9 items-center justify-center rounded-2xl shadow-[var(--shadow-level-2)]"
+                    style={{ background: `linear-gradient(135deg, ${roleStyle.accent}, rgba(255,255,255,0.92))` }}
+                >
                     <GraduationCap className="h-5 w-5 text-[#06101e]" />
                 </div>
-                <div className="flex items-center gap-2 max-w-[130px] sm:max-w-[200px]">
-                    <div className="flex flex-col">
-                        <span className="font-bold text-lg tracking-tight text-[var(--text-primary)] leading-tight">VidyaOS</span>
-                        <span className="text-[9px] font-bold leading-none mt-0.5">
-                            By <span className="text-black dark:text-white">Modern</span><span className="text-[#ff3b1f]">Hustlers</span>
-                        </span>
-                    </div>
+                <div className="min-w-0">
+                    <p className="text-base font-bold tracking-tight text-[var(--text-primary)]">VidyaOS</p>
+                    <p className="text-[10px] uppercase tracking-[0.18em]" style={{ color: roleStyle.accent }}>
+                        {roleStyle.label}
+                    </p>
                 </div>
-                <span className="ml-auto rounded-full bg-info-badge px-2 py-0.5 text-[10px] font-semibold capitalize text-status-blue">
-                    {role}
-                </span>
             </div>
-
-            {/* ── Mobile overlay ── */}
-            {mobileOpen && (
+            {mobileOpen ? (
                 <PrismOverlay
                     className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm lg:hidden"
                     onClick={() => setMobileOpen(false)}
                 />
-            )}
+            ) : null}
 
-            {/* ── Mobile drawer ── */}
             <PrismDrawer
-                className={`fixed left-0 top-0 z-50 flex flex-col transition-transform duration-300 lg:hidden ${mobileOpen ? "translate-x-0" : "-translate-x-full"
-                    }`}
+                className={`fixed left-0 top-0 z-50 flex flex-col transition-transform duration-300 lg:hidden ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}
             >
                 <div className="flex items-center justify-end p-2">
                     <button
@@ -173,23 +305,28 @@ export default function Sidebar({ items, role, userName }: SidebarProps) {
                 {sidebarContent}
             </PrismDrawer>
 
-            {/* ── Desktop sidebar ── */}
             <aside
-                className={`fixed left-0 top-0 z-40 hidden h-screen flex-col border-r border-[var(--border)] bg-[rgba(8,14,28,0.82)] backdrop-blur-2xl transition-all duration-200 lg:flex ${sidebarWidth}`}
+                data-testid="sidebar"
+                onMouseEnter={() => setHoverExpanded(true)}
+                onMouseLeave={() => {
+                    setHoverExpanded(false);
+                    setUtilityOpen(false);
+                }}
+                className={`fixed left-0 top-0 z-40 hidden h-screen flex-col border-r border-[var(--border)] bg-[rgba(8,14,28,0.82)] backdrop-blur-2xl transition-all duration-[var(--transition-base)] lg:flex ${
+                    visuallyCollapsed ? "w-[76px]" : "w-[304px]"
+                }`}
             >
                 {sidebarContent}
-                {/* Collapse toggle */}
                 <button
-                    onClick={() => setCollapsed(!collapsed)}
-                    className="absolute -right-3 top-20 z-50 flex h-6 w-6 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-muted)] shadow-sm hover:text-[var(--text-secondary)] hover:shadow-md transition-all"
+                    onClick={() => setCollapsed((prev) => !prev)}
+                    className="absolute -right-3 top-20 z-50 flex h-7 w-7 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-muted)] shadow-[var(--shadow-level-1)] transition-all hover:text-[var(--text-secondary)]"
                     aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
                 >
-                    <ChevronLeft className={`h-3 w-3 transition-transform duration-200 ${collapsed ? "rotate-180" : ""}`} />
+                    <ChevronLeft className={`h-3.5 w-3.5 transition-transform duration-[var(--transition-fast)] ${collapsed ? "rotate-180" : ""}`} />
                 </button>
             </aside>
 
-            {/* ── Spacer for content offset ── */}
-            <div className={`hidden lg:block flex-shrink-0 transition-all duration-200 ${sidebarWidth}`} />
+            <div className={`hidden flex-shrink-0 transition-all duration-[var(--transition-base)] lg:block ${collapsed ? "w-[76px]" : "w-[304px]"}`} />
         </>
     );
 }

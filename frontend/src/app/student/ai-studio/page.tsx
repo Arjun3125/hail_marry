@@ -2,17 +2,47 @@
 
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { BookMarked, Bot, Command, PanelsTopLeft, Sparkles } from "lucide-react";
+import dynamic from "next/dynamic";
+import { useVidyaContext } from "@/providers/VidyaContextProvider";
+import { useLanguage } from "@/i18n/LanguageProvider";
+import {
+    BookMarked,
+    Bot,
+    Command,
+    PanelsTopLeft,
+    Sparkles,
+    Target,
+} from "lucide-react";
 
 import { ToolRail } from "./components/ToolRail";
-import { ContextPanel } from "./components/ContextPanel";
 import { LearningWorkspace } from "./components/LearningWorkspace";
-import { FocusMode } from "./components/FocusMode";
 import { NotebookSelector } from "./components/NotebookSelector";
+import { SessionSummaryModal, type SessionSummaryData } from "./components/SessionSummaryModal";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
+import { useSessionInactivity } from "./hooks/useSessionInactivity";
 import { api } from "@/lib/api";
-import { PrismHeroKicker, PrismPage, PrismPageIntro, PrismPanel, PrismSection } from "@/components/prism/PrismPage";
+import {
+    PrismHeroKicker,
+    PrismPage,
+    PrismPageIntro,
+    PrismPanel,
+    PrismSection,
+} from "@/components/prism/PrismPage";
 import "./ai-studio.css";
+
+const ContextPanel = dynamic(
+    () => import("./components/ContextPanel").then((mod) => mod.ContextPanel),
+    {
+        loading: () => <div className="p-4 text-xs text-[var(--text-muted)]">Loading context...</div>,
+    },
+);
+
+const FocusMode = dynamic(
+    () => import("./components/FocusMode").then((mod) => mod.FocusMode),
+    {
+        loading: () => null,
+    },
+);
 
 const validTools = new Set([
     "qa",
@@ -28,19 +58,50 @@ const validTools = new Set([
     "concept_map",
 ]);
 
-const toolDetails: Record<string, { label: string; summary: string }> = {
-    qa: { label: "Q&A", summary: "Grounded answers across your current notes and textbooks." },
-    study_guide: { label: "Study Guide", summary: "Build structured revision packs for the current topic." },
-    socratic: { label: "Socratic Tutor", summary: "Work through a concept through guided questioning." },
-    quiz: { label: "Quiz", summary: "Test your understanding with quick active recall." },
-    flashcards: { label: "Flashcards", summary: "Turn a topic into spaced repetition prompts." },
-    perturbation: { label: "Exam Prep", summary: "Stress-test concepts with question variations." },
-    debate: { label: "Debate", summary: "Challenge reasoning and sharpen arguments." },
-    essay_review: { label: "Essay Review", summary: "Refine long-form writing with targeted feedback." },
-    mindmap: { label: "Mind Map", summary: "See topic hierarchy and relationships spatially." },
-    flowchart: { label: "Flowchart", summary: "Understand stepwise processes visually." },
-    concept_map: { label: "Concept Map", summary: "Link concepts, dependencies, and explanations." },
-};
+// Tool details now reference i18n keys
+const toolDetails = {
+    qa: { labelKey: "ai_studio.tools.qa.title", summaryKey: "ai_studio.tools.qa.summary" },
+    study_guide: { labelKey: "ai_studio.tools.study_guide.title", summaryKey: "ai_studio.tools.study_guide.summary" },
+    socratic: { labelKey: "ai_studio.tools.socratic.title", summaryKey: "ai_studio.tools.socratic.summary" },
+    quiz: { labelKey: "ai_studio.tools.quiz.title", summaryKey: "ai_studio.tools.quiz.summary" },
+    flashcards: { labelKey: "ai_studio.tools.flashcards.title", summaryKey: "ai_studio.tools.flashcards.summary" },
+    perturbation: { labelKey: "ai_studio.tools.perturbation.title", summaryKey: "ai_studio.tools.perturbation.summary" },
+    debate: { labelKey: "ai_studio.tools.debate.title", summaryKey: "ai_studio.tools.debate.summary" },
+    essay_review: { labelKey: "ai_studio.tools.essay_review.title", summaryKey: "ai_studio.tools.essay_review.summary" },
+    mindmap: { labelKey: "ai_studio.tools.mindmap.title", summaryKey: "ai_studio.tools.mindmap.summary" },
+    flowchart: { labelKey: "ai_studio.tools.flowchart.title", summaryKey: "ai_studio.tools.flowchart.summary" },
+    concept_map: { labelKey: "ai_studio.tools.concept_map.title", summaryKey: "ai_studio.tools.concept_map.summary" },
+} as const;
+
+// Intent options now with i18n keys
+const intentOptionsConfig = [
+    {
+        id: "understand_topic",
+        labelKey: "ai_studio.intents.understand_topic.label",
+        descriptionKey: "ai_studio.intents.understand_topic.description",
+        tool: "qa",
+    },
+    {
+        id: "practice_test",
+        labelKey: "ai_studio.intents.practice_test.label",
+        descriptionKey: "ai_studio.intents.practice_test.description",
+        tool: "quiz",
+    },
+    {
+        id: "review_weak_areas",
+        labelKey: "ai_studio.intents.review_weak_areas.label",
+        descriptionKey: "ai_studio.intents.review_weak_areas.description",
+        tool: "flashcards",
+    },
+    {
+        id: "homework_help",
+        labelKey: "ai_studio.intents.homework_help.label",
+        descriptionKey: "ai_studio.intents.homework_help.description",
+        tool: "socratic",
+    },
+] as const;
+
+type IntentId = (typeof intentOptionsConfig)[number]["id"];
 
 function normalizeTool(rawTool: string | null) {
     if (!rawTool) return null;
@@ -48,11 +109,12 @@ function normalizeTool(rawTool: string | null) {
 }
 
 function LoadingFallback() {
+    const { t } = useLanguage();
     return (
         <PrismPage className="pb-8">
             <PrismSection>
                 <PrismPanel className="flex min-h-[60vh] items-center justify-center p-8 text-sm text-[var(--text-muted)]">
-                    Loading AI Studio...
+                    {t("ai_studio.loading_studio")}
                 </PrismPanel>
             </PrismSection>
         </PrismPage>
@@ -68,12 +130,16 @@ export default function AIStudioPage() {
 }
 
 function AIStudioContent() {
+    const { t } = useLanguage();
     const searchParams = useSearchParams();
+    const { activeSubject, mergeContext } = useVidyaContext();
     const [activeTool, setActiveTool] = useState("qa");
     const [railCollapsed, setRailCollapsed] = useState(false);
     const [contextCollapsed, setContextCollapsed] = useState(false);
     const [focusMode, setFocusMode] = useState(false);
     const [activeNotebookId, setActiveNotebookId] = useState<string | null>(null);
+    const [showIntentSelector, setShowIntentSelector] = useState(false);
+    const [selectedIntent, setSelectedIntent] = useState<IntentId | null>(null);
     const [requestOptions, setRequestOptions] = useState<{
         language?: string;
         responseLength?: string;
@@ -88,21 +154,60 @@ function AIStudioContent() {
         };
     } | null>(null);
 
+    // Session inactivity tracking
+    const [showInactivityModal, setShowInactivityModal] = useState(false);
+    const [sessionExchangeCount] = useState(0);
+    const [nowMs, setNowMs] = useState(0);
+    const [sessionStartTimeMs, setSessionStartTimeMs] = useState(0);
+
+    const handleInactivity = () => {
+        setShowInactivityModal(true);
+    };
+
+    const { resetTimer } = useSessionInactivity(handleInactivity);
+
     const searchKey = searchParams.toString();
     const requestedTool = useMemo(
         () => normalizeTool(searchParams.get("tool") || searchParams.get("mode")),
         [searchParams]
     );
     const seedPrompt = useMemo(() => searchParams.get("prompt"), [searchParams]);
+    const subjectScope = useMemo(() => searchParams.get("subject") || activeSubject, [activeSubject, searchParams]);
+
+    useEffect(() => {
+        const startedAt = window.Date.now();
+        const initId = window.setTimeout(() => {
+            setNowMs(startedAt);
+            setSessionStartTimeMs(startedAt);
+        }, 0);
+        const tick = window.setInterval(() => setNowMs(window.Date.now()), 1000);
+        return () => {
+            window.clearTimeout(initId);
+            window.clearInterval(tick);
+        };
+    }, []);
 
     useEffect(() => {
         queueMicrotask(() => {
-            const saved = localStorage.getItem("activeNotebookId");
-            if (saved) {
-                setActiveNotebookId(saved);
+            const savedNotebook = localStorage.getItem("activeNotebookId");
+            if (savedNotebook) {
+                setActiveNotebookId(savedNotebook);
+            }
+
+            const savedIntent = localStorage.getItem("student-ai-studio-intent") as IntentId | null;
+            if (savedIntent && intentOptionsConfig.some((option) => option.id === savedIntent)) {
+                setSelectedIntent(savedIntent);
+                const matchedIntent = intentOptionsConfig.find((option) => option.id === savedIntent);
+                if (!requestedTool && matchedIntent) {
+                    setActiveTool(matchedIntent.tool);
+                }
+            }
+
+            if (!savedIntent && !requestedTool && !seedPrompt && !searchParams.get("history")) {
+                setShowIntentSelector(true);
             }
         });
-    }, []);
+    }, [requestedTool, searchParams, seedPrompt]);
 
     useEffect(() => {
         if (activeNotebookId) {
@@ -116,6 +221,7 @@ function AIStudioContent() {
         queueMicrotask(() => {
             if (requestedTool) {
                 setActiveTool(requestedTool);
+                setShowIntentSelector(false);
             }
 
             const notebookId = searchParams.get("notebook_id");
@@ -130,6 +236,14 @@ function AIStudioContent() {
             }));
         });
     }, [requestedTool, searchKey, searchParams]);
+
+    useEffect(() => {
+        mergeContext({
+            lastRole: "student",
+            activeSubject: subjectScope || null,
+            lastAITopic: subjectScope || seedPrompt || null,
+        });
+    }, [mergeContext, seedPrompt, subjectScope]);
 
     useEffect(() => {
         const historyId = searchParams.get("history");
@@ -150,6 +264,7 @@ function AIStudioContent() {
                 if (!requestedTool && historyMode) {
                     setActiveTool(historyMode);
                 }
+                setShowIntentSelector(false);
                 setInitialExchange({
                     query: historyItem.query_text || "",
                     response: {
@@ -176,7 +291,39 @@ function AIStudioContent() {
         onTogglePanel: () => setContextCollapsed((prev) => !prev),
     });
 
-    const activeToolMeta = toolDetails[activeTool] || toolDetails.qa;
+    const chooseIntent = (intentId: IntentId) => {
+        const chosenIntent = intentOptionsConfig.find((option) => option.id === intentId);
+        if (!chosenIntent) return;
+        setSelectedIntent(intentId);
+        setActiveTool(chosenIntent.tool);
+        setRailCollapsed(true);
+        setShowIntentSelector(false);
+        localStorage.setItem("student-ai-studio-intent", intentId);
+        setSessionStartTimeMs(nowMs || sessionStartTimeMs);
+    };
+
+    const handleContinueSession = () => {
+        setShowInactivityModal(false);
+        resetTimer();
+    };
+
+    const handleEndSession = () => {
+        setShowInactivityModal(false);
+        // Redirect to dashboard or show session ended message
+        window.location.href = "/student/overview";
+    };
+
+    const sessionData: SessionSummaryData | null = showInactivityModal
+        ? {
+              duration: Math.floor(((nowMs || sessionStartTimeMs) - sessionStartTimeMs) / 1000),
+              toolUsed: activeTool,
+              exchangeCount: sessionExchangeCount,
+              topicsExplored: selectedIntent ? [selectedIntent.replace(/_/g, " ")] : [],
+          }
+        : null;
+
+    const activeToolMeta = toolDetails[activeTool as keyof typeof toolDetails] || toolDetails.qa;
+    const activeIntentMeta = selectedIntent ? intentOptionsConfig.find((option) => option.id === selectedIntent) : null;
     const notebookStatus = activeNotebookId
         ? `Notebook linked: ${activeNotebookId.slice(0, 8)}`
         : "All notebooks available";
@@ -191,13 +338,13 @@ function AIStudioContent() {
                             Student AI Workspace
                         </PrismHeroKicker>
                     )}
-                    title="Ask, revise, and build answers from your own study material"
-                    description="Keep your notebook, active thread, and source context in one study desk so the next action is always visible and grounded."
+                    title={t("ai_studio.intent_selector_subtitle")}
+                    description="AI Studio now uses a mode-selector entry point so first-time students pick the job they need done before the deeper three-panel workspace appears."
                     aside={(
                         <div className="prism-briefing-panel">
                             <p className="prism-status-label">Study posture</p>
                             <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
-                                Use one focused thread at a time, keep notebook scope explicit, and verify every answer against the evidence rail before moving on.
+                                Choose the reason for this session first. The workspace then opens with the right tool, a narrower left rail, and less initial noise.
                             </p>
                         </div>
                     )}
@@ -206,11 +353,21 @@ function AIStudioContent() {
                 <div className="prism-status-strip">
                     <div className="prism-status-item">
                         <div className="flex items-center gap-2">
+                            <Target className="h-4 w-4 text-status-blue" />
+                            <span className="prism-status-label">Session intent</span>
+                        </div>
+                        <p className="prism-status-value">{activeIntentMeta ? t(activeIntentMeta.labelKey) : "Choose an intent"}</p>
+                        <p className="prism-status-detail">
+                            {activeIntentMeta ? t(activeIntentMeta.descriptionKey) : "Advanced users can skip this, but first-session students should start here."}
+                        </p>
+                    </div>
+                    <div className="prism-status-item">
+                        <div className="flex items-center gap-2">
                             <Bot className="h-4 w-4 text-status-blue" />
                             <span className="prism-status-label">Active mode</span>
                         </div>
-                        <p className="prism-status-value">{activeToolMeta.label}</p>
-                        <p className="prism-status-detail">{activeToolMeta.summary}</p>
+                        <p className="prism-status-value">{t(activeToolMeta.labelKey)}</p>
+                        <p className="prism-status-detail">{t(activeToolMeta.summaryKey)}</p>
                     </div>
                     <div className="prism-status-item">
                         <div className="flex items-center gap-2">
@@ -222,68 +379,127 @@ function AIStudioContent() {
                     </div>
                     <div className="prism-status-item">
                         <div className="flex items-center gap-2">
+                            <BookMarked className="h-4 w-4 text-status-amber" />
+                            <span className="prism-status-label">Subject focus</span>
+                        </div>
+                        <p className="prism-status-value">{subjectScope || "No subject locked"}</p>
+                        <p className="prism-status-detail">
+                            {subjectScope
+                                ? "This subject now persists into assignments and lecture review."
+                                : "Open scope remains available until a study workflow narrows it."}
+                        </p>
+                    </div>
+                    <div className="prism-status-item">
+                        <div className="flex items-center gap-2">
                             <Command className="h-4 w-4 text-status-violet" />
                             <span className="prism-status-label">Flow controls</span>
                         </div>
                         <p className="prism-status-value">Keyboard ready</p>
-                        <p className="prism-status-detail">Toggle focus mode, rail, and context without breaking the study thread.</p>
+                        <p className="prism-status-detail">Use shortcuts for focus mode, tool rail, and context rail once the session is underway.</p>
                     </div>
                 </div>
 
-                <PrismPanel className="overflow-hidden p-0">
-                    <div className="flex flex-wrap items-center gap-3 border-b border-[var(--border)]/80 bg-[rgba(255,255,255,0.02)] px-5 py-4">
-                        <div className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[rgba(148,163,184,0.08)] px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">
-                            <PanelsTopLeft className="h-3.5 w-3.5" />
-                            Deep Work Layout
+                {showIntentSelector ? (
+                    <PrismPanel className="p-6 md:p-8">
+                        <div className="mx-auto max-w-3xl text-center">
+                            <p className="prism-status-label">Entry point</p>
+                            <h2 className="mt-3 text-3xl font-black text-[var(--text-primary)]">{t("ai_studio.intent_selector_title")}</h2>
+                            <p className="mt-3 text-sm leading-7 text-[var(--text-secondary)]">
+                                Pick one intent and AI Studio will open in the right mode with a calmer starting layout.
+                            </p>
                         </div>
-                        <div className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[rgba(148,163,184,0.04)] px-3 py-1.5 text-xs text-[var(--text-secondary)]">
-                            Left rail: tools and notebooks
+                        <div className="mx-auto mt-8 grid max-w-4xl gap-4 md:grid-cols-2">
+                            {intentOptionsConfig.map((option) => (
+                                <button
+                                    key={option.id}
+                                    type="button"
+                                    onClick={() => chooseIntent(option.id)}
+                                    className="vidya-command-card text-left transition-transform duration-[var(--transition-fast)] hover:-translate-y-0.5"
+                                >
+                                    <p className="prism-status-label">Mode selector</p>
+                                    <p className="mt-3 text-xl font-bold text-[var(--text-primary)]">{t(option.labelKey)}</p>
+                                    <p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">{t(option.descriptionKey)}</p>
+                                </button>
+                            ))}
                         </div>
-                        <div className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[rgba(148,163,184,0.04)] px-3 py-1.5 text-xs text-[var(--text-secondary)]">
-                            Center: active learning thread
+                        <div className="mt-6 flex justify-center">
+                            <button
+                                type="button"
+                                onClick={() => setShowIntentSelector(false)}
+                                className="prism-action-secondary"
+                            >
+                                Continue in advanced workspace
+                            </button>
                         </div>
-                        <div className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[rgba(148,163,184,0.04)] px-3 py-1.5 text-xs text-[var(--text-secondary)]">
-                            Right: sources, notes, hints
+                    </PrismPanel>
+                ) : (
+                    <PrismPanel className="overflow-hidden p-0">
+                        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)]/80 bg-[rgba(255,255,255,0.02)] px-5 py-4">
+                            <div className="flex flex-wrap items-center gap-3">
+                                <div className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[rgba(148,163,184,0.08)] px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">
+                                    <PanelsTopLeft className="h-3.5 w-3.5" />
+                                    Deep Work Layout
+                                </div>
+                                {activeIntentMeta ? (
+                                    <div className="inline-flex items-center gap-2 rounded-full border border-[rgba(79,142,247,0.22)] bg-[rgba(79,142,247,0.08)] px-3 py-1.5 text-xs text-[var(--text-primary)]">
+                                        Intent: {t(activeIntentMeta.labelKey)}
+                                    </div>
+                                ) : null}
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setShowIntentSelector(true)}
+                                className="prism-action-secondary"
+                            >
+                                Change intent
+                            </button>
                         </div>
-                    </div>
 
-                    <div className="ai-studio-container">
-                        <aside className={`tool-rail ${railCollapsed ? "collapsed" : ""}`}>
-                            <NotebookSelector
-                                activeNotebookId={activeNotebookId}
-                                onNotebookChange={setActiveNotebookId}
-                            />
-                            <ToolRail
-                                activeTool={activeTool}
-                                onToolChange={setActiveTool}
-                                collapsed={railCollapsed}
-                                onToggleCollapse={() => setRailCollapsed(!railCollapsed)}
-                            />
-                        </aside>
+                        <div className="ai-studio-container">
+                            <aside className={`tool-rail ${railCollapsed ? "collapsed" : ""}`}>
+                                <NotebookSelector
+                                    activeNotebookId={activeNotebookId}
+                                    onNotebookChange={setActiveNotebookId}
+                                />
+                                <ToolRail
+                                    activeTool={activeTool}
+                                    onToolChange={setActiveTool}
+                                    collapsed={railCollapsed}
+                                    onToggleCollapse={() => setRailCollapsed(!railCollapsed)}
+                                />
+                            </aside>
 
-                        <main className="learning-workspace">
-                            <LearningWorkspace
-                                key={`${activeTool}:${activeNotebookId ?? "none"}`}
-                                activeTool={activeTool}
-                                notebookId={activeNotebookId}
-                                requestOptions={requestOptions}
-                                initialExchange={initialExchange}
-                                seedPrompt={seedPrompt}
-                            />
-                        </main>
+                            <main className="learning-workspace">
+                                <LearningWorkspace
+                                    key={`${activeTool}:${activeNotebookId ?? "none"}`}
+                                    activeTool={activeTool}
+                                    notebookId={activeNotebookId}
+                                    requestOptions={requestOptions}
+                                    initialExchange={initialExchange}
+                                    seedPrompt={seedPrompt}
+                                />
+                            </main>
 
-                        <aside className={`context-panel ${contextCollapsed ? "collapsed" : ""}`}>
-                            <ContextPanel
-                                collapsed={contextCollapsed}
-                                onToggleCollapse={() => setContextCollapsed(!contextCollapsed)}
-                                notebookId={activeNotebookId}
-                                activeTool={activeTool}
-                            />
-                        </aside>
-                    </div>
-                </PrismPanel>
+                            <aside className={`context-panel ${contextCollapsed ? "collapsed" : ""}`}>
+                                <ContextPanel
+                                    collapsed={contextCollapsed}
+                                    onToggleCollapse={() => setContextCollapsed(!contextCollapsed)}
+                                    notebookId={activeNotebookId}
+                                    activeTool={activeTool}
+                                />
+                            </aside>
+                        </div>
+                    </PrismPanel>
+                )}
 
                 {focusMode ? <FocusMode onExit={() => setFocusMode(false)} activeTool={activeTool} /> : null}
+
+                <SessionSummaryModal
+                    isOpen={showInactivityModal}
+                    sessionData={sessionData}
+                    onContinue={handleContinueSession}
+                    onEnd={handleEndSession}
+                />
             </PrismSection>
         </PrismPage>
     );

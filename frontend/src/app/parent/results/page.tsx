@@ -35,12 +35,34 @@ type ResultPayload = {
     }>;
 };
 
+function isResultExam(value: unknown): value is ResultItem["exams"][number] {
+    return Boolean(
+        value
+        && typeof value === "object"
+        && typeof (value as ResultItem["exams"][number]).name === "string"
+        && typeof (value as ResultItem["exams"][number]).marks === "number"
+        && typeof (value as ResultItem["exams"][number]).max === "number"
+    );
+}
+
+function isResultItem(value: unknown): value is ResultItem {
+    return Boolean(
+        value
+        && typeof value === "object"
+        && typeof (value as ResultItem).name === "string"
+        && typeof (value as ResultItem).avg === "number"
+        && Array.isArray((value as ResultItem).exams)
+        && (value as ResultItem).exams.every(isResultExam)
+    );
+}
+
 function normalizeResultPayload(payload: unknown): ResultPayload {
     if (Array.isArray(payload)) {
+        const items = payload.filter(isResultItem);
         return {
-            items: payload as ResultItem[],
+            items,
             summary: {
-                subjects: Array.isArray(payload) ? payload.length : 0,
+                subjects: items.length,
                 average: 0,
                 strongest: null,
                 exams_recorded: 0,
@@ -63,10 +85,11 @@ function normalizeResultPayload(payload: unknown): ResultPayload {
         };
     }
     const candidate = payload as Partial<ResultPayload>;
+    const items = Array.isArray(candidate.items) ? candidate.items.filter(isResultItem) : [];
     return {
-        items: candidate.items ?? [],
+        items,
         summary: {
-            subjects: candidate.summary?.subjects ?? 0,
+            subjects: candidate.summary?.subjects ?? items.length,
             average: candidate.summary?.average ?? 0,
             strongest: candidate.summary?.strongest ?? null,
             exams_recorded: candidate.summary?.exams_recorded ?? 0,
@@ -243,15 +266,19 @@ export default function ParentResultsPage() {
                                     <h2 className="text-base font-semibold text-[var(--text-primary)]">Six-month result trend</h2>
                                 </div>
                                 <div className="mt-4 grid gap-3">
-                                    {monthlyTrend.map((item, index) => (
-                                        <div key={`${item.month}-${index}`} className="rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.03)] px-4 py-3">
-                                            <div className="flex items-center justify-between gap-4">
-                                                <p className="text-sm font-medium text-[var(--text-primary)]">{item.month}</p>
-                                                <p className="text-sm text-[var(--text-secondary)]">{item.average_pct}% average</p>
+                                    {monthlyTrend.length > 0 ? (
+                                        monthlyTrend.map((item, index) => (
+                                            <div key={`${item.month}-${index}`} className="rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.03)] px-4 py-3">
+                                                <div className="flex items-center justify-between gap-4">
+                                                    <p className="text-sm font-medium text-[var(--text-primary)]">{item.month}</p>
+                                                    <p className="text-sm text-[var(--text-secondary)]">{item.average_pct}% average</p>
+                                                </div>
+                                                <p className="mt-1 text-xs text-[var(--text-muted)]">{item.exams_recorded} recorded exam{item.exams_recorded === 1 ? "" : "s"}.</p>
                                             </div>
-                                            <p className="mt-1 text-xs text-[var(--text-muted)]">{item.exams_recorded} recorded exam{item.exams_recorded === 1 ? "" : "s"}.</p>
-                                        </div>
-                                    ))}
+                                        ))
+                                    ) : (
+                                        <p className="text-sm text-[var(--text-secondary)]">Six-month result trend will appear here once assessments span multiple months.</p>
+                                    )}
                                 </div>
                             </PrismPanel>
 

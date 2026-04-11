@@ -82,7 +82,7 @@ test("teacher assignments page creates a new assignment and refreshes the board"
 
     await page.goto("/teacher/assignments");
 
-    await expect(page.getByRole("heading", { name: "Publish classroom work from one operational assignment board" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Manage Assignments" })).toBeVisible();
     await expect(page.getByText("Cell Structure Worksheet")).toBeVisible();
 
     await page.getByPlaceholder("Assignment title").fill("Photosynthesis Reflection");

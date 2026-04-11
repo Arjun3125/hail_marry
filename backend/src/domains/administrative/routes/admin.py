@@ -1,4 +1,6 @@
 """Admin API routes â€” dashboard, users, AI usage, AI review, complaints, reports, security, settings."""
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
@@ -10,8 +12,9 @@ from uuid import UUID
 
 from starlette.responses import StreamingResponse
 from starlette.responses import Response as StarletteResponse
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from database import get_db
+from database import get_async_session, get_db
 from auth.dependencies import require_role
 from src.domains.identity.models.user import User
 from src.domains.identity.application.passwords import hash_password
@@ -107,6 +110,15 @@ from src.infrastructure.observability import (
     load_traceability_summary,
     load_usage_snapshot,
 )
+from src.domains.platform.application.mascot_release_gate import (
+    build_release_gate_snapshot as _build_release_gate_snapshot_impl,
+)
+from src.domains.platform.application.whatsapp_analytics import (
+    build_whatsapp_usage_snapshot as _build_whatsapp_usage_snapshot_impl,
+)
+from src.domains.platform.services.alerting import get_active_alerts
+from src.domains.platform.services.metrics_registry import snapshot_stage_latency_metrics
+from src.domains.platform.services.whatsapp_gateway import get_whatsapp_metrics
 from src.shared.ocr_imports import (
     extract_upload_content_result,
     get_extension,
@@ -115,6 +127,7 @@ from src.shared.ocr_imports import (
 )
 
 router = APIRouter(prefix="/api/admin", tags=["Admin"])
+logger = logging.getLogger(__name__)
 
 ALLOWED_COMPLAINT_STATUSES = {"open", "in_review", "resolved"}
 SUPPORTED_WEBHOOK_EVENTS = {
@@ -125,6 +138,32 @@ SUPPORTED_WEBHOOK_EVENTS = {
     "attendance.marked",
     "complaint.status.changed",
 }
+
+
+def _pct(numerator: int, denominator: int) -> float:
+    if denominator <= 0:
+        return 0.0
+    return round((numerator / denominator) * 100, 2)
+
+
+def _build_whatsapp_release_gate_snapshot(current_user: User, db: Session, days: int) -> dict:
+    analytics = _build_whatsapp_usage_snapshot_impl(current_user, db, days)
+    metrics = get_whatsapp_metrics(str(current_user.tenant_id))
+    routing_total = metrics.get("routing_success_total", 0) + metrics.get("routing_failure_total", 0)
+    outbound_total = metrics.get("outbound_success_total", 0) + metrics.get("outbound_failure_total", 0)
+    inbound_total = metrics.get("inbound_total", 0)
+    return {
+        "generated_at": datetime.utcnow().isoformat(),
+        "period_days": days,
+        "analytics": analytics,
+        "release_gate_metrics": metrics,
+        "derived_rates": {
+            "routing_failure_pct": _pct(metrics.get("routing_failure_total", 0), routing_total),
+            "duplicate_inbound_pct": _pct(metrics.get("duplicate_inbound_total", 0), inbound_total),
+            "visible_failure_pct": _pct(metrics.get("visible_failure_total", 0), inbound_total),
+            "outbound_retryable_failure_pct": _pct(metrics.get("outbound_retryable_failure_total", 0), outbound_total),
+        },
+    }
 
 
 def _parse_uuid(value: str, field_name: str) -> UUID:
@@ -265,6 +304,54 @@ async def admin_dashboard(
         load_queue_metrics_fn=load_queue_metrics,
         list_active_alerts_fn=list_active_alerts,
     )
+
+
+@router.get("/dashboard-bootstrap")
+async def admin_dashboard_bootstrap(
+    current_user: User = Depends(require_role("admin")),
+    db: Session = Depends(get_db),
+    session: AsyncSession = Depends(get_async_session),
+):
+    whatsapp_snapshot = None
+    try:
+        whatsapp_snapshot = _build_whatsapp_release_gate_snapshot(current_user, db, 7)
+    except Exception:
+        logger.exception(
+            "Failed to build WhatsApp release gate snapshot for tenant %s",
+            current_user.tenant_id,
+        )
+        whatsapp_snapshot = None
+
+    mascot_snapshot = None
+    try:
+        mascot_snapshot = await _build_release_gate_snapshot_impl(
+            tenant_id=current_user.tenant_id,
+            session=session,
+            days=7,
+            metric_rows=snapshot_stage_latency_metrics(),
+            alerts=get_active_alerts(str(current_user.tenant_id)),
+        )
+    except Exception:
+        logger.exception(
+            "Failed to build mascot release gate snapshot for tenant %s",
+            current_user.tenant_id,
+        )
+        mascot_snapshot = None
+
+    return {
+        "dashboard": _build_admin_dashboard_response_impl(
+            db=db,
+            tenant_id=current_user.tenant_id,
+            load_queue_metrics_fn=load_queue_metrics,
+            list_active_alerts_fn=list_active_alerts,
+        ),
+        "security": _build_admin_security_logs_impl(
+            db=db,
+            tenant_id=current_user.tenant_id,
+        ),
+        "whatsapp_snapshot": whatsapp_snapshot,
+        "mascot_snapshot": mascot_snapshot,
+    }
 
 
 # â”€â”€â”€ User Management â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

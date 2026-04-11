@@ -273,6 +273,7 @@ export const api = {
     },
     student: {
         dashboard: () => apiFetch("/api/student/dashboard"),
+        overviewBootstrap: () => apiFetch("/api/student/overview-bootstrap"),
         streaks: () => apiFetch("/api/student/streaks"),
         attendance: (params?: string) => apiFetch(`/api/student/attendance${params ? `?${params}` : ""}`),
         results: () => apiFetch("/api/student/results"),
@@ -340,6 +341,11 @@ export const api = {
             const query = new URLSearchParams({ class_id: classId, date });
             return apiFormFetch(`/api/teacher/attendance/csv-import?${query.toString()}`, formData);
         },
+        notifyAbsentParents: (data: { class_id: string; date: string; absent_student_ids: string[] }) =>
+            apiFetch("/api/teacher/attendance-parent-notifications", {
+                method: "POST",
+                body: JSON.stringify(data),
+            }),
         createExam: (data: { name: string; subject_id: string; max_marks: number; exam_date?: string }) =>
             apiFetch("/api/teacher/exams", {
                 method: "POST",
@@ -384,6 +390,7 @@ export const api = {
     },
     admin: {
         dashboard: () => apiFetch("/api/admin/dashboard"),
+        dashboardBootstrap: () => apiFetch("/api/admin/dashboard-bootstrap"),
         users: () => apiFetch("/api/admin/users"),
         features: () => apiFetch("/api/features"),
         toggleFeature: (featureId: string, enabled: boolean) =>
@@ -587,6 +594,19 @@ export const api = {
         reports: () => apiFetch("/api/parent/reports"),
         audioReport: (childId?: string) =>
             apiFetch(`/api/parent/audio-report${childId ? `?child_id=${childId}` : ""}`),
+        aiInsights: (childId?: string, days?: number) => {
+            const query = new URLSearchParams();
+            if (childId) query.set("child_id", childId);
+            if (days) query.set("days", String(days));
+            const suffix = query.toString();
+            return apiFetch(`/api/parent/ai-insights${suffix ? `?${suffix}` : ""}`);
+        },
+        notificationPreferences: () => apiFetch("/api/parent/notification-preferences"),
+        updateNotificationPreferences: (data: object) =>
+            apiFetch("/api/parent/notification-preferences", {
+                method: "PUT",
+                body: JSON.stringify(data),
+            }),
     },
     aiHistory: {
         list: (params?: {
@@ -814,5 +834,26 @@ export const api = {
             const suffix = query.toString();
             return apiFetch(`/api/ai-studio/mastery${suffix ? `?${suffix}` : ""}`);
         }
+    },
+    sessionTracking: {
+        createSession: (event: object) =>
+            apiFetch("/api/ai/sessions/", {
+                method: "POST",
+                body: JSON.stringify(event),
+            }),
+        updateSession: (sessionEventId: string, update: object) =>
+            apiFetch(`/api/ai/sessions/${sessionEventId}`, {
+                method: "PATCH",
+                body: JSON.stringify(update),
+            }),
+        getRecentSessions: (days = 7, limit = 10) =>
+            apiFetch(`/api/ai/sessions/recent?days=${days}&limit=${limit}`),
+        getSessionsBySubject: (subject: string, days = 30) =>
+            apiFetch(`/api/ai/sessions/by-subject/${subject}?days=${days}`),
+        getParentInsights: (childId?: string, days = 30) => {
+            const query = new URLSearchParams({ days: String(days) });
+            if (childId) query.set("child_id", childId);
+            return apiFetch(`/api/ai/sessions/parent-insights?${query.toString()}`);
+        },
     }
 };

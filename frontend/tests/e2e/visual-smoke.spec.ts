@@ -365,7 +365,7 @@ test.describe("Prism representative visual smoke", () => {
 
             await page.goto("/parent/dashboard");
 
-            await expect(page.getByRole("heading", { name: /See your child's week in one clear family summary/i })).toBeVisible();
+            await expect(page.getByRole("heading", { name: /See your child['’]s week in one clear family summary/i })).toBeVisible();
             await expect(page.getByRole("heading", { name: /Listen to update/i })).toBeVisible();
             await expect(page.getByRole("heading", { name: /Next class/i })).toBeVisible();
 

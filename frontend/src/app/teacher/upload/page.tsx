@@ -181,8 +181,14 @@ export default function UploadPage() {
                     </div>
                     <div className="prism-status-item">
                         <span className="prism-status-label">Attention</span>
-                        <span className="prism-status-value">{summary.processing || summary.review}</span>
-                        <span className="prism-status-detail">{summary.processing ? "Jobs are still processing." : "OCR items flagged for review."}</span>
+                        <span className="prism-status-value">{(summary.processing ?? 0) + (summary.review ?? 0)}</span>
+                        <span className="prism-status-detail">
+                            {(summary.processing ?? 0) > 0 && (summary.review ?? 0) > 0
+                                ? `${summary.processing} job${summary.processing === 1 ? "" : "s"} processing, ${summary.review} OCR item${summary.review === 1 ? "" : "s"} flagged for review.`
+                                : (summary.processing ?? 0) > 0
+                                    ? `${summary.processing} job${summary.processing === 1 ? "" : "s"} still processing.`
+                                    : `${summary.review ?? 0} OCR item${summary.review === 1 ? "" : "s"} flagged for review.`}
+                        </span>
                     </div>
                 </div>
 

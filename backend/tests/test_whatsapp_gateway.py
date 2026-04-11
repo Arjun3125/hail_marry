@@ -877,7 +877,8 @@ class TestLlmIntentInterpretation:
             "response_type": "text",
         }
 
-        result = classify_intent(state)
+        with patch("src.interfaces.whatsapp_bot.agent._llm_interpretation", return_value=None):
+            result = classify_intent(state)
 
         assert result["intent"] == "clarify_request"
         assert result["tool_name"] is None

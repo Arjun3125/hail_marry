@@ -24,6 +24,8 @@ type AIUsageData = {
         parents: number;
     };
     heavy_users: Array<{
+        id?: string;
+        email?: string;
         name: string;
         role?: string;
         queries: number;
@@ -306,8 +308,8 @@ export default function AIUsagePage() {
                             />
                             {data.heavy_users.length ? (
                                 <div className="mt-4 space-y-3">
-                                    {data.heavy_users.map((user) => (
-                                        <div key={`${user.name}-${user.role}`} className="flex items-center justify-between rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.03)] px-4 py-3">
+                                    {data.heavy_users.map((user, index) => (
+                                        <div key={user.id ?? user.email ?? `${user.name}-${user.role ?? "user"}-${index}`} className="flex items-center justify-between rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.03)] px-4 py-3">
                                             <div>
                                                 <p className="text-sm font-medium text-[var(--text-primary)]">{user.name}</p>
                                                 <p className="text-xs text-[var(--text-muted)]">

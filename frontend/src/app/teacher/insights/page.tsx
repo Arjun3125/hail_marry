@@ -74,7 +74,7 @@ export default function TeacherInsightsPage() {
                             Teacher Insight Surface
                         </PrismHeroKicker>
                     )}
-                    title="Read class signals as a teaching intervention board"
+                    title="Class Insights Dashboard"
                     description="Scan weak subjects, compare class-level performance, and review the next recommended teaching move without leaving the operational teacher flow."
                     aside={(
                         <div className="prism-briefing-panel">
@@ -86,23 +86,25 @@ export default function TeacherInsightsPage() {
                     )}
                 />
 
-                <div className="prism-status-strip">
-                    <div className="prism-status-item">
-                        <span className="prism-status-label">Classes analyzed</span>
-                        <span className="prism-status-value">{summary.totalClasses}</span>
-                        <span className="prism-status-detail">Insight coverage across current classroom cohorts.</span>
+                {!loading && !error ? (
+                    <div className="prism-status-strip">
+                        <div className="prism-status-item">
+                            <span className="prism-status-label">Classes analyzed</span>
+                            <span className="prism-status-value">{summary.totalClasses}</span>
+                            <span className="prism-status-detail">Insight coverage across current classroom cohorts.</span>
+                        </div>
+                        <div className="prism-status-item">
+                            <span className="prism-status-label">Weak signals</span>
+                            <span className="prism-status-value">{summary.weakSignals}</span>
+                            <span className="prism-status-detail">Subjects currently flagged for intervention.</span>
+                        </div>
+                        <div className="prism-status-item">
+                            <span className="prism-status-label">Average level</span>
+                            <span className="prism-status-value">{summary.totalClasses ? `${summary.avgPerformance}%` : "-"}</span>
+                            <span className="prism-status-detail">Mean subject performance across the loaded dataset.</span>
+                        </div>
                     </div>
-                    <div className="prism-status-item">
-                        <span className="prism-status-label">Weak signals</span>
-                        <span className="prism-status-value">{summary.weakSignals}</span>
-                        <span className="prism-status-detail">Subjects currently flagged for intervention.</span>
-                    </div>
-                    <div className="prism-status-item">
-                        <span className="prism-status-label">Average level</span>
-                        <span className="prism-status-value">{summary.totalClasses ? `${summary.avgPerformance}%` : "-"}</span>
-                        <span className="prism-status-detail">Mean subject performance across the loaded dataset.</span>
-                    </div>
-                </div>
+                ) : null}
 
                 {error ? (
                     <ErrorRemediation
@@ -207,7 +209,7 @@ export default function TeacherInsightsPage() {
                                         <PrismPanel className="p-5">
                                             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Copilot recommendation</p>
                                             <p className="mt-4 text-sm leading-7 text-[var(--text-primary)]">{classInsight.recommendation}</p>
-                                            <button className="mt-4 inline-flex items-center gap-2 rounded-2xl bg-[linear-gradient(135deg,rgba(96,165,250,0.96),rgba(129,140,248,0.94))] px-4 py-2.5 text-sm font-semibold text-[#06101e] shadow-[0_18px_34px_rgba(96,165,250,0.22)] transition-all hover:-translate-y-0.5">
+                                            <button type="button" disabled title="Coming soon" className="mt-4 inline-flex items-center gap-2 rounded-2xl bg-[linear-gradient(135deg,rgba(96,165,250,0.96),rgba(129,140,248,0.94))] px-4 py-2.5 text-sm font-semibold text-[#06101e] shadow-[0_18px_34px_rgba(96,165,250,0.22)] transition-all hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60">
                                                 <Sparkles className="h-4 w-4" />
                                                 Deploy action plan
                                             </button>

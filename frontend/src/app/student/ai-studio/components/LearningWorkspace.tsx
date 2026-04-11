@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
+import Link from "next/link";
 import {
     AssistantRuntimeProvider,
     ComposerPrimitive,
@@ -13,6 +15,7 @@ import { APIError, api } from "@/lib/api";
 import {
     Bot,
     Bookmark,
+    CheckCircle2,
     Copy,
     History,
     Loader2,
@@ -24,6 +27,7 @@ import {
     ThumbsUp,
     Trash2,
     Target,
+    Clock3,
 } from "lucide-react";
 import { useLanguage, LanguageToggle } from "@/i18n/LanguageProvider";
 import { useToast } from "@/components/Toast";
@@ -45,7 +49,13 @@ import {
     setActivePersistedThreadId,
     upsertPersistedThread,
 } from "./threadPersistence";
-import { MasteryMap } from "./MasteryMap";
+
+const MasteryMap = dynamic(
+    () => import("./MasteryMap").then((mod) => mod.MasteryMap),
+    {
+        loading: () => <div className="text-xs text-[var(--text-muted)]">Loading mastery insights...</div>,
+    },
+);
 
 interface LearningWorkspaceProps {
     activeTool: string;
@@ -453,8 +463,6 @@ function AssistantStudioThread({
     const [showMastery, setShowMastery] = useState(false);
 
     useEffect(() => {
-        api.aiStudio.getMastery().then(data => setMasteryData((data || []) as MasteryInsight[]));
-        
         const handleHint = (event: Event) => {
             const prompt = (event as CustomEvent<{ prompt?: string }>).detail?.prompt;
             if (prompt) {
@@ -466,11 +474,33 @@ function AssistantStudioThread({
         return () => window.removeEventListener("mascot-hint", handleHint as EventListener);
     }, [aui]);
 
+    useEffect(() => {
+        if (!showMastery) {
+            return;
+        }
+
+        let cancelled = false;
+        api.aiStudio.getMastery(notebookId).then((data) => {
+            if (!cancelled) {
+                setMasteryData((data || []) as MasteryInsight[]);
+            }
+        }).catch(() => {
+            if (!cancelled) {
+                setMasteryData([]);
+            }
+        });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [notebookId, showMastery]);
+
     const chatModel = useMemo(
         () => ({
             run: async ({ messages }: { messages: ReadonlyArray<{ role: string; content: ReadonlyArray<{ type: string; text?: string }> }> }) => {
                 const latestUser = [...messages].reverse().find((message) => message.role === "user");
                 const query = extractTextContent(latestUser?.content as ReadonlyArray<{ type: string; text?: string }>);
+                const lowDataMode = typeof document !== "undefined" && document.documentElement.classList.contains("low-data-mode");
 
                 try {
                     const data = await api.ai.query({
@@ -478,7 +508,7 @@ function AssistantStudioThread({
                         mode: activeTool,
                         notebook_id: notebookId,
                         language: lang,
-                        response_length: requestOptions?.responseLength,
+                        response_length: lowDataMode ? "short" : requestOptions?.responseLength,
                         expertise_level: requestOptions?.expertiseLevel,
                     }) as {
                         answer?: string;
@@ -619,6 +649,9 @@ export function LearningWorkspace({ activeTool, notebookId, requestOptions, init
     const [hydrated, setHydrated] = useState(false);
     const [threads, setThreads] = useState<PersistedAssistantThread[]>([]);
     const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
+    const [sessionStartedAt] = useState(() => Date.now());
+    const [sessionDurationMinutes, setSessionDurationMinutes] = useState(1);
+    const [sessionWrapThreadId, setSessionWrapThreadId] = useState<string | null>(null);
     const consumedInitialExchangeRef = useRef<string | null>(null);
     const workspaceScopeKey = useMemo(
         () => makeThreadScopeKey(workspaceScope || "ai-studio", activeTool, notebookId),
@@ -629,6 +662,7 @@ export function LearningWorkspace({ activeTool, notebookId, requestOptions, init
         () => threads.find((thread) => thread.id === activeThreadId) || threads[0] || null,
         [activeThreadId, threads],
     );
+    const activeThreadHasMessages = Boolean(activeThread && (activeThread.title !== "New thread" || activeThread.preview !== "No messages yet"));
 
     const prevToolRef = useRef(activeTool);
 
@@ -693,6 +727,28 @@ export function LearningWorkspace({ activeTool, notebookId, requestOptions, init
         setActivePersistedThreadId(workspaceScopeKey, activeThreadId);
     }, [activeThreadId, workspaceScopeKey]);
 
+    useEffect(() => {
+        const updateDuration = () => {
+            setSessionDurationMinutes(Math.max(1, Math.round((Date.now() - sessionStartedAt) / 60_000)));
+        };
+        updateDuration();
+        const id = window.setInterval(updateDuration, 60_000);
+        return () => window.clearInterval(id);
+    }, [sessionStartedAt]);
+
+    useEffect(() => {
+        if (!activeThread || !activeThreadHasMessages) return;
+        const payload = {
+            topic: activeThread.title,
+            duration_minutes: sessionDurationMinutes,
+            last_studied_at: activeThread.updatedAt,
+            mode: activeTool,
+        };
+        localStorage.setItem("vidyaos_last_ai_session", JSON.stringify(payload));
+        const id = window.setTimeout(() => setSessionWrapThreadId(activeThread.id), 5 * 60_000);
+        return () => window.clearTimeout(id);
+    }, [activeThread, activeThreadHasMessages, activeTool, sessionDurationMinutes]);
+
     const persistThread = (thread: PersistedAssistantThread) => {
         const nextThreads = upsertPersistedThread(workspaceScopeKey, thread);
         setThreads(nextThreads);
@@ -728,6 +784,42 @@ export function LearningWorkspace({ activeTool, notebookId, requestOptions, init
 
     return (
         <div className="flex h-full min-h-0 flex-col">
+            {sessionWrapThreadId === activeThread.id ? (
+                <div className="border-b border-[var(--border)]/80 bg-[rgba(79,142,247,0.08)] px-5 py-4">
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                        <div>
+                            <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-status-blue">
+                                <Clock3 className="h-4 w-4" />
+                                Session summary
+                            </p>
+                            <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">Topic: {activeThread.title}</p>
+                            <p className="mt-1 text-xs leading-5 text-[var(--text-secondary)]">
+                                Duration: {sessionDurationMinutes} minutes • Key points saved from this thread preview.
+                            </p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setSessionWrapThreadId(null)}
+                                className="inline-flex items-center gap-2 rounded-2xl border border-[var(--border)] bg-[rgba(148,163,184,0.08)] px-4 py-2.5 text-xs font-semibold text-[var(--text-primary)]"
+                            >
+                                <CheckCircle2 className="h-4 w-4" />
+                                Save to notebook
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setSessionWrapThreadId(null)}
+                                className="rounded-2xl border border-[var(--border)] bg-[rgba(148,163,184,0.05)] px-4 py-2.5 text-xs font-semibold text-[var(--text-secondary)]"
+                            >
+                                Review later
+                            </button>
+                            <Link href="/student/overview" className="rounded-2xl bg-[var(--ai-primary)] px-4 py-2.5 text-xs font-bold text-[#06101e]">
+                                Back to dashboard
+                            </Link>
+                        </div>
+                    </div>
+                </div>
+            ) : null}
             <div className="flex items-center gap-2 overflow-x-auto border-b border-[var(--border)]/80 bg-[rgba(255,255,255,0.02)] px-4 py-3">
                 <div className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[rgba(148,163,184,0.05)] px-3 py-1.5 text-[11px] uppercase tracking-[0.2em] text-[var(--text-muted)]">
                     <History className="h-3.5 w-3.5" />

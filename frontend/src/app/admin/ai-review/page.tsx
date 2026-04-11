@@ -102,9 +102,14 @@ export default function AIReviewPage() {
     }), [items]);
 
     const formatDateTime = (value?: string | null) => {
-        if (!value) return "Not reviewed";
+        if (!value) return "—";
         const parsed = new Date(value);
         return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString();
+    };
+
+    const formatReviewedDateTime = (value?: string | null) => {
+        if (!value) return "Not reviewed";
+        return formatDateTime(value);
     };
 
     const handleReviewAction = async (item: ReviewItem, action: "approve" | "flag") => {
@@ -300,7 +305,7 @@ export default function AIReviewPage() {
                                     <InfoTile label="Trace ID" value={detail.trace_id || "Unavailable"} />
                                     <InfoTile label="Token usage" value={`${detail.token_usage ?? "Not captured"}`} />
                                     <InfoTile label="Status" value={detail.review_status} />
-                                    <InfoTile label="Reviewed" value={formatDateTime(detail.reviewed_at)} />
+                                    <InfoTile label="Reviewed" value={formatReviewedDateTime(detail.reviewed_at)} />
                                 </div>
                                 <div>
                                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Review history</p>

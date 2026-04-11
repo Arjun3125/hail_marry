@@ -5,10 +5,22 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --primary: #7fb0f5;
-  --primary-light: rgba(127, 176, 245, 0.12);
-  --primary-hover: #a7c7f8;
-  --primary-rgb: 127, 176, 245;
+  --ai-primary: #4f8ef7;
+  --ai-surface: #1a2a4a;
+  --ai-glow: rgba(79, 142, 247, 0.25);
+  --status-present: #22c55e;
+  --status-late: #f59e0b;
+  --status-absent: #ef4444;
+  --status-neutral: #64748b;
+  --role-student: #3b82f6;
+  --role-teacher: #10b981;
+  --role-admin: #8b5cf6;
+  --role-parent: #f97316;
+
+  --primary: var(--ai-primary);
+  --primary-light: rgba(79, 142, 247, 0.12);
+  --primary-hover: #7aa9f8;
+  --primary-rgb: 79, 142, 247;
 
   --text-primary: #eef2f9;
   --text-secondary: #c6cfde;
@@ -29,6 +41,21 @@
   --border-light: rgba(148, 163, 184, 0.1);
   --border-strong: rgba(191, 219, 254, 0.18);
 
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+  --space-3xl: 64px;
+
+  --type-display: clamp(2.6rem, 5vw, 3rem);
+  --type-h1: clamp(2rem, 4vw, 2.25rem);
+  --type-h2: 1.5rem;
+  --type-h3: 1.125rem;
+  --type-body: 0.9375rem;
+  --type-caption: 0.75rem;
+
   --learning-primary: #818cf8;
   --learning-secondary: #a78bfa;
   --practice-primary: #34d399;
@@ -43,12 +70,22 @@
   --panel-width: 320px;
   --panel-collapsed-width: 48px;
 
-  --radius: 20px;
+  --radius: 24px;
   --radius-sm: 12px;
 
-  --shadow-sm: 0 10px 24px rgba(2, 6, 23, 0.14);
-  --shadow-card: 0 18px 44px rgba(2, 6, 23, 0.24);
-  --shadow-md: 0 28px 72px rgba(2, 6, 23, 0.32);
+  --shadow-level-1: 0 1px 3px rgba(2, 6, 23, 0.2);
+  --shadow-level-2: 0 4px 12px rgba(2, 6, 23, 0.24);
+  --shadow-level-3: 0 8px 24px rgba(2, 6, 23, 0.28);
+  --shadow-level-4: 0 16px 48px rgba(2, 6, 23, 0.34);
+  --shadow-sm: var(--shadow-level-1);
+  --shadow-card: var(--shadow-level-2);
+  --shadow-md: var(--shadow-level-4);
+
+  --transition-instant: 80ms;
+  --transition-fast: 150ms;
+  --transition-base: 250ms;
+  --transition-slow: 400ms;
+  --transition-emphasis: 600ms;
 
   --background: #08111f;
   --foreground: #edf4ff;
@@ -67,9 +104,9 @@
   --input: rgba(148, 163, 184, 0.14);
   --ring: rgba(96, 165, 250, 0.55);
 
-  --success: #34d399;
-  --warning: #fbbf24;
-  --error: #fb7185;
+  --success: var(--status-present);
+  --warning: var(--status-late);
+  --error: var(--status-absent);
 
   --chart-1: #60a5fa;
   --chart-2: #818cf8;
@@ -93,6 +130,7 @@
 
 body {
   font-family: var(--font-body), var(--font-sans, system-ui), -apple-system, sans-serif;
+  font-size: var(--type-body);
   color: var(--text-primary);
   background:
     radial-gradient(circle at 18% 12%, rgba(127, 176, 245, 0.1), transparent 22%),
@@ -146,6 +184,42 @@ main {
   transition: padding 0.2s ease;
 }
 
+h1,
+.vidya-type-h1 {
+  font-size: var(--type-h1);
+  font-weight: 800;
+  line-height: 1.08;
+}
+
+h2,
+.vidya-type-h2 {
+  font-size: var(--type-h2);
+  font-weight: 700;
+  line-height: 1.16;
+}
+
+h3,
+.vidya-type-h3 {
+  font-size: var(--type-h3);
+  font-weight: 700;
+  line-height: 1.22;
+}
+
+p,
+li,
+label,
+input,
+textarea,
+select,
+button {
+  font-size: var(--type-body);
+}
+
+.prism-status-label,
+.vidya-type-caption {
+  font-size: var(--type-caption);
+}
+
 button,
 input,
 select,
@@ -164,6 +238,18 @@ h3,
 .prism-title {
   font-family: var(--font-display), var(--font-body), sans-serif;
   letter-spacing: -0.032em;
+}
+
+h1 {
+  font-size: var(--type-h1);
+}
+
+h2 {
+  font-size: var(--type-h2);
+}
+
+h3 {
+  font-size: var(--type-h3);
 }
 
 @theme inline {
@@ -296,12 +382,12 @@ main > div {
 .prism-page {
   width: min(1280px, calc(100% - 2rem));
   margin: 0 auto;
-  padding: 2.1rem 0 2rem;
+  padding: 2rem 0 2rem;
 }
 
 .prism-page-dashboard {
   width: min(1280px, calc(100% - 1.85rem));
-  padding-top: 1.7rem;
+  padding-top: 1.5rem;
 }
 
 .prism-page-workspace {
@@ -332,7 +418,7 @@ main > div {
     linear-gradient(180deg, rgba(17, 25, 39, 0.92), rgba(12, 18, 30, 0.94)),
     var(--surface-highlight-soft);
   border: 1px solid var(--border);
-  box-shadow: var(--shadow-card);
+  box-shadow: var(--shadow-level-2);
   backdrop-filter: blur(14px) saturate(112%);
 }
 
@@ -353,7 +439,7 @@ main > div {
   background:
     linear-gradient(180deg, rgba(14, 23, 42, 0.82), rgba(8, 15, 29, 0.9)),
     var(--surface-highlight-soft);
-  box-shadow: var(--shadow-card);
+  box-shadow: var(--shadow-level-2);
   backdrop-filter: blur(20px) saturate(130%);
 }
 
@@ -447,7 +533,7 @@ main > div {
   padding: 0.7rem 1rem;
   font-size: 0.875rem;
   font-weight: 700;
-  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+  transition: transform var(--transition-fast) ease, border-color var(--transition-fast) ease, box-shadow var(--transition-fast) ease, background var(--transition-fast) ease;
 }
 
 .prism-action:hover,
@@ -675,7 +761,7 @@ main > div {
   background:
     linear-gradient(180deg, rgba(14, 23, 42, 0.9), rgba(8, 15, 29, 0.94)),
     var(--surface-highlight-soft);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-level-4);
   backdrop-filter: blur(22px) saturate(130%);
 }
 
@@ -760,19 +846,19 @@ main > div {
 
 .glass-stat {
   border-radius: var(--radius);
-  padding: 1rem 1.05rem;
-  transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
+  padding: var(--space-lg);
+  transition: transform var(--transition-fast) ease, box-shadow var(--transition-fast) ease, border-color var(--transition-fast) ease;
 }
 
 .glass-stat:hover,
 .card-hover:hover {
   transform: translateY(-2px);
-  box-shadow: 0 20px 44px rgba(2, 6, 23, 0.28);
+  box-shadow: var(--shadow-level-3);
   border-color: var(--border-strong);
 }
 
 .card-hover {
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  transition: transform var(--transition-fast) ease, box-shadow var(--transition-fast) ease, border-color var(--transition-fast) ease;
 }
 
 .prism-kicker {
@@ -810,6 +896,7 @@ main > div {
 
 .prism-intro-title {
   max-width: 17ch;
+  font-size: var(--type-display);
 }
 
 .prism-intro-description {
@@ -881,7 +968,7 @@ main > div {
   border-radius: calc(var(--radius) * 0.9);
   border: 1px solid var(--border);
   background: rgba(255, 255, 255, 0.025);
-  padding: 0.95rem 1rem;
+  padding: var(--space-lg);
 }
 
 .prism-status-strip {
@@ -896,11 +983,11 @@ main > div {
   border-radius: calc(var(--radius) * 0.82);
   border: 1px solid var(--border);
   background: rgba(255, 255, 255, 0.022);
-  padding: 0.8rem 0.9rem;
+  padding: var(--space-lg);
 }
 
 .prism-status-label {
-  font-size: 0.68rem;
+  font-size: var(--type-caption);
   font-weight: 700;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -908,7 +995,7 @@ main > div {
 }
 
 .prism-status-value {
-  font-size: 1rem;
+  font-size: var(--type-h3);
   font-weight: 700;
   color: var(--text-primary);
 }
@@ -971,6 +1058,36 @@ main > div {
   border: 1px solid rgba(148, 163, 184, 0.14);
   background: linear-gradient(180deg, rgba(17, 28, 48, 0.7), rgba(11, 19, 34, 0.78));
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.vidya-command-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: calc(var(--radius) * 0.95);
+  border: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(14, 23, 42, 0.88), rgba(8, 15, 29, 0.92));
+  padding: var(--space-lg);
+  box-shadow: var(--shadow-level-2);
+}
+
+.vidya-command-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at top right, rgba(255, 255, 255, 0.08), transparent 38%);
+}
+
+.vidya-feed-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
+  border-radius: calc(var(--radius) * 0.7);
+  border: 1px solid var(--border-light);
+  background: rgba(255, 255, 255, 0.02);
+  padding: var(--space-lg);
 }
 
 .prism-empty-scope {
@@ -1240,4 +1357,26 @@ main > div {
 
 @keyframes boneyard-shimmer {
   100% { transform: translateX(100%); }
+}
+
+/* Low Data Mode Overrides */
+html.low-data-mode * {
+  animation: none !important;
+  transition: none !important;
+}
+
+html.low-data-mode .prism-noise,
+html.low-data-mode .prism-grid,
+html.low-data-mode .prism-orb {
+  display: none !important;
+}
+
+html.low-data-mode img[data-low-data-loaded="false"] {
+  cursor: pointer;
+  filter: blur(14px) saturate(0.6);
+  opacity: 0.28;
+}
+
+html.low-data-mode img[data-low-data-loaded="false"]::after {
+  content: "Tap to load image";
 }

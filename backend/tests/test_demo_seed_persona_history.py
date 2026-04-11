@@ -94,6 +94,7 @@ def test_demo_seed_populates_six_month_persona_history(tmp_path, monkeypatch):
                 for row in student_documents
                 if row.created_at is not None
             ]
+            assert student_document_dates, "no student documents have created_at set"
             assert min(student_document_dates) <= (now - timedelta(days=150))
 
             ai_counts = {
@@ -141,6 +142,7 @@ def test_demo_seed_populates_six_month_persona_history(tmp_path, monkeypatch):
                 for row in generated_rows
                 if row.created_at is not None
             ]
+            assert generated_dates, "no generated artifacts have created_at set"
             assert min(generated_dates) <= (now - timedelta(days=140))
 
             mock_attempts = db.query(MockTestAttempt).filter(MockTestAttempt.tenant_id == tenant.id).all()

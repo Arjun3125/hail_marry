@@ -41,7 +41,7 @@ STUDENT_MAX_FILE_SIZE = 25 * 1024 * 1024   # 25 MB
 OCR_MAX_IMAGE_SIZE = 10 * 1024 * 1024      # 10 MB
 
 TEACHER_ALLOWED_EXTENSIONS = {"pdf", "docx", "jpg", "jpeg", "png", "pptx", "xlsx"}
-STUDENT_ALLOWED_EXTENSIONS = {"pdf", "docx", "jpg", "jpeg", "png", "pptx", "xlsx"}
+STUDENT_ALLOWED_EXTENSIONS = {"pdf", "docx", "jpg", "jpeg", "png", "pptx", "xlsx", "txt"}
 
 # ── AI / Queue ──
 DEFAULT_AI_QUERIES_LIMIT = 50

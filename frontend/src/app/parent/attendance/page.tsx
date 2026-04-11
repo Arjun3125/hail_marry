@@ -33,9 +33,32 @@ type AttendancePayload = {
     }>;
 };
 
+function isAttendanceItem(value: unknown): value is AttendanceItem {
+    return Boolean(
+        value
+        && typeof value === "object"
+        && typeof (value as AttendanceItem).date === "string"
+        && typeof (value as AttendanceItem).day === "string"
+        && typeof (value as AttendanceItem).status === "string"
+    );
+}
+
+function isMonthlyActivityItem(value: unknown): value is AttendancePayload["monthly_activity"][number] {
+    return Boolean(
+        value
+        && typeof value === "object"
+        && typeof (value as AttendancePayload["monthly_activity"][number]).month === "string"
+        && typeof (value as AttendancePayload["monthly_activity"][number]).present === "number"
+        && typeof (value as AttendancePayload["monthly_activity"][number]).absent === "number"
+        && typeof (value as AttendancePayload["monthly_activity"][number]).late === "number"
+        && typeof (value as AttendancePayload["monthly_activity"][number]).attendance_pct === "number"
+        && typeof (value as AttendancePayload["monthly_activity"][number]).marked_days === "number"
+    );
+}
+
 function normalizeAttendancePayload(payload: unknown): AttendancePayload {
     if (Array.isArray(payload)) {
-        const items = payload as AttendanceItem[];
+        const items = payload.filter(isAttendanceItem);
         const present = items.filter((item) => item.status.toLowerCase() === "present").length;
         const absent = items.filter((item) => item.status.toLowerCase() === "absent").length;
         const late = items.filter((item) => item.status.toLowerCase().includes("late")).length;
@@ -66,16 +89,17 @@ function normalizeAttendancePayload(payload: unknown): AttendancePayload {
         };
     }
     const candidate = payload as Partial<AttendancePayload>;
+    const items = Array.isArray(candidate.items) ? candidate.items.filter(isAttendanceItem) : [];
     return {
-        items: candidate.items ?? [],
+        items,
         summary: {
-            present: candidate.summary?.present ?? 0,
-            absent: candidate.summary?.absent ?? 0,
-            late: candidate.summary?.late ?? 0,
-            marked_days: candidate.summary?.marked_days ?? 0,
-            attendance_pct: candidate.summary?.attendance_pct ?? 0,
+            present: candidate.summary?.present ?? items.filter((item) => item.status.toLowerCase() === "present").length,
+            absent: candidate.summary?.absent ?? items.filter((item) => item.status.toLowerCase() === "absent").length,
+            late: candidate.summary?.late ?? items.filter((item) => item.status.toLowerCase().includes("late")).length,
+            marked_days: candidate.summary?.marked_days ?? items.length,
+            attendance_pct: candidate.summary?.attendance_pct ?? (items.length > 0 ? Math.round((items.filter((item) => item.status.toLowerCase() === "present").length / items.length) * 100) : 0),
         },
-        monthly_activity: candidate.monthly_activity ?? [],
+        monthly_activity: Array.isArray(candidate.monthly_activity) ? candidate.monthly_activity.filter(isMonthlyActivityItem) : [],
     };
 }
 

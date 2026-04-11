@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useVidyaContext } from "@/providers/VidyaContextProvider";
 import {
     Award,
     ClipboardCheck,
@@ -43,6 +44,7 @@ type MarksImportResponse = {
 };
 
 export default function TeacherMarksPage() {
+    const { activeClassId, activeSubject, mergeContext } = useVidyaContext();
     const [classes, setClasses] = useState<TeacherClass[]>([]);
     const [selectedClassId, setSelectedClassId] = useState("");
     const [selectedSubjectId, setSelectedSubjectId] = useState("");
@@ -96,7 +98,11 @@ export default function TeacherMarksPage() {
                 const list = (payload || []) as TeacherClass[];
                 setClasses(list);
                 if (list.length > 0) {
-                    setSelectedClassId((prev) => prev || list[0].id);
+                    const preferredClassId =
+                        activeClassId && list.some((item) => item.id === activeClassId)
+                            ? activeClassId
+                            : list[0].id;
+                    setSelectedClassId((prev) => prev || preferredClassId);
                 }
             } catch (err) {
                 setError(err instanceof Error ? err.message : "Failed to load classes");
@@ -105,19 +111,33 @@ export default function TeacherMarksPage() {
             }
         };
         void loadClasses();
-    }, []);
+    }, [activeClassId]);
 
     useEffect(() => {
         const subjects = selectedClass?.subjects || [];
         if (!subjects.some((s) => s.id === selectedSubjectId)) {
-            setSelectedSubjectId(subjects[0]?.id || "");
+            const preferredSubjectId =
+                subjects.find((subject) => subject.name === activeSubject)?.id ||
+                subjects[0]?.id ||
+                "";
+            setSelectedSubjectId(preferredSubjectId);
         }
         const initial: Record<string, string> = {};
         for (const student of selectedClass?.students || []) {
             initial[student.id] = "";
         }
         setMarksByStudent(initial);
-    }, [selectedClass, selectedSubjectId]);
+    }, [activeSubject, selectedClass, selectedSubjectId]);
+
+    useEffect(() => {
+        if (!selectedClass) return;
+        mergeContext({
+            lastRole: "teacher",
+            activeClassId: selectedClass.id,
+            activeClassLabel: selectedClass.name,
+            activeSubject: selectedSubject?.name || null,
+        });
+    }, [mergeContext, selectedClass, selectedSubject]);
 
     useEffect(() => {
         if (typeof window === "undefined") return;
@@ -258,7 +278,7 @@ export default function TeacherMarksPage() {
                             Teacher Assessment Workflow
                         </PrismHeroKicker>
                     )}
-                    title="Enter marks from one assessment control surface"
+                    title="Enter Assessment Marks"
                     description="Set the exam context, import OCR-led score sheets when available, and keep grading progress readable while preserving the fast manual entry path."
                     aside={(
                         <div className="prism-briefing-panel">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useVidyaContext } from "@/providers/VidyaContextProvider";
 import {
     BookOpen,
     ClipboardList,
@@ -27,7 +28,9 @@ type ClassData = { id: string; name: string; subjects: Subject[] };
 type AIJobStatus = "queued" | "running" | "completed" | "failed";
 
 export default function GenerateAssessmentPage() {
+    const { activeClassId, activeSubject, mergeContext } = useVidyaContext();
     const [classes, setClasses] = useState<ClassData[]>([]);
+    const [selectedClassId, setSelectedClassId] = useState("");
     const [selectedSubject, setSelectedSubject] = useState("");
     const [topic, setTopic] = useState("");
     const [numQuestions, setNumQuestions] = useState(5);
@@ -38,11 +41,25 @@ export default function GenerateAssessmentPage() {
     const [jobId, setJobId] = useState<string | null>(null);
     const [jobStatus, setJobStatus] = useState<AIJobStatus | null>(null);
 
+    const selectedClass = useMemo(
+        () => classes.find((item) => item.id === selectedClassId) || null,
+        [classes, selectedClassId],
+    );
+
+    const classSubjects = useMemo(() => selectedClass?.subjects || [], [selectedClass]);
+
     useEffect(() => {
         const load = async () => {
             try {
                 const data = (await api.teacher.classes()) as ClassData[];
                 setClasses(data || []);
+                if (data?.length) {
+                    const preferredClassId =
+                        activeClassId && data.some((item) => item.id === activeClassId)
+                            ? activeClassId
+                            : data[0].id;
+                    setSelectedClassId(preferredClassId);
+                }
             } catch {
                 // Keep the page usable even if class metadata is unavailable.
             } finally {
@@ -50,30 +67,36 @@ export default function GenerateAssessmentPage() {
             }
         };
         void load();
-    }, []);
-
-    const allSubjects = useMemo(() => {
-        const subjects: Subject[] = [];
-        for (const cls of classes) {
-            for (const subj of cls.subjects || []) {
-                if (!subjects.find((s) => s.id === subj.id)) {
-                    subjects.push(subj);
-                }
-            }
-        }
-        return subjects;
-    }, [classes]);
+    }, [activeClassId]);
 
     const selectedSubjectMeta = useMemo(
-        () => allSubjects.find((subject) => subject.id === selectedSubject) || null,
-        [allSubjects, selectedSubject],
+        () => classSubjects.find((subject) => subject.id === selectedSubject) || null,
+        [classSubjects, selectedSubject],
     );
 
     useEffect(() => {
-        if (!allSubjects.some((subject) => subject.id === selectedSubject)) {
-            setSelectedSubject(allSubjects[0]?.id || "");
+        if (!selectedClass) {
+            setSelectedSubject("");
+            return;
         }
-    }, [allSubjects, selectedSubject]);
+        if (!classSubjects.some((subject) => subject.id === selectedSubject)) {
+            const preferredSubjectId =
+                classSubjects.find((subject) => subject.name === activeSubject)?.id ||
+                classSubjects[0]?.id ||
+                "";
+            setSelectedSubject(preferredSubjectId);
+        }
+    }, [activeSubject, classSubjects, selectedClass, selectedSubject]);
+
+    useEffect(() => {
+        if (!selectedClass) return;
+        mergeContext({
+            lastRole: "teacher",
+            activeClassId: selectedClass.id,
+            activeClassLabel: selectedClass.name,
+            activeSubject: selectedSubjectMeta?.name || null,
+        });
+    }, [mergeContext, selectedClass, selectedSubjectMeta]);
 
     useEffect(() => {
         if (!jobId) return;
@@ -164,9 +187,9 @@ export default function GenerateAssessmentPage() {
                             <MetricCard
                                 icon={BookOpen}
                                 title="Subjects ready"
-                                value={`${allSubjects.length}`}
+                                value={`${classSubjects.length}`}
                                 accent="blue"
-                                summary="Available curriculum streams pulled from your classes"
+                                summary={selectedClass ? `Available for ${selectedClass.name}` : "Choose a class to load its subjects"}
                             />
                             <MetricCard
                                 icon={ClipboardList}
@@ -192,7 +215,7 @@ export default function GenerateAssessmentPage() {
                             <div>
                                 <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">Generation Controls</p>
                                 <p className="mt-1 text-sm text-[var(--text-secondary)]">
-                                    Choose the instructional context first, then launch a queued generation job from the same teacher workflow surface.
+                                    Lock the class first, then generate against the subject stream that belongs to that classroom context.
                                 </p>
                             </div>
                             <button
@@ -218,6 +241,26 @@ export default function GenerateAssessmentPage() {
 
                                 <div className="grid gap-3 md:grid-cols-3">
                                     <label className="space-y-2">
+                                        <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Class</span>
+                                        {loadingClasses ? (
+                                            <div className="rounded-2xl border border-[var(--border)] bg-[rgba(8,15,30,0.72)] px-4 py-3 text-sm text-[var(--text-muted)]">
+                                                Loading classes...
+                                            </div>
+                                        ) : (
+                                            <select
+                                                value={selectedClassId}
+                                                onChange={(e) => setSelectedClassId(e.target.value)}
+                                                className="w-full rounded-2xl border border-[var(--border)] bg-[rgba(8,15,30,0.72)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--primary)]/50"
+                                            >
+                                                <option value="">Select class</option>
+                                                {classes.map((classItem) => (
+                                                    <option key={classItem.id} value={classItem.id}>{classItem.name}</option>
+                                                ))}
+                                            </select>
+                                        )}
+                                    </label>
+
+                                    <label className="space-y-2">
                                         <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Subject</span>
                                         {loadingClasses ? (
                                             <div className="rounded-2xl border border-[var(--border)] bg-[rgba(8,15,30,0.72)] px-4 py-3 text-sm text-[var(--text-muted)]">
@@ -230,14 +273,14 @@ export default function GenerateAssessmentPage() {
                                                 className="w-full rounded-2xl border border-[var(--border)] bg-[rgba(8,15,30,0.72)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--primary)]/50"
                                             >
                                                 <option value="">Select subject</option>
-                                                {allSubjects.map((subject) => (
+                                                {classSubjects.map((subject) => (
                                                     <option key={subject.id} value={subject.id}>{subject.name}</option>
                                                 ))}
                                             </select>
                                         )}
                                     </label>
 
-                                    <label className="space-y-2 md:col-span-2">
+                                    <label className="space-y-2 md:col-span-1">
                                         <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Topic</span>
                                         <input
                                             value={topic}
@@ -322,6 +365,7 @@ export default function GenerateAssessmentPage() {
                                     description="Track the current setup before or during generation."
                                 />
                                 <div className="mt-4 space-y-4">
+                                    <SummaryRow label="Selected class" value={selectedClass?.name || "None selected"} />
                                     <SummaryRow label="Selected subject" value={selectedSubjectMeta?.name || "None selected"} />
                                     <SummaryRow label="Current topic" value={topic.trim() || "No topic yet"} />
                                     <SummaryRow label="Question count" value={`${numQuestions}`} />

@@ -25,6 +25,14 @@ logger = logging.getLogger(__name__)
 _DEFERRED_REVIEW_EXECUTOR = ThreadPoolExecutor(max_workers=4, thread_name_prefix="student-review")
 
 
+def _ensure_utc_aware(value: datetime | None) -> datetime | None:
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
 def list_student_reviews(
     *,
     db: Session,
@@ -69,13 +77,13 @@ def list_student_reviews(
             "id": str(review.id),
             "topic": review.topic,
             "subject_id": str(review.subject_id) if review.subject_id else None,
-            "completed_at": str(review.updated_at),
+            "completed_at": _ensure_utc_aware(review.updated_at).isoformat() if _ensure_utc_aware(review.updated_at) else None,
             "review_count": review.review_count,
             "interval_days": review.interval_days,
         }
         for review in sorted(
             (item for item in reviews if (item.review_count or 0) > 0),
-            key=lambda item: item.updated_at or datetime.min.replace(tzinfo=timezone.utc),
+            key=lambda item: _ensure_utc_aware(item.updated_at) or datetime.min.replace(tzinfo=timezone.utc),
             reverse=True,
         )[:6]
     ]

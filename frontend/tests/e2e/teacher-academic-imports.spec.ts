@@ -76,7 +76,7 @@ test("teacher attendance page imports OCR attendance and surfaces review metadat
 
     await page.goto("/teacher/attendance");
 
-    await expect(page.getByRole("heading", { name: "Mark the register as a fast classroom workflow" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Mark Attendance" })).toBeVisible();
     await page.locator('input[type="file"]').setInputFiles({
         name: "attendance-sheet.jpg",
         mimeType: "image/jpeg",
@@ -140,7 +140,7 @@ test("teacher marks page imports OCR marks after creating an exam and surfaces r
 
     await page.goto("/teacher/marks");
 
-    await expect(page.getByRole("heading", { name: "Enter marks from one assessment control surface" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Enter Assessment Marks" })).toBeVisible();
     await page.getByPlaceholder("Exam name").fill("Photosynthesis Unit Test");
     await page.locator('input[type="file"]').setInputFiles({
         name: "marks-sheet.jpg",

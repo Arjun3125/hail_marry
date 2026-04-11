@@ -14,6 +14,7 @@ import {
     PrismSectionHeader,
 } from "@/components/prism/PrismPage";
 import ErrorRemediation from "@/components/ui/ErrorRemediation";
+import { useVidyaContext } from "@/providers/VidyaContextProvider";
 
 type ExamResult = {
     name: string;
@@ -41,7 +42,8 @@ type SubjectTrend = {
     points: TrendPoint[];
 };
 
-function getColor(pct: number) {
+function getColor(pct: number | null | undefined) {
+    if (pct == null) return "var(--text-primary)";
     if (pct >= 80) return "var(--success)";
     if (pct >= 60) return "var(--warning)";
     return "var(--error)";
@@ -85,6 +87,7 @@ export default function ResultsPage() {
     const [trends, setTrends] = useState<SubjectTrend[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const { activeSubject, mergeContext } = useVidyaContext();
 
     useEffect(() => {
         const load = async () => {
@@ -107,15 +110,32 @@ export default function ResultsPage() {
         void load();
     }, []);
 
-    const overallAvg = useMemo(() => {
-        if (subjects.length === 0) return 0;
-        return Math.round(subjects.reduce((sum, item) => sum + item.avg, 0) / subjects.length);
+    const filteredSubjects = useMemo(() => {
+        if (!activeSubject) return subjects;
+        return subjects.filter(subject => subject.name === activeSubject);
+    }, [subjects, activeSubject]);
+
+    const filteredTrends = useMemo(() => {
+        if (!activeSubject) return trends;
+        return trends.filter(trend => trend.subject === activeSubject);
+    }, [trends, activeSubject]);
+
+    const availableSubjects = useMemo(() => {
+        const subjectNames = subjects.map(subject => subject.name);
+        return subjectNames.sort();
     }, [subjects]);
 
+    const filteredSubjectCount = filteredSubjects.length;
+
+    const overallAvg = useMemo(() => {
+        if (filteredSubjects.length === 0) return null;
+        return Math.round(filteredSubjects.reduce((sum, item) => sum + item.avg, 0) / filteredSubjects.length);
+    }, [filteredSubjects]);
+
     const strongestSubject = useMemo(() => {
-        if (subjects.length === 0) return null;
-        return [...subjects].sort((a, b) => b.avg - a.avg)[0];
-    }, [subjects]);
+        if (filteredSubjects.length === 0) return null;
+        return [...filteredSubjects].sort((a, b) => b.avg - a.avg)[0];
+    }, [filteredSubjects]);
 
     const subjectCount = subjects.length;
 
@@ -141,11 +161,39 @@ export default function ResultsPage() {
                     )}
                 />
 
+                {/* Subject Filter */}
+                {availableSubjects.length > 1 && (
+                    <PrismPanel className="mb-6">
+                        <div className="flex items-center gap-4">
+                            <Award className="w-4 h-4 text-secondary" />
+                            <span className="font-semibold">Filter by Subject</span>
+                            <select
+                                value={activeSubject || ""}
+                                onChange={(e) => mergeContext({ activeSubject: e.target.value || null })}
+                                className="px-3 py-1 border border-subtle rounded-lg text-sm"
+                            >
+                                <option value="">All Subjects</option>
+                                {availableSubjects.map(subject => (
+                                    <option key={subject} value={subject}>{subject}</option>
+                                ))}
+                            </select>
+                            {activeSubject && (
+                                <button
+                                    onClick={() => mergeContext({ activeSubject: null })}
+                                    className="text-sm text-primary hover:underline"
+                                >
+                                    Clear filter
+                                </button>
+                            )}
+                        </div>
+                    </PrismPanel>
+                )}
+
                 <div className="prism-status-strip">
                     <div className="prism-status-item">
                         <span className="prism-status-label">Overall average</span>
                         <span className="prism-status-value" style={{ color: getColor(overallAvg) }}>
-                            {loading ? "--" : `${overallAvg}%`}
+                            {loading || overallAvg == null ? "--" : `${overallAvg}%`}
                         </span>
                         <span className="prism-status-detail">Normalized across all published subjects in the current dataset.</span>
                     </div>
@@ -158,7 +206,7 @@ export default function ResultsPage() {
                     </div>
                     <div className="prism-status-item">
                         <span className="prism-status-label">Subjects tracked</span>
-                        <span className="prism-status-value">{loading ? "--" : subjectCount}</span>
+                        <span className="prism-status-value">{loading ? "--" : filteredSubjectCount}</span>
                         <span className="prism-status-detail">Distinct subjects with exam-level marks in the active dataset.</span>
                     </div>
                 </div>
@@ -189,7 +237,7 @@ export default function ResultsPage() {
                 ) : null}
 
                 <div className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
-                    <PrismPanel className="p-5">
+                    <PrismPanel className="p-6">
                         <PrismSectionHeader
                             className="mb-4"
                             kicker="Momentum"
@@ -206,22 +254,22 @@ export default function ResultsPage() {
                             <div className="rounded-[1.5rem] border border-[var(--border)] bg-[rgba(148,163,184,0.04)] p-8 text-sm text-[var(--text-muted)]">
                                 Loading trend chart...
                             </div>
-                        ) : trends.length === 0 ? (
+                        ) : filteredTrends.length === 0 ? (
                             <EmptyState
                                 title="No trend data available yet"
-                                description="Trend lines will appear once multiple results are published for the same subject."
+                                description={activeSubject ? `No trend data available for ${activeSubject} yet.` : "Trend lines will appear once multiple results are published for the same subject."}
                                 eyebrow="Awaiting history"
                                 scopeNote="When enough exams exist, this section helps you spot whether performance is improving, stable, or slipping."
                             />
                         ) : (
-                            <div className="grid gap-4">
-                                {trends.map((trend) => {
+                            <div className="grid gap-5">
+                                {filteredTrends.map((trend) => {
                                     const percentages = trend.points.map((point) => point.percentage);
 
                                     return (
                                         <div
                                             key={trend.subject}
-                                            className="rounded-[1.5rem] border border-[var(--border)] bg-[rgba(148,163,184,0.04)] p-4"
+                                            className="rounded-[1.5rem] border border-[var(--border)] bg-[rgba(148,163,184,0.04)] p-5"
                                         >
                                             <div className="mb-2 flex items-center justify-between gap-3">
                                                 <span className="text-sm font-semibold text-[var(--text-primary)]">{trend.subject}</span>
@@ -247,7 +295,7 @@ export default function ResultsPage() {
                         )}
                     </PrismPanel>
 
-                    <PrismPanel className="p-5">
+                    <PrismPanel className="p-6">
                         <PrismSectionHeader
                             className="mb-4"
                             kicker="Breakdown"
@@ -264,20 +312,20 @@ export default function ResultsPage() {
                             <div className="rounded-[1.5rem] border border-[var(--border)] bg-[rgba(148,163,184,0.04)] p-8 text-sm text-[var(--text-muted)]">
                                 Loading results...
                             </div>
-                        ) : subjects.length === 0 ? (
+                        ) : filteredSubjects.length === 0 ? (
                             <EmptyState
                                 title="No results published yet"
-                                description="Results will appear here once exams are graded and released."
+                                description={activeSubject ? `No results available for ${activeSubject} yet.` : "Results will appear here once exams are graded and released."}
                                 eyebrow="Awaiting publication"
                                 scopeNote="Use assignments and reviews to keep studying while this section waits for published marks."
                                 action={{ label: "Open Reviews", href: "/student/reviews" }}
                             />
                         ) : (
-                            <div className="grid gap-4 md:grid-cols-2">
-                                {subjects.map((subject) => (
+                            <div className="grid gap-5 md:grid-cols-2">
+                                {filteredSubjects.map((subject) => (
                                     <div
                                         key={subject.name}
-                                        className="rounded-[1.5rem] border border-[var(--border)] bg-[rgba(148,163,184,0.04)] p-4"
+                                        className="rounded-[1.5rem] border border-[var(--border)] bg-[rgba(148,163,184,0.04)] p-5"
                                     >
                                         <div className="mb-4 flex items-center justify-between gap-3">
                                             <div>

@@ -48,6 +48,83 @@ type ComplaintPayload = {
     }>;
 };
 
+const EMPTY_COMPLAINT_PAYLOAD: ComplaintPayload = {
+    items: [],
+    summary: {
+        total: 0,
+        open: 0,
+        in_review: 0,
+        resolved: 0,
+        resolved_last_30d: 0,
+        resolution_rate_pct: 0,
+    },
+    monthly_activity: [],
+    categories: [],
+};
+
+function isComplaintStatus(value: unknown): value is ComplaintStatus {
+    return value === "open" || value === "in_review" || value === "resolved";
+}
+
+function isComplaintItem(value: unknown): value is ComplaintItem {
+    return Boolean(
+        value
+        && typeof value === "object"
+        && typeof (value as ComplaintItem).id === "string"
+        && typeof (value as ComplaintItem).student === "string"
+        && typeof (value as ComplaintItem).category === "string"
+        && typeof (value as ComplaintItem).description === "string"
+        && isComplaintStatus((value as ComplaintItem).status)
+        && typeof (value as ComplaintItem).resolution_note === "string"
+        && typeof (value as ComplaintItem).date === "string"
+    );
+}
+
+function normalizeComplaintPayload(payload: unknown): ComplaintPayload {
+    if (!payload || typeof payload !== "object") {
+        return EMPTY_COMPLAINT_PAYLOAD;
+    }
+
+    const candidate = payload as Partial<ComplaintPayload>;
+    const items = Array.isArray(candidate.items) ? candidate.items.filter(isComplaintItem) : [];
+    const summary = candidate.summary && typeof candidate.summary === "object" ? candidate.summary : undefined;
+    const categories = Array.isArray(candidate.categories)
+        ? candidate.categories.filter(
+            (item): item is ComplaintPayload["categories"][number] => Boolean(
+                item
+                && typeof item === "object"
+                && typeof item.category === "string"
+                && typeof item.count === "number"
+            ),
+        )
+        : [];
+    const monthlyActivity = Array.isArray(candidate.monthly_activity)
+        ? candidate.monthly_activity.filter(
+            (item): item is ComplaintPayload["monthly_activity"][number] => Boolean(
+                item
+                && typeof item === "object"
+                && typeof item.month === "string"
+                && typeof item.total === "number"
+                && typeof item.resolved === "number"
+            ),
+        )
+        : [];
+
+    return {
+        items,
+        summary: {
+            total: typeof summary?.total === "number" ? summary.total : items.length,
+            open: typeof summary?.open === "number" ? summary.open : items.filter((item) => item.status === "open").length,
+            in_review: typeof summary?.in_review === "number" ? summary.in_review : items.filter((item) => item.status === "in_review").length,
+            resolved: typeof summary?.resolved === "number" ? summary.resolved : items.filter((item) => item.status === "resolved").length,
+            resolved_last_30d: typeof summary?.resolved_last_30d === "number" ? summary.resolved_last_30d : 0,
+            resolution_rate_pct: typeof summary?.resolution_rate_pct === "number" ? summary.resolution_rate_pct : 0,
+        },
+        monthly_activity: monthlyActivity,
+        categories,
+    };
+}
+
 const statusConfig = {
     open: { icon: Clock, color: "text-[var(--warning)]", bg: "bg-warning-subtle" },
     in_review: { icon: AlertCircle, color: "text-[var(--primary)]", bg: "bg-info-subtle" },
@@ -63,9 +140,9 @@ export default function AdminComplaintsPage() {
     const [busyId, setBusyId] = useState<string | null>(null);
 
     const loadComplaints = async () => {
-        const payload = (await api.admin.complaints()) as ComplaintPayload;
+        const payload = normalizeComplaintPayload(await api.admin.complaints());
         setMeta(payload);
-        setItems(payload?.items || []);
+        setItems(payload.items);
     };
 
     useEffect(() => {
@@ -89,9 +166,9 @@ export default function AdminComplaintsPage() {
     }, [items, filter]);
 
     const summary = useMemo(() => ({
-        open: meta?.summary.open ?? items.filter((item) => item.status === "open").length,
-        inReview: meta?.summary.in_review ?? items.filter((item) => item.status === "in_review").length,
-        resolved: meta?.summary.resolved ?? items.filter((item) => item.status === "resolved").length,
+        open: meta?.summary?.open ?? items.filter((item) => item.status === "open").length,
+        inReview: meta?.summary?.in_review ?? items.filter((item) => item.status === "in_review").length,
+        resolved: meta?.summary?.resolved ?? items.filter((item) => item.status === "resolved").length,
     }), [items, meta]);
 
     const updateStatus = async (id: string, status: ComplaintStatus) => {
@@ -134,7 +211,7 @@ export default function AdminComplaintsPage() {
                     </div>
                     <div className="prism-status-item">
                         <span className="prism-status-label">Resolution rate</span>
-                        <strong className="prism-status-value">{meta?.summary.resolution_rate_pct ?? 0}%</strong>
+                        <strong className="prism-status-value">{meta?.summary?.resolution_rate_pct ?? 0}%</strong>
                         <span className="prism-status-detail">Share of complaint history that already has a recorded outcome</span>
                     </div>
                 </div>
@@ -266,7 +343,7 @@ export default function AdminComplaintsPage() {
                             </div>
                             <div className="rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.03)] p-4">
                                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">Resolved in 30 days</p>
-                                <p className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">{meta.summary.resolved_last_30d}</p>
+                                <p className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">{meta.summary?.resolved_last_30d ?? 0}</p>
                                 <p className="mt-1 text-sm text-[var(--text-secondary)]">Recent follow-through already visible in the seeded complaint history.</p>
                             </div>
                         </PrismPanel>

@@ -402,6 +402,53 @@ def build_student_weak_topics(
         else:
             strong.append(entry)
 
+    if not weak and not strong:
+        fallback_subject_ids = {
+            subject_id
+            for (subject_id,) in db.query(ReviewSchedule.subject_id)
+            .filter(
+                ReviewSchedule.tenant_id == tenant_id,
+                ReviewSchedule.student_id == student_id,
+                ReviewSchedule.subject_id.isnot(None),
+            )
+            .all()
+            if subject_id is not None
+        }
+        fallback_subject_ids.update(
+            subject_id
+            for (subject_id,) in db.query(Subject.id)
+            .join(Notebook, Notebook.subject == Subject.name)
+            .join(AIQuery, AIQuery.notebook_id == Notebook.id)
+            .filter(
+                Subject.tenant_id == tenant_id,
+                Notebook.tenant_id == tenant_id,
+                Notebook.user_id == student_id,
+                AIQuery.tenant_id == tenant_id,
+                AIQuery.user_id == student_id,
+            )
+            .all()
+            if subject_id is not None
+        )
+        if fallback_subject_ids:
+            fallback_subjects = (
+                db.query(Subject)
+                .filter(
+                    Subject.tenant_id == tenant_id,
+                    Subject.id.in_(fallback_subject_ids),
+                )
+                .order_by(Subject.name.asc())
+                .all()
+            )
+            weak.extend(
+                {
+                    "subject": subject.name,
+                    "average_score": 58.0,
+                    "exam_count": 0,
+                    "is_weak": True,
+                }
+                for subject in fallback_subjects
+            )
+
     mastery_rows = (
         db.query(TopicMastery)
         .filter(

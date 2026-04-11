@@ -141,7 +141,7 @@ export default function LeaderboardPage() {
                                 <PrismPanel className="space-y-4 p-5">
                                     <PrismSectionHeader title="My standing" description="Treat this as feedback for revision planning rather than a scorecard by itself." />
                                     <InfoTile icon={Trophy} label="Current rank" value={`#${myRank.rank}`} />
-                                    <InfoTile icon={TrendingUp} label="Percentile" value={`${myRank.percentile ?? "—"}%`} />
+                                    <InfoTile icon={TrendingUp} label="Percentile" value={myRank.percentile != null ? `${myRank.percentile}%` : "—"} />
                                     <InfoTile icon={CheckCircle2} label="Average score" value={`${myRank.pct}%`} />
                                 </PrismPanel>
                             ) : null}

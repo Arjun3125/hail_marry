@@ -8,12 +8,17 @@ import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import { LanguageProvider } from "@/i18n/LanguageProvider";
 import { LANGUAGE_COOKIE_KEY, resolveLanguage } from "@/i18n/config";
 import { BrandingProvider } from "@/components/theme/BrandingProvider";
+import { buildBrandingStyle, defaultBrandingConfig } from "@/components/theme/branding";
 import DemoToolbarWrapper from "@/components/DemoToolbarWrapper";
 import { QueryProvider } from "@/components/providers/QueryProvider";
 import { PostHogProvider } from "@/providers/PostHogProvider";
 import { PrismBackdrop } from "@/components/prism/PrismBackdrop";
+import { getServerBrandingConfig } from "@/lib/server-api";
 import { configureBoneyard, registerBones } from "boneyard-js/react";
 import { Analytics } from "@vercel/analytics/next";
+import { VidyaContextProvider } from "@/providers/VidyaContextProvider";
+import { OfflineBanner } from "@/components/OfflineBanner";
+import { LowDataAssetController } from "@/components/LowDataAssetController";
 
 configureBoneyard({
   animate: "pulse",
@@ -46,6 +51,15 @@ export default async function RootLayout({
 }>) {
   const cookieStore = await cookies();
   const initialLang = resolveLanguage(cookieStore.get(LANGUAGE_COOKIE_KEY)?.value);
+  let brandingConfig = defaultBrandingConfig;
+
+  try {
+    brandingConfig = (await getServerBrandingConfig()) ?? defaultBrandingConfig;
+  } catch (err) {
+    console.error("Failed to resolve branding config in RootLayout", err);
+  }
+
+  const brandingStyle = buildBrandingStyle(brandingConfig);
 
   return (
     <html
@@ -55,6 +69,7 @@ export default async function RootLayout({
           '"Segoe UI", Tahoma, Verdana, "Noto Sans", sans-serif',
         ["--font-display" as string]:
           'Georgia, Cambria, "Times New Roman", serif',
+        ...brandingStyle,
       }}
       suppressHydrationWarning
     >
@@ -83,11 +98,14 @@ export default async function RootLayout({
           storageKey="vidyaos-theme"
           disableTransitionOnChange
         >
-          <PostHogProvider>
+        <PostHogProvider>
+          <VidyaContextProvider>
             <LanguageProvider initialLang={initialLang}>
               <QueryProvider>
-                <BrandingProvider>
+                <BrandingProvider initialConfig={brandingConfig}>
                   <PrismBackdrop />
+                  <OfflineBanner />
+                  <LowDataAssetController />
                   <main id="main-content" className="prism-main relative z-10">
                     {children}
                   </main>
@@ -102,7 +120,8 @@ export default async function RootLayout({
                 </BrandingProvider>
               </QueryProvider>
             </LanguageProvider>
-          </PostHogProvider>
+          </VidyaContextProvider>
+        </PostHogProvider>
         </ThemeProvider>
         <script
           dangerouslySetInnerHTML={{

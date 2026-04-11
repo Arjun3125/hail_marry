@@ -2,11 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { useVidyaContext } from "@/providers/VidyaContextProvider";
 import {
     CalendarCheck,
     Check,
+    CheckCircle2,
     Clock,
     Save,
+    Send,
     Upload,
     Users,
     X,
@@ -86,6 +89,7 @@ const statusConfig: Record<
 
 export default function TeacherAttendanceClient() {
     const searchParams = useSearchParams();
+    const { activeClassId, mergeContext } = useVidyaContext();
     const [classes, setClasses] = useState<TeacherClass[]>([]);
     const [selectedClassId, setSelectedClassId] = useState("");
     const [entries, setEntries] = useState<Record<string, AttendanceStatus>>({});
@@ -95,6 +99,8 @@ export default function TeacherAttendanceClient() {
     const [importing, setImporting] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
+    const [parentNoticeQueued, setParentNoticeQueued] = useState(false);
+    const [notifyingParents, setNotifyingParents] = useState(false);
 
     const selectedClass = useMemo(
         () => classes.find((c) => c.id === selectedClassId) || null,
@@ -111,6 +117,7 @@ export default function TeacherAttendanceClient() {
         }
         return tally;
     }, [entries, selectedClass]);
+    const presentPercent = studentCount > 0 ? Math.round((attendanceCounts.present / studentCount) * 100) : 0;
 
     const initializeEntries = useCallback((students: StudentItem[]) => {
         const initial: Record<string, AttendanceStatus> = {};
@@ -170,7 +177,11 @@ export default function TeacherAttendanceClient() {
                 setClasses(list);
                 if (list.length > 0) {
                     const preferred = searchParams.get("classId");
-                    const target = preferred && list.some((cls) => cls.id === preferred) ? preferred : list[0].id;
+                    const target = preferred && list.some((cls) => cls.id === preferred)
+                        ? preferred
+                        : activeClassId && list.some((cls) => cls.id === activeClassId)
+                          ? activeClassId
+                          : list[0].id;
                     setSelectedClassId(target);
                     const selected = list.find((cls) => cls.id === target);
                     if (selected) initializeEntries(selected.students || []);
@@ -182,7 +193,7 @@ export default function TeacherAttendanceClient() {
             }
         };
         void loadClasses();
-    }, [initializeEntries, searchParams]);
+    }, [activeClassId, initializeEntries, searchParams]);
 
     useEffect(() => {
         const loadExisting = async () => {
@@ -192,6 +203,15 @@ export default function TeacherAttendanceClient() {
         };
         void loadExisting();
     }, [initializeEntries, loadAttendanceRecords, selectedClass, selectedDate]);
+
+    useEffect(() => {
+        if (!selectedClass) return;
+        mergeContext({
+            lastRole: "teacher",
+            activeClassId: selectedClass.id,
+            activeClassLabel: selectedClass.name,
+        });
+    }, [mergeContext, selectedClass]);
 
     useEffect(() => {
         if (typeof window === "undefined") return;
@@ -220,6 +240,7 @@ export default function TeacherAttendanceClient() {
             setSaving(true);
             setError(null);
             setSuccess(null);
+            setParentNoticeQueued(false);
             await api.teacher.submitAttendance({
                 class_id: selectedClass.id,
                 date: selectedDate,
@@ -228,11 +249,34 @@ export default function TeacherAttendanceClient() {
                     status: entries[student.id] || "present",
                 })),
             });
-            setSuccess(`Attendance saved for ${selectedClass.name} on ${selectedDate}.`);
+            setSuccess(`Attendance recorded for ${selectedClass.name}`);
         } catch (err) {
             setError(err instanceof Error ? err.message : "Failed to save attendance");
         } finally {
             setSaving(false);
+        }
+    };
+
+    const notifyAbsentParents = async () => {
+        if (!selectedClass) return;
+        const absentStudentIds = selectedClass.students
+            .filter((student) => (entries[student.id] || "present") === "absent")
+            .map((student) => student.id);
+        if (!absentStudentIds.length) return;
+        try {
+            setNotifyingParents(true);
+            setError(null);
+            const payload = await api.teacher.notifyAbsentParents({
+                class_id: selectedClass.id,
+                date: selectedDate,
+                absent_student_ids: absentStudentIds,
+            }) as { sent?: number; skipped?: number; failed?: number };
+            setParentNoticeQueued(true);
+            setSuccess(`WhatsApp follow-up sent to ${payload.sent || 0} parent${payload.sent === 1 ? "" : "s"}${payload.skipped ? ` • ${payload.skipped} skipped` : ""}${payload.failed ? ` • ${payload.failed} failed` : ""}`);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Failed to send WhatsApp parent follow-up");
+        } finally {
+            setNotifyingParents(false);
         }
     };
 
@@ -245,6 +289,7 @@ export default function TeacherAttendanceClient() {
             setImporting(true);
             setError(null);
             setSuccess(null);
+            setParentNoticeQueued(false);
             const formData = new FormData();
             formData.append("file", file);
             const payload = await api.teacher.importAttendanceCsv(selectedClass.id, selectedDate, formData) as AttendanceImportResponse;
@@ -267,7 +312,7 @@ export default function TeacherAttendanceClient() {
                             Teacher Attendance Workflow
                         </PrismHeroKicker>
                     )}
-                    title="Mark the register as a fast classroom workflow"
+                    title="Mark Attendance"
                     description="Choose the class, confirm the date, import OCR-led registers when needed, and keep absent or late exceptions visible without slowing down the session."
                     aside={(
                         <div className="prism-briefing-panel">
@@ -380,8 +425,41 @@ export default function TeacherAttendanceClient() {
                             ) : null}
 
                             {success ? (
-                                <div className="rounded-[var(--radius)] border border-[var(--success)]/30 bg-success-subtle px-4 py-3 text-sm text-[var(--success)]">
-                                    {success}
+                                <div className="rounded-[1.5rem] border border-[var(--success)]/30 bg-success-subtle p-4">
+                                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                                        <div className="min-w-0">
+                                            <p className="flex items-center gap-2 text-sm font-semibold text-[var(--success)]">
+                                                <CheckCircle2 className="h-4 w-4" />
+                                                {success}
+                                            </p>
+                                            <p className="mt-1 text-xs leading-5 text-[var(--text-secondary)]">
+                                                {presentPercent}% present today • {attendanceCounts.absent} absent • {attendanceCounts.late} late
+                                            </p>
+                                            <p className="mt-1 text-xs leading-5 text-[var(--text-muted)]">
+                                                Parent follow-up is available for absent students before the day closes.
+                                            </p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => void notifyAbsentParents()}
+                                            disabled={attendanceCounts.absent === 0 || parentNoticeQueued || notifyingParents}
+                                            className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[var(--success)]/30 bg-[rgba(16,185,129,0.12)] px-4 py-2.5 text-xs font-bold text-[var(--success)] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-55"
+                                        >
+                                            <Send className="h-4 w-4" />
+                                            {attendanceCounts.absent === 0
+                                                ? "No absent parent follow-up needed"
+                                                : parentNoticeQueued
+                                                  ? "WhatsApp follow-up sent"
+                                                  : notifyingParents
+                                                    ? "Sending WhatsApp..."
+                                                  : "Send WhatsApp to absent parents"}
+                                        </button>
+                                    </div>
+                                    {parentNoticeQueued ? (
+                                        <p className="mt-3 rounded-2xl border border-[var(--success)]/20 bg-[rgba(16,185,129,0.08)] px-3 py-2 text-xs leading-5 text-[var(--text-secondary)]">
+                                            Follow-up has been handed to the configured WhatsApp provider for linked parent phone numbers.
+                                        </p>
+                                    ) : null}
                                 </div>
                             ) : null}
 

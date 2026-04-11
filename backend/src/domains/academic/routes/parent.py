@@ -1,5 +1,6 @@
 """Parent-facing API routes."""
 from uuid import UUID
+from pydantic import BaseModel
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -29,6 +30,12 @@ from src.domains.academic.services.digest_email import (
     render_digest_html,
 )
 from src.domains.academic.services.report_card import generate_report_card_pdf
+from src.domains.academic.services.parent_ai_notifications import (
+    ParentAIInsightNotificationService,
+)
+from src.domains.academic.services.parent_notification_service import (
+    ParentNotificationService,
+)
 from src.domains.identity.models.user import User
 from src.domains.identity.models.tenant import Tenant
 from src.domains.platform.models.ai import AIQuery
@@ -36,6 +43,35 @@ from src.domains.platform.models.generated_content import GeneratedContent
 from src.domains.platform.models.study_session import StudySession
 
 router = APIRouter(prefix="/api/parent", tags=["Parent"])
+
+
+# ─── Pydantic Models ────────────────────────────────────────
+
+class NotificationPreferencesRequest(BaseModel):
+    """Request model for updating notification preferences."""
+    whatsapp_enabled: bool | None = None
+    sms_enabled: bool | None = None
+    email_enabled: bool | None = None
+    push_enabled: bool | None = None
+    in_app_enabled: bool | None = None
+    quiet_hours_start: str | None = None  # "22:00" format
+    quiet_hours_end: str | None = None    # "07:00" format
+    category_overrides: dict | None = None  # {"assignment_reminder": false}
+
+
+class NotificationPreferencesResponse(BaseModel):
+    """Response model for notification preferences."""
+    whatsapp_enabled: bool
+    sms_enabled: bool
+    email_enabled: bool
+    push_enabled: bool
+    in_app_enabled: bool
+    quiet_hours_start: str | None
+    quiet_hours_end: str | None
+    category_overrides: dict | None
+
+    class Config:
+        from_attributes = True
 
 
 def _parse_uuid(value: str, field_name: str) -> UUID:
@@ -207,3 +243,100 @@ async def parent_report_card(
         media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
+
+
+# ─── AI Learning Insights for Parents ────────────────────────
+
+@router.get("/ai-insights")
+async def parent_ai_insights(
+    child_id: str | None = None,
+    days: int = 7,
+    current_user: User = Depends(require_role("parent")),
+    db: Session = Depends(get_db),
+):
+    """
+    Get AI learning insights about child's recent AI Studio activity.
+    Includes study time, engagement, mastery progress, and areas for improvement.
+    """
+    child = _get_child_for_parent(current_user=current_user, db=db, child_id=child_id)
+    
+    insights = ParentAIInsightNotificationService.generate_ai_insight_summary(
+        db=db,
+        child_id=child.id,
+        days=days,
+    )
+    
+    if not insights:
+        return {
+            "total_sessions": 0,
+            "total_study_time_hours": 0.0,
+            "active_subjects": [],
+            "average_engagement": 0.0,
+            "recent_topics": [],
+            "quiz_count": 0,
+            "average_quiz_score": None,
+            "topics_to_review": [],
+            "period_days": days,
+            "message": "No AI learning sessions found in the specified period",
+        }
+    
+    return insights
+
+
+# ─── Notification Preferences ───────────────────────────────
+
+@router.get("/notification-preferences", response_model=NotificationPreferencesResponse)
+async def get_notification_preferences(
+    current_user: User = Depends(require_role("parent")),
+    db: Session = Depends(get_db),
+):
+    """
+    Get parent's notification preferences (channels, quiet hours, category toggles).
+    """
+    tenant_id = current_user.tenant_id
+    
+    prefs = ParentNotificationService.get_or_create_preferences(
+        db=db,
+        tenant_id=tenant_id,
+        parent_id=current_user.id,
+    )
+    
+    return NotificationPreferencesResponse.model_validate(prefs)
+
+
+@router.put("/notification-preferences", response_model=NotificationPreferencesResponse)
+async def update_notification_preferences(
+    request: NotificationPreferencesRequest,
+    current_user: User = Depends(require_role("parent")),
+    db: Session = Depends(get_db),
+):
+    """
+    Update parent's notification preferences.
+    
+    Example:
+        {
+            "whatsapp_enabled": true,
+            "email_enabled": false,
+            "quiet_hours_start": "22:00",
+            "quiet_hours_end": "07:00",
+            "category_overrides": {
+                "assignment_reminder": true,
+                "low_attendance": true,
+                "assessment_results": false
+            }
+        }
+    """
+    tenant_id = current_user.tenant_id
+    
+    # Filter out None values for updating only provided fields
+    update_data = {k: v for k, v in request.model_dump().items() if v is not None}
+    
+    prefs = ParentNotificationService.update_preferences(
+        db=db,
+        tenant_id=tenant_id,
+        parent_id=current_user.id,
+        **update_data,
+    )
+    
+    return NotificationPreferencesResponse.model_validate(prefs)
+
