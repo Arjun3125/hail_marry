@@ -134,7 +134,7 @@ jobs:
 
       - name: Start backend API container
         run: |
-          docker run -d --rm \
+          docker run -d \
             --name vidyaos-backend-smoke \
             -p 8080:8080 \
             -e DEMO_MODE=true \
@@ -151,6 +151,11 @@ jobs:
       - name: Wait for backend health
         run: |
           for i in $(seq 1 30); do
+            if [ "$(docker inspect -f '{{.State.Running}}' vidyaos-backend-smoke 2>/dev/null || echo false)" != "true" ]; then
+              echo "Backend container exited before becoming healthy."
+              docker logs vidyaos-backend-smoke || true
+              exit 1
+            fi
             if curl -fsS http://127.0.0.1:8080/health; then
               exit 0
             fi
@@ -169,7 +174,9 @@ jobs:
 
       - name: Stop backend container
         if: always()
-        run: docker stop vidyaos-backend-smoke || true
+        run: |
+          docker stop vidyaos-backend-smoke || true
+          docker rm vidyaos-backend-smoke || true
 
   frontend_e2e_smoke:
     name: Frontend E2E Smoke

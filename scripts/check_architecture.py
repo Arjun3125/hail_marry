@@ -20,6 +20,7 @@ ALLOWED_ROUTE_IMPORT_FILES = {
     ROOT / "backend" / "src" / "interfaces" / "http" / "identity" / "router.py",
     ROOT / "backend" / "src" / "interfaces" / "http" / "academic" / "router.py",
     ROOT / "backend" / "src" / "interfaces" / "http" / "administrative" / "router.py",
+    ROOT / "backend" / "src" / "interfaces" / "http" / "mascot" / "router.py",
     ROOT / "backend" / "src" / "interfaces" / "http" / "platform" / "router.py",
     ROOT / "backend" / "src" / "interfaces" / "whatsapp" / "router.py",
 }

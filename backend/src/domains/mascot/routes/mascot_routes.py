@@ -17,11 +17,8 @@ from src.domains.mascot.models.personality_profile import PersonalityProfilePubl
 from src.domains.mascot.models.signals import ProfileSignalRead
 from src.domains.mascot.services.memory_manager import get_or_create_memory
 from src.domains.mascot.services.profile_manager import get_or_create_profile, promote_signals_to_profile
-from src.domains.mascot.routes.chat_route import router as chat_router
 
 router = APIRouter()
-
-router.include_router(chat_router, prefix="", tags=["mascot"])
 
 
 @router.get("/memory/{student_id}", response_model=MascotMemoryRead)

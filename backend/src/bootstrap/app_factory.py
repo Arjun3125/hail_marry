@@ -43,9 +43,6 @@ def get_db_session():
     yield from get_db()
 
 
-from src.domains.mascot.routes.mascot_routes import router as mascot_router
-
-
 def create_app() -> FastAPI:
     configure_application_logging(service_name="vidyaos-api")
     container = build_runtime_container()
@@ -140,6 +137,8 @@ def _register_system_routes(app: FastAPI) -> None:
 
 
 def _register_routers(app: FastAPI) -> None:
+    from src.interfaces.http.mascot.router import router as mascot_router
+
     app.include_router(identity_router)
     app.include_router(academic_router)
     app.include_router(administrative_router)

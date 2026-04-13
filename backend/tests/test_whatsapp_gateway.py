@@ -2042,7 +2042,8 @@ class TestMediaIngestion:
              patch("src.infrastructure.vector_store.ingestion.ingest_youtube", return_value=fake_chunks) as ingest_youtube_mock, \
              patch("src.infrastructure.llm.providers.get_embedding_provider", return_value=embedding_provider), \
              patch("src.infrastructure.llm.providers.get_vector_store_provider", return_value=vector_store), \
-             patch("src.domains.platform.services.whatsapp_gateway.invalidate_tenant_cache"):
+             patch("src.domains.platform.services.whatsapp_gateway.invalidate_tenant_cache"), \
+             patch("src.interfaces.rest_api.ai.discovery_workflows.is_safe_url", return_value=True):
             result = await _ingest_whatsapp_url(
                 db,
                 user_id=user_id,
