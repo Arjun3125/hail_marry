@@ -51,12 +51,25 @@ def _check_http_health(url: str, *, timeout_seconds: int) -> tuple[bool, str]:
 
 
 def _service_checks(service_name: str) -> dict[str, tuple[bool, str]]:
+    import os
+    
     timeout = settings.startup_checks.timeout_seconds
     checks: dict[str, tuple[bool, str]] = {
         "database": _check_database(),
     }
 
-    redis_required = service_name == "worker" or settings.ai_queue.enabled
+    # Determine if Redis is required
+    # - Worker services always require Redis
+    # - AI queue services require Redis
+    # - API servers in production (any non-dev environment) require Redis for distributed rate limiting
+    app_env = os.getenv("APP_ENV", "production").lower()
+    is_production = app_env not in ("local", "development", "test")
+    redis_required = (
+        service_name == "worker" 
+        or settings.ai_queue.enabled
+        or (service_name in ("api", "api-server") and is_production)
+    )
+    
     if redis_required:
         checks["redis"] = _check_redis()
 

@@ -22,6 +22,8 @@ except ModuleNotFoundError:  # Lightweight test environments
 
 from sqlalchemy import desc
 
+import threading
+
 from config import settings
 from database import SessionLocal
 from src.domains.platform.models.ai_job import AIJob, AIJobEvent
@@ -53,6 +55,8 @@ from src.domains.platform.services.metrics_registry import observe_stage_latency
 from src.domains.platform.services.notifications import add_notification
 from src.domains.platform.services.telemetry import extract_context_from_traceparent, get_current_traceparent, get_tracer
 
+# Thread-safe Redis connection management
+_redis_lock = threading.RLock()  # RLock allows recursive acquisition
 _redis = None
 _redis_available = None
 _redis_url = None
@@ -164,49 +168,87 @@ def _get_redis_client():
         or settings.redis.broker_url
     )
 
-    if _redis_url != redis_url:
-        reset_redis_client()
-        _redis_url = redis_url
-
-    should_retry = (
-        _redis_available is None
-        or (_redis_available is False and (_redis_failed_at is None or (time.time() - _redis_failed_at) > RETRY_INTERVAL_SECONDS))
-    )
-    if should_retry:
-        try:
-            import redis as redis_lib
-
-            _redis = redis_lib.from_url(redis_url, decode_responses=True, socket_connect_timeout=1, socket_timeout=1)
-            _redis.ping()
-            _redis_available = True
+    with _redis_lock:
+        if _redis_url != redis_url:
+            reset_redis_client()
             _redis_url = redis_url
-            _redis_failed_at = None
-        except Exception:
-            _redis = None
-            _redis_available = False
-            _redis_url = redis_url
-            _redis_failed_at = time.time()
 
-    return _redis if _redis_available else None
+        should_retry = (
+            _redis_available is None
+            or (_redis_available is False and (_redis_failed_at is None or (time.time() - _redis_failed_at) > RETRY_INTERVAL_SECONDS))
+        )
+        if should_retry:
+            try:
+                import redis as redis_lib
+
+                _redis = redis_lib.from_url(redis_url, decode_responses=True, socket_connect_timeout=1, socket_timeout=1)
+                _redis.ping()
+                _redis_available = True
+                _redis_url = redis_url
+                _redis_failed_at = None
+            except Exception:
+                _redis = None
+                _redis_available = False
+                _redis_url = redis_url
+                _redis_failed_at = time.time()
+
+        return _redis if _redis_available else None
 
 
 def reset_redis_client() -> None:
     global _redis, _redis_available, _redis_url, _redis_failed_at
 
-    if _redis is not None:
-        try:
-            _redis.close()
-        except Exception:
-            pass
-        try:
-            _redis.connection_pool.disconnect()
-        except Exception:
-            pass
+    with _redis_lock:
+        if _redis is not None:
+            try:
+                _redis.close()
+            except Exception:
+                pass
+            try:
+                _redis.connection_pool.disconnect()
+            except Exception:
+                pass
 
-    _redis = None
-    _redis_available = None
-    _redis_url = None
-    _redis_failed_at = None
+        _redis = None
+        _redis_available = None
+        _redis_url = None
+        _redis_failed_at = None
+
+
+def _enqueue_to_database(job: dict[str, Any]) -> None:
+    """Fallback: Persist job to database when Redis is unavailable."""
+    db = SessionLocal()
+    try:
+        db_job = AIJob(
+            id=uuid.UUID(job["job_id"]),
+            tenant_id=uuid.UUID(job["tenant_id"]),
+            user_id=uuid.UUID(job["user_id"]) if job["user_id"] else None,
+            job_type=job["job_type"],
+            status=job["status"],
+            trace_id=job["trace_id"],
+            priority=job["priority"],
+            attempts=job["attempts"],
+            max_retries=job["max_retries"],
+            worker_id=None,
+            request_payload=job["request"],
+            error=None,
+            created_at=datetime.fromisoformat(job["created_at"].replace("Z", "+00:00")) if isinstance(job["created_at"], str) else job["created_at"],
+        )
+        db.add(db_job)
+        db.commit()
+        logger.info(f"Job {job['job_id']} persisted to database (Redis unavailable)")
+    except Exception as e:
+        logger.error(f"Failed to persist job to database: {e}")
+        db.rollback()
+    finally:
+        db.close()
+
+
+def _get_queue_client_with_fallback():
+    """Get Redis client or None if unavailable (fallback to database)."""
+    if not settings.ai_queue.enabled:
+        raise HTTPException(status_code=503, detail="AI job queue is disabled.")
+    return _get_redis_client()
 
 
 def _require_queue_client():
@@ -758,8 +800,8 @@ def enqueue_job(
     trace_id: str | None = None,
     source: str = "api",
 ) -> dict[str, Any]:
-    client = _require_queue_client()
-    _ensure_capacity(client, tenant_id)
+    if not settings.ai_queue.enabled:
+        raise HTTPException(status_code=503, detail="AI job queue is disabled.")
 
     job_id = str(uuid.uuid4())
     now = _utcnow_iso()
@@ -787,20 +829,31 @@ def enqueue_job(
         "events": [],
     }
     _append_event(job, "job.enqueued", source, f"Queued {job_type} with priority {job['priority']}")
-
     _persist_job_state(job)
 
-    pipe = client.pipeline()
-    pipe.setex(_job_key(job_id), settings.ai_queue.result_ttl_seconds, _serialize_job(job))
-    pipe.zadd(_user_index_key(user_id), {job_id: created_score})
-    pipe.expire(_user_index_key(user_id), settings.ai_queue.result_ttl_seconds)
-    pipe.zadd(_tenant_index_key(tenant_id), {job_id: created_score})
-    pipe.zadd(_tenant_queue_key(tenant_id), {job_id: _priority_score(job_type)})
-    pipe.execute()
+    # Try Redis first, fallback to database if unavailable
+    client = _get_queue_client_with_fallback()
+    if client:
+        try:
+            _ensure_capacity(client, tenant_id)
+            pipe = client.pipeline()
+            pipe.setex(_job_key(job_id), settings.ai_queue.result_ttl_seconds, _serialize_job(job))
+            pipe.zadd(_user_index_key(user_id), {job_id: created_score})
+            pipe.expire(_user_index_key(user_id), settings.ai_queue.result_ttl_seconds)
+            pipe.zadd(_tenant_index_key(tenant_id), {job_id: created_score})
+            pipe.zadd(_tenant_queue_key(tenant_id), {job_id: _priority_score(job_type)})
+            pipe.execute()
+            _register_ready_tenant(client, tenant_id)
+            _metric_incr(client, tenant_id, "pending_depth", 1)
+            _metric_incr(client, tenant_id, "tracked_jobs_total", 1)
+            logger.info(f"Job {job_id} enqueued to Redis")
+        except Exception as e:
+            logger.warning(f"Failed to enqueue to Redis, using database fallback: {e}")
+            _enqueue_to_database(job)
+    else:
+        logger.warning(f"Redis unavailable, using database fallback for job {job_id}")
+        _enqueue_to_database(job)
 
-    _register_ready_tenant(client, tenant_id)
-    _metric_incr(client, tenant_id, "pending_depth", 1)
-    _metric_incr(client, tenant_id, "tracked_jobs_total", 1)
     _record_audit_event(job, "ai_job.enqueued", actor_user_id=user_id, detail=source)
     return build_public_job_response(job)
 
@@ -939,6 +992,65 @@ def recover_processing_jobs() -> int:
         _append_event(job, "worker.recovered", "worker", "Recovered after worker restart")
         save_job(job)
         recovered += 1
+
+
+def sync_database_jobs_to_redis() -> int:
+    """Sync database-persisted jobs (from Redis downtime) back to Redis queue."""
+    client = _get_queue_client_with_fallback()
+    if not client:
+        logger.warning("Redis still unavailable, cannot sync database backlog")
+        return 0
+    
+    db = SessionLocal()
+    synced = 0
+    try:
+        # Find all queued jobs in database that are not in Redis
+        pending_jobs = db.query(AIJob).filter(
+            AIJob.status == STATUS_QUEUED
+        ).all()
+        
+        for db_job in pending_jobs:
+            job_id = str(db_job.id)
+            # Check if job already in Redis
+            if client.exists(_job_key(job_id)):
+                continue
+            
+            # Reconstruct job dict and add to Redis
+            job = {
+                "job_id": job_id,
+                "job_type": db_job.job_type,
+                "priority": db_job.priority or _job_priority(db_job.job_type),
+                "trace_id": db_job.trace_id,
+                "status": STATUS_QUEUED,
+                "tenant_id": str(db_job.tenant_id),
+                "user_id": str(db_job.user_id) if db_job.user_id else None,
+                "worker_id": None,
+                "request": db_job.request_payload or {},
+                "created_at": db_job.created_at.isoformat() if db_job.created_at else _utcnow_iso(),
+                "updated_at": _utcnow_iso(),
+            }
+            
+            # Add to Redis
+            tenant_id = str(db_job.tenant_id)
+            pipe = client.pipeline()
+            pipe.setex(_job_key(job_id), settings.ai_queue.result_ttl_seconds, _serialize_job(job))
+            pipe.zadd(_tenant_index_key(tenant_id), {job_id: time.time()})
+            pipe.zadd(_tenant_queue_key(tenant_id), {job_id: _priority_score(db_job.job_type)})
+            pipe.execute()
+            
+            _register_ready_tenant(client, tenant_id)
+            _metric_incr(client, tenant_id, "pending_depth", 1)
+            synced += 1
+            logger.info(f"Synced pending job {job_id} from database to Redis")
+        
+        if synced > 0:
+            logger.info(f"Synced {synced} jobs from database backlog to Redis")
+    except Exception as e:
+        logger.error(f"Error syncing database backlog: {e}")
+    finally:
+        db.close()
+    
+    return synced
 
 
 async def _execute_job(job: dict[str, Any]) -> dict[str, Any]:

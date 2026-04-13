@@ -281,15 +281,15 @@ test("Verify demo role entry points load current dashboards", async ({ page }) =
 
     await page.getByRole("button", { name: /Student/i }).first().click();
     await page.waitForURL("**/student/overview");
-    await expect(page.getByRole("heading", { name: /Your academic day, organized for action/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Open VidyaOS and know what to do next/i })).toBeVisible();
 
     await page.goto("/demo");
     await page.getByRole("button", { name: /Teacher/i }).first().click();
     await page.waitForURL("**/teacher/dashboard");
-    await expect(page.getByRole("heading", { name: /Run the school day from one teaching desk/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Guide the day, not the dashboard/i })).toBeVisible();
 
     await page.goto("/demo");
     await page.getByRole("button", { name: /Admin/i }).first().click();
     await page.waitForURL("**/admin/dashboard");
-    await expect(page.getByRole("heading", { name: /Run school health from a calm academic control surface/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /See school health in one screen before you drill down/i })).toBeVisible();
 });

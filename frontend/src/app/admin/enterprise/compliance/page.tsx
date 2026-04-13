@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Download, Settings, ShieldCheck, Trash2 } from "lucide-react";
 import { PrismHeroKicker, PrismPage, PrismPageIntro, PrismSection } from "@/components/prism/PrismPage";
 import { api } from "@/lib/api";
+import { logger } from "@/lib/logger";
 
 type ComplianceSettings = {
     data_retention_days: number;
@@ -58,7 +59,7 @@ export default function CompliancePage() {
             setExports(exportData || []);
             setDeletions(deletionData || []);
         } catch (err) {
-            console.error("Failed to load compliance data", err);
+            logger.error("Failed to load compliance data", err as Error);
             setError("Failed to load compliance data.");
         } finally {
             setLoading(false);
@@ -75,7 +76,7 @@ export default function CompliancePage() {
             await api.enterprise.createComplianceExport({ scope_type: "tenant" });
             await load();
         } catch (err) {
-            console.error("Failed to queue export", err);
+            logger.error("Failed to queue export", err as Error);
             setError("Failed to queue compliance export.");
         } finally {
             setSaving(false);
@@ -98,7 +99,7 @@ export default function CompliancePage() {
             setTargetUserId("");
             await load();
         } catch (err) {
-            console.error("Failed to create deletion request", err);
+            logger.error("Failed to create deletion request", err as Error);
             setError("Failed to create deletion request.");
         } finally {
             setSaving(false);
@@ -114,7 +115,7 @@ export default function CompliancePage() {
             await api.enterprise.resolveDeletionRequest(id, note);
             await load();
         } catch (err) {
-            console.error("Failed to resolve deletion request", err);
+            logger.error("Failed to resolve deletion request", err as Error);
             setError("Failed to resolve deletion request.");
         } finally {
             setSaving(false);
@@ -127,7 +128,7 @@ export default function CompliancePage() {
             await api.enterprise.updateComplianceSettings(settings);
             await load();
         } catch (err) {
-            console.error("Failed to update compliance settings", err);
+            logger.error("Failed to update compliance settings", err as Error);
             setError("Failed to save retention settings.");
         } finally {
             setSaving(false);

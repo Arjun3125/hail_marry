@@ -1,4 +1,7 @@
+// @ts-ignore - Playwright types are installed in frontend workspace
 import { defineConfig, devices } from '@playwright/test';
+
+declare const process: any;
 
 /**
  * @see https://playwright.dev/docs/test-configuration
@@ -13,6 +16,9 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   /* Opt out of parallel tests on CI. */
   workers: process.env.CI ? 1 : undefined,
+  /* Global setup and teardown for backend management */
+  globalSetup: process.env.DEMO_MODE !== 'true' ? './playwright.global-setup.ts' : undefined,
+  globalTeardown: process.env.DEMO_MODE !== 'true' ? './playwright.global-teardown.ts' : undefined,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: [
     ['html'],
@@ -79,9 +85,14 @@ export default defineConfig({
 
   /* Run your local dev server before starting the tests */
   webServer: {
-    command: 'npm run dev',
+    command: process.env.DEMO_MODE ? 'npm run dev' : 'npm run dev',
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000,
+    env: {
+      ...process.env,
+      NEXT_PUBLIC_API_URL: process.env.DEMO_MODE ? 'http://127.0.0.1:3000/api' : 'http://127.0.0.1:8000',
+      API_ORIGIN: process.env.DEMO_MODE ? 'http://127.0.0.1:3000/api' : 'http://127.0.0.1:8000',
+    } as Record<string, string>,
   },
 });

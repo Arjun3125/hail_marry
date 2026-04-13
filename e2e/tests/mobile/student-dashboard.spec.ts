@@ -1,7 +1,7 @@
 import { test, expect } from '../../fixtures/auth';
 
 test.describe('Student Dashboard - Mobile (360px)', () => {
-  test('should load dashboard without horizontal scroll', async ({ studentPage }) => {
+  test('should load dashboard without horizontal scroll', async ({ studentPage }: any) => {
     // Check viewport size
     const viewport = studentPage.viewportSize();
     expect(viewport?.width).toBe(360);
@@ -20,23 +20,23 @@ test.describe('Student Dashboard - Mobile (360px)', () => {
     expect(scrollWidth).toBeLessThanOrEqual(360);
   });
 
-  test('should have readable text sizes', async ({ studentPage }) => {
+  test('should have readable text sizes', async ({ studentPage }: any) => {
     // Check main heading
     const heading = studentPage.locator('h1, h2').first();
-    const fontSize = await heading.evaluate((el) => {
+    const fontSize = await heading.evaluate((el: HTMLElement) => {
       return parseFloat(getComputedStyle(el).fontSize);
     });
     expect(fontSize).toBeGreaterThanOrEqual(16); // Minimum readable size
 
     // Check body text
     const bodyText = studentPage.locator('p, span, div').filter({ hasText: /.+/ }).first();
-    const bodyFontSize = await bodyText.evaluate((el) => {
+    const bodyFontSize = await bodyText.evaluate((el: HTMLElement) => {
       return parseFloat(getComputedStyle(el).fontSize);
     });
     expect(bodyFontSize).toBeGreaterThanOrEqual(14);
   });
 
-  test('should have touch-friendly button sizes', async ({ studentPage }) => {
+  test('should have touch-friendly button sizes', async ({ studentPage }: any) => {
     const buttons = studentPage.locator('button, [role="button"]');
 
     for (const button of await buttons.all()) {
@@ -49,7 +49,7 @@ test.describe('Student Dashboard - Mobile (360px)', () => {
     }
   });
 
-  test('should display key dashboard elements', async ({ studentPage }) => {
+  test('should display key dashboard elements', async ({ studentPage }: any) => {
     // Check for attendance card
     await expect(studentPage.locator('text=/attendance|present/i')).toBeVisible();
 
@@ -60,7 +60,7 @@ test.describe('Student Dashboard - Mobile (360px)', () => {
     await expect(studentPage.locator('text=/assignment|homework|result/i')).toBeVisible();
   });
 
-  test('should navigate to assignments page', async ({ studentPage }) => {
+  test('should navigate to assignments page', async ({ studentPage }: any) => {
     // Click assignments navigation
     await studentPage.locator('a, button').filter({ hasText: /assignment/i }).first().click();
 
@@ -68,7 +68,7 @@ test.describe('Student Dashboard - Mobile (360px)', () => {
     await expect(studentPage).toHaveURL(/.*assignments.*/);
   });
 
-  test('should handle sidebar navigation on mobile', async ({ studentPage }) => {
+  test('should handle sidebar navigation on mobile', async ({ studentPage }: any) => {
     // Check if sidebar toggle exists (hamburger menu)
     const sidebarToggle = studentPage.locator('[aria-label*="menu"], .hamburger, .sidebar-toggle').first();
 

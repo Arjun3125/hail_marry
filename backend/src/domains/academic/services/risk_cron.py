@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
+from typing import Any
 from uuid import UUID
 
 from database import SessionLocal
@@ -11,7 +12,7 @@ from src.domains.academic.models.student_profile import StudentProfile
 from src.domains.administrative.models.fee import FeeInvoice
 from src.domains.platform.services.telemetry_events import record_business_event
 
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
 
 def _normalize_datetime(value: datetime | None) -> datetime | None:
@@ -23,7 +24,7 @@ def _normalize_datetime(value: datetime | None) -> datetime | None:
 
 
 def _review_gap_days(profile: StudentProfile, *, now: datetime) -> int | None:
-    last_review_at = _normalize_datetime(profile.last_review_at)
+    last_review_at: datetime | None = _normalize_datetime(profile.last_review_at)
     if last_review_at is None:
         return None
     return max((now - last_review_at).days, 0)
@@ -33,7 +34,7 @@ def _compute_dropout_risk(profile: StudentProfile, *, now: datetime) -> str:
     attendance_pct = float(profile.attendance_pct or 0.0)
     absent_streak = int(profile.absent_streak or 0)
     current_streak_days = int(profile.current_streak_days or 0)
-    review_gap_days = _review_gap_days(profile, now=now)
+    review_gap_days: int | None = _review_gap_days(profile, now=now)
 
     if absent_streak >= 5 or attendance_pct < 60.0:
         return "high"
@@ -47,7 +48,7 @@ def _compute_dropout_risk(profile: StudentProfile, *, now: datetime) -> str:
 def _compute_academic_risk(profile: StudentProfile, *, now: datetime) -> str:
     score = profile.overall_score_pct
     total_reviews_completed = int(profile.total_reviews_completed or 0)
-    review_gap_days = _review_gap_days(profile, now=now)
+    review_gap_days: int | None = _review_gap_days(profile, now=now)
 
     if score is None:
         if review_gap_days is not None and review_gap_days >= 30 and total_reviews_completed == 0:
@@ -79,8 +80,8 @@ def _compute_fee_risk(*, db, profile: StudentProfile, now: datetime) -> tuple[st
         for invoice in overdue_rows
         if (_normalize_datetime(invoice.due_date) or now) < now
     ]
-    overdue_count = len(overdue_rows)
-    overdue_amount = round(
+    overdue_count: int = len(overdue_rows)
+    overdue_amount: float = round(
         sum(
             max(float(invoice.amount_due or 0.0) - float(invoice.amount_paid or 0.0), 0.0)
             for invoice in overdue_rows
@@ -99,7 +100,7 @@ def compute_student_risks(tenant_id: UUID | None = None) -> int:
     """Scan student profiles and compute actionable risk flags."""
     db = SessionLocal()
     updated_count = 0
-    now = datetime.now(timezone.utc)
+    now: datetime = datetime.now(timezone.utc)
 
     try:
         query = db.query(StudentProfile)
@@ -108,13 +109,13 @@ def compute_student_risks(tenant_id: UUID | None = None) -> int:
 
         profiles = query.all()
         for profile in profiles:
-            prior_risks = {
+            prior_risks: dict[str, Any | str] = {
                 "dropout_risk": profile.dropout_risk or "low",
                 "academic_risk": profile.academic_risk or "low",
                 "fee_risk": profile.fee_risk or "low",
             }
-            dropout_risk = _compute_dropout_risk(profile, now=now)
-            academic_risk = _compute_academic_risk(profile, now=now)
+            dropout_risk: str = _compute_dropout_risk(profile, now=now)
+            academic_risk: str = _compute_academic_risk(profile, now=now)
             fee_risk, overdue_count, overdue_amount = _compute_fee_risk(db=db, profile=profile, now=now)
 
             profile.dropout_risk = dropout_risk
@@ -122,7 +123,7 @@ def compute_student_risks(tenant_id: UUID | None = None) -> int:
             profile.fee_risk = fee_risk
             profile.last_computed_at = now
 
-            changed = prior_risks != {
+            changed: bool = prior_risks != {
                 "dropout_risk": dropout_risk,
                 "academic_risk": academic_risk,
                 "fee_risk": fee_risk,

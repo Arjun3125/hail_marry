@@ -49,7 +49,7 @@ test.describe("AI Studio - Mobile (360px)", { tag: "@mobile @ai-studio" }, () =>
 
     test("AI Studio loads without horizontal scroll", async ({ page }) => {
         await page.goto("/student/ai-studio");
-        await expect(page).toHaveTitle(/ai|studio|learning/i);
+        await expect(page).toHaveTitle(/VidyaOS/i);
         await expectNoHorizontalScroll(page);
     });
 
@@ -188,11 +188,11 @@ test.describe("AI Studio - Desktop (1280px)", { tag: "@desktop @ai-studio" }, ()
         await page.setViewportSize({ width: 1280, height: 720 });
         await page.goto("/student/ai-studio");
 
-        await expect(page).toHaveTitle(/ai|studio/i);
+        await expect(page).toHaveTitle(/VidyaOS/i);
         await expectNoHorizontalScroll(page);
 
         // Desktop should have full sidebar
-        const sidebar = await page.locator("nav, aside").isVisible();
+        const sidebar = await page.locator("nav, aside").first().isVisible();
         expect(sidebar).toBeTruthy();
     });
 });

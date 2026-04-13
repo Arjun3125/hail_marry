@@ -202,7 +202,7 @@ test.describe("Mobile performance budgets", () => {
         });
 
         await page.goto("/student/overview", { waitUntil: "load" });
-        await expect(page.getByRole("heading", { name: /Your academic day, organized for action/i })).toBeVisible();
+        await expect(page.getByRole("heading", { name: /Open VidyaOS and know what to do next/i })).toBeVisible({ timeout: 15000 });
 
         const metrics = await readNavigationMetrics(page);
 

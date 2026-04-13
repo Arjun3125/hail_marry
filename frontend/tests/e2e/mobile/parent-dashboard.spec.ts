@@ -58,7 +58,7 @@ test.describe("Parent Dashboard - Mobile (360px)", { tag: "@mobile @parent" }, (
 
     test("parent dashboard loads without horizontal scroll", async ({ page }) => {
         await page.goto("/parent/dashboard");
-        await expect(page).toHaveTitle(/parent|dashboard/i);
+        await expect(page).toHaveTitle(/parent|dashboard|VidyaOS/i);
         await expectNoHorizontalScroll(page);
     });
 
@@ -200,7 +200,7 @@ test.describe("Parent Dashboard - Desktop (1280px)", { tag: "@desktop @parent" }
         await page.setViewportSize({ width: 1280, height: 720 });
         await page.goto("/parent/dashboard");
 
-        await expect(page).toHaveTitle(/parent|dashboard/i);
+        await expect(page).toHaveTitle(/parent|dashboard|VidyaOS/i);
         await expectNoHorizontalScroll(page);
     });
 });

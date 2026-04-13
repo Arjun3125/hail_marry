@@ -21,7 +21,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from database import SessionLocal
 from constants import STUDENT_ALLOWED_EXTENSIONS, STUDENT_MAX_FILE_SIZE, TEACHER_ALLOWED_EXTENSIONS, TEACHER_MAX_FILE_SIZE
 from src.domains.academic.models.attendance import Attendance
-from src.domains.academic.models.assignment import Assignment
 from src.domains.academic.models.core import Class, Enrollment, Subject
 from src.domains.academic.models.marks import Exam, Mark
 from src.domains.academic.models.parent_link import ParentLink
@@ -29,18 +28,16 @@ from src.domains.academic.models.timetable import Timetable
 from src.domains.identity.application.passwords import hash_password
 from src.domains.identity.models.user import User
 from src.domains.identity.models.tenant import Tenant
+from src.domains.platform.models.ai import AIQuery
 from src.domains.platform.models.document import Document
 from src.domains.platform.models.generated_content import GeneratedContent
 from src.domains.platform.models.notebook import Notebook
-from src.domains.platform.models.ai import AIQuery
 from src.domains.platform.models.audit import AuditLog
-from src.domains.platform.schemas.ai_runtime import InternalAIQueryRequest, InternalIngestURLRequest, InternalStudyToolGenerateRequest
-from src.domains.platform.services.ai_gateway import run_study_tool, run_text_query, run_url_ingestion
 from src.domains.platform.services.mascot_registry import capability_requires_confirmation, get_capability, is_capability_allowed, resolve_navigation_target
 from src.domains.platform.services.mascot_schemas import MascotAction, MascotMessageRequest, MascotMessageResponse, PendingMascotAction
+from src.domains.platform.services.action_handlers import ActionExecutionContext, get_action_handler_factory
 from src.domains.platform.services.mascot_session_store import build_session_id, clear_session, delete_pending_action, load_pending_action, load_session, mutation_seen_recently, remember_mutation, save_session, store_pending_action
 from src.domains.platform.services.metrics_registry import observe_stage_latency
-from src.domains.platform.services.background_runtime import submit_async_job
 from src.domains.platform.services.notification_dispatch import dispatch_notification
 from src.domains.platform.services.study_path_service import get_or_create_study_path
 from src.domains.platform.services import (
@@ -50,6 +47,14 @@ from src.domains.platform.services.trace_backend import record_trace_event
 from src.shared.ocr_imports import extract_upload_content_result, get_extension, parse_account_rows_with_diagnostics, parse_attendance_rows_with_diagnostics, parse_marks_rows_with_diagnostics, parse_student_import_rows_with_diagnostics
 from src.infrastructure.llm.providers import get_llm_provider
 from utils.upload_security import UploadValidationError, ensure_storage_dir, sanitize_docx_bytes
+
+# Re-exports: action_handlers and tests import these from mascot_orchestrator
+from src.domains.platform.services.ai_gateway import (  # noqa: F401
+    run_study_tool,
+    run_text_query,
+    run_url_ingestion,
+)
+from src.domains.platform.services.background_runtime import submit_async_job  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
@@ -1000,54 +1005,121 @@ async def _execute_actions(
     trace_id: str,
     allow_high_risk: bool = False,
 ) -> MascotMessageResponse:
+    """
+    Execute resolved actions using Strategy Pattern.
+    
+    Refactored to use ActionHandlerFactory instead of 700+ lines of if-branches.
+    
+    This method:
+    1. Prepares execution context with session, request, and resolved actions
+    2. Validates capability allowance for each action
+    3. Delegates to appropriate handler via factory
+    4. Aggregates results, artifacts, and reply parts
+    5. Returns unified MascotMessageResponse
+    """
+    # ========== STRATEGY PATTERN SETUP: IMPORT FACTORY ==========
+
+    # ========== CONTEXT SETUP ==========
     notebook_hint = _notebook_name(translated_message)
     active_notebook = await _resolve_notebook(session, request, notebook_hint)
     explicit_notebook_target = _explicit_notebook_target(request)
     notebook_candidates: list[Notebook] = []
     if notebook_hint:
         notebook_candidates = await _find_notebook_candidates(session, request, notebook_hint)
-    results: list[MascotAction] = []
-    artifacts: list[dict[str, Any]] = []
-    navigation: dict[str, Any] | None = None
-    reply_parts: list[str] = []
-    requires_confirmation = False
-    confirmation_id: str | None = None
+    
+    # Initialize execution context with shared state
+    context = ActionExecutionContext(
+        session=session,
+        request=request,
+        active_notebook=active_notebook,
+        normalized_message=normalized_message,
+        translated_message=translated_message,
+        trace_id=trace_id,
+        allow_high_risk=allow_high_risk,
+    )
+    
+    # Track overall intent
     intent = resolved_actions[-1]["intent"] if resolved_actions else "query"
-
+    
+    # Get handler factory
+    factory = get_action_handler_factory()
+    
+    # ========== ACTION PROCESSING LOOP ==========
     for action in resolved_actions:
-        capability_key = action["intent"] if action["intent"] != "query" else ("ask_ai_question" if action.get("mode", "qa") == "qa" else action.get("mode", "qa"))
+        # --- Capability and Permission Checks (Pre-handler) ---
+        capability_key = action["intent"] if action["intent"] != "query" else (
+            "ask_ai_question" if action.get("mode", "qa") == "qa" else action.get("mode", "qa")
+        )
         if action["intent"] == "study_tool":
             capability_key = action["tool"]
-
-        if capability_key and get_capability(capability_key) and not is_capability_allowed(capability_key, request.role or "student", request.channel):
-            results.append(MascotAction(kind=action["kind"], status="failed", payload=action, result_summary="This action is not available for your account."))
-            reply_parts.append("That action is not available for your account.")
+        
+        if capability_key and get_capability(capability_key) and not is_capability_allowed(
+            capability_key, request.role or "student", request.channel
+        ):
+            context.results.append(
+                MascotAction(
+                    kind=action["kind"],
+                    status="failed",
+                    payload=action,
+                    result_summary="This action is not available for your account.",
+                )
+            )
+            context.reply_parts.append("That action is not available for your account.")
             continue
-
+        
+        # --- Clarification Checks (Pre-handler) ---
         if action["intent"] == "clarify_request":
-            results.append(MascotAction(kind="clarify", status="needs_input", payload=action, result_summary="The request needs a clearer instruction."))
-            if action.get("reason") == "multiple_study_tools":
-                reply_parts.append("Choose one format first: quiz, flashcards, mind map, flowchart, or concept map.")
-            elif action.get("reason") == "multiple_navigation_targets":
-                reply_parts.append("Tell me one page at a time: upload, attendance, marks, setup wizard, or dashboard.")
-            else:
-                reply_parts.append("Tell me a bit more clearly what you want me to do.")
-            break
-
-        if notebook_hint and len(notebook_candidates) > 1 and action["intent"] in {"query", "study_tool", "content_ingest", "notebook_update"}:
-            results.append(
+            context.results.append(
                 MascotAction(
                     kind="clarify",
                     status="needs_input",
-                    payload={"notebook_hint": notebook_hint, "candidates": [item.name for item in notebook_candidates[:5]]},
+                    payload=action,
+                    result_summary="The request needs a clearer instruction.",
+                )
+            )
+            if action.get("reason") == "multiple_study_tools":
+                context.reply_parts.append(
+                    "Choose one format first: quiz, flashcards, mind map, flowchart, or concept map."
+                )
+            elif action.get("reason") == "multiple_navigation_targets":
+                context.reply_parts.append(
+                    "Tell me one page at a time: upload, attendance, marks, setup wizard, or dashboard."
+                )
+            else:
+                context.reply_parts.append("Tell me a bit more clearly what you want me to do.")
+            break
+        
+        # --- Notebook Ambiguity Check (Pre-handler) ---
+        if (
+            notebook_hint
+            and len(notebook_candidates) > 1
+            and action["intent"] in {"query", "study_tool", "content_ingest", "notebook_update"}
+        ):
+            context.results.append(
+                MascotAction(
+                    kind="clarify",
+                    status="needs_input",
+                    payload={
+                        "notebook_hint": notebook_hint,
+                        "candidates": [item.name for item in notebook_candidates[:5]],
+                    },
                     result_summary="Multiple notebooks match this request.",
                 )
             )
-            reply_parts.append(f"I found multiple notebooks matching '{notebook_hint}': {', '.join(item.name for item in notebook_candidates[:3])}. Tell me the exact notebook name.")
+            context.reply_parts.append(
+                f"I found multiple notebooks matching '{notebook_hint}': "
+                f"{', '.join(item.name for item in notebook_candidates[:3])}. "
+                f"Tell me the exact notebook name."
+            )
             break
-
-        if explicit_notebook_target and active_notebook is None and action["intent"] in {"query", "study_tool", "content_ingest", "notebook_update"}:
-            results.append(
+        
+        # --- Notebook Access Check (Pre-handler) ---
+        if (
+            explicit_notebook_target
+            and active_notebook is None
+            and action["intent"] in {"query", "study_tool", "content_ingest", "notebook_update"}
+        ):
+            context.results.append(
                 MascotAction(
                     kind=action["kind"],
                     status="failed",
@@ -1055,25 +1127,44 @@ async def _execute_actions(
                     result_summary="The requested notebook is not accessible to this user.",
                 )
             )
-            reply_parts.append("I can't access that notebook from your account, so I did not run that action.")
+            context.reply_parts.append(
+                "I can't access that notebook from your account, so I did not run that action."
+            )
             break
-
+        
+        # --- Pre-process Action (Pre-handler) ---
         if action["intent"] == "teacher_attendance_mark":
             prepared = await _prepare_teacher_attendance_mark(session, request, action, translated_message)
             if not prepared.get("ok"):
-                results.append(MascotAction(kind="clarify", status="needs_input", payload=action, result_summary=str(prepared.get("summary") or "I need more detail before marking attendance.")))
-                reply_parts.append(str(prepared.get("summary") or "I need more detail before marking attendance."))
+                context.results.append(
+                    MascotAction(
+                        kind=action["kind"],
+                        status="failed",
+                        payload={**action, "summary": prepared.get("summary")},
+                        result_summary=prepared.get("summary", "Missing context for attendance."),
+                    )
+                )
+                context.reply_parts.append(prepared.get("summary", "Missing context for attendance."))
                 break
             action = prepared["action"]
 
-        if action["intent"] == "teacher_homework_create":
+        elif action["intent"] == "teacher_homework_create":
             prepared = await _prepare_teacher_homework_create(session, request, action, translated_message)
             if not prepared.get("ok"):
-                results.append(MascotAction(kind="clarify", status="needs_input", payload=action, result_summary=str(prepared.get("summary") or "I need more detail before creating homework.")))
-                reply_parts.append(str(prepared.get("summary") or "I need more detail before creating homework."))
+                context.results.append(
+                    MascotAction(
+                        kind=action["kind"],
+                        status="failed",
+                        payload={**action, "summary": prepared.get("summary")},
+                        result_summary=prepared.get("summary", "Missing context for homework."),
+                    )
+                )
+                context.reply_parts.append(prepared.get("summary", "Missing context for homework."))
                 break
             action = prepared["action"]
 
+        # --- Confirmation Requirement (Pre-handler) ---
+        capability_key = action["intent"]
         if capability_key and capability_requires_confirmation(capability_key) and not allow_high_risk:
             pending = PendingMascotAction(
                 kind=action["kind"],
@@ -1086,16 +1177,26 @@ async def _execute_actions(
                 session_id=request.session_id,
             )
             store_pending_action(pending)
-            requires_confirmation = True
-            confirmation_id = pending.confirmation_id
-            results.append(MascotAction(kind=action["kind"], status="pending_confirmation", payload=action, result_summary="Confirmation required before this change is applied."))
-            reply_parts.append("Please confirm before I make that change.")
+            context.requires_confirmation = True
+            context.confirmation_id = pending.confirmation_id
+            context.results.append(
+                MascotAction(
+                    kind=action["kind"],
+                    status="pending_confirmation",
+                    payload=action,
+                    result_summary="Confirmation required before this change is applied.",
+                )
+            )
+            context.reply_parts.append("Please confirm before I make that change.")
             break
-
-        session_key = build_session_id(channel=request.channel, user_id=request.user_id or "anonymous", provided=request.session_id)
+        
+        # --- Deduplication Check (Pre-handler) ---
+        session_key = build_session_id(
+            channel=request.channel, user_id=request.user_id or "anonymous", provided=request.session_id
+        )
         mutation_signature = _mutation_signature(request, action, active_notebook)
         if mutation_signature and mutation_seen_recently(session_key, mutation_signature):
-            results.append(
+            context.results.append(
                 MascotAction(
                     kind=action["kind"],
                     status="completed",
@@ -1103,564 +1204,75 @@ async def _execute_actions(
                     result_summary="Skipped a duplicate mutation that was already applied in this session.",
                 )
             )
-            reply_parts.append("I already applied that change in this session, so I skipped the duplicate request.")
-            continue
-
-        if action["intent"] == "notebook_create":
-            notebook_name = (action.get("name") or "New Notebook").strip()
-            active_notebook = await _create_notebook(session, request, notebook_name)
-            navigation = _web_nav(request.role or "student", "ai_studio", str(active_notebook.id))
-            results.append(MascotAction(kind="notebook_create", status="completed", payload={"name": notebook_name, "notebook_id": str(active_notebook.id)}, result_summary=f"Created notebook '{active_notebook.name}'.")) 
-            reply_parts.append(f"Created notebook '{active_notebook.name}'.")
-            if mutation_signature:
-                remember_mutation(session_key, mutation_signature)
-            continue
-
-        if action["intent"] == "notebook_update":
-            target = active_notebook or await _notebook_by_name(session, request, action.get("notebook_name"))
-            if target is None:
-                results.append(MascotAction(kind="notebook_update", status="failed", payload=action, result_summary="Notebook not found."))
-                reply_parts.append("I could not find that notebook.")
-                continue
-            if action.get("operation") == "rename":
-                new_name = (action.get("name") or "").strip()
-                if not new_name:
-                    results.append(MascotAction(kind="clarify", status="needs_input", payload=action, result_summary="Missing new notebook name."))
-                    reply_parts.append("Tell me the new notebook name too.")
-                    continue
-                target.name = new_name
-                await session.commit()
-                await session.refresh(target)
-                active_notebook = target
-                results.append(MascotAction(kind="notebook_update", status="completed", payload={"operation": "rename", "notebook_id": str(target.id)}, result_summary=f"Renamed notebook to '{new_name}'.")) 
-                reply_parts.append(f"Renamed the notebook to '{new_name}'.")
-                if mutation_signature:
-                    remember_mutation(session_key, mutation_signature)
-            elif action.get("operation") == "archive":
-                target.is_active = False
-                await session.commit()
-                results.append(MascotAction(kind="notebook_update", status="completed", payload={"operation": "archive", "notebook_id": str(target.id)}, result_summary=f"Archived notebook '{target.name}'.")) 
-                reply_parts.append(f"Archived notebook '{target.name}'.")
-                if mutation_signature:
-                    remember_mutation(session_key, mutation_signature)
-            continue
-
-        if action["intent"] == "navigate":
-            navigation = _web_nav(request.role or "student", action["target"], str(active_notebook.id) if active_notebook else None)
-            if navigation:
-                results.append(MascotAction(kind="navigate", status="completed", payload=navigation, result_summary=f"Prepared navigation to {navigation['href']}.")) 
-                reply_parts.append(f"Opening {str(action['target']).replace('_', ' ')}.")
-            else:
-                results.append(MascotAction(kind="navigate", status="failed", payload=action, result_summary="No route available for that target."))
-                reply_parts.append("I could not find that page for your account.")
-            continue
-
-        if action["intent"] == "teacher_insights_report":
-            class_ids = await _teacher_class_ids(session, request)
-            insights = await _build_teacher_insights(session, request, class_ids)
-            artifacts.append({"tool": "teacher_insights_report", **insights})
-            results.append(MascotAction(kind="query", status="completed", payload={"report": "teacher_insights_report"}, result_summary=insights["summary"]))
-            reply_parts.append(insights["summary"])
-            continue
-
-        if action["intent"] == "teacher_doubt_heatmap_report":
-            class_ids = await _teacher_class_ids(session, request)
-            heatmap = await _build_teacher_doubt_heatmap(session, request, class_ids)
-            artifacts.append({"tool": "teacher_doubt_heatmap_report", **heatmap})
-            results.append(MascotAction(kind="query", status="completed", payload={"report": "teacher_doubt_heatmap_report"}, result_summary=heatmap["summary"]))
-            reply_parts.append(heatmap["summary"])
-            continue
-
-        if action["intent"] == "teacher_assessment_generate":
-            topic = (action.get("topic") or translated_message).strip()
-            subject = await _resolve_subject(session, request, translated_message)
-            if subject is None:
-                results.append(MascotAction(kind="clarify", status="needs_input", payload=action, result_summary="I need the subject name to generate a teacher assessment."))
-                reply_parts.append("Tell me the subject name too, for example: generate a Biology assessment on photosynthesis.")
-                continue
-            prompt_query = (
-                f"Generate exactly {int(action.get('num_questions') or 5)} multiple-choice questions about: {topic}. "
-                f"Subject: {subject.name}. Format as JSON array."
+            context.reply_parts.append(
+                "I already applied that change in this session, so I skipped the duplicate request."
             )
-            assessment = await run_text_query(
-                InternalAIQueryRequest(
-                    tenant_id=request.tenant_id or "",
-                    query=prompt_query,
-                    mode="quiz",
-                    subject_id=str(subject.id),
-                ),
-                trace_id=trace_id,
-            )
-            summary = f"Generated an assessment for {subject.name} on {topic}."
-            artifacts.append(
-                {
-                    "tool": "teacher_assessment_generate",
-                    "subject": subject.name,
-                    "topic": topic,
-                    "assessment": assessment.get("answer", ""),
-                    "citations": assessment.get("citations", []),
-                }
-            )
-            results.append(MascotAction(kind="query", status="completed", payload={"report": "teacher_assessment_generate", "subject_id": str(subject.id), "topic": topic}, result_summary=summary))
-            reply_parts.append(summary)
             continue
-
-        if action["intent"] == "teacher_attendance_mark":
-            class_uuid = _safe_uuid(action.get("class_id"))
-            if not await _teacher_can_access_class(session, request, class_uuid):
-                results.append(MascotAction(kind="teacher_workflow", status="failed", payload=action, result_summary="That class is outside your allowed teaching scope."))
-                reply_parts.append("That class is outside your allowed teaching scope.")
-                continue
-
-            attendance_date = _parse_date_hint(action.get("attendance_date")) or datetime.now(timezone.utc).date()
-            absent_ids = {_safe_uuid(item.get("student_id")) for item in (action.get("absent_students") or [])}
-            absent_ids.discard(None)
-            enrollment_result = await session.execute(
-                select(Enrollment).where(
-                    Enrollment.tenant_id == _safe_uuid(request.tenant_id),
-                    Enrollment.class_id == class_uuid,
-                )
-            )
-            enrollments = list(enrollment_result.scalars().all())
-            imported = 0
-            for enrollment in enrollments:
-                existing_result = await session.execute(
-                    select(Attendance).where(
-                        Attendance.tenant_id == _safe_uuid(request.tenant_id),
-                        Attendance.class_id == class_uuid,
-                        Attendance.student_id == enrollment.student_id,
-                        Attendance.date == attendance_date,
-                    )
-                )
-                existing = existing_result.scalar_one_or_none()
-                status = "absent" if enrollment.student_id in absent_ids else "present"
-                if existing is None:
-                    session.add(
-                        Attendance(
-                            tenant_id=_safe_uuid(request.tenant_id),
-                            class_id=class_uuid,
-                            student_id=enrollment.student_id,
-                            date=attendance_date,
-                            status=status,
-                        )
-                    )
-                else:
-                    existing.status = status
-                imported += 1
-            await session.commit()
-            if mutation_signature:
-                remember_mutation(session_key, mutation_signature)
-            summary = f"Marked attendance for {action.get('class_name')} on {attendance_date.isoformat()}."
-            results.append(MascotAction(kind="teacher_workflow", status="completed", payload={"intent": "teacher_attendance_mark", "class_id": action.get("class_id"), "attendance_date": attendance_date.isoformat(), "absent_count": len(absent_ids)}, result_summary=summary))
-            artifacts.append({"tool": "teacher_attendance_mark", "class_name": action.get("class_name"), "date": attendance_date.isoformat(), "absent_students": action.get("absent_students", [])})
-            reply_parts.append(summary)
-            continue
-
-        if action["intent"] == "teacher_homework_create":
-            subject_uuid = _safe_uuid(action.get("subject_id"))
-            class_uuid = _safe_uuid(action.get("class_id"))
-            if not await _teacher_can_access_subject(session, request, subject_uuid):
-                results.append(MascotAction(kind="teacher_workflow", status="failed", payload=action, result_summary="That subject is outside your allowed teaching scope."))
-                reply_parts.append("That subject is outside your allowed teaching scope.")
-                continue
-
-            due_date = _parse_date_hint(action.get("due_date"))
-            assignment = Assignment(
-                tenant_id=_safe_uuid(request.tenant_id),
-                subject_id=subject_uuid,
-                title=str(action.get("title") or "Homework")[:255],
-                description=str(action.get("description") or "").strip(),
-                due_date=datetime.combine(due_date, datetime.min.time(), tzinfo=timezone.utc) if due_date else None,
-                created_by=_safe_uuid(request.user_id),
-            )
-            session.add(assignment)
-            await session.commit()
-            await session.refresh(assignment)
-
-            enrollment_result = await session.execute(
-                select(Enrollment, User).join(User, User.id == Enrollment.student_id).where(
-                    Enrollment.tenant_id == _safe_uuid(request.tenant_id),
-                    Enrollment.class_id == class_uuid,
-                    User.tenant_id == _safe_uuid(request.tenant_id),
-                )
-            )
-            roster = list(enrollment_result.all())
-            student_recipients = [
-                {"user_id": str(user.id), "student_id": str(user.id), "student_name": user.full_name or "Student"}
-                for enrollment, user in roster
-            ]
-            student_ids = [enrollment.student_id for enrollment, _user in roster]
-            parent_recipients: list[dict[str, str]] = []
-            if student_ids:
-                parent_link_result = await session.execute(
-                    select(ParentLink, User).join(User, User.id == ParentLink.parent_id).where(
-                        ParentLink.tenant_id == _safe_uuid(request.tenant_id),
-                        ParentLink.child_id.in_(student_ids),
-                        User.tenant_id == _safe_uuid(request.tenant_id),
-                    )
-                )
-                student_name_map = {str(user.id): user.full_name or "Student" for _enrollment, user in roster}
-                for parent_link, parent_user in parent_link_result.all():
-                    parent_recipients.append(
-                        {
-                            "user_id": str(parent_user.id),
-                            "student_id": str(parent_link.child_id),
-                            "student_name": student_name_map.get(str(parent_link.child_id), "Student"),
-                        }
-                    )
-            submit_async_job(
-                "teacher-homework-notifications",
-                _notify_homework_recipients,
-                tenant_id=request.tenant_id or "",
-                teacher_id=request.user_id or "",
-                assignment_id=str(assignment.id),
-                class_name=str(action.get("class_name") or ""),
-                subject_name=str(action.get("subject_name") or ""),
-                title=str(action.get("title") or "Homework"),
-                description=str(action.get("description") or ""),
-                due_date=due_date.isoformat() if due_date else None,
-                student_recipients=student_recipients,
-                parent_recipients=parent_recipients,
-            )
-            if mutation_signature:
-                remember_mutation(session_key, mutation_signature)
-            summary = f"Created homework '{assignment.title}' for {action.get('class_name')}."
-            if due_date:
-                summary = f"{summary} Due {due_date.isoformat()}."
-            results.append(MascotAction(kind="teacher_workflow", status="completed", payload={"intent": "teacher_homework_create", "assignment_id": str(assignment.id), "subject_id": action.get("subject_id"), "class_id": action.get("class_id")}, result_summary=summary))
-            artifacts.append({"tool": "teacher_homework_create", "assignment_id": str(assignment.id), "title": assignment.title, "class_name": action.get("class_name"), "subject_name": action.get("subject_name"), "due_date": due_date.isoformat() if due_date else None})
-            reply_parts.append(summary)
-            continue
-
-        if action["intent"] == "parent_progress_report":
-            progress = await _build_parent_progress_report(session, request)
-            artifacts.append({"tool": "parent_progress_report", **progress})
-            results.append(MascotAction(kind="query", status="completed", payload={"report": "parent_progress_report"}, result_summary=progress["summary"]))
-            reply_parts.append(progress["summary"])
-            continue
-
-        if action["intent"] == "study_path_report":
-            topic = action.get("topic") or translated_message
-            plan = await _build_study_path_plan(
-                session,
-                request,
-                topic=topic,
-                current_surface=_ui_metadata(request).get("current_surface") or (request.ui_context.current_route if request.ui_context else None),
-            )
-            next_action = plan.get("next_action") if isinstance(plan, dict) else None
-            summary = f"Your current study path for {plan.get('focus_topic') or 'this topic'} has {len(plan.get('items') or [])} steps."
-            if isinstance(next_action, dict):
-                summary += f" Next: {next_action.get('title') or 'continue the next step'}."
-            artifacts.append({"tool": "study_path", "plan": plan})
-            results.append(MascotAction(kind="query", status="completed", payload={"report": "study_path_report", "plan_id": plan.get("id")}, result_summary=summary))
-            reply_parts.append(summary)
-            continue
-
-        if action["intent"] == "study_path_execute":
-            topic = action.get("topic") or translated_message
-            plan = await _build_study_path_plan(
-                session,
-                request,
-                topic=topic,
-                current_surface=_ui_metadata(request).get("current_surface") or (request.ui_context.current_route if request.ui_context else None),
-            )
-            artifacts.append({"tool": "study_path", "plan": plan})
-            next_action = plan.get("next_action") if isinstance(plan, dict) else None
-            if not isinstance(next_action, dict):
-                summary = "I could not find a pending study-path step for you right now."
-                results.append(MascotAction(kind="query", status="completed", payload={"report": "study_path_execute", "plan_id": plan.get("id")}, result_summary=summary))
-                reply_parts.append(summary)
-                continue
-
-            next_tool = str(next_action.get("target_tool") or "study_guide").strip()
-            next_prompt = str(next_action.get("prompt") or plan.get("focus_topic") or translated_message).strip()
-            if next_tool in _TOOLS:
-                # Get mastery aware prompt padding
-                profile = _build_adaptive_quiz_profile_for_request(
-                    request,
-                    topic=next_prompt,
-                )
-                if profile and profile.get("prompt_suffix"):
-                    next_prompt = f"{next_prompt}\n\n[Pedagogy Instruction: {profile['prompt_suffix']}]"
-
-                tool_result = await run_study_tool(
-                    InternalStudyToolGenerateRequest(
-                        tenant_id=request.tenant_id or "",
-                        user_id=request.user_id,
-                        tool=next_tool,
-                        topic=next_prompt,
-                        notebook_id=active_notebook.id if active_notebook else _safe_uuid(request.notebook_id),
-                    ),
-                    trace_id=trace_id,
-                )
-                artifacts.append({"tool": next_tool, "data": tool_result.get("data"), "citations": tool_result.get("citations", [])})
-                summary = f"Started your study path with: {next_action.get('title') or next_tool.replace('_', ' ')}."
-                results.append(MascotAction(kind="query", status="completed", payload={"report": "study_path_execute", "plan_id": plan.get("id"), "target_tool": next_tool}, result_summary=summary))
-                reply_parts.append(summary)
-                continue
-
-            mode = next_tool if next_tool in _QUERY_MODES or next_tool == "qa" else "study_guide"
-            query_result = await run_text_query(
-                InternalAIQueryRequest(
-                    tenant_id=request.tenant_id or "",
-                    user_id=request.user_id,
-                    query=next_prompt,
-                    mode=mode,
-                    notebook_id=active_notebook.id if active_notebook else _safe_uuid(request.notebook_id),
-                ),
-                trace_id=trace_id,
-            )
-            artifacts.append({"tool": mode, "answer": query_result.get("answer"), "citations": query_result.get("citations", []), "mode": query_result.get("mode")})
-            summary = f"Started your study path with: {next_action.get('title') or mode.replace('_', ' ')}."
-            results.append(MascotAction(kind="query", status="completed", payload={"report": "study_path_execute", "plan_id": plan.get("id"), "target_tool": mode}, result_summary=summary))
-            reply_parts.append(summary)
-            if query_result.get("answer"):
-                reply_parts.append(str(query_result["answer"]).strip())
-            continue
-
-        if action["intent"] == "admin_release_gate_report":
-            snapshot = _build_admin_release_gate_report(request)
-            artifacts.append({"tool": "admin_release_gate_report", **snapshot})
-            results.append(MascotAction(kind="query", status="completed", payload={"report": "admin_release_gate_report"}, result_summary=snapshot["summary"]))
-            reply_parts.append(snapshot["summary"])
-            continue
-
-        if action["intent"] == "admin_onboarding_report":
-            onboarding = await _build_admin_onboarding_report(session, request)
-            artifacts.append({"tool": "admin_onboarding_report", **onboarding})
-            results.append(MascotAction(kind="query", status="completed", payload={"report": "admin_onboarding_report"}, result_summary=onboarding["summary"]))
-            reply_parts.append(onboarding["summary"])
-            continue
-
-        if action["intent"] == "admin_ai_review_report":
-            review = await _build_admin_ai_review_report(session, request)
-            artifacts.append({"tool": "admin_ai_review_report", **review})
-            results.append(MascotAction(kind="query", status="completed", payload={"report": "admin_ai_review_report"}, result_summary=review["summary"]))
-            reply_parts.append(review["summary"])
-            continue
-
-        if action["intent"] == "teacher_roster_import":
-            roster_result = await _apply_teacher_roster_import(session, request, action)
-            artifacts.append(roster_result)
-            results.append(
+        
+        # --- DELEGATE TO HANDLER VIA FACTORY ---
+        handler = factory.get_handler(action["intent"])
+        if handler is None:
+            # Fallback for unknown action types
+            context.results.append(
                 MascotAction(
-                    kind="structured_import",
-                    status="completed",
-                    payload={"intent": "teacher_roster_import", "created_count": roster_result.get("created_count", 0)},
-                    result_summary=roster_result["summary"],
+                    kind=action.get("kind", "unknown"),
+                    status="failed",
+                    payload=action,
+                    result_summary=f"Unknown action type: {action['intent']}",
                 )
             )
-            reply_parts.append(roster_result["summary"])
-            if mutation_signature:
-                remember_mutation(session_key, mutation_signature)
+            context.reply_parts.append("I don't recognize that request.")
             continue
-
-        if action["intent"] == "admin_teacher_import":
-            teacher_import = await _apply_admin_teacher_import(session, request, action)
-            artifacts.append(teacher_import)
-            results.append(
-                MascotAction(
-                    kind="structured_import",
-                    status="completed",
-                    payload={"intent": "admin_teacher_import", "created_count": teacher_import.get("created_count", 0)},
-                    result_summary=teacher_import["summary"],
-                )
-            )
-            reply_parts.append(teacher_import["summary"])
-            if mutation_signature:
-                remember_mutation(session_key, mutation_signature)
-            continue
-
-        if action["intent"] == "admin_student_import":
-            student_import = await _apply_admin_student_import(session, request, action)
-            artifacts.append(student_import)
-            results.append(
-                MascotAction(
-                    kind="structured_import",
-                    status="completed",
-                    payload={"intent": "admin_student_import", "created": student_import.get("created", 0)},
-                    result_summary=student_import["summary"],
-                )
-            )
-            reply_parts.append(student_import["summary"])
-            if mutation_signature:
-                remember_mutation(session_key, mutation_signature)
-            continue
-
-        if action["intent"] == "teacher_attendance_import":
-            attendance_result = await _apply_teacher_attendance_import(session, request, action)
-            artifacts.append(attendance_result)
-            results.append(
-                MascotAction(
-                    kind="structured_import",
-                    status="completed",
-                    payload={"intent": "teacher_attendance_import", "imported": attendance_result.get("imported", 0)},
-                    result_summary=attendance_result["summary"],
-                )
-            )
-            reply_parts.append(attendance_result["summary"])
-            if mutation_signature:
-                remember_mutation(session_key, mutation_signature)
-            continue
-
-        if action["intent"] == "teacher_marks_import":
-            marks_result = await _apply_teacher_marks_import(session, request, action)
-            artifacts.append(marks_result)
-            results.append(
-                MascotAction(
-                    kind="structured_import",
-                    status="completed",
-                    payload={"intent": "teacher_marks_import", "imported": marks_result.get("imported", 0), "exam_id": marks_result.get("exam_id")},
-                    result_summary=marks_result["summary"],
-                )
-            )
-            reply_parts.append(marks_result["summary"])
-            if mutation_signature:
-                remember_mutation(session_key, mutation_signature)
-            continue
-
-        if action["intent"] == "content_ingest":
-            url = str(action.get("url") or "").strip()
-            if not url:
-                results.append(MascotAction(kind="content_ingest", status="failed", payload=action, result_summary="Missing content URL."))
-                reply_parts.append("I need a URL or YouTube link to ingest.")
+        
+        try:
+            # Handler returns True if it fully handled the action and loop should continue
+            # Returns False if loop should proceed to next action
+            should_continue = await handler.execute(action, context)
+            if should_continue:
                 continue
-            if action.get("source_kind") == "youtube":
-                from src.infrastructure.llm.cache import invalidate_tenant_cache
-                from src.infrastructure.llm.providers import get_embedding_provider, get_vector_store_provider
-                from src.infrastructure.vector_store.ingestion import ingest_youtube
-
-                subject = await _resolve_subject(session, request, translated_message)
-                document_id = str(uuid4())
-                chunks = ingest_youtube(
-                    url=url,
-                    document_id=document_id,
-                    tenant_id=request.tenant_id or "",
-                    subject_id=str(subject.id) if subject else None,
-                    notebook_id=str(active_notebook.id) if active_notebook else None,
-                )
-                if chunks:
-                    embeddings = await get_embedding_provider().embed_batch([chunk.text for chunk in chunks])
-                    get_vector_store_provider(request.tenant_id or "").add_chunks(
-                        [
-                            {
-                                "text": chunk.text,
-                                "document_id": chunk.document_id,
-                                "page_number": chunk.page_number,
-                                "section_title": chunk.section_title or "",
-                                "subject_id": chunk.subject_id or "",
-                                "notebook_id": chunk.notebook_id or "",
-                                "source_file": chunk.source_file or "",
-                            }
-                            for chunk in chunks
-                        ],
-                        embeddings,
-                    )
-                invalidate_tenant_cache(request.tenant_id or "")
-                ingest = {
-                    "document_id": document_id,
-                    "title": action.get("title") or "YouTube lecture",
-                    "chunks_created": len(chunks),
-                }
-            else:
-                ingest = await run_url_ingestion(
-                    InternalIngestURLRequest(
-                        tenant_id=request.tenant_id or "",
-                        url=url,
-                        title=action.get("title"),
-                        notebook_id=UUID(str(active_notebook.id)) if active_notebook else None,
-                    ),
-                    trace_id=trace_id,
-                )
-                if active_notebook and request.user_id and request.tenant_id:
-                    document = Document(
-                        id=UUID(str(ingest["document_id"])),
-                        tenant_id=_safe_uuid(request.tenant_id),
-                        subject_id=subject.id if action.get("source_kind") == "youtube" and subject else None,
-                        notebook_id=active_notebook.id,
-                        uploaded_by=_safe_uuid(request.user_id),
-                        file_name=ingest.get("title") or url[:120],
-                    file_type="youtube" if action.get("source_kind") == "youtube" else "url",
-                    storage_path=url,
-                    ingestion_status="completed",
-                    chunk_count=int(ingest.get("chunks_created", 0)),
-                )
-                session.add(document)
-                await session.commit()
-            results.append(MascotAction(kind="content_ingest", status="completed", payload={"url": url, "document_id": ingest.get("document_id")}, result_summary=f"Ingested {ingest.get('title') or 'that link'} into the knowledge base.")) 
-            reply_parts.append(f"Ingested {ingest.get('title') or 'that link'} into the knowledge base.")
-            continue
-
-        if action["intent"] == "study_tool":
-            topic = (action.get("topic") or translated_message).strip()
-            if not topic:
-                results.append(MascotAction(kind="clarify", status="needs_input", payload=action, result_summary="Missing topic for study tool."))
-                reply_parts.append("Tell me the topic too.")
-                continue
-            tool = action["tool"]
-            # Inject mastery context
-            profile = _build_adaptive_quiz_profile_for_request(
-                request,
-                topic=topic,
+        except Exception as e:
+            logger.exception(
+                f"Error executing handler for intent {action['intent']}: {type(e).__name__}: {e}",
+                extra={"trace_id": trace_id},
             )
-            final_prompt = topic
-            if profile and profile.get("prompt_suffix"):
-                final_prompt = f"{topic}\n\n[Pedagogy Instruction: {profile['prompt_suffix']}]"
-
-            tool_result = await run_study_tool(
-                InternalStudyToolGenerateRequest(
-                    tenant_id=request.tenant_id or "",
-                    tool=tool,
-                    topic=final_prompt,
-                    notebook_id=UUID(str(active_notebook.id)) if active_notebook else None,
-                ),
-                trace_id=trace_id,
+            context.results.append(
+                MascotAction(
+                    kind=action.get("kind", "unknown"),
+                    status="failed",
+                    payload=action,
+                    result_summary=f"Error processing action: {str(e)}",
+                )
             )
-            generated = await _save_generated(session, request, active_notebook, tool, topic, tool_result)
-            if generated:
-                results.append(MascotAction(kind="generated_content_save", status="completed", payload={"generated_content_id": str(generated.id)}, result_summary="Saved generated content to the notebook library."))
-            artifacts.append({"tool": tool, "data": tool_result.get("data"), "citations": tool_result.get("citations", [])})
-            results.append(MascotAction(kind="study_tool", status="completed", payload={"tool": tool, "topic": topic}, result_summary=f"Generated {tool.replace('_', ' ')} for {topic}.")) 
-            reply_parts.append(f"Generated {tool.replace('_', ' ')} for {topic}.")
-            continue
-
-        if action["intent"] == "query":
-            topic = (action.get("topic") or translated_message).strip()
-            mode = action.get("mode", "qa")
-            query_result = await run_text_query(
-                InternalAIQueryRequest(
-                    tenant_id=request.tenant_id or "",
-                    query=topic or translated_message,
-                    mode=mode,
-                    notebook_id=UUID(str(active_notebook.id)) if active_notebook else None,
-                    language="english",
-                    response_length="default",
-                    expertise_level="standard",
-                ),
-                trace_id=trace_id,
-            )
-            artifacts.append({"tool": mode, "answer": query_result.get("answer"), "citations": query_result.get("citations", []), "mode": query_result.get("mode")})
-            results.append(MascotAction(kind="query", status="completed", payload={"mode": mode, "topic": topic}, result_summary=f"Answered using {mode.replace('_', ' ')} mode."))
-            if query_result.get("answer"):
-                reply_parts.append(str(query_result["answer"]).strip())
-
-    notebook_id = str(active_notebook.id) if active_notebook else request.notebook_id
-    _store_session(request, notebook_id=notebook_id, intent=intent, navigation=navigation)
-    reply = "\n\n".join(part for part in reply_parts if part).strip() or "I’m ready. Tell me what you want to do."
+            context.reply_parts.append("An error occurred while processing that action.")
+        
+        # Remember mutation if applicable
+        if mutation_signature:
+            remember_mutation(session_key, mutation_signature)
+    
+    # ========== RESPONSE AGGREGATION ==========
+    notebook_id = str(context.active_notebook.id) if context.active_notebook else request.notebook_id
+    _store_session(request, notebook_id=notebook_id, intent=intent, navigation=context.navigation)
+    reply = (
+        "\n\n".join(part for part in context.reply_parts if part).strip()
+        or "I'm ready. Tell me what you want to do."
+    )
     if request.channel == "whatsapp":
-        reply = _format_whatsapp_reply(reply, intent=intent, artifacts=artifacts, navigation=navigation)
-        navigation = None
+        reply = _format_whatsapp_reply(
+            reply, intent=intent, artifacts=context.artifacts, navigation=context.navigation
+        )
+        context.navigation = None
+    
     return MascotMessageResponse(
         reply_text=reply,
         intent=intent,
         normalized_message=normalized_message,
         translated_message=translated_message if translated_message != normalized_message else None,
-        actions=results,
-        artifacts=artifacts,
-        navigation=navigation,
-        requires_confirmation=requires_confirmation,
-        confirmation_id=confirmation_id,
-        follow_up_suggestions=_follow_ups(intent, active_notebook.name if active_notebook else None),
+        actions=context.results,
+        artifacts=context.artifacts,
+        navigation=context.navigation,
+        requires_confirmation=context.requires_confirmation,
+        confirmation_id=context.confirmation_id,
+        follow_up_suggestions=_follow_ups(intent, context.active_notebook.name if context.active_notebook else None),
         notebook_id=notebook_id,
         trace_id=trace_id,
     )

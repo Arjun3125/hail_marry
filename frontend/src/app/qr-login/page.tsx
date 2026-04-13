@@ -87,14 +87,19 @@ export default function QrLoginPage() {
 
   const startScanner = async () => {
     setError(null);
-    const DetectorConstructor =
-      typeof window !== "undefined"
-        ? (window as unknown as {
-            BarcodeDetector?: new (options?: { formats?: string[] }) => {
-              detect: (video: HTMLVideoElement) => Promise<Array<{ rawValue: string }>>;
-            };
-          }).BarcodeDetector
-        : undefined;
+    
+    // Type-safe window property access
+    const windowObj = window as unknown as Record<string, unknown>;
+    const hasDetector = typeof window !== "undefined" &&
+                        "BarcodeDetector" in window &&
+                        typeof windowObj.BarcodeDetector === "function";
+    
+    const DetectorConstructor = hasDetector
+      ? windowObj.BarcodeDetector as new (
+          options?: { formats?: string[] }
+        ) => { detect: (video: HTMLVideoElement) => Promise<Array<{ rawValue: string }>> }
+      : undefined;
+    
     if (!DetectorConstructor) {
       setError("QR scanner is not supported in this browser. Please enter the code manually.");
       return;

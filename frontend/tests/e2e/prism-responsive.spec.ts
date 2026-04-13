@@ -137,7 +137,7 @@ test.describe("Prism representative responsive smoke", () => {
 
         await page.goto("/teacher/dashboard");
 
-        await expect(page.getByRole("heading", { name: /Run the school day from one teaching desk/i })).toBeVisible();
+        await expect(page.getByRole("heading", { name: /Guide the day, not the dashboard/i })).toBeVisible();
         await expectNoHorizontalOverflow(page);
     });
 
@@ -264,7 +264,7 @@ test.describe("Prism representative responsive smoke", () => {
 
         await page.goto("/admin/dashboard");
 
-        await expect(page.getByRole("heading", { name: /Run school health from a calm academic control surface/i })).toBeVisible();
+        await expect(page.getByRole("heading", { name: /See school health in one screen before you drill down/i })).toBeVisible();
         await expectNoHorizontalOverflow(page);
     });
 
@@ -304,7 +304,7 @@ test.describe("Prism representative responsive smoke", () => {
 
         await page.goto("/parent/dashboard");
 
-        await expect(page.getByRole("heading", { name: /See your child's week in one clear family summary/i })).toBeVisible();
+        await expect(page.getByRole("heading", { name: /Read your child's week in under a minute/i })).toBeVisible();
         await expectNoHorizontalOverflow(page);
     });
 });

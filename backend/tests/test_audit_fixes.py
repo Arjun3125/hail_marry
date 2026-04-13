@@ -34,8 +34,12 @@ class TestAuditFixes(unittest.TestCase):
         from src.infrastructure.vector_store.vector_store import TenantVectorStore
         import numpy as np
         
-        # Mock VECTOR_DIR to avoid writing to real disk
-        with patch('src.infrastructure.vector_store.vector_store.VECTOR_DIR'):
+        # Patch VECTOR_DIR to avoid writing to real disk and restore
+        # the module-level faiss reference (blocked by conftest for memory
+        # savings) so the FAISS deletion branch is exercised.
+        mock_faiss = MagicMock()
+        with patch('src.infrastructure.vector_store.vector_store.VECTOR_DIR'), \
+             patch('src.infrastructure.vector_store.vector_store.faiss', mock_faiss):
             store = TenantVectorStore("test_tenant")
             store.index = MagicMock()
             store.index.ntotal = 10

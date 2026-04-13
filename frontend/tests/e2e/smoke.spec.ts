@@ -18,6 +18,6 @@ test("landing page renders @smoke", async ({ page }) => {
     });
 
     await page.goto("/");
-    await expect(page.getByText("VidyaOS", { exact: true })).toBeVisible();
+    await expect(page.getByText("VidyaOS").first()).toBeVisible();
     await expect(page.getByRole("heading", { name: /One product for classroom work/i })).toBeVisible();
 });

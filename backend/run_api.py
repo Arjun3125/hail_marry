@@ -11,7 +11,7 @@ import uvicorn
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run the VidyaOS API server.")
     parser.add_argument("--host", default=os.getenv("HOST", "0.0.0.0"))
-    parser.add_argument("--port", type=int, default=int(os.getenv("PORT", "8080")))
+    parser.add_argument("--port", type=int, default=int(os.getenv("PORT", "8192")))
     parser.add_argument("--workers", type=int, default=int(os.getenv("WEB_CONCURRENCY", "1")))
     parser.add_argument("--reload", action="store_true")
     return parser.parse_args()

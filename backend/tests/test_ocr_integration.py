@@ -35,6 +35,9 @@ class _ResultQuery:
     def scalar(self):
         return self.result
 
+    def options(self, *args, **kwargs):
+        return self
+
 
 class _TeacherUploadDBStub:
     def __init__(self):
@@ -81,7 +84,7 @@ class _AttendanceImportDBStub:
     def query(self, model):
         name = getattr(model, "__name__", str(model))
         if name == "Enrollment":
-            return _ResultQuery(rows=[SimpleNamespace(student_id=self.student.id)])
+            return _ResultQuery(rows=[SimpleNamespace(student_id=self.student.id, student=self.student)])
         if name == "User":
             return _ResultQuery(self.student)
         if name == "Attendance":

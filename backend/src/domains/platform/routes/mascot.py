@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
 from auth.dependencies import get_current_user, require_role
+from src.domains.platform.services.mascot_schemas import MascotMessageResponse
 from database import SessionLocal, get_async_session, get_db
 from src.domains.identity.models.user import User
 from src.domains.platform.application.mascot_release_gate import (
@@ -73,7 +74,7 @@ async def mascot_message(
     request: MascotMessageRequest,
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_async_session),
-):
+) -> MascotMessageResponse:
     request.role = current_user.role
     request.tenant_id = str(current_user.tenant_id)
     request.user_id = str(current_user.id)
@@ -94,7 +95,7 @@ async def mascot_upload(
     context_metadata: str | None = Form(default=None),
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_async_session),
-):
+) -> MascotMessageResponse:
     metadata: dict = {}
     if context_metadata:
         try:
@@ -135,7 +136,7 @@ async def mascot_confirm(
     request: MascotConfirmRequest,
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_async_session),
-):
+) -> MascotMessageResponse:
     return await execute_pending_confirmation(
         confirmation_id=request.confirmation_id,
         approved=request.approved,
@@ -155,9 +156,9 @@ async def mascot_suggestions(
     current_page_entity: str | None = Query(default=None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-):
+) -> dict[str, list[str]]:
     if current_user.role == "student":
-        suggestions = _build_student_mascot_suggestions_impl(
+        suggestions: list[str] = _build_student_mascot_suggestions_impl(
             db=db,
             tenant_id=current_user.tenant_id,
             user_id=current_user.id,
@@ -191,7 +192,7 @@ async def mascot_session_clear(
     channel: str = Query(default="web"),
     session_id: str | None = Query(default=None),
     current_user: User = Depends(get_current_user),
-):
+) -> dict[str, bool]:
     clear_mascot_session(channel=channel, user_id=str(current_user.id), session_id=session_id)
     return {"cleared": True}
 
@@ -236,16 +237,16 @@ async def mascot_staging_packet(
     finally:
         sync_db.close()
 
-    whatsapp_metrics = get_whatsapp_metrics(str(current_user.tenant_id))
+    whatsapp_metrics: dict[str, int] = get_whatsapp_metrics(str(current_user.tenant_id))
 
     def _pct(numerator: int, denominator: int) -> float:
         if denominator <= 0:
             return 0.0
         return round((numerator / denominator) * 100, 2)
 
-    routing_total = whatsapp_metrics.get("routing_success_total", 0) + whatsapp_metrics.get("routing_failure_total", 0)
-    outbound_total = whatsapp_metrics.get("outbound_success_total", 0) + whatsapp_metrics.get("outbound_failure_total", 0)
-    inbound_total = whatsapp_metrics.get("inbound_total", 0)
+    routing_total: int = whatsapp_metrics.get("routing_success_total", 0) + whatsapp_metrics.get("routing_failure_total", 0)
+    outbound_total: int = whatsapp_metrics.get("outbound_success_total", 0) + whatsapp_metrics.get("outbound_failure_total", 0)
+    inbound_total: int = whatsapp_metrics.get("inbound_total", 0)
     whatsapp_snapshot = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "period_days": days,
@@ -258,8 +259,8 @@ async def mascot_staging_packet(
             "outbound_retryable_failure_pct": _pct(whatsapp_metrics.get("outbound_retryable_failure_total", 0), outbound_total),
         },
     }
-    generated_at = datetime.now(timezone.utc).isoformat()
-    safe_stamp = generated_at.replace(":", "-")
+    generated_at: str = datetime.now(timezone.utc).isoformat()
+    safe_stamp: str = generated_at.replace(":", "-")
     return {
         "generated_at": generated_at,
         "filename": f"mascot_whatsapp_staging_packet_{safe_stamp}.md",

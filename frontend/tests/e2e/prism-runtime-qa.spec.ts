@@ -45,11 +45,12 @@ test.describe("Prism landing runtime safeguards", () => {
             connectionType: "cellular3g",
         });
 
+        const baseURL = process.env.BASE_URL || "http://localhost:3011";
         await page.context().addCookies([
             {
                 name: "vidyaos-lang",
                 value: "hi",
-                url: "http://127.0.0.1:9000",
+                url: baseURL,
             },
         ]);
 

@@ -54,7 +54,7 @@ def apply_for_admission(body: ApplyRequest, db: Session = Depends(get_db)):
     except (TypeError, ValueError):
         raise HTTPException(status_code=400, detail="Invalid tenant_id")
 
-    app = submit_application(
+    app: AdmissionApplication = submit_application(
         db,
         tenant_id=tenant_uuid,
         student_name=body.student_name.strip(),
@@ -112,7 +112,7 @@ def get_application_detail(
     except (TypeError, ValueError):
         raise HTTPException(status_code=400, detail="Invalid application_id")
 
-    app = db.query(AdmissionApplication).filter(
+    app: AdmissionApplication | None = db.query(AdmissionApplication).filter(
         AdmissionApplication.id == app_uuid,
         AdmissionApplication.tenant_id == user.tenant_id,
     ).first()
@@ -148,7 +148,7 @@ def update_application_status(
         raise HTTPException(status_code=400, detail="Invalid application_id")
 
     try:
-        app = update_status(db, app_uuid, body.status, user.id, body.notes)
+        app: AdmissionApplication = update_status(db, app_uuid, body.status, user.id, body.notes)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 

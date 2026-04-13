@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from typing import Any
 
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect, HTTPException
 
@@ -17,11 +18,11 @@ from src.domains.platform.services.notifications import (
 )
 
 router = APIRouter(prefix="/api/notifications", tags=["Notifications"])
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
 
 @router.websocket("/ws")
-async def websocket_notifications(websocket: WebSocket, token: str = ""):
+async def websocket_notifications(websocket: WebSocket, token: str = "") -> None:
     """WebSocket endpoint for real-time notification push.
     Connect with: ws://host/api/notifications/ws?token=<jwt>
     """
@@ -54,7 +55,7 @@ async def websocket_notifications(websocket: WebSocket, token: str = ""):
 async def list_notifications(
     unread_only: bool = False,
     current_user: User = Depends(require_role("student", "teacher", "parent", "admin")),
-):
+) -> list[dict[str, Any]]:
     """Get notifications for the current user."""
     return get_notifications(str(current_user.id), unread_only=unread_only)
 
@@ -63,9 +64,9 @@ async def list_notifications(
 async def mark_notification_read(
     notification_id: str,
     current_user: User = Depends(require_role("student", "teacher", "parent", "admin")),
-):
+) -> dict[str, bool]:
     """Mark a notification as read."""
-    found = mark_read(str(current_user.id), notification_id)
+    found: bool = mark_read(str(current_user.id), notification_id)
     if not found:
         raise HTTPException(status_code=404, detail="Notification not found")
     return {"success": True}

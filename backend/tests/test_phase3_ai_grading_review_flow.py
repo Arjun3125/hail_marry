@@ -10,8 +10,11 @@ from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
+TESTS_DIR = Path(__file__).resolve().parent
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
+if str(TESTS_DIR) not in sys.path:
+    sys.path.insert(0, str(TESTS_DIR))
 
 os.environ["DEBUG"] = "true"
 

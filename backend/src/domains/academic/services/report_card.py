@@ -5,7 +5,11 @@ attendance summary, subject-wise marks, and teacher comments.
 """
 import io
 from datetime import date
-from sqlalchemy import case, func
+from typing import Any, Tuple
+from typing import List
+from reportlab.lib.styles import StyleSheet1
+from sqlalchemy import Column, case, func
+from sqlalchemy.engine.row import Row
 from sqlalchemy.orm import Session
 
 from constants import (
@@ -37,24 +41,24 @@ def generate_report_card_pdf(
     from reportlab.lib.enums import TA_CENTER
 
     # ── Fetch student data ──
-    student = db.query(User).filter(User.id == student_id, User.tenant_id == tenant_id).first()
+    student: User | None = db.query(User).filter(User.id == student_id, User.tenant_id == tenant_id).first()
     if not student:
         raise ValueError("Student not found")
 
     # Get enrollment & class
-    enrollment = db.query(Enrollment).filter(
+    enrollment: Enrollment | None = db.query(Enrollment).filter(
         Enrollment.student_id == student.id,
         Enrollment.tenant_id == tenant_id,
     ).first()
 
     class_name = "N/A"
     if enrollment:
-        cls = db.query(Class).filter(Class.id == enrollment.class_id).first()
+        cls: Class | None = db.query(Class).filter(Class.id == enrollment.class_id).first()
         if cls:
-            class_name = cls.name
+            class_name: Column[str] = cls.name
 
     # Attendance stats
-    attendance_counts = db.query(
+    attendance_counts: Row[Tuple[int, Any]] | None = db.query(
         func.count(Attendance.student_id),
         func.sum(case((Attendance.status == "present", 1), else_=0)),
     ).filter(
@@ -63,12 +67,12 @@ def generate_report_card_pdf(
     ).first()
     total_att = int((attendance_counts[0] if attendance_counts else 0) or 0)
     present_att = int((attendance_counts[1] if attendance_counts else 0) or 0)
-    att_pct = round(present_att / total_att * 100) if total_att > 0 else 0
+    att_pct: int = round(present_att / total_att * 100) if total_att > 0 else 0
 
     # Subject-wise marks
     marks_data = []
     subject_scores: dict[str, list] = {}
-    rows = (
+    rows: List[Row[Tuple[Exam, Mark, str]]] = (
         db.query(Exam, Mark, Subject.name)
         .join(Mark, Mark.exam_id == Exam.id)
         .join(Subject, Subject.id == Exam.subject_id)
@@ -81,7 +85,7 @@ def generate_report_card_pdf(
         .all()
     )
     for exam, mark, subject_name in rows:
-        subj_name = subject_name or "Unknown"
+        subj_name: Any | str = subject_name or "Unknown"
         if subj_name not in subject_scores:
             subject_scores[subj_name] = []
         subject_scores[subj_name].append({
@@ -91,10 +95,10 @@ def generate_report_card_pdf(
         })
 
     for subj_name, scores in subject_scores.items():
-        total_obtained = sum(s["obtained"] for s in scores)
-        total_max = sum(s["max"] for s in scores)
-        pct = round(total_obtained / total_max * 100) if total_max > 0 else 0
-        grade = compute_grade(pct)
+        total_obtained: int = sum(s["obtained"] for s in scores)
+        total_max: int = sum(s["max"] for s in scores)
+        pct: int = round(total_obtained / total_max * 100) if total_max > 0 else 0
+        grade: str = compute_grade(pct)
         marks_data.append({
             "subject": subj_name,
             "obtained": total_obtained,
@@ -106,7 +110,7 @@ def generate_report_card_pdf(
     # ── Build PDF ──
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=20 * mm, bottomMargin=20 * mm)
-    styles = getSampleStyleSheet()
+    styles: StyleSheet1 = getSampleStyleSheet()
 
     title_style = ParagraphStyle(
         "ReportTitle", parent=styles["Title"],
@@ -154,7 +158,7 @@ def generate_report_card_pdf(
 
     # Attendance
     elements.append(Paragraph("Attendance Summary", heading_style))
-    att_data = [
+    att_data: list[list[str]] = [
         ["Total Days", "Present", "Absent", "Percentage"],
         [str(total_att), str(present_att), str(total_att - present_att), f"{att_pct}%"],
     ]
@@ -175,8 +179,8 @@ def generate_report_card_pdf(
     # Marks table
     if marks_data:
         elements.append(Paragraph("Subject-wise Performance", heading_style))
-        marks_header = ["Subject", "Marks Obtained", "Max Marks", "Percentage", "Grade"]
-        marks_rows = [marks_header]
+        marks_header: list[str] = ["Subject", "Marks Obtained", "Max Marks", "Percentage", "Grade"]
+        marks_rows: list[list[str]] = [marks_header]
         for m in marks_data:
             marks_rows.append([
                 m["subject"], str(m["obtained"]), str(m["max"]),
@@ -184,10 +188,10 @@ def generate_report_card_pdf(
             ])
 
         # Overall row
-        total_obt = sum(m["obtained"] for m in marks_data)
-        total_max = sum(m["max"] for m in marks_data)
-        overall_pct = round(total_obt / total_max * 100) if total_max > 0 else 0
-        overall_grade = compute_grade(overall_pct)
+        total_obt: int = sum(m["obtained"] for m in marks_data)
+        total_max: int = sum(m["max"] for m in marks_data)
+        overall_pct: int = round(total_obt / total_max * 100) if total_max > 0 else 0
+        overall_grade: str = compute_grade(overall_pct)
         marks_rows.append(["OVERALL", str(total_obt), str(total_max), f"{overall_pct}%", overall_grade])
 
         marks_table = Table(marks_rows, colWidths=[140, 90, 90, 80, 80])

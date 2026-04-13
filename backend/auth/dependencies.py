@@ -1,6 +1,10 @@
 """FastAPI auth dependencies for route protection."""
 import os
 import uuid
+import threading
+import logging
+from typing import Optional, Dict
+from uuid import UUID
 
 from fastapi import Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
@@ -10,6 +14,7 @@ from config import settings
 from database import get_db
 from src.domains.identity.models.user import User
 
+logger = logging.getLogger(__name__)
 
 _NON_PRODUCTION_ENVS = {"local", "development", "dev", "test"}
 
@@ -30,8 +35,49 @@ def is_demo_mode() -> bool:
 # Backward-compatible module constant for legacy imports/tests.
 DEMO_MODE = is_demo_mode()
 
-# Cache for demo user to avoid repeated DB queries
-_demo_user_cache: dict = {}
+
+# Thread-safe cache for demo user to avoid repeated DB queries
+class DemoUserCache:
+    """Thread-safe singleton cache for demo users."""
+    
+    _instance: Optional["DemoUserCache"] = None
+    _lock: threading.Lock = threading.Lock()
+    
+    def __init__(self):
+        self._cache: Dict[str, UUID] = {}
+        self._cache_lock: threading.Lock = threading.Lock()
+    
+    @classmethod
+    def get_instance(cls) -> "DemoUserCache":
+        """Get or create singleton instance."""
+        if cls._instance is None:
+            with cls._lock:
+                if cls._instance is None:
+                    cls._instance = cls()
+        return cls._instance
+    
+    def get(self, key: str) -> Optional[UUID]:
+        """Thread-safe get from cache."""
+        with self._cache_lock:
+            return self._cache.get(key)
+    
+    def set(self, key: str, value: UUID) -> None:
+        """Thread-safe set to cache."""
+        with self._cache_lock:
+            self._cache[key] = value
+    
+    def has_key(self, key: str) -> bool:
+        """Check if key exists in cache."""
+        with self._cache_lock:
+            return key in self._cache
+    
+    def clear(self) -> None:
+        """Clear all cache (useful for testing)."""
+        with self._cache_lock:
+            self._cache.clear()
+
+
+_demo_user_cache = DemoUserCache.get_instance()
 
 
 async def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
@@ -66,16 +112,18 @@ async def get_current_user(request: Request, db: Session = Depends(get_db)) -> U
         role = request.cookies.get("demo_role") or "student"
         cache_key = role
 
-        if cache_key not in _demo_user_cache:
+        if not _demo_user_cache.has_key(cache_key):
             user = None
+            # Use environment variable for demo user email (not hardcoded)
+            demo_user_email = os.getenv("DEMO_USER_EMAIL", "demo_cbse11@modernhustlers.com")
             if role == "student":
-                user = db.query(User).filter(User.email == "demo_cbse11@modernhustlers.com", User.is_active).first()
+                user = db.query(User).filter(User.email == demo_user_email, User.is_active).first()
             if not user:
                 user = db.query(User).filter(User.role == role, User.is_active).first()
             if not user:
                 user = db.query(User).filter(User.is_active).first()
             if user:
-                _demo_user_cache[cache_key] = user.id
+                _demo_user_cache.set(cache_key, user.id)
 
         user_id = _demo_user_cache.get(cache_key)
         if user_id:

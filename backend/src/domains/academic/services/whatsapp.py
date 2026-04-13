@@ -10,7 +10,7 @@ try:
     import httpx
 except ModuleNotFoundError:  # Lightweight test environments
     class _HTTPStatusError(Exception):
-        def __init__(self, *args, response=None, **kwargs):
+        def __init__(self, *args, response=None, **kwargs) -> None:
             super().__init__(*args)
             self.response = response
 
@@ -21,17 +21,22 @@ except ModuleNotFoundError:  # Lightweight test environments
     httpx = _HTTPXStub()
 import os
 import logging
+from typing import Any
+
+
+from httpx import Response
+
 
 from constants import attendance_emoji
 
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
 WHATSAPP_API_URL = "https://graph.facebook.com/v18.0"
-WHATSAPP_TOKEN = os.getenv("WHATSAPP_TOKEN", "")
-WHATSAPP_PHONE_ID = os.getenv("WHATSAPP_PHONE_NUMBER_ID", "")
+WHATSAPP_TOKEN: str = os.getenv("WHATSAPP_TOKEN", "")
+WHATSAPP_PHONE_ID: str = os.getenv("WHATSAPP_PHONE_NUMBER_ID", "")
 
 
-async def send_whatsapp_message(to_phone: str, message: str) -> dict:
+async def send_whatsapp_message(to_phone: str, message: str) -> dict[str, Any]:
     """Send a plain-text WhatsApp message to a phone number.
 
     Args:
@@ -45,8 +50,8 @@ async def send_whatsapp_message(to_phone: str, message: str) -> dict:
         logger.warning("WhatsApp credentials not configured. Message not sent.")
         return {"success": False, "error": "WhatsApp not configured"}
 
-    url = f"{WHATSAPP_API_URL}/{WHATSAPP_PHONE_ID}/messages"
-    headers = {
+    url: str = f"{WHATSAPP_API_URL}/{WHATSAPP_PHONE_ID}/messages"
+    headers: dict[str, str] = {
         "Authorization": f"Bearer {WHATSAPP_TOKEN}",
         "Content-Type": "application/json",
     }
@@ -59,10 +64,10 @@ async def send_whatsapp_message(to_phone: str, message: str) -> dict:
 
     try:
         async with httpx.AsyncClient(timeout=15) as client:
-            resp = await client.post(url, json=payload, headers=headers)
+            resp: Response = await client.post(url, json=payload, headers=headers)
             resp.raise_for_status()
             return {"success": True, "data": resp.json()}
-    except httpx.HTTPStatusError as e:
+    except (httpx.HTTPStatusError, _HTTPStatusError) as e:
         logger.error("WhatsApp API error: %s — %s", e.response.status_code, e.response.text)
         return {"success": False, "error": str(e)}
     except Exception as e:
@@ -79,7 +84,7 @@ async def send_attendance_alert(
 ) -> dict:
     """Send an attendance alert to a parent via WhatsApp."""
     if status == "absent":
-        msg = (
+        msg: str = (
             f"🔴 Attendance Alert — {school_name}\n\n"
             f"Dear Parent,\n"
             f"Your child *{student_name}* was marked *absent* on {date_str}.\n\n"
@@ -88,7 +93,7 @@ async def send_attendance_alert(
             f"— VidyaOS"
         )
     else:
-        msg = (
+        msg: str = (
             f"✅ Attendance Update — {school_name}\n\n"
             f"Your child *{student_name}* was marked *{status}* on {date_str}.\n\n"
             f"— VidyaOS"
@@ -106,7 +111,7 @@ async def send_weekly_digest(
     school_name: str = "VidyaOS School",
 ) -> dict:
     """Send a weekly performance digest to a parent via WhatsApp."""
-    msg = (
+    msg: str = (
         f"📊 Weekly Report — {school_name}\n\n"
         f"Student: *{student_name}*\n"
         f"──────────────\n"
@@ -129,9 +134,9 @@ async def send_exam_result(
     school_name: str = "VidyaOS School",
 ) -> dict:
     """Send an exam result notification to a parent via WhatsApp."""
-    pct = round(marks_obtained / max_marks * 100) if max_marks > 0 else 0
-    emoji = attendance_emoji(pct)
-    msg = (
+    pct: int = round(marks_obtained / max_marks * 100) if max_marks > 0 else 0
+    emoji: str = attendance_emoji(pct)
+    msg: str = (
         f"{emoji} Exam Result — {school_name}\n\n"
         f"Student: *{student_name}*\n"
         f"Exam: *{exam_name}*\n"

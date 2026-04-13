@@ -11,25 +11,29 @@ Respects parent notification preferences (quiet hours, channel toggles).
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, time, timezone
+from typing import Any, List, Optional, cast
 from uuid import UUID
 
+import importlib
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
 
+from src.domains.academic.models.core import Subject
 from src.domains.academic.models.parent_link import ParentLink
 from src.domains.academic.models.assignment import Assignment
 from src.domains.academic.models.attendance import Attendance
-from src.domains.academic.models.marks import Mark, Exam
+from src.domains.academic.models.marks import Exam, Mark
 from src.domains.identity.models.user import User
 from src.domains.platform.models.notification import Notification, NotificationPreference
-from src.domains.academic.services.whatsapp import send_whatsapp_message
 
-logger = logging.getLogger(__name__)
+whatsapp = cast(Any, importlib.import_module("src.domains.academic.services.whatsapp"))
+
+logger: logging.Logger = logging.getLogger(__name__)
 
 # ── Localized message templates ──────────────────────────────────────
 
-ASSIGNMENT_DUE_TEMPLATES = {
+ASSIGNMENT_DUE_TEMPLATES: dict[str, str] = {
     "en": (
         "📝 *{child_name}* has an assignment due tomorrow!\n"
         "Subject: *{subject}*\n"
@@ -46,7 +50,7 @@ ASSIGNMENT_DUE_TEMPLATES = {
     ),
 }
 
-ASSESSMENT_RESULTS_TEMPLATES = {
+ASSESSMENT_RESULTS_TEMPLATES: dict[str, str] = {
     "en": (
         "✅ Exam results ready!\n"
         "*{child_name}* scored {marks_obtained}/{max_marks} ({percentage}%)\n"
@@ -63,7 +67,7 @@ ASSESSMENT_RESULTS_TEMPLATES = {
     ),
 }
 
-LOW_ATTENDANCE_TEMPLATES = {
+LOW_ATTENDANCE_TEMPLATES: dict[str, str] = {
     "en": (
         "⚠️ Attendance Alert!\n"
         "*{child_name}* attendance: {current_attendance}%\n"
@@ -87,7 +91,7 @@ class ParentNotificationService:
         db: Session, tenant_id: UUID, parent_id: UUID
     ) -> NotificationPreference:
         """Get or create notification preferences for a parent."""
-        prefs = db.query(NotificationPreference).filter(
+        prefs: NotificationPreference | None = db.query(NotificationPreference).filter(
             and_(
                 NotificationPreference.tenant_id == tenant_id,
                 NotificationPreference.user_id == parent_id,
@@ -113,15 +117,15 @@ class ParentNotificationService:
         db: Session,
         tenant_id: UUID,
         parent_id: UUID,
-        **kwargs: dict,
+        **kwargs: Any,
     ) -> NotificationPreference:
         """Update notification preferences for a parent."""
-        prefs = ParentNotificationService.get_or_create_preferences(
+        prefs: NotificationPreference = ParentNotificationService.get_or_create_preferences(
             db, tenant_id, parent_id
         )
 
         # Whitelist allowed fields
-        allowed_fields = {
+        allowed_fields: set[str] = {
             "whatsapp_enabled",
             "sms_enabled",
             "email_enabled",
@@ -143,18 +147,19 @@ class ParentNotificationService:
     @staticmethod
     def is_quiet_hours(prefs: NotificationPreference) -> bool:
         """Check if current time is in quiet hours."""
-        if not prefs.quiet_hours_start or not prefs.quiet_hours_end:
+        quiet_start = cast(Optional[str], getattr(prefs, "quiet_hours_start", None))
+        quiet_end = cast(Optional[str], getattr(prefs, "quiet_hours_end", None))
+
+        if not quiet_start or not quiet_end:
             return False
 
-        now = datetime.now(timezone.utc).astimezone().time()
-        start = datetime.strptime(prefs.quiet_hours_start, "%H:%M").time()
-        end = datetime.strptime(prefs.quiet_hours_end, "%H:%M").time()
+        now: time = datetime.now(timezone.utc).astimezone().time()
+        start: time = datetime.strptime(quiet_start, "%H:%M").time()
+        end: time = datetime.strptime(quiet_end, "%H:%M").time()
 
         if start <= end:
             return start <= now <= end
-        else:
-            # Overnight quiet hours (e.g., 22:00 to 07:00)
-            return now >= start or now <= end
+        return now >= start or now <= end
 
     @staticmethod
     def should_send_notification(
@@ -163,22 +168,36 @@ class ParentNotificationService:
         channel: str = "whatsapp",
     ) -> bool:
         """Check if notification should be sent based on preferences."""
-        # Check channel preference
-        if channel == "whatsapp" and not prefs.whatsapp_enabled:
+        whatsapp_enabled = bool(
+            cast(Optional[bool], getattr(prefs, "whatsapp_enabled", False))
+        )
+        email_enabled = bool(
+            cast(Optional[bool], getattr(prefs, "email_enabled", False))
+        )
+        push_enabled = bool(
+            cast(Optional[bool], getattr(prefs, "push_enabled", False))
+        )
+        in_app_enabled = bool(
+            cast(Optional[bool], getattr(prefs, "in_app_enabled", False))
+        )
+
+        if channel == "whatsapp" and not whatsapp_enabled:
             return False
-        if channel == "email" and not prefs.email_enabled:
+        if channel == "email" and not email_enabled:
             return False
-        if channel == "push" and not prefs.push_enabled:
+        if channel == "push" and not push_enabled:
             return False
-        if channel == "in_app" and not prefs.in_app_enabled:
+        if channel == "in_app" and not in_app_enabled:
             return False
 
-        # Check category overrides
-        if prefs.category_overrides and category in prefs.category_overrides:
-            if not prefs.category_overrides[category]:
+        category_overrides = cast(
+            Optional[dict[str, bool]],
+            getattr(prefs, "category_overrides", None),
+        )
+        if category_overrides and category in category_overrides:
+            if not category_overrides[category]:
                 return False
 
-        # Check quiet hours
         if ParentNotificationService.is_quiet_hours(prefs):
             return False
 
@@ -190,13 +209,13 @@ class ParentNotificationService:
         tenant_id: UUID,
         student_id: UUID,
         assignment_id: UUID,
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """Notify parents of assignment due tomorrow."""
-        results = []
+        results: list[dict[str, Any]] = []
 
         try:
             # Get assignment details
-            assignment = db.query(Assignment).filter(
+            assignment: Assignment | None = db.query(Assignment).filter(
                 Assignment.id == assignment_id
             ).first()
 
@@ -205,12 +224,12 @@ class ParentNotificationService:
                 return results
 
             # Get student name
-            student = db.query(User).filter(User.id == student_id).first()
+            student: User | None = db.query(User).filter(User.id == student_id).first()
             if not student:
                 return results
 
             # Get parents
-            parents = db.query(User).join(
+            parents: List[User] = db.query(User).join(
                 ParentLink,
                 and_(
                     ParentLink.child_id == student_id,
@@ -218,58 +237,62 @@ class ParentNotificationService:
                 ),
             ).all()
 
-            # Get subject name
-            from src.domains.academic.models.core import Subject
-
-            subject = db.query(Subject).filter(
-                Subject.id == assignment.subject_id
+            subject: Subject | None = db.query(Subject).filter(
+                Subject.id == getattr(assignment, "subject_id", None)
             ).first()
-            subject_name = subject.name if subject else "Assignment"
+            subject_name: str = cast(str, getattr(subject, "name", "Assignment"))
 
-            # Get student's preferred language
-            student_lang = getattr(student, "preferred_language", "en")
+            student_lang: str = cast(str, getattr(student, "preferred_language", "en"))
             if student_lang not in ASSIGNMENT_DUE_TEMPLATES:
                 student_lang = "en"
-
             templates = ASSIGNMENT_DUE_TEMPLATES[student_lang]
 
-            for parent in parents:
-                prefs = ParentNotificationService.get_or_create_preferences(
-                    db, tenant_id, parent.id
-                )
+            student_name = cast(str, getattr(student, "name", "Student"))
+            assignment_title = cast(str, getattr(assignment, "title", ""))
+            due_date_value = getattr(assignment, "due_date", None)
+            due_date = (
+                due_date_value.strftime("%d-%m-%Y") if due_date_value else "TBD"
+            )
 
+            for parent in parents:
+                parent_id = getattr(parent, "id", None)
+                if not isinstance(parent_id, UUID):
+                    continue
+
+                prefs: NotificationPreference = ParentNotificationService.get_or_create_preferences(
+                    db, tenant_id, parent_id
+                )
                 if not ParentNotificationService.should_send_notification(
                     prefs, "assignment_reminder", "whatsapp"
                 ):
                     continue
 
-                # Format message
-                due_date = assignment.due_date.strftime("%d-%m-%Y") if assignment.due_date else "TBD"
                 message = templates.format(
-                    child_name=student.name,
+                    child_name=student_name,
                     subject=subject_name,
-                    assignment_title=assignment.title,
+                    assignment_title=assignment_title,
                     due_date=due_date,
                 )
 
-                # Get parent phone
-                parent_phone = getattr(parent, "phone", None)
+                parent_phone = cast(Optional[str], getattr(parent, "phone", None))
                 if not parent_phone:
-                    logger.warning(f"Parent {parent.id} has no phone number")
+                    logger.warning(f"Parent {parent_id} has no phone number")
                     continue
 
-                # Send WhatsApp message
-                wa_result = await send_whatsapp_message(parent_phone, message)
+                wa_sender: Any = whatsapp.send_whatsapp_message
+                wa_result = cast(
+                    dict[str, Any],
+                    await wa_sender(parent_phone, message),
+                )
                 results.append({
-                    "parent_id": str(parent.id),
+                    "parent_id": str(parent_id),
                     "status": "sent" if wa_result.get("success") else "failed",
                     "channel": "whatsapp",
                 })
 
-                # Log notification
                 notification = Notification(
                     tenant_id=tenant_id,
-                    user_id=parent.id,
+                    user_id=parent_id,
                     recipient_role="parent",
                     recipient_channel="whatsapp",
                     category="assignment_reminder",
@@ -298,37 +321,32 @@ class ParentNotificationService:
         tenant_id: UUID,
         student_id: UUID,
         mark_id: UUID,
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """Notify parents of assessment results."""
-        results = []
+        results: list[dict[str, Any]] = []
 
         try:
-            # Get mark details
-            mark = db.query(Mark).filter(Mark.id == mark_id).first()
+            mark: Mark | None = db.query(Mark).filter(Mark.id == mark_id).first()
             if not mark:
                 logger.warning(f"Mark {mark_id} not found")
                 return results
 
-            # Get exam details
-            exam = db.query(Exam).filter(Exam.id == mark.exam_id).first()
+            exam: Exam | None = db.query(Exam).filter(
+                Exam.id == getattr(mark, "exam_id", None)
+            ).first()
             if not exam:
                 return results
 
-            # Get student name
-            student = db.query(User).filter(User.id == student_id).first()
+            student: User | None = db.query(User).filter(User.id == student_id).first()
             if not student:
                 return results
 
-            # Get subject name
-            from src.domains.academic.models.core import Subject
-
-            subject = db.query(Subject).filter(
-                Subject.id == mark.subject_id
+            subject: Subject | None = db.query(Subject).filter(
+                Subject.id == getattr(mark, "subject_id", None)
             ).first()
-            subject_name = subject.name if subject else "Subject"
+            subject_name: str = cast(str, getattr(subject, "name", "Subject"))
 
-            # Get parents
-            parents = db.query(User).join(
+            parents: List[User] = db.query(User).join(
                 ParentLink,
                 and_(
                     ParentLink.child_id == student_id,
@@ -336,50 +354,51 @@ class ParentNotificationService:
                 ),
             ).all()
 
-            # Get student's preferred language
-            student_lang = getattr(student, "preferred_language", "en")
+            student_lang = cast(str, getattr(student, "preferred_language", "en"))
             if student_lang not in ASSESSMENT_RESULTS_TEMPLATES:
                 student_lang = "en"
-
             templates = ASSESSMENT_RESULTS_TEMPLATES[student_lang]
 
-            for parent in parents:
-                prefs = ParentNotificationService.get_or_create_preferences(
-                    db, tenant_id, parent.id
-                )
+            student_name = cast(str, getattr(student, "name", "Student"))
+            exam_name = cast(str, getattr(exam, "name", "Exam"))
+            max_marks = int(cast(Optional[int], getattr(exam, "max_marks", 100)) or 100)
+            marks_obtained = int(cast(Optional[int], getattr(mark, "marks_obtained", 0)) or 0)
+            percentage = round((marks_obtained / max_marks) * 100) if max_marks else 0
 
+            for parent in parents:
+                parent_id = getattr(parent, "id", None)
+                if not isinstance(parent_id, UUID):
+                    continue
+
+                prefs: NotificationPreference = ParentNotificationService.get_or_create_preferences(
+                    db, tenant_id, parent_id
+                )
                 if not ParentNotificationService.should_send_notification(
                     prefs, "assessment_results", "whatsapp"
                 ):
                     continue
 
-                max_marks = exam.max_marks or 100
-                percentage = round((mark.marks_obtained or 0) / max_marks * 100)
-
-                # Format message
                 message = templates.format(
-                    child_name=student.name,
-                    exam_name=exam.name,
-                    marks_obtained=mark.marks_obtained or 0,
+                    child_name=student_name,
+                    exam_name=exam_name,
+                    marks_obtained=marks_obtained,
                     max_marks=max_marks,
                     percentage=percentage,
                     subject=subject_name,
                 )
 
-                # Get parent phone
-                parent_phone = getattr(parent, "phone", None)
+                parent_phone = cast(Optional[str], getattr(parent, "phone", None))
                 if not parent_phone:
-                    logger.warning(f"Parent {parent.id} has no phone number")
+                    logger.warning(f"Parent {parent_id} has no phone number")
                     continue
 
-                # Log notification (in real scenario, would send WhatsApp)
                 notification = Notification(
                     tenant_id=tenant_id,
-                    user_id=parent.id,
+                    user_id=parent_id,
                     recipient_role="parent",
                     recipient_channel="whatsapp",
                     category="assessment_results",
-                    title=f"{exam.name} Results",
+                    title=f"{exam_name} Results",
                     body=message,
                     body_locale=student_lang,
                     triggered_by="system",
@@ -390,7 +409,7 @@ class ParentNotificationService:
                 )
                 db.add(notification)
                 results.append({
-                    "parent_id": str(parent.id),
+                    "parent_id": str(parent_id),
                     "status": "sent",
                     "channel": "whatsapp",
                 })
@@ -409,21 +428,21 @@ class ParentNotificationService:
         tenant_id: UUID,
         student_id: UUID,
         threshold: int = 75,
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """Check if student attendance is below threshold and notify parents."""
-        results = []
+        results: list[dict[str, Any]] = []
         attendance_threshold = threshold
 
         try:
-            # Calculate attendance for current month
-            today = datetime.now(timezone.utc)
-            month_start = today.replace(day=1)
+            today: datetime = datetime.now(timezone.utc)
+            month_start: datetime = today.replace(day=1)
 
-            attendance_records = db.query(Attendance).filter(
+            attendance_date_column: Any = getattr(Attendance, "date")
+            attendance_records: List[Attendance] = db.query(Attendance).filter(
                 and_(
                     Attendance.student_id == student_id,
-                    Attendance.date >= month_start,
-                    Attendance.date <= today,
+                    attendance_date_column >= month_start,
+                    attendance_date_column <= today,
                 )
             ).all()
 
@@ -431,24 +450,29 @@ class ParentNotificationService:
                 return results
 
             total_days = len(attendance_records)
-            present_days = len([a for a in attendance_records if a.status == "present"])
-            absent_days = len([a for a in attendance_records if a.status == "absent"])
+            present_days = sum(
+                1
+                for a in attendance_records
+                if cast(str, getattr(a, "status", "")) == "present"
+            )
+            absent_days = sum(
+                1
+                for a in attendance_records
+                if cast(str, getattr(a, "status", "")) == "absent"
+            )
 
             current_attendance = (
                 round(present_days / total_days * 100) if total_days > 0 else 0
             )
 
-            # Check if below threshold
             if current_attendance >= attendance_threshold:
                 return results
 
-            # Get student
-            student = db.query(User).filter(User.id == student_id).first()
+            student: User | None = db.query(User).filter(User.id == student_id).first()
             if not student:
                 return results
 
-            # Get parents
-            parents = db.query(User).join(
+            parents: List[User] = db.query(User).join(
                 ParentLink,
                 and_(
                     ParentLink.child_id == student_id,
@@ -456,40 +480,40 @@ class ParentNotificationService:
                 ),
             ).all()
 
-            student_lang = getattr(student, "preferred_language", "en")
+            student_lang = cast(str, getattr(student, "preferred_language", "en"))
             if student_lang not in LOW_ATTENDANCE_TEMPLATES:
                 student_lang = "en"
-
             templates = LOW_ATTENDANCE_TEMPLATES[student_lang]
+            student_name = cast(str, getattr(student, "name", "Student"))
 
             for parent in parents:
-                prefs = ParentNotificationService.get_or_create_preferences(
-                    db, tenant_id, parent.id
-                )
+                parent_id = getattr(parent, "id", None)
+                if not isinstance(parent_id, UUID):
+                    continue
 
+                prefs: NotificationPreference = ParentNotificationService.get_or_create_preferences(
+                    db, tenant_id, parent_id
+                )
                 if not ParentNotificationService.should_send_notification(
                     prefs, "low_attendance", "whatsapp"
                 ):
                     continue
 
-                # Format message
                 message = templates.format(
-                    child_name=student.name,
+                    child_name=student_name,
                     threshold=attendance_threshold,
                     current_attendance=current_attendance,
                     absent_count=absent_days,
                 )
 
-                # Get parent phone
-                parent_phone = getattr(parent, "phone", None)
+                parent_phone = cast(Optional[str], getattr(parent, "phone", None))
                 if not parent_phone:
-                    logger.warning(f"Parent {parent.id} has no phone number")
+                    logger.warning(f"Parent {parent_id} has no phone number")
                     continue
 
-                # Log notification
                 notification = Notification(
                     tenant_id=tenant_id,
-                    user_id=parent.id,
+                    user_id=parent_id,
                     recipient_role="parent",
                     recipient_channel="whatsapp",
                     category="low_attendance",
@@ -503,7 +527,7 @@ class ParentNotificationService:
                 )
                 db.add(notification)
                 results.append({
-                    "parent_id": str(parent.id),
+                    "parent_id": str(parent_id),
                     "status": "sent",
                     "channel": "whatsapp",
                 })

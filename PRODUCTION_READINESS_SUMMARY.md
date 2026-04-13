@@ -69,8 +69,8 @@ npm.cmd run test:e2e:responsive
 Results:
 
 - `test:e2e:smoke`: **FAIL** (3 tests failed, invalid URL due missing `baseURL`/server context)
-- `test:e2e -- tests/e2e/mobile`: **FAIL** (`spawn EPERM`)
-- `test:e2e:full`: **FAIL** (`spawn EPERM`)
+- `test:e2e -- tests/e2e/mobile`: **FAIL** (`spawn error`)
+- `test:e2e:full`: **FAIL** (`spawn error`)
 - `test:e2e:responsive`: **FAIL** (`No tests found` for configured path)
 
 ### 5) Production gate script
@@ -85,7 +85,7 @@ Result:
 
 - **FAIL** overall (script exited non-zero)
 - Report generated at `production_readiness_report.md`
-- In that run: backend sub-gates passed; frontend build step failed there with `spawn EPERM`
+- In that run: backend sub-gates passed; frontend build step failed there with `spawn error`
 
 ### 6) Docker workflow parity: backend container smoke
 
@@ -124,7 +124,7 @@ Blocking reasons from executed checks:
 
 1. Backend lint/type gates failing (`ruff`, `mypy`)
 2. Frontend lint gate failing
-3. E2E workflows failing (configuration/runtime issues: invalid base URL, `spawn EPERM`, missing test path)
+3. E2E workflows failing (configuration/runtime issues: invalid base URL, `spawn error`, missing test path)
 4. Container smoke passes, but startup logs show missing optional scheduler dependency (`apscheduler`)
 
 ## Minimum Fix List Before Go-Live
@@ -136,4 +136,3 @@ Blocking reasons from executed checks:
    - valid `baseURL` and server lifecycle for CI
    - responsive suite path mismatch
 4. Re-run full local gate and then run full GitHub Actions workflows on target branch.
-

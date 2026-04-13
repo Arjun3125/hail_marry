@@ -1,10 +1,11 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const baseURL = process.env.BASE_URL || "http://localhost:3010";
+const baseURL = process.env.BASE_URL || "http://localhost:3057";
 const parsedBaseUrl = new URL(baseURL);
 const devPort = parsedBaseUrl.port || (parsedBaseUrl.protocol === "https:" ? "443" : "80");
 
 export default defineConfig({
+    timeout: 60 * 1000,
     testDir: "./tests/e2e",
     fullyParallel: true,
     forbidOnly: !!process.env.CI,
@@ -49,7 +50,7 @@ export default defineConfig({
         },
     ],
     webServer: {
-        command: `npm run dev -- --port ${devPort}`,
+        command: `npm run start -- --port ${devPort}`,
         url: baseURL,
         reuseExistingServer: !process.env.CI,
         timeout: 120 * 1000,

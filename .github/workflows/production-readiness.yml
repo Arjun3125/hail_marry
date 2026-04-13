@@ -12,6 +12,8 @@ jobs:
   production_readiness_gate:
     name: Production Readiness Gate
     runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.58.2-jammy
     timeout-minutes: 60
     services:
       postgres:
@@ -65,9 +67,6 @@ jobs:
         working-directory: frontend
         run: npm ci
 
-      - name: Install Playwright browser
-        working-directory: frontend
-        run: npx playwright install --with-deps chromium
 
       - name: Run local production-readiness gate
         env:

@@ -1,7 +1,7 @@
 import { test, expect } from '../../fixtures/auth';
 
 test.describe('Parent Dashboard - Mobile (360px)', () => {
-  test('should load parent dashboard', async ({ parentPage }) => {
+  test('should load parent dashboard', async ({ parentPage }: any) => {
     // Check viewport size
     const viewport = parentPage.viewportSize();
     expect(viewport?.width).toBe(360);
@@ -19,7 +19,7 @@ test.describe('Parent Dashboard - Mobile (360px)', () => {
     expect(scrollWidth).toBeLessThanOrEqual(360);
   });
 
-  test('should display child overview', async ({ parentPage }) => {
+  test('should display child overview', async ({ parentPage }: any) => {
     // Should show child information
     await expect(parentPage.locator('text=/child|student|ward/i')).toBeVisible();
 
@@ -27,7 +27,7 @@ test.describe('Parent Dashboard - Mobile (360px)', () => {
     await expect(parentPage.locator('text=/attendance|present|absent/i')).toBeVisible();
   });
 
-  test('should show attendance statistics', async ({ parentPage }) => {
+  test('should show attendance statistics', async ({ parentPage }: any) => {
     // Check for attendance metrics
     const attendanceStats = parentPage.locator('[class*="attendance"], [class*="stats"]').filter({
       hasText: /\d+%|\d+\/\d+|present|absent/i
@@ -36,7 +36,7 @@ test.describe('Parent Dashboard - Mobile (360px)', () => {
     await expect(attendanceStats.first()).toBeVisible();
   });
 
-  test('should display marks/grades', async ({ parentPage }) => {
+  test('should display marks/grades', async ({ parentPage }: any) => {
     // Should show academic performance
     await expect(parentPage.locator('text=/marks|grades|percentage|score/i')).toBeVisible();
 
@@ -48,21 +48,21 @@ test.describe('Parent Dashboard - Mobile (360px)', () => {
     }
   });
 
-  test('should have readable performance data', async ({ parentPage }) => {
+  test('should have readable performance data', async ({ parentPage }: any) => {
     // Check font sizes for marks/grades
     const gradeElements = parentPage.locator('[class*="grade"], [class*="mark"], [class*="score"]').filter({
       hasText: /\d+/
     });
 
     for (const element of await gradeElements.all()) {
-      const fontSize = await element.evaluate((el) => {
+      const fontSize = await element.evaluate((el: HTMLElement) => {
         return parseFloat(getComputedStyle(el).fontSize);
       });
       expect(fontSize).toBeGreaterThanOrEqual(14); // Grades should be clearly readable
     }
   });
 
-  test('should show recent activity or updates', async ({ parentPage }) => {
+  test('should show recent activity or updates', async ({ parentPage }: any) => {
     // Look for recent activity, announcements, or updates
     const activityElements = parentPage.locator('text=/recent|latest|update|announcement|activity/i');
 
@@ -71,7 +71,7 @@ test.describe('Parent Dashboard - Mobile (360px)', () => {
     }
   });
 
-  test('should provide navigation to detailed views', async ({ parentPage }) => {
+  test('should provide navigation to detailed views', async ({ parentPage }: any) => {
     // Should have links to detailed attendance/marks views
     const detailLinks = parentPage.locator('a, button').filter({
       hasText: /view|details|more|see|check/i
@@ -89,7 +89,7 @@ test.describe('Parent Dashboard - Mobile (360px)', () => {
     }
   });
 
-  test('should handle settings/preferences access', async ({ parentPage }) => {
+  test('should handle settings/preferences access', async ({ parentPage }: any) => {
     // Look for settings or preferences button
     const settingsButton = parentPage.locator('a, button').filter({
       hasText: /setting|preference|notification|alert/i
@@ -105,7 +105,7 @@ test.describe('Parent Dashboard - Mobile (360px)', () => {
     }
   });
 
-  test('should display contact information if available', async ({ parentPage }) => {
+  test('should display contact information if available', async ({ parentPage }: any) => {
     // Check for teacher contact or school contact info
     const contactInfo = parentPage.locator('text=/contact|phone|email|teacher|school/i');
 

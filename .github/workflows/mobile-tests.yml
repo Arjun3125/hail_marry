@@ -18,6 +18,8 @@ jobs:
   mobile_e2e_tests:
     timeout-minutes: 60
     runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.58.2-jammy
     steps:
       - uses: actions/checkout@v4
 
@@ -32,9 +34,6 @@ jobs:
         working-directory: frontend
         run: npm ci
 
-      - name: Install Playwright Browsers
-        working-directory: frontend
-        run: npx playwright install --with-deps chromium
 
       - name: Build frontend
         working-directory: frontend

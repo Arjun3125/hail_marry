@@ -93,7 +93,8 @@ export function MindMapCanvas({ data, title = "Mind Map", onNodeClick, onSave }:
 
     // Handle mouse drag
     const handleMouseDown = (e: React.MouseEvent) => {
-        if (e.target === svgRef.current || (e.target as HTMLElement).tagName === "g") {
+        const target = e.target as HTMLElement | SVGElement;
+        if (e.target === svgRef.current || (target instanceof HTMLElement && target.tagName === "g")) {
             setIsDragging(true);
             setDragStart({ x: e.clientX - translateX, y: e.clientY - translateY });
         }

@@ -1,27 +1,34 @@
 """Scheduled notification jobs using APScheduler for parent notifications."""
+import asyncio
+import importlib
 import logging
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Any
 
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from apscheduler.triggers.cron import CronTrigger
+try:
+    _apscheduler = importlib.import_module("apscheduler")
+    AsyncIOScheduler: Any = getattr(_apscheduler.schedulers.asyncio, "AsyncIOScheduler")
+    CronTrigger: Any = getattr(_apscheduler.triggers.cron, "CronTrigger")
+except (ModuleNotFoundError, AttributeError):
+    AsyncIOScheduler = object
+    CronTrigger = object
 
 from database import SessionLocal
 from src.domains.academic.models.assignment import Assignment
 from src.domains.academic.models.core import Enrollment
-from src.domains.academic.models.identity import User
+from src.domains.identity.models.user import User
 from src.domains.academic.services.parent_notification_service import ParentNotificationService
 
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
 
 class ScheduledNotificationsService:
     """Service for managing scheduled parent notifications via APScheduler."""
 
-    _scheduler: Optional[AsyncIOScheduler] = None
+    _scheduler: Any = None
 
     @classmethod
-    def initialize_scheduler(cls, timezone: str = "Asia/Kolkata") -> AsyncIOScheduler:
+    def initialize_scheduler(cls, timezone: str = "Asia/Kolkata") -> Any:
         """Initialize the APScheduler instance with configured jobs.
 
         Args:
@@ -94,15 +101,19 @@ class ScheduledNotificationsService:
 
         try:
             # Calculate tomorrow's date range
-            tomorrow_start = (
+            tomorrow_start: datetime = (
                 datetime.now().replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
             )
-            tomorrow_end = tomorrow_start + timedelta(days=1)
+            tomorrow_end: datetime = tomorrow_start + timedelta(days=1)
 
-            # Query assignments due tomorrow across all tenants
+            # Query assignments due tomorrow (eagerly load subject to avoid N+1)
+            from sqlalchemy.orm import joinedload
+            assignment_subject_attr: Any = getattr(Assignment, "subject", None)
+            assignment_due_date_attr: Any = getattr(Assignment, "due_date", None)
             assignments = (
                 db.query(Assignment)
-                .filter(Assignment.due_date >= tomorrow_start, Assignment.due_date < tomorrow_end)
+                .options(joinedload(assignment_subject_attr))
+                .filter(assignment_due_date_attr >= tomorrow_start, assignment_due_date_attr < tomorrow_end)
                 .all()
             )
 
@@ -115,25 +126,27 @@ class ScheduledNotificationsService:
             # For each assignment, notify parents of students in that assignment's class
             for assignment in assignments:
                 try:
-                    if not assignment.subject or not assignment.subject.class_id:
+                    assignment_subject = getattr(assignment, "subject", None)
+                    assignment_class_id = getattr(assignment_subject, "class_id", None)
+                    if not assignment_subject or not assignment_class_id:
                         logger.warning(f"Assignment {assignment.id} has no related subject/class")
                         continue
 
                     # Get all students enrolled in the class
                     enrollments = (
                         db.query(Enrollment)
-                        .filter(Enrollment.class_id == assignment.subject.class_id)
+                        .filter(Enrollment.class_id == assignment_class_id)
                         .all()
                     )
 
                     if not enrollments:
                         logger.info(
-                            f"No students found in class {assignment.subject.class_id} for assignment {assignment.id}"
+                            f"No students found in class {assignment_class_id} for assignment {assignment.id}"
                         )
                         continue
 
                     logger.info(
-                        f"Notifying {len(enrollments)} student(s) in class {assignment.subject.class_id}"
+                        f"Notifying {len(enrollments)} student(s) in class {assignment_class_id}"
                     )
 
                     # Notify each student's parents
@@ -147,14 +160,15 @@ class ScheduledNotificationsService:
                             )
                         except Exception as e:
                             logger.warning(
-                                f"Failed to notify parents for student {enrollment.student_id}: {str(e)}"
+                                f"Failed to notify parents for student {enrollment.student_id}: {type(e).__name__}: {str(e)}",
+                                exc_info=True
                             )
 
                 except Exception as e:
-                    logger.error(f"Error processing assignment {assignment.id}: {str(e)}")
+                    logger.error(f"Error processing assignment {assignment.id}: {type(e).__name__}: {str(e)}", exc_info=True)
 
         except Exception as e:
-            logger.error(f"Job check_assignments_due_tomorrow failed: {str(e)}")
+            logger.error(f"Job check_assignments_due_tomorrow failed: {type(e).__name__}: {str(e)}", exc_info=True)
 
         finally:
             db.close()
@@ -185,7 +199,7 @@ class ScheduledNotificationsService:
             for student in students:
                 try:
                     # Check low attendance (this method queries and calculates internally)
-                    await ParentNotificationService.check_and_notify_low_attendance(
+                    ParentNotificationService.check_and_notify_low_attendance(
                         db=db,
                         tenant_id=student.tenant_id,
                         student_id=student.id,
@@ -194,18 +208,18 @@ class ScheduledNotificationsService:
                     notified_count += 1
 
                 except Exception as e:
-                    logger.warning(f"Failed to check attendance for student {student.id}: {str(e)}")
+                    logger.warning(f"Failed to check attendance for student {student.id}: {type(e).__name__}: {str(e)}", exc_info=True)
 
             logger.info(f"Low attendance check completed for {notified_count} students")
 
         except Exception as e:
-            logger.error(f"Job check_low_attendance failed: {str(e)}")
+            logger.error(f"Job check_low_attendance failed: {type(e).__name__}: {str(e)}", exc_info=True)
 
         finally:
             db.close()
 
 
-async def run_scheduled_notifications_loop(stop_event) -> None:
+async def run_scheduled_notifications_loop(stop_event: asyncio.Event) -> None:
     """Main async loop for running the scheduler.
 
     This function is called during FastAPI lifespan startup and runs until stop_event is set.

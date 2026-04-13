@@ -39,8 +39,8 @@ type AssignmentItem = {
 type Tab = "all" | "pending" | "submitted" | "graded";
 type SubmissionMode = "camera" | "file" | "type";
 
-// Tab configuration now uses i18n keys
-const getTabsConfig = (t: (key: string) => string): Array<{ id: Tab; labelKey: string; summaryKey: string }> => [
+// Tab configuration uses i18n keys
+const getTabsConfig = (): Array<{ id: Tab; labelKey: string; summaryKey: string }> => [
     { id: "all", labelKey: "assignments.all_items", summaryKey: "assignments.all_items_summary" },
     { id: "pending", labelKey: "assignments.pending", summaryKey: "assignments.pending" },
     { id: "submitted", labelKey: "assignments.submitted", summaryKey: "assignments.submitted" },
@@ -149,7 +149,7 @@ export default function AssignmentsPage() {
         () => Array.from(new Set(assignments.map((assignment) => assignment.subject))).sort(),
         [assignments],
     );
-    const tabs = useMemo(() => getTabsConfig(t), [t]);
+    const tabs = useMemo(() => getTabsConfig(), []);
 
     const loadAssignments = async () => {
         const payload = await api.student.assignments();

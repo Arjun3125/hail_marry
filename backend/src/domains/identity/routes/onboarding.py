@@ -1,4 +1,6 @@
 """Self-service onboarding API routes — school registration, setup wizard, student import."""
+from _csv import Writer
+
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 import csv
 import io
@@ -7,6 +9,8 @@ from sqlalchemy.orm import Session
 from typing import Optional
 
 from auth.dependencies import require_role
+from src.infrastructure.vector_store.ocr_service import OCRExtractionResult
+from src.shared.ocr_imports import StructuredImportParseResult
 from database import get_db
 from src.domains.identity.services.onboarding import (
     create_tenant_with_admin,
@@ -105,29 +109,29 @@ async def import_students(
 
     CSV columns: full_name, email, class_name (optional)
     """
-    filename = file.filename or ""
-    ext = get_extension(filename)
+    filename: str = file.filename or ""
+    ext: str = get_extension(filename)
     if ext not in {"csv", "txt", "jpg", "jpeg", "png"}:
         raise HTTPException(status_code=400, detail="Only CSV, TXT, JPG, JPEG, PNG files are accepted")
 
-    content = await file.read()
+    content: bytes = await file.read()
     try:
-        extraction = extract_upload_content_result(filename, content)
+        extraction: OCRExtractionResult = extract_upload_content_result(filename, content)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     parsed = None
     if extraction.used_ocr:
-        parsed = parse_student_import_rows_with_diagnostics(extraction.text)
+        parsed: StructuredImportParseResult = parse_student_import_rows_with_diagnostics(extraction.text)
         if not parsed.rows:
             raise HTTPException(status_code=400, detail="No readable student rows found in the image.")
         output = io.StringIO()
-        writer = csv.writer(output)
+        writer: Writer = csv.writer(output)
         writer.writerow(["full_name", "email", "class_name"])
         for _, row in parsed.rows:
             writer.writerow([row["full_name"], row["email"], row["class_name"]])
-        csv_text = output.getvalue()
+        csv_text: str = output.getvalue()
     else:
-        csv_text = extraction.text
+        csv_text: str = extraction.text
 
     result = import_students_from_csv(db, user.tenant_id, csv_text)
     response = {

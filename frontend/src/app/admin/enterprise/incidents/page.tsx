@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { AlertCircle, CheckCircle2, Clock3, RefreshCw, ShieldAlert, Siren, Waypoints } from "lucide-react";
 import { PrismHeroKicker, PrismPage, PrismPageIntro, PrismSection } from "@/components/prism/PrismPage";
 import { api } from "@/lib/api";
+import { logger } from "@/lib/logger";
 
 type Incident = {
     id: string;
@@ -66,7 +67,7 @@ export default function IncidentManagementPage() {
             setIncidents(incidentData || []);
             setRoutes(routeData || []);
         } catch (err) {
-            console.error("Failed to load incident data", err);
+            logger.error("Failed to load incident data", err as Error);
             setError("Failed to load incident data.");
         } finally {
             setLoading(false);
@@ -85,7 +86,7 @@ export default function IncidentManagementPage() {
             await api.enterprise.syncIncidents();
             await load();
         } catch (err) {
-            console.error("Failed to sync incidents", err);
+            logger.error("Failed to sync incidents", err as Error);
             setError("Failed to sync incidents.");
             setRefreshing(false);
         }
@@ -96,7 +97,7 @@ export default function IncidentManagementPage() {
             await api.enterprise.acknowledgeIncident(id);
             await load();
         } catch (err) {
-            console.error("Failed to acknowledge incident", err);
+            logger.error("Failed to acknowledge incident", err as Error);
             setError("Failed to acknowledge incident.");
         }
     };
@@ -109,7 +110,7 @@ export default function IncidentManagementPage() {
             await api.enterprise.resolveIncident(id, note);
             await load();
         } catch (err) {
-            console.error("Failed to resolve incident", err);
+            logger.error("Failed to resolve incident", err as Error);
             setError("Failed to resolve incident.");
         }
     };
@@ -132,7 +133,7 @@ export default function IncidentManagementPage() {
             setRouteForm(DEFAULT_ROUTE_FORM);
             await load();
         } catch (err) {
-            console.error("Failed to create incident route", err);
+            logger.error("Failed to create incident route", err as Error);
             setError("Failed to create incident route.");
         } finally {
             setSavingRoute(false);

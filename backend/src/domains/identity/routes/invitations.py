@@ -44,7 +44,7 @@ def accept(token: str):
 
 
 @router.delete("/revoke/{token}")
-def revoke(token: str, user=Depends(require_role("admin"))):
+def revoke(token: str, user=Depends(require_role("admin"))) -> dict[str, bool]:
     """Revoke a pending invitation. Admin only."""
     if not revoke_invitation(token):
         raise HTTPException(400, "Cannot revoke (already used or not found)")

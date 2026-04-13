@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { logger } from "@/lib/logger";
 
 interface VidyaContextState {
     activeSubject: string | null;
@@ -48,7 +49,7 @@ export function VidyaContextProvider({ children }: { children: React.ReactNode }
                 setState((prev) => ({ ...prev, ...parsed }));
             }
         } catch (e) {
-            console.error("Failed to load VidyaContext:", e);
+            logger.error("Failed to load VidyaContext:", e as Error);
         }
         setMounted(true);
     }, []);
@@ -65,7 +66,7 @@ export function VidyaContextProvider({ children }: { children: React.ReactNode }
                 lastRole: state.lastRole,
             }));
         } catch (e) {
-            console.error("Failed to save VidyaContext:", e);
+            logger.error("Failed to save VidyaContext:", e as Error);
         }
     }, [state.activeSubject, state.activeClassId, state.activeClassLabel, state.lastAITopic, state.lastRole, mounted]);
 

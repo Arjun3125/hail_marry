@@ -1,7 +1,7 @@
 """Routes for AI Studio session tracking and smart suggestions."""
 
 import uuid
-from typing import Any
+from typing import Any, List
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -35,7 +35,7 @@ async def start_session(
     request: SessionStartRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-):
+) -> dict[str, uuid.UUID]:
     session = StudySession(
         tenant_id=current_user.tenant_id,
         user_id=current_user.id,
@@ -54,8 +54,8 @@ async def heartbeat_session(
     request: SessionHeartbeatRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-):
-    session = db.query(StudySession).filter(
+) -> dict[str, str]:
+    session: StudySession | None = db.query(StudySession).filter(
         StudySession.id == session_id,
         StudySession.tenant_id == current_user.tenant_id,
         StudySession.user_id == current_user.id,
@@ -78,18 +78,18 @@ async def get_smart_suggestions(
     db: Session = Depends(get_db),
 ) -> list[dict[str, Any]]:
     # 1. Get recent context
-    session = db.query(StudySession).filter(
+    session: StudySession | None = db.query(StudySession).filter(
         StudySession.tenant_id == current_user.tenant_id,
         StudySession.user_id == current_user.id,
     ).order_by(StudySession.last_active_at.desc()).first()
     
-    last_query = db.query(AIQuery).filter(
+    last_query: AIQuery | None = db.query(AIQuery).filter(
         AIQuery.tenant_id == current_user.tenant_id,
         AIQuery.user_id == current_user.id,
     ).order_by(AIQuery.created_at.desc()).first()
     
     # 2. Build profile-aware recommendations
-    recommendations = mastery_tracking_service.build_profile_aware_recommendations(
+    recommendations: list[dict[str, Any]] = mastery_tracking_service.build_profile_aware_recommendations(
         db=db,
         tenant_id=current_user.tenant_id,
         user_id=current_user.id,
@@ -120,7 +120,7 @@ async def get_student_mastery(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[dict[str, Any]]:
-    mastery_records = db.query(TopicMastery).filter(
+    mastery_records: List[TopicMastery] = db.query(TopicMastery).filter(
         TopicMastery.tenant_id == current_user.tenant_id,
         TopicMastery.user_id == current_user.id,
     ).order_by(TopicMastery.mastery_score.asc()).limit(10).all()

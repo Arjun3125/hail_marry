@@ -174,6 +174,8 @@ jobs:
   frontend_e2e_smoke:
     name: Frontend E2E Smoke
     runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.58.2-jammy
     timeout-minutes: 30
 
     steps:
@@ -191,9 +193,6 @@ jobs:
         working-directory: frontend
         run: npm ci
 
-      - name: Install Playwright browser
-        working-directory: frontend
-        run: npx playwright install --with-deps chromium
 
       - name: Build frontend for E2E
         working-directory: frontend
@@ -221,6 +220,8 @@ jobs:
   frontend_e2e_mobile:
     name: Frontend E2E Mobile Responsiveness
     runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.58.2-jammy
     timeout-minutes: 35
 
     steps:
@@ -238,9 +239,6 @@ jobs:
         working-directory: frontend
         run: npm ci
 
-      - name: Install Playwright browsers
-        working-directory: frontend
-        run: npx playwright install --with-deps chromium
 
       - name: Build frontend for E2E
         working-directory: frontend
@@ -268,6 +266,8 @@ jobs:
   frontend_e2e_full:
     name: Frontend E2E Full
     runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.58.2-jammy
     timeout-minutes: 45
     if: >-
       (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
@@ -288,9 +288,6 @@ jobs:
         working-directory: frontend
         run: npm ci
 
-      - name: Install Playwright browser
-        working-directory: frontend
-        run: npx playwright install --with-deps chromium
 
       - name: Build frontend for E2E
         working-directory: frontend

@@ -199,14 +199,30 @@ def authorize_tool(tool_name: str, user_role: str) -> bool:
 
 
 def _run_async(coro):
-    """Run async AI helpers safely from synchronous LangChain tool wrappers."""
+    """Run async AI helpers safely from synchronous LangChain tool wrappers.
+    
+    Uses asyncio.run_coroutine_threadsafe() when already in an event loop,
+    avoiding event loop conflicts and thread safety issues.
+    """
     try:
-        asyncio.get_running_loop()
+        loop = asyncio.get_running_loop()
     except RuntimeError:
+        # Not in an event loop - safe to create new one
         return asyncio.run(coro)
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-        return pool.submit(asyncio.run, coro).result()
+    # Already in event loop - submit coroutine to run in new thread with its own loop
+    # This is the standard way to run async code from sync code in an event loop context
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1):
+        future = asyncio.run_coroutine_threadsafe(
+            coro,
+            loop=loop
+        )
+        # Wait with timeout to prevent hangs
+        try:
+            return future.result(timeout=300)  # 5 minute timeout
+        except TimeoutError:
+            logger.error("Async operation timed out after 300 seconds")
+            raise
 
 
 def _append_citations(text: str, citations: list[dict] | None) -> str:
@@ -359,8 +375,8 @@ def ask_ai_question(user_id: str, tenant_id: str, question: str, notebook_id: st
     try:
         result = _invoke_text_mode(str(tenant_id), cleaned_question, "qa", notebook_id=notebook_id)
         return _append_citations(str(result.get("answer", "")).strip(), result.get("citations"))
-    except Exception as e:
-        logger.error("ask_ai_question error: %s", e)
+    except Exception:
+        logger.exception("ask_ai_question failed")
         return "Sorry, I couldn't answer that right now."
 
 
@@ -375,8 +391,8 @@ def generate_quiz_now(user_id: str, tenant_id: str, topic: str, notebook_id: str
     try:
         result = _invoke_study_mode(str(tenant_id), "quiz", cleaned_topic, notebook_id=notebook_id)
         return _format_study_tool_payload("quiz", cleaned_topic, result)
-    except Exception as e:
-        logger.error("generate_quiz_now error: %s", e)
+    except Exception:
+        logger.exception("generate_quiz_now failed")
         return "Sorry, I couldn't generate the quiz right now."
 
 
@@ -391,8 +407,8 @@ def generate_flashcards(user_id: str, tenant_id: str, topic: str, notebook_id: s
     try:
         result = _invoke_study_mode(str(tenant_id), "flashcards", cleaned_topic, notebook_id=notebook_id)
         return _format_study_tool_payload("flashcards", cleaned_topic, result)
-    except Exception as e:
-        logger.error("generate_flashcards error: %s", e)
+    except Exception:
+        logger.exception("generate_flashcards failed")
         return "Sorry, I couldn't generate flashcards right now."
 
 
@@ -407,8 +423,8 @@ def generate_mindmap(user_id: str, tenant_id: str, topic: str, notebook_id: str 
     try:
         result = _invoke_study_mode(str(tenant_id), "mindmap", cleaned_topic, notebook_id=notebook_id)
         return _format_study_tool_payload("mindmap", cleaned_topic, result)
-    except Exception as e:
-        logger.error("generate_mindmap error: %s", e)
+    except Exception:
+        logger.exception("generate_mindmap failed")
         return "Sorry, I couldn't generate the mind map right now."
 
 
@@ -423,8 +439,8 @@ def generate_flowchart(user_id: str, tenant_id: str, topic: str, notebook_id: st
     try:
         result = _invoke_study_mode(str(tenant_id), "flowchart", cleaned_topic, notebook_id=notebook_id)
         return _format_study_tool_payload("flowchart", cleaned_topic, result)
-    except Exception as e:
-        logger.error("generate_flowchart error: %s", e)
+    except Exception:
+        logger.exception("generate_flowchart failed")
         return "Sorry, I couldn't generate the flowchart right now."
 
 
@@ -439,8 +455,8 @@ def generate_concept_map(user_id: str, tenant_id: str, topic: str, notebook_id: 
     try:
         result = _invoke_study_mode(str(tenant_id), "concept_map", cleaned_topic, notebook_id=notebook_id)
         return _format_study_tool_payload("concept_map", cleaned_topic, result)
-    except Exception as e:
-        logger.error("generate_concept_map error: %s", e)
+    except Exception:
+        logger.exception("generate_concept_map failed")
         return "Sorry, I couldn't generate the concept map right now."
 
 
@@ -501,7 +517,7 @@ def get_student_timetable(user_id: str, tenant_id: str) -> str:
     """
     db = SessionLocalRO()
     try:
-        from src.domains.academic.models.academic import Timetable, Enrollment, Subject
+        from src.domains.academic.models.academic import Timetable, Enrollment
         enrollment = db.query(Enrollment).filter(
             Enrollment.tenant_id == UUID(tenant_id),
             Enrollment.student_id == UUID(user_id),
@@ -510,7 +526,11 @@ def get_student_timetable(user_id: str, tenant_id: str) -> str:
             return "You are not enrolled in any class."
 
         today = datetime.now().strftime("%A")
-        slots = db.query(Timetable).filter(
+        # Eager load Subject to avoid N+1 queries inside the loop
+        from sqlalchemy.orm import joinedload
+        slots = db.query(Timetable).options(
+            joinedload(Timetable.subject)
+        ).filter(
             Timetable.tenant_id == UUID(tenant_id),
             Timetable.class_id == enrollment.class_id,
             Timetable.day_of_week == today,
@@ -521,8 +541,8 @@ def get_student_timetable(user_id: str, tenant_id: str) -> str:
 
         lines = [f"📅 *{today}'s Timetable:*"]
         for s in slots:
-            subject = db.query(Subject).filter(Subject.id == s.subject_id).first()
-            subj_name = subject.name if subject else "TBD"
+            # Subject is already loaded via eager loading
+            subj_name = s.subject.name if s.subject else "TBD"
             lines.append(f"  {s.start_time} – {s.end_time} | {subj_name}")
         return "\n".join(lines)
     except Exception as e:

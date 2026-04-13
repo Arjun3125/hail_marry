@@ -3,11 +3,13 @@ from __future__ import annotations
 
 import logging
 from datetime import date, timedelta
-from typing import Any
+from typing import Any, Tuple, List
 from uuid import UUID
 
+from sqlalchemy.engine.row import Row
 from sqlalchemy.orm import Session
 from sqlalchemy import case, func
+from sqlalchemy.sql.schema import Column
 
 from src.domains.identity.models.user import User
 from src.domains.academic.models.attendance import Attendance
@@ -17,12 +19,12 @@ from src.domains.academic.models.parent_link import ParentLink
 from src.domains.academic.models.core import Enrollment
 from src.domains.platform.services.emailer import send_email
 
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
 
 def _get_child_ids(db: Session, parent_id: UUID, tenant_id: UUID) -> list[UUID]:
     """Get all children linked to a parent."""
-    links = db.query(ParentLink).filter(
+    links: List[ParentLink] = db.query(ParentLink).filter(
         ParentLink.parent_id == parent_id,
         ParentLink.tenant_id == tenant_id,
     ).all()
@@ -37,15 +39,15 @@ def generate_digest(
     days: int = 7,
 ) -> dict[str, Any]:
     """Generate a weekly digest for a parent covering attendance, marks, and AI usage."""
-    child_ids = _get_child_ids(db, parent_id, tenant_id)
+    child_ids: list[UUID] = _get_child_ids(db, parent_id, tenant_id)
     if not child_ids:
         return {"children": [], "period_days": days, "message": "No linked children found."}
 
-    since = date.today() - timedelta(days=days)
+    since: date = date.today() - timedelta(days=days)
     children_data = []
-    children = db.query(User).filter(User.id.in_(child_ids)).all()
-    children_by_id = {child.id: child for child in children}
-    attendance_rows = db.query(
+    children: List[User] = db.query(User).filter(User.id.in_(child_ids)).all()
+    children_by_id: dict[Column[UUID], User] = {child.id: child for child in children}
+    attendance_rows: List[Row[Tuple[UUID, int, Any]]] = db.query(
         Attendance.student_id,
         func.count(Attendance.student_id),
         func.sum(case((Attendance.status == "present", 1), else_=0)),
@@ -54,21 +56,21 @@ def generate_digest(
         Attendance.student_id.in_(child_ids),
         Attendance.date >= since,
     ).group_by(Attendance.student_id).all()
-    attendance_by_child = {
+    attendance_by_child: dict[Any, dict[str, int]] = {
         student_id: {
             "total_days": int(total or 0),
             "present_days": int(present or 0),
         }
         for student_id, total, present in attendance_rows
     }
-    enrolled_child_ids = {
+    enrolled_child_ids: set[Column[UUID]] = {
         enrollment.student_id
         for enrollment in db.query(Enrollment).filter(
             Enrollment.tenant_id == tenant_id,
             Enrollment.student_id.in_(child_ids),
         ).all()
     }
-    mark_rows = db.query(Mark, Exam).join(
+    mark_rows: List[Row[Tuple[Mark, Exam]]] = db.query(Mark, Exam).join(
         Exam,
         Mark.exam_id == Exam.id,
     ).filter(
@@ -79,7 +81,7 @@ def generate_digest(
     for mark, exam in mark_rows:
         if mark.student_id not in enrolled_child_ids:
             continue
-        entries = recent_marks_by_child.setdefault(mark.student_id, [])
+        entries: list[dict[str, Any]] = recent_marks_by_child.setdefault(mark.student_id, [])
         if len(entries) >= 10:
             continue
         entries.append({
@@ -88,24 +90,24 @@ def generate_digest(
             "max_marks": exam.max_marks,
             "percentage": round(marks_obtained / exam.max_marks * 100) if (marks_obtained := mark.marks_obtained) and exam.max_marks > 0 else 0,
         })
-    ai_usage_rows = db.query(
+    ai_usage_rows: List[Row[Tuple[UUID, int]]] = db.query(
         AIQuery.user_id,
         func.count(AIQuery.id),
     ).filter(
         AIQuery.tenant_id == tenant_id,
         AIQuery.user_id.in_(child_ids),
     ).group_by(AIQuery.user_id).all()
-    ai_sessions_by_child = {user_id: int(count or 0) for user_id, count in ai_usage_rows}
+    ai_sessions_by_child: dict[Any, int] = {user_id: int(count or 0) for user_id, count in ai_usage_rows}
 
     for child_id in child_ids:
-        child = children_by_id.get(child_id)
+        child: User | None = children_by_id.get(child_id)
         if not child:
             continue
 
-        attendance = attendance_by_child.get(child_id, {"total_days": 0, "present_days": 0})
-        total_att = attendance["total_days"]
-        present_att = attendance["present_days"]
-        attendance_pct = round(present_att / total_att * 100) if total_att > 0 else None
+        attendance: dict[str, int] = attendance_by_child.get(child_id, {"total_days": 0, "present_days": 0})
+        total_att: int = attendance["total_days"]
+        present_att: int = attendance["present_days"]
+        attendance_pct: int | None = round(present_att / total_att * 100) if total_att > 0 else None
 
         children_data.append({
             "student_id": str(child_id),
@@ -128,7 +130,7 @@ def generate_digest(
 
 def render_digest_html(digest: dict[str, Any]) -> str:
     """Render digest data as a simple HTML email body."""
-    parts = [
+    parts: list[str] = [
         "<html><body style='font-family:sans-serif;max-width:600px;margin:auto;'>",
         f"<h2>📋 Weekly Digest — {digest.get('generated_date', '')}</h2>",
     ]
@@ -159,7 +161,7 @@ def send_parent_digest(db: Session, parent: User, days: int = 7) -> bool:
     if not parent.email:
         return False
 
-    digest = generate_digest(
+    digest: dict[str, Any] = generate_digest(
         db,
         parent_id=parent.id,
         tenant_id=parent.tenant_id,
@@ -168,8 +170,8 @@ def send_parent_digest(db: Session, parent: User, days: int = 7) -> bool:
     if not digest.get("children"):
         return False
 
-    subject = f"VidyaOS Weekly Digest — {digest.get('generated_date', '')}".strip()
-    html_body = render_digest_html(digest)
+    subject: str = f"VidyaOS Weekly Digest — {digest.get('generated_date', '')}".strip()
+    html_body: str = render_digest_html(digest)
     send_email(
         to_address=parent.email,
         subject=subject,
@@ -183,7 +185,7 @@ def send_weekly_digests(db: Session, days: int = 7) -> dict[str, int]:
     sent = 0
     skipped = 0
 
-    parents = db.query(User).filter(User.role == "parent").all()
+    parents: List[User] = db.query(User).filter(User.role == "parent").all()
     for parent in parents:
         try:
             if send_parent_digest(db, parent, days=days):

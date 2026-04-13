@@ -1,11 +1,12 @@
-"""AI History API routes for viewing and managing past AI queries."""
-from typing import Optional
+from typing import Any, List, Optional, Tuple
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, HTTPException
+from fastapi import APIRouter, Depends, Query as FastApiQuery, HTTPException
+from sqlalchemy.engine.row import Row
 from sqlalchemy.orm import Session
-from sqlalchemy import func, desc, asc, or_
+from sqlalchemy import ColumnElement, Column, func, desc, asc, or_
+from sqlalchemy.orm.query import Query as SQLQuery
 
 from database import get_db
 from auth.dependencies import get_current_user
@@ -33,7 +34,7 @@ def _parse_uuid(value: str, *, field_name: str) -> UUID:
         raise HTTPException(status_code=400, detail=f"Invalid {field_name}") from exc
 
 
-def _query_to_item(query, folder_name=None):
+def _query_to_item(query, folder_name=None) -> AIHistoryItem:
     """Convert AIQuery model to response item."""
     return AIHistoryItem(
         id=str(query.id),
@@ -55,20 +56,20 @@ def _query_to_item(query, folder_name=None):
 async def get_ai_history(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-    mode: Optional[str] = Query(None, description="Filter by AI mode"),
-    folder_id: Optional[str] = Query(None, description="Filter by folder"),
-    is_pinned: Optional[bool] = Query(None, description="Filter pinned items"),
-    search: Optional[str] = Query(None, description="Search in query and response"),
-    date_from: Optional[datetime] = Query(None, description="Start date"),
-    date_to: Optional[datetime] = Query(None, description="End date"),
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
-    sort_by: str = Query("created_at", pattern="^(created_at|title|mode)$"),
-    sort_order: str = Query("desc", pattern="^(asc|desc)$"),
-):
+    mode: Optional[str] = FastApiQuery(None, description="Filter by AI mode"),
+    folder_id: Optional[str] = FastApiQuery(None, description="Filter by folder"),
+    is_pinned: Optional[bool] = FastApiQuery(None, description="Filter pinned items"),
+    search: Optional[str] = FastApiQuery(None, description="Search in query and response"),
+    date_from: Optional[datetime] = FastApiQuery(None, description="Start date"),
+    date_to: Optional[datetime] = FastApiQuery(None, description="End date"),
+    page: int = FastApiQuery(1, ge=1, le=10000, description="Page number (max 10000 to prevent DOS)"),
+    page_size: int = FastApiQuery(20, ge=1, le=100, description="Results per page (max 100)"),
+    sort_by: str = FastApiQuery("created_at", pattern="^(created_at|title|mode)$"),
+    sort_order: str = FastApiQuery("desc", pattern="^(asc|desc)$"),
+) -> AIHistoryListResponse:
     """Get paginated AI history for current user."""
     # Base query - filter by user and not deleted
-    base_query = db.query(AIQuery).filter(
+    base_query: SQLQuery[AIQuery] = db.query(AIQuery).filter(
         AIQuery.user_id == current_user.id,
         AIQuery.tenant_id == current_user.tenant_id,
         AIQuery.deleted_at.is_(None)
@@ -76,42 +77,42 @@ async def get_ai_history(
     
     # Apply filters
     if mode:
-        base_query = base_query.filter(AIQuery.mode == mode)
+        base_query: SQLQuery[AIQuery] = base_query.filter(AIQuery.mode == mode)
     if folder_id:
-        base_query = base_query.filter(AIQuery.folder_id == _parse_uuid(folder_id, field_name="folder_id"))
+        base_query: SQLQuery[AIQuery] = base_query.filter(AIQuery.folder_id == _parse_uuid(folder_id, field_name="folder_id"))
     if is_pinned is not None:
-        base_query = base_query.filter(AIQuery.is_pinned == is_pinned)
+        base_query: SQLQuery[AIQuery] = base_query.filter(AIQuery.is_pinned == is_pinned)
     if search:
-        search_filter = or_(
+        search_filter: ColumnElement[bool] = or_(
             AIQuery.query_text.ilike(f"%{search}%"),
             AIQuery.response_text.ilike(f"%{search}%"),
             AIQuery.title.ilike(f"%{search}%"),
         )
-        base_query = base_query.filter(search_filter)
+        base_query: SQLQuery[AIQuery] = base_query.filter(search_filter)
     if date_from:
-        base_query = base_query.filter(AIQuery.created_at >= date_from)
+        base_query: SQLQuery[AIQuery] = base_query.filter(AIQuery.created_at >= date_from)
     if date_to:
-        base_query = base_query.filter(AIQuery.created_at <= date_to)
+        base_query: SQLQuery[AIQuery] = base_query.filter(AIQuery.created_at <= date_to)
     
     # Get total count
-    total = base_query.count()
+    total: int = base_query.count()
     
     # Apply sorting
-    sort_column = getattr(AIQuery, sort_by, AIQuery.created_at)
+    sort_column: Any | Column[datetime] = getattr(AIQuery, sort_by, AIQuery.created_at)
     if sort_order == "desc":
-        base_query = base_query.order_by(desc(sort_column))
+        base_query: SQLQuery[AIQuery] = base_query.order_by(desc(sort_column))
     else:
-        base_query = base_query.order_by(asc(sort_column))
+        base_query: SQLQuery[AIQuery] = base_query.order_by(asc(sort_column))
     
     # Apply pagination
-    offset = (page - 1) * page_size
-    queries = base_query.offset(offset).limit(page_size).all()
+    offset: int = (page - 1) * page_size
+    queries: List[AIQuery] = base_query.offset(offset).limit(page_size).all()
     
     # Get folder names for joining
-    folder_ids = [q.folder_id for q in queries if q.folder_id]
-    folders = {f.id: f.name for f in db.query(AIFolder).filter(AIFolder.id.in_(folder_ids)).all()} if folder_ids else {}
+    folder_ids: list[UUID] = [q.folder_id for q in queries if q.folder_id]
+    folders: dict[UUID, str] = {f.id: f.name for f in db.query(AIFolder).filter(AIFolder.id.in_(folder_ids)).all()} if folder_ids else {}
     
-    items = [_query_to_item(q, folders.get(q.folder_id)) for q in queries]
+    items: list[AIHistoryItem] = [_query_to_item(q, folders.get(q.folder_id)) for q in queries]
     
     return AIHistoryListResponse(
         items=items,
@@ -127,27 +128,27 @@ async def get_ai_history(
 async def get_folders(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-):
+) -> AIFolderListResponse:
     """Get all AI folders for current user with item counts."""
-    folders = db.query(AIFolder).filter(
+    folders: List[AIFolder] = db.query(AIFolder).filter(
         AIFolder.user_id == current_user.id,
         AIFolder.tenant_id == current_user.tenant_id,
     ).order_by(AIFolder.name).all()
     
     # Get item counts
-    folder_ids = [f.id for f in folders]
+    folder_ids: list[UUID] = [f.id for f in folders]
     counts = {}
     if folder_ids:
-        count_query = db.query(
+        count_query: List[Row[Tuple[UUID, int]]] = db.query(
             AIQuery.folder_id,
             func.count(AIQuery.id).label("count")
         ).filter(
             AIQuery.folder_id.in_(folder_ids),
             AIQuery.deleted_at.is_(None),
         ).group_by(AIQuery.folder_id).all()
-        counts = {str(f_id): cnt for f_id, cnt in count_query}
+        counts: dict[str, Any] = {str(f_id): cnt for f_id, cnt in count_query}
     
-    folder_responses = [
+    folder_responses: list[AIFolderResponse] = [
         AIFolderResponse(
             id=str(f.id),
             name=f.name,
@@ -166,7 +167,7 @@ async def create_folder(
     data: AIFolderCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-):
+) -> AIFolderResponse:
     """Create a new AI folder."""
     folder = AIFolder(
         tenant_id=current_user.tenant_id,
@@ -193,10 +194,10 @@ async def update_folder(
     data: AIFolderUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-):
+) -> AIFolderResponse:
     """Update an AI folder."""
-    folder_uuid = _parse_uuid(folder_id, field_name="folder_id")
-    folder = db.query(AIFolder).filter(
+    folder_uuid: UUID = _parse_uuid(folder_id, field_name="folder_id")
+    folder: AIFolder | None = db.query(AIFolder).filter(
         AIFolder.id == folder_uuid,
         AIFolder.user_id == current_user.id,
         AIFolder.tenant_id == current_user.tenant_id,
@@ -214,7 +215,7 @@ async def update_folder(
     db.refresh(folder)
     
     # Get item count
-    count = db.query(AIQuery).filter(
+    count: int = db.query(AIQuery).filter(
         AIQuery.folder_id == folder.id,
         AIQuery.deleted_at.is_(None),
     ).count()
@@ -233,10 +234,10 @@ async def delete_folder(
     folder_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-):
+) -> dict[str, bool]:
     """Delete a folder and move items to uncategorized."""
-    folder_uuid = _parse_uuid(folder_id, field_name="folder_id")
-    folder = db.query(AIFolder).filter(
+    folder_uuid: UUID = _parse_uuid(folder_id, field_name="folder_id")
+    folder: AIFolder | None = db.query(AIFolder).filter(
         AIFolder.id == folder_uuid,
         AIFolder.user_id == current_user.id,
         AIFolder.tenant_id == current_user.tenant_id,
@@ -260,18 +261,18 @@ async def delete_folder(
 async def get_stats(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-):
+) -> AIHistoryStats:
     """Get AI usage statistics for current user."""
-    base_query = db.query(AIQuery).filter(
+    base_query: SQLQuery[AIQuery] = db.query(AIQuery).filter(
         AIQuery.user_id == current_user.id,
         AIQuery.tenant_id == current_user.tenant_id,
         AIQuery.deleted_at.is_(None),
     )
     
-    total = base_query.count()
+    total: int = base_query.count()
     
     # Count by mode
-    mode_counts = db.query(
+    mode_counts: List[Row[Tuple[str, int]]] = db.query(
         AIQuery.mode,
         func.count(AIQuery.id).label("count")
     ).filter(
@@ -280,15 +281,15 @@ async def get_stats(
         AIQuery.deleted_at.is_(None),
     ).group_by(AIQuery.mode).all()
     
-    queries_by_mode = {mode: count for mode, count in mode_counts}
+    queries_by_mode: dict[Any, Any] = {mode: count for mode, count in mode_counts}
     
     # Time-based stats
-    now = datetime.now(UTC)
-    week_ago = now - timedelta(days=7)
-    month_ago = now - timedelta(days=30)
+    now: datetime = datetime.now(UTC)
+    week_ago: datetime = now - timedelta(days=7)
+    month_ago: datetime = now - timedelta(days=30)
     
-    queries_this_week = base_query.filter(AIQuery.created_at >= week_ago).count()
-    queries_this_month = base_query.filter(AIQuery.created_at >= month_ago).count()
+    queries_this_week: int = base_query.filter(AIQuery.created_at >= week_ago).count()
+    queries_this_month: int = base_query.filter(AIQuery.created_at >= month_ago).count()
     
     # Favorite mode
     favorite_mode = max(queries_by_mode, key=queries_by_mode.get) if queries_by_mode else None
@@ -312,10 +313,10 @@ async def get_ai_history_item(
     item_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-):
+) -> AIHistoryItem:
     """Get a single AI history item."""
-    item_uuid = _parse_uuid(item_id, field_name="item_id")
-    query = db.query(AIQuery).filter(
+    item_uuid: UUID = _parse_uuid(item_id, field_name="item_id")
+    query: AIQuery | None = db.query(AIQuery).filter(
         AIQuery.id == item_uuid,
         AIQuery.user_id == current_user.id,
         AIQuery.tenant_id == current_user.tenant_id,
@@ -327,8 +328,8 @@ async def get_ai_history_item(
     
     folder_name = None
     if query.folder_id:
-        folder = db.query(AIFolder).filter(AIFolder.id == query.folder_id).first()
-        folder_name = folder.name if folder else None
+        folder: AIFolder | None = db.query(AIFolder).filter(AIFolder.id == query.folder_id).first()
+        folder_name: str | None = folder.name if folder else None
     
     return _query_to_item(query, folder_name)
 
@@ -341,8 +342,8 @@ async def update_item_title(
     current_user: User = Depends(get_current_user),
 ):
     """Update the title of an AI history item."""
-    item_uuid = _parse_uuid(item_id, field_name="item_id")
-    query = db.query(AIQuery).filter(
+    item_uuid: UUID = _parse_uuid(item_id, field_name="item_id")
+    query: AIQuery | None = db.query(AIQuery).filter(
         AIQuery.id == item_uuid,
         AIQuery.user_id == current_user.id,
         AIQuery.tenant_id == current_user.tenant_id,
@@ -363,8 +364,8 @@ async def toggle_pin(
     current_user: User = Depends(get_current_user),
 ):
     """Toggle pin status of an AI history item."""
-    item_uuid = _parse_uuid(item_id, field_name="item_id")
-    query = db.query(AIQuery).filter(
+    item_uuid: UUID = _parse_uuid(item_id, field_name="item_id")
+    query: AIQuery | None = db.query(AIQuery).filter(
         AIQuery.id == item_uuid,
         AIQuery.user_id == current_user.id,
         AIQuery.tenant_id == current_user.tenant_id,
@@ -383,10 +384,10 @@ async def delete_history_item(
     item_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-):
+) -> dict[str, bool]:
     """Soft delete an AI history item."""
-    item_uuid = _parse_uuid(item_id, field_name="item_id")
-    query = db.query(AIQuery).filter(
+    item_uuid: UUID = _parse_uuid(item_id, field_name="item_id")
+    query: AIQuery | None = db.query(AIQuery).filter(
         AIQuery.id == item_uuid,
         AIQuery.user_id == current_user.id,
         AIQuery.tenant_id == current_user.tenant_id,
@@ -408,8 +409,8 @@ async def move_to_folder(
     current_user: User = Depends(get_current_user),
 ):
     """Move AI history item to a folder."""
-    item_uuid = _parse_uuid(item_id, field_name="item_id")
-    query = db.query(AIQuery).filter(
+    item_uuid: UUID = _parse_uuid(item_id, field_name="item_id")
+    query: AIQuery | None = db.query(AIQuery).filter(
         AIQuery.id == item_uuid,
         AIQuery.user_id == current_user.id,
         AIQuery.tenant_id == current_user.tenant_id,
@@ -420,8 +421,8 @@ async def move_to_folder(
     
     # Verify folder exists and belongs to user
     if data.folder_id:
-        folder_uuid = _parse_uuid(data.folder_id, field_name="folder_id")
-        folder = db.query(AIFolder).filter(
+        folder_uuid: UUID = _parse_uuid(data.folder_id, field_name="folder_id")
+        folder: AIFolder | None = db.query(AIFolder).filter(
             AIFolder.id == folder_uuid,
             AIFolder.user_id == current_user.id,
             AIFolder.tenant_id == current_user.tenant_id,

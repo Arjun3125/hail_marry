@@ -87,9 +87,11 @@ class SecurityDefaultTests(unittest.TestCase):
     def test_non_debug_rejects_empty_secret(self):
         from config import Settings
         original_debug = os.environ.get("DEBUG")
-        os.environ["JWT_SECRET"] = ""
+        # Initialize with valid secrets to bypass field validators
+        os.environ["JWT_SECRET"] = "a" * 64
+        os.environ["REFRESH_SECRET_KEY"] = "b" * 64
+        os.environ["DEBUG"] = "false"
         try:
-            # Force non-debug via direct attribute override after init
             s = Settings()
             s.app.debug = False
             s.auth.jwt_secret = ""
@@ -99,32 +101,60 @@ class SecurityDefaultTests(unittest.TestCase):
             if original_debug:
                 os.environ["DEBUG"] = original_debug
             os.environ.pop("JWT_SECRET", None)
+            os.environ.pop("REFRESH_SECRET_KEY", None)
 
     def test_non_debug_rejects_short_secret(self):
         from config import Settings
-        s = Settings()
-        s.app.debug = False
-        s.auth.jwt_secret = "tooshort"
-        with self.assertRaises(ValueError):
-            s._validate_security_defaults()
+        import os
+        # Initialize with valid secrets to bypass field validators
+        os.environ["JWT_SECRET"] = "a" * 64
+        os.environ["REFRESH_SECRET_KEY"] = "b" * 64
+        os.environ["DEBUG"] = "false"
+        try:
+            s = Settings()
+            s.app.debug = False
+            s.auth.jwt_secret = "tooshort"
+            with self.assertRaises(ValueError):
+                s._validate_security_defaults()
+        finally:
+            os.environ.pop("JWT_SECRET", None)
+            os.environ.pop("REFRESH_SECRET_KEY", None)
 
     def test_non_debug_rejects_missing_refresh_secret(self):
         from config import Settings
-        s = Settings()
-        s.app.debug = False
-        s.auth.jwt_secret = "a" * 48
-        s.auth.refresh_secret = ""
-        with self.assertRaises(ValueError):
-            s._validate_security_defaults()
+        import os
+        # Initialize with valid secrets to bypass field validators
+        os.environ["JWT_SECRET"] = "a" * 64
+        os.environ["REFRESH_SECRET_KEY"] = "b" * 64
+        os.environ["DEBUG"] = "false"
+        try:
+            s = Settings()
+            s.app.debug = False
+            s.auth.jwt_secret = "a" * 48
+            s.auth.refresh_secret = ""
+            with self.assertRaises(ValueError):
+                s._validate_security_defaults()
+        finally:
+            os.environ.pop("JWT_SECRET", None)
+            os.environ.pop("REFRESH_SECRET_KEY", None)
 
     def test_non_debug_rejects_short_refresh_secret(self):
         from config import Settings
-        s = Settings()
-        s.app.debug = False
-        s.auth.jwt_secret = "a" * 48
-        s.auth.refresh_secret = "short"
-        with self.assertRaises(ValueError):
-            s._validate_security_defaults()
+        import os
+        # Initialize with valid secrets to bypass field validators
+        os.environ["JWT_SECRET"] = "a" * 64
+        os.environ["REFRESH_SECRET_KEY"] = "b" * 64
+        os.environ["DEBUG"] = "false"
+        try:
+            s = Settings()
+            s.app.debug = False
+            s.auth.jwt_secret = "a" * 48
+            s.auth.refresh_secret = "short"
+            with self.assertRaises(ValueError):
+                s._validate_security_defaults()
+        finally:
+            os.environ.pop("JWT_SECRET", None)
+            os.environ.pop("REFRESH_SECRET_KEY", None)
 
 
 if __name__ == "__main__":

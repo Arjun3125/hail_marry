@@ -1,6 +1,7 @@
 """Helpers for keeping the unified student profile aligned with core records."""
 
 from __future__ import annotations
+from typing import List
 
 from sqlalchemy.orm import Session
 
@@ -13,7 +14,7 @@ from src.domains.academic.models.student_profile import StudentProfile
 
 
 def _sync_attendance_aggregates(*, db: Session, tenant_id, student_id, profile: StudentProfile) -> None:
-    attendance_rows = (
+    attendance_rows: List[Attendance] = (
         db.query(Attendance)
         .filter(
             Attendance.tenant_id == tenant_id,
@@ -23,8 +24,8 @@ def _sync_attendance_aggregates(*, db: Session, tenant_id, student_id, profile: 
         .all()
     )
 
-    total_days = len(attendance_rows)
-    present_days = sum(1 for row in attendance_rows if row.status == "present")
+    total_days: int = len(attendance_rows)
+    present_days: int = sum(1 for row in attendance_rows if row.status == "present")
     absent_streak = 0
     for row in attendance_rows:
         if row.status != "absent":
@@ -38,7 +39,7 @@ def _sync_attendance_aggregates(*, db: Session, tenant_id, student_id, profile: 
 
 
 def _sync_performance_aggregates(*, db: Session, tenant_id, student_id, profile: StudentProfile) -> None:
-    performance_rows = (
+    performance_rows: List[SubjectPerformance] = (
         db.query(SubjectPerformance)
         .filter(
             SubjectPerformance.tenant_id == tenant_id,
@@ -54,7 +55,7 @@ def _sync_performance_aggregates(*, db: Session, tenant_id, student_id, profile:
         return
 
     subject_ids = [row.subject_id for row in performance_rows if row.subject_id is not None]
-    subjects = (
+    subjects: List[Subject] = (
         db.query(Subject)
         .filter(
             Subject.tenant_id == tenant_id,
@@ -95,7 +96,7 @@ def sync_student_profile_context(*, db: Session, tenant_id, student_id) -> Stude
     it mutates the current session but does not commit.
     """
 
-    profile = db.query(StudentProfile).filter(
+    profile: StudentProfile | None = db.query(StudentProfile).filter(
         StudentProfile.tenant_id == tenant_id,
         StudentProfile.user_id == student_id,
     ).first()
@@ -106,18 +107,18 @@ def sync_student_profile_context(*, db: Session, tenant_id, student_id) -> Stude
         )
         db.add(profile)
 
-    enrollment = db.query(Enrollment).filter(
+    enrollment: Enrollment | None = db.query(Enrollment).filter(
         Enrollment.tenant_id == tenant_id,
         Enrollment.student_id == student_id,
     ).order_by(Enrollment.created_at.desc()).first()
 
-    batch_enrollment = db.query(BatchEnrollment).filter(
+    batch_enrollment: BatchEnrollment | None = db.query(BatchEnrollment).filter(
         BatchEnrollment.tenant_id == tenant_id,
         BatchEnrollment.student_id == student_id,
         BatchEnrollment.status.in_(("active", "trial")),
     ).order_by(BatchEnrollment.enrolled_at.desc()).first()
 
-    guardian_links = db.query(ParentLink).filter(
+    guardian_links: List[ParentLink] = db.query(ParentLink).filter(
         ParentLink.tenant_id == tenant_id,
         ParentLink.child_id == student_id,
     ).order_by(ParentLink.created_at.asc()).all()

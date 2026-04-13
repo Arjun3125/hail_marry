@@ -1,0 +1,955 @@
+### FILE: c:\Users\naren\Work\Projects\proxy_notebooklm\backend\main.py
+```python
+"""VidyaOS backend FastAPI application entry point."""
+from src.bootstrap.app_factory import create_app
+
+app = create_app()
+```
+### WHY THIS MATTERS: This is the entry point file that creates the FastAPI app by delegating to src/bootstrap/app_factory.py.
+
+---
+
+### FILE: c:\Users\naren\Work\Projects\proxy_notebooklm\backend\src\bootstrap\app_factory.py
+[Full contents not shown — this file creates the FastAPI app with routers, middleware, and dependencies]
+### WHY THIS MATTERS: The actual app factory that wires together all the domain routers and infrastructure.
+
+---
+
+### FILE: c:\Users\naren\Work\Projects\proxy_notebooklm\backend\src\domains\academic\models\student_profile.py
+```python
+class StudentProfile(Base):
+    """Aggregated learning profile for a student — the "school brain" record.
+
+    Updated by background jobs that scan attendance, marks, reviews, and fees
+    to produce a single, queryable snapshot per student.
+    """
+    __tablename__ = "student_profiles"
+
+    id: Column[uuid.UUID] = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Column[uuid.UUID] = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False, index=True)
+    user_id: Column[uuid.UUID] = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, unique=True, index=True)
+    current_class_id: Column[uuid.UUID] = Column(UUID(as_uuid=True), ForeignKey("classes.id"), nullable=True, index=True)
+    current_batch_id: Column[uuid.UUID] = Column(UUID(as_uuid=True), ForeignKey("batches.id"), nullable=True, index=True)
+    primary_parent_id: Column[uuid.UUID] = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True)
+    guardian_count: Column[int] = Column(Integer, default=0)
+
+    # ── Attendance aggregates ────────────────────────────────────────
+    total_days: Column[int] = Column(Integer, default=0)
+    present_days: Column[int] = Column(Integer, default=0)
+    attendance_pct = Column(Float, default=0.0)      # Computed: present_days / total_days * 100
+    absent_streak: Column[int] = Column(Integer, default=0)        # Consecutive absent days (risk flag)
+
+    # ── Academic aggregates ──────────────────────────────────────────
+    overall_score_pct = Column(Float, nullable=True)  # Weighted average across subjects
+    strongest_subject: Column[str] = Column(String(100), nullable=True)
+    weakest_subject: Column[str] = Column(String(100), nullable=True)
+    # Per-subject mastery stored as JSON: {"Maths": 78.5, "Science": 92.0}
+    subject_mastery_map: Column[Any] = Column(JSONB, nullable=True)
+
+    # ── Spaced Repetition / Learning streaks ─────────────────────────
+    current_streak_days: Column[int] = Column(Integer, default=0)  # Daily learning streak
+    longest_streak_days: Column[int] = Column(Integer, default=0)
+    total_reviews_completed: Column[int] = Column(Integer, default=0)
+    last_review_at: Column[datetime] = Column(DateTime(timezone=True), nullable=True)
+
+    # ── Risk indicators (computed by background jobs) ────────────────
+    dropout_risk: Column[str] = Column(String(20), default="low")   # low, medium, high
+    academic_risk: Column[str] = Column(String(20), default="low")  # low, medium, high
+    fee_risk: Column[str] = Column(String(20), default="low")       # low, medium, high (from fee module)
+
+    # ── Exam readiness ───────────────────────────────────────────────
+    exam_readiness_pct = Column(Float, nullable=True)  # AI-computed exam preparedness score
+    predicted_score = Column(Float, nullable=True)      # AI-predicted exam score
+
+    # ── Metadata ─────────────────────────────────────────────────────
+    last_computed_at: Column[datetime] = Column(DateTime(timezone=True), nullable=True)
+    created_at: Column[datetime] = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Column[datetime] = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+```
+### WHY THIS MATTERS: This is the core student profile table that aggregates all student data for personalization.
+
+---
+
+### FILE: c:\Users\naren\Work\Projects\proxy_notebooklm\backend\src\domains\identity\models\user.py
+```python
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False, index=True)
+    google_id = Column(String(255), unique=True, nullable=True)
+    email = Column(String(255), nullable=False)
+    full_name = Column(String(255), nullable=True)
+    avatar_url = Column(String(512), nullable=True)
+    hashed_password = Column(String(255), nullable=True)
+    role = Column(String(50), nullable=False, default="student")  # student, teacher, admin, parent
+    is_active = Column(Boolean, default=True)
+    is_deleted = Column(Boolean, default=False)
+    last_login = Column(DateTime(timezone=True), nullable=True)
+    qr_login_token = Column(String(64), nullable=True, index=True)
+    qr_login_expires_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    preferred_locale = Column(String(10), default="en", server_default="en")
+    phone_number = Column(String(20), unique=True, nullable=True, index=True)
+    whatsapp_linked = Column(Boolean, default=False)
+
+    # Relationships
+    tenant = relationship("Tenant", back_populates="users")
+```
+### WHY THIS MATTERS: Core user table with roles (student, teacher, parent, admin) and WhatsApp linking.
+
+---
+
+### FILE: c:\Users\naren\Work\Projects\proxy_notebooklm\backend\src\domains\identity\models\tenant.py
+```python
+class Tenant(Base):
+    __tablename__ = "tenants"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = Column(String(255), nullable=False)
+    domain = Column(String(255), unique=True, nullable=True)
+    plan_tier = Column(String(50), default="basic")
+    max_students = Column(Integer, default=100)
+    ai_daily_limit = Column(Integer, default=50)
+    is_active = Column(Boolean, default=True)
+
+    saml_enabled = Column(Boolean, nullable=False, default=False, server_default="false")
+    saml_entity_id = Column(String(500), nullable=True)
+    saml_metadata_url = Column(String(1000), nullable=True)
+    saml_metadata_xml = Column(Text, nullable=True)
+    saml_idp_entity_id = Column(String(500), nullable=True)
+    saml_idp_sso_url = Column(String(1000), nullable=True)
+    saml_idp_slo_url = Column(String(1000), nullable=True)
+    saml_x509_cert = Column(Text, nullable=True)
+    saml_attribute_email = Column(String(255), nullable=False, default="email", server_default="email")
+    saml_attribute_name = Column(String(255), nullable=False, default="full_name", server_default="full_name")
+
+    data_retention_days = Column(Integer, nullable=False, default=365, server_default="365")
+    export_retention_days = Column(Integer, nullable=False, default=30, server_default="30")
+
+    logo_url = Column(String(1000), nullable=True)
+    primary_color = Column(String(7), nullable=True, default="#4f46e5")
+    secondary_color = Column(String(7), nullable=True, default="#10b981")
+    accent_color = Column(String(7), nullable=True, default="#f59e0b")
+    font_family = Column(String(100), nullable=True, default="Inter")
+    theme_style = Column(String(50), nullable=True, default="modern")
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    users = relationship("User", back_populates="tenant", lazy="dynamic")
+```
+### WHY THIS MATTERS: Tenant table for multi-tenancy with SAML SSO support.
+
+---
+
+### FILE: c:\Users\naren\Work\Projects\proxy_notebooklm\backend\src\domains\platform\models\spaced_repetition.py
+```python
+class ReviewSchedule(Base):
+    __tablename__ = "review_schedules"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
+    student_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    subject_id = Column(UUID(as_uuid=True), nullable=True)
+    topic = Column(String, nullable=False)
+    next_review_at = Column(DateTime(timezone=True), nullable=False)
+    interval_days = Column(Integer, default=1)
+    ease_factor = Column(Float, default=2.5)
+    review_count = Column(Integer, default=0)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+```
+### WHY THIS MATTERS: Spaced repetition table using SM-2 algorithm for review scheduling.
+
+---
+
+### FILE: c:\Users\naren\Work\Projects\proxy_notebooklm\backend\src\domains\platform\models\ai.py
+```python
+class AIQuery(Base):
+    __tablename__ = "ai_queries"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False, index=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+    notebook_id = Column(UUID(as_uuid=True), ForeignKey("notebooks.id"), nullable=True, index=True)
+    query_text = Column(Text, nullable=False)
+    mode = Column(String(50), nullable=False, default="qa")
+    response_text = Column(Text, nullable=True)
+    token_usage = Column(Integer, nullable=True)
+    response_time_ms = Column(Integer, nullable=True)
+    trace_id = Column(String(64), nullable=True)
+    citation_count = Column(Integer, default=0)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+    # History management fields
+    title = Column(String(200), nullable=True)
+    is_pinned = Column(Boolean, default=False)
+    folder_id = Column(UUID(as_uuid=True), ForeignKey("ai_folders.id"), nullable=True)
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+    
+    # Composite indexes for common query patterns
+    __table_args__ = (
+        Index("ix_ai_query_tenant_created", "tenant_id", "created_at"),
+        Index("ix_ai_query_user_created", "user_id", "created_at"),
+        Index("ix_ai_query_tenant_mode", "tenant_id", "mode"),
+    )
+```
+### WHY THIS MATTERS: AI query log table for tracking all AI interactions.
+
+---
+
+### FILE: c:\Users\naren\Work\Projects\proxy_notebooklm\backend\src\domains\platform\models\engagement.py
+```python
+class LoginStreak(Base):
+    __tablename__ = "login_streaks"
+    id = Column(PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(PG_UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
+    user_id = Column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, unique=True)
+    current_streak = Column(Integer, default=0, nullable=False)
+    longest_streak = Column(Integer, default=0, nullable=False)
+    total_sessions = Column(Integer, default=0, nullable=False)
+    last_login_date = Column(Date, nullable=True)
+```
+### WHY THIS MATTERS: Login streak table for gamification.
+
+---
+
+### FILE: c:\Users\naren\Work\Projects\proxy_notebooklm\backend\src\domains\platform\models\whatsapp_models.py
+```python
+class PhoneUserLink(Base):
+    """Links a WhatsApp phone number (E.164) to a VidyaOS ERP user account."""
+    __tablename__ = "phone_user_link"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    phone = Column(String(20), nullable=False, index=True)  # e.g. "919876543210"
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True)
+    verified = Column(Boolean, nullable=False, default=False, server_default="false")
+    verified_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        # One phone number per tenant (a parent could have accounts in two schools)
+        {"sqlite_autoincrement": True},
+    )
+
+class WhatsAppSession(Base):
+    """Active WhatsApp conversation session (Redis is the hot store; this is the durable backup)."""
+    __tablename__ = "whatsapp_sessions"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    phone = Column(String(20), nullable=False, unique=True, index=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False, index=True)
+    role = Column(String(20), nullable=False)  # student, teacher, parent, admin
+    active_child_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    session_data = Column(JSONB, nullable=False, default=dict)  # conversation_history, context
+    last_activity = Column(DateTime(timezone=True), server_default=func.now())
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+class WhatsAppMessage(Base):
+    """Audit log entry for every WhatsApp message (inbound and outbound)."""
+    __tablename__ = "whatsapp_messages"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    phone = Column(String(20), nullable=False, index=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=True, index=True)
+    direction = Column(String(10), nullable=False)  # 'inbound' | 'outbound'
+    message_type = Column(String(20), nullable=False, default="text")  # text, list, image, audio, document
+    content = Column(Text, nullable=False)
+    wa_message_id = Column(String(100), nullable=True)  # Meta's message ID (for dedup)
+    intent = Column(String(50), nullable=True)  # classified intent
+    tool_called = Column(String(100), nullable=True)  # ERP tool invoked
+    latency_ms = Column(Integer, nullable=True)  # response time
+    status = Column(String(20), default="delivered")  # sent, delivered, read, failed
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+```
+### WHY THIS MATTERS: WhatsApp integration tables for phone linking, sessions, and message audit logs.
+
+---
+
+### FILE: c:\Users\naren\Work\Projects\proxy_notebooklm\backend\src\interfaces\whatsapp_bot\agent.py
+```python
+class WhatsAppAgentState(TypedDict):
+    message: str
+    user_id: str
+    tenant_id: str
+    notebook_id: Optional[str]
+    role: str
+    conversation_history: list
+    intent: Optional[str]
+    tool_name: Optional[str]
+    tool_args: Optional[dict]
+    tool_result: Optional[str]
+    response: Optional[str]
+    response_type: str
+
+def build_whatsapp_agent_graph() -> StateGraph:
+    graph = StateGraph(WhatsAppAgentState)
+    graph.add_node("classify_intent", classify_intent)
+    graph.add_node("execute_tool", execute_tool)
+    graph.add_node("generate_response", generate_response)
+    graph.add_node("format_for_whatsapp", format_for_whatsapp)
+    graph.set_entry_point("classify_intent")
+    graph.add_conditional_edges(
+        "classify_intent",
+        needs_tool,
+        {
+            "execute_tool": "execute_tool",
+            "generate_response": "generate_response",
+        },
+    )
+    graph.add_conditional_edges(
+        "execute_tool",
+        route_after_tool,
+        {
+            "format_for_whatsapp": "format_for_whatsapp",
+            "generate_response": "generate_response",
+        },
+    )
+    graph.add_edge("generate_response", "format_for_whatsapp")
+    graph.add_edge("format_for_whatsapp", END)
+    return graph
+```
+### WHY THIS MATTERS: LangGraph StateGraph definition for WhatsApp agent with 4 nodes: classify_intent -> execute_tool/generate_response -> format_for_whatsapp.
+
+---
+
+### FILE: c:\Users\naren\Work\Projects\proxy_notebooklm\backend\src\interfaces\rest_api\ai\agent_orchestrator.py
+```python
+class AgentState(TypedDict):
+    workflow_id: str
+    workflow_type: str
+    params: dict
+    topic: str
+    steps_completed: list[dict]
+    current_step: int
+    context: str
+    status: str
+    
+    # LangGraph transient memory for the next action to pass back to the API
+    pending_mode: Optional[str]
+    pending_prompt: Optional[str]
+    
+    # Admin context gathered from tools
+    tool_context: Optional[str]
+
+workflow = StateGraph(AgentState)
+workflow.add_node("plan", plan_node)
+workflow.set_entry_point("plan")
+workflow.add_conditional_edges("plan", should_continue)
+orchestrator_app = workflow.compile()
+```
+### WHY THIS MATTERS: REST API agent orchestrator with LangGraph for multi-step workflows (deep_study, exam_prep, lesson_plan).
+
+---
+
+### FILE: c:\Users\naren\Work\Projects\proxy_notebooklm\backend\src\infrastructure\llm\providers.py
+```python
+class OllamaLLM(BaseLLM):
+    async def generate(self, prompt: str, **kwargs) -> dict:
+        model = kwargs.get("model", settings.llm.model)
+        num_predict = kwargs.get("num_predict", settings.llm.max_new_tokens)
+        temperature = kwargs.get("temperature", settings.llm.temperature)
+
+        async with httpx.AsyncClient(timeout=settings.llm.timeout_seconds) as client:
+            response = await client.post(
+                f"{settings.llm.url}/api/generate",
+                json={
+                    "model": model,
+                    "prompt": prompt,
+                    "stream": False,
+                    "options": {
+                        "temperature": temperature,
+                        "num_predict": num_predict,
+                    },
+                },
+            )
+            response.raise_for_status()
+            data = response.json()
+            return {
+                "response": data.get("response", ""),
+                "token_usage": data.get("eval_count", 0),
+            }
+
+class OpenAILLM(BaseLLM):
+    async def generate(self, prompt: str, **kwargs) -> dict:
+        from langchain_openai import ChatOpenAI
+        model = kwargs.get("model", settings.llm.model)
+        temperature = kwargs.get("temperature", settings.llm.temperature)
+        max_tokens = kwargs.get("max_tokens")
+        llm_kwargs = {"model": model, "temperature": temperature, "api_key": settings.llm.openai_api_key}
+        if max_tokens:
+            llm_kwargs["max_tokens"] = max_tokens
+        llm = ChatOpenAI(**llm_kwargs)
+        result = await llm.ainvoke(prompt)
+        return {
+            "response": result.content,
+            "token_usage": result.response_metadata.get("token_usage", {}).get("total_tokens", 0) if hasattr(result, "response_metadata") else 0
+        }
+
+class GroqLLM(BaseLLM):
+    async def generate(self, prompt: str, **kwargs) -> dict:
+        from langchain_groq import ChatGroq
+        model = kwargs.get("model", settings.llm.model)
+        temperature = kwargs.get("temperature", settings.llm.temperature)
+        max_tokens = kwargs.get("max_tokens")
+        llm_kwargs = {"model": model, "temperature": temperature, "api_key": settings.llm.groq_api_key}
+        if max_tokens:
+            llm_kwargs["max_tokens"] = max_tokens
+        llm = ChatGroq(**llm_kwargs)
+        result = await llm.ainvoke(prompt)
+        return {
+            "response": result.content,
+            "token_usage": result.response_metadata.get("token_usage", {}).get("total_tokens", 0) if hasattr(result, "response_metadata") else 0
+        }
+
+def get_llm_provider() -> BaseLLM:
+    provider = settings.llm.provider.lower()
+    if provider == "groq":
+        return GroqLLM()
+    elif provider == "openai":
+        return OpenAILLM()
+    return OllamaLLM()
+```
+### WHY THIS MATTERS: AI provider abstraction with Ollama (default), OpenAI, and Groq support. Runtime selection via settings.llm.provider.
+
+---
+
+### FILE: c:\Users\naren\Work\Projects\proxy_notebooklm\backend\src\infrastructure\vector_store\vector_store.py
+```python
+class FAISSProvider(VectorStoreProvider):
+    """Tenant-isolated FAISS vector store implementation."""
+
+    def __init__(self, tenant_id: str):
+        self.tenant_id = tenant_id
+        self.namespace = f"tenant_{tenant_id}"
+        self.index_path = VECTOR_DIR / f"{self.namespace}.index"
+        self.meta_path = VECTOR_DIR / f"{self.namespace}.meta.json"
+        self.index: Any = None
+        self.metadata: List[Dict] = []
+        self._load()
+
+    def _load(self):
+        """Load existing index and metadata from disk."""
+        if faiss is None:
+            # Fallback: use numpy-based search
+            self.index = None
+            try:
+                if self.meta_path.exists():
+                    with open(self.meta_path, "r") as f:
+                        self.metadata = json.load(f)
+            except Exception:
+                self.metadata = []
+            return
+
+        try:
+            if self.index_path.exists() and self.meta_path.exists():
+                self.index = faiss.read_index(str(self.index_path))
+                with open(self.meta_path, "r") as f:
+                    self.metadata = json.load(f)
+                return
+        except Exception:
+            self.metadata = []
+```
+### WHY THIS MATTERS: FAISS vector store implementation (active by default). Qdrant is alternative via settings.vector_backend.provider.
+
+---
+
+### FILE: c:\Users\naren\Work\Projects\proxy_notebooklm\backend\src\domains\platform\services\whatsapp_gateway.py
+```python
+async def process_inbound_message(
+    db: Session,
+    phone: str,
+    text: str,
+    wa_message_id: Optional[str] = None,
+    message_type: str = "text",
+    media_id: Optional[str] = None,
+    media_filename: Optional[str] = None,
+    media_mime_type: Optional[str] = None,
+) -> dict:
+    """Main entry point: process an inbound WhatsApp message through the full pipeline.
+
+    Returns:
+        Dict with 'response_text', 'response_type', and metadata.
+    """
+    start_time = time.time()
+
+    # 1. Deduplication
+    if wa_message_id and is_duplicate_message(wa_message_id):
+        _increment_whatsapp_metric("duplicate_inbound_total")
+        _log_whatsapp_event(
+            "inbound_duplicate",
+            phone=phone,
+            wa_message_id=wa_message_id,
+            message_type=message_type,
+        )
+        return {"response_text": None, "response_type": "none", "duplicate": True}
+
+    # 2. Rate limiting
+    if is_rate_limited(phone):
+        _increment_whatsapp_metric("rate_limited_total")
+        _log_whatsapp_event("rate_limited", phone=phone, message_type=message_type)
+        return {
+            "response_text": "⚠️ Too many messages. Please wait a moment and try again.",
+            "response_type": "text",
+        }
+
+    # 3. Resolve user
+    link = resolve_phone_to_user(db, phone)
+
+    if not link:
+        # Unlinked phone — start auth flow
+        _increment_whatsapp_metric("unlinked_inbound_total")
+        _log_whatsapp_event("unlinked_inbound", phone=phone, message_type=message_type)
+        return await _handle_unlinked_phone(db, phone, text)
+
+    tenant_scope = str(link.tenant_id)
+    _increment_whatsapp_metric("inbound_total", tenant_scope)
+    _log_whatsapp_event(
+        "inbound_received",
+        phone=phone,
+        tenant_id=tenant_scope,
+        wa_message_id=wa_message_id,
+        message_type=message_type,
+    )
+
+    # 4. Load or create session
+    session = get_session(db, phone)
+    if not session:
+        from src.domains.identity.models.user import User
+        user = db.query(User).filter(User.id == link.user_id).first()
+        role = user.role if user else "student"
+        session = create_session(db, phone, str(link.user_id), str(link.tenant_id), role)
+
+    # 5. Check pending auth actions
+    if session.get("pending_action") == "awaiting_otp":
+        return await _handle_otp_verification(db, phone, text, session)
+
+    if session.get("pending_action") == "awaiting_email":
+        return await _handle_email_lookup(db, phone, text, session)
+
+    # 6. Parent child selection shortcuts
+    text_stripped = text.strip().lower()
+    if session.get("role") == "parent":
+        selection_result = _handle_child_switch_selection(db, session, text_stripped)
+        if selection_result:
+            elapsed = int((time.time() - start_time) * 1000)
+            log_message(db, phone, "inbound", text, user_id=link.user_id, tenant_id=link.tenant_id,
+                        wa_message_id=wa_message_id)
+            log_message(db, phone, "outbound", selection_result.get("response_text", ""), user_id=link.user_id, tenant_id=link.tenant_id,
+                        latency_ms=elapsed)
+            return selection_result
+
+    # ... [media upload handling omitted] ...
+
+    # 9. AI Agent processing
+    try:
+        from src.interfaces.whatsapp_bot.agent import run_whatsapp_agent
+        result = await run_whatsapp_agent(
+            message=text,
+            user_id=str(session.get("active_child_id") or link.user_id),
+            tenant_id=str(link.tenant_id),
+            role=session["role"],
+            notebook_id=str(session.get("active_notebook_id") or "") or None,
+            conversation_history=session.get("conversation_history", [])[-10:],
+            session_id=session.get("session_id"),
+            pending_confirmation_id=session.get("pending_mascot_confirmation_id"),
+        )
+    except Exception:
+        logger.exception("WhatsApp agent failed for phone=%s", phone)
+        result = {
+            "response": "❌ Sorry, I encountered an error processing your request. Please try again.",
+            "response_type": "text",
+            "intent": "error",
+            "tool_name": None,
+        }
+
+    # ... [response handling omitted] ...
+
+    return {
+        "response_text": result.get("response", ""),
+        "response_type": result.get("response_type", "text"),
+        "intent": result.get("intent"),
+        "tool_name": result.get("tool_name"),
+        "latency_ms": elapsed,
+    }
+```
+### WHY THIS MATTERS: WhatsApp message processing entry point with deduplication, rate limiting, session management, and agent dispatch.
+
+---
+
+### FILE: c:\Users\naren\Work\Projects\proxy_notebooklm\services\whatsapp-gateway\src\index.js
+```javascript
+// Webhook verification (GET)
+app.get("/webhook", (req, res) => {
+  const mode = req.query["hub.mode"];
+  const token = req.query["hub.verify_token"];
+  const challenge = req.query["hub.challenge"];
+
+  if (mode === "subscribe" && token === VERIFY_TOKEN) {
+    logger.info("Webhook verified successfully");
+    return res.status(200).send(challenge);
+  }
+  return res.status(403).json({ error: "Verification failed" });
+});
+
+// Inbound webhook (POST)
+app.post("/webhook", async (req, res) => {
+  // Verify signature
+  const signature = req.headers["x-hub-signature-256"] || "";
+  if (!verifySignature(req.rawBody, signature)) {
+    logger.warn("Invalid webhook signature");
+    return res.status(403).json({ error: "Invalid signature" });
+  }
+
+  // Must respond 200 to Meta immediately
+  res.status(200).json({ status: "ok" });
+
+  // Extract and process messages
+  const messages = extractMessages(req.body);
+  for (const msg of messages) {
+    if (!msg.phone || (!msg.text && !msg.media_id)) continue;
+
+    const dup = await isDuplicate(msg.wa_message_id);
+    if (dup) {
+      logger.debug({ wa_id: msg.wa_message_id }, "Duplicate message skipped");
+      continue;
+    }
+
+    // Enqueue for async processing
+    if (queue) {
+      try {
+        await queue.add("inbound_message", msg, {
+          attempts: 3,
+          backoff: { type: "exponential", delay: 2000 },
+          removeOnComplete: 1000,
+          removeOnFail: 5000,
+        });
+        logger.info({ phone: msg.phone }, "Message enqueued");
+      } catch (err) {
+        logger.error({ err, phone: msg.phone }, "Queue add failed — forwarding sync");
+        await forwardSync(msg);
+      }
+    } else {
+      await forwardSync(msg);
+    }
+  }
+});
+```
+### WHY THIS MATTERS: Node.js WhatsApp gateway webhook receiver with HMAC verification, deduplication, and async queuing.
+
+---
+
+### FILE: c:\Users\naren\Work\Projects\proxy_notebooklm\backend\src\domains\platform\routes\whatsapp_bridge.py
+```python
+@router.post("/inbound")
+async def bridge_inbound(
+    payload: BridgeInboundPayload,
+    request: Request,
+    background_tasks: BackgroundTasks,
+) -> dict[str, str]:
+    """Receive a normalized WhatsApp message from the Node.js gateway."""
+    # Validate internal header
+    gw_header = request.headers.get(INTERNAL_HEADER, "")
+    if gw_header != EXPECTED_HEADER_VALUE:
+        raise HTTPException(status_code=403, detail="Not authorized — internal gateway header missing")
+
+    if not payload.phone:
+        raise HTTPException(status_code=400, detail="phone is required")
+
+    if not payload.text and not payload.media_id:
+        raise HTTPException(status_code=400, detail="text or media_id is required")
+
+    # Process in background (same pattern as the existing webhook handler)
+    background_tasks.add_task(
+        _bridge_process_and_respond,
+        phone=payload.phone,
+        text=payload.text,
+        wa_message_id=payload.wa_message_id,
+        message_type=payload.message_type,
+        media_id=payload.media_id,
+        media_filename=payload.media_filename,
+        media_mime_type=payload.media_mime_type,
+    )
+
+    return {"status": "accepted", "phone": payload.phone}
+```
+### WHY THIS MATTERS: Python backend bridge endpoint that receives messages from Node.js gateway and processes them.
+
+---
+
+### FILE: c:\Users\naren\Work\Projects\proxy_notebooklm\backend\src\domains\academic\services\gamification.py
+```python
+BADGES = [
+    {"id": "first_login",    "name": "First Login",       "icon": "🏅", "threshold": 1,   "field": "current_streak"},
+    {"id": "streak_3",       "name": "3-Day Streak",      "icon": "⚡", "threshold": 3,   "field": "current_streak"},
+    {"id": "streak_7",       "name": "Week Warrior",      "icon": "🔥", "threshold": 7,   "field": "current_streak"},
+    {"id": "streak_14",      "name": "Fortnight Focus",   "icon": "💪", "threshold": 14,  "field": "current_streak"},
+    {"id": "streak_30",      "name": "30-Day Scholar",    "icon": "⭐", "threshold": 30,  "field": "current_streak"},
+    {"id": "streak_100",     "name": "100-Day Champion",  "icon": "🏆", "threshold": 100, "field": "current_streak"},
+    {"id": "sessions_10",    "name": "10 Sessions",       "icon": "📚", "threshold": 10,  "field": "total_sessions"},
+    {"id": "sessions_50",    "name": "50 Sessions",       "icon": "🎓", "threshold": 50,  "field": "total_sessions"},
+    {"id": "sessions_100",   "name": "Century Club",      "icon": "💯", "threshold": 100, "field": "total_sessions"},
+    {"id": "longest_30",     "name": "All-Time 30",       "icon": "🌟", "threshold": 30,  "field": "longest_streak"},
+]
+
+def record_login(db: Session, user_id: UUID, tenant_id: UUID) -> LoginStreak:
+    """Update the user's login streak. Call on each authenticated session."""
+    today: date = date.today()
+    streak: LoginStreak | None = db.query(LoginStreak).filter(
+        LoginStreak.user_id == user_id,
+        LoginStreak.tenant_id == tenant_id,
+    ).first()
+
+    if not streak:
+        streak = LoginStreak(
+            user_id=user_id,
+            tenant_id=tenant_id,
+            current_streak=1,
+            longest_streak=1,
+            total_sessions=1,
+            last_login_date=today,
+        )
+        db.add(streak)
+        db.commit()
+        db.refresh(streak)
+        return streak
+
+    if streak.last_login_date == today:
+        # Already logged in today
+        return streak
+
+    if streak.last_login_date == today - timedelta(days=1):
+        streak.current_streak += 1
+    else:
+        streak.current_streak = 1
+
+    streak.longest_streak = max(streak.longest_streak, streak.current_streak)
+    streak.total_sessions += 1
+    streak.last_login_date = today
+    db.commit()
+    db.refresh(streak)
+    return streak
+```
+### WHY THIS MATTERS: Gamification service with 10 badge definitions and streak calculation logic.
+
+---
+
+### FILE: c:\Users\naren\Work\Projects\proxy_notebooklm\backend\ai_worker.py
+```python
+async def worker_loop() -> None:
+    # ── 1. DB bootstrap is handled by the worker entrypoint before this loop starts ──
+    logger.info("Worker starting...")
+
+    # ── 2. Startup dependency checks ──
+    dependency_status = enforce_startup_dependencies("worker")
+    update_dependency_status(dependency_status)
+    mark_worker_started(WORKER_ID, dependency_status)
+
+    # ── 3. Background tasks ──
+    health_task = asyncio.create_task(_serve_worker_health())
+    heartbeat_task = asyncio.create_task(_heartbeat_loop())
+    aggregation_task = asyncio.create_task(_run_periodic_aggregation())
+
+    # ── 4. Recover any stale jobs ──
+    try:
+        recovered = recover_processing_jobs()
+        if recovered:
+            logger.info("Recovered %s in-flight AI jobs back to the pending queue.", recovered)
+    except Exception as e:
+        logger.warning("Failed to recover jobs (queue may be disabled or unavailable): %s", e)
+
+    # ── 5. Main job loop with exponential backoff ──
+    consecutive_queue_failures = 0
+    MAX_BACKOFF = 300  # 5 minutes max
+    _queue_warned = False
+
+    try:
+        while True:
+            _raise_if_task_failed(health_task, "worker health server")
+            _raise_if_task_failed(heartbeat_task, "worker heartbeat")
+            update_dependency_status(collect_dependency_status("worker"))
+            mark_worker_heartbeat(status="idle")
+            try:
+                # Reset Redis availability cache periodically
+                if consecutive_queue_failures > 0 and consecutive_queue_failures % 10 == 0:
+                    from src.domains.platform.services import ai_queue as _aq
+                    _aq._redis_available = None
+
+                job_id = await asyncio.to_thread(claim_next_job)
+                consecutive_queue_failures = 0  # Reset on success
+                if _queue_warned:
+                    logger.info("Queue connection restored — processing jobs.")
+                    _queue_warned = False
+            except Exception as e:
+                consecutive_queue_failures += 1
+                backoff = min(15 * (2 ** (consecutive_queue_failures - 1)), MAX_BACKOFF)
+                if not _queue_warned:
+                    # Log once, then stay quiet
+                    logger.info(
+                        "Queue not available (%s). Worker will silently retry every %ds.",
+                        e, MAX_BACKOFF,
+                    )
+                    _queue_warned = False
+                await asyncio.sleep(backoff)
+                continue
+
+            if not job_id:
+                continue
+
+            logger.info("Processing AI job %s on worker %s", job_id, WORKER_ID)
+            analytics.track_event(
+                WORKER_ID, 
+                "ai_worker_job_processed", 
+                {"job_id": job_id, "worker_id": WORKER_ID}
+            )
+            mark_worker_heartbeat(status="running", job_id=job_id)
+            try:
+                result = await process_job(job_id, worker_id=WORKER_ID)
+                if result and result.get("status") == "completed":
+                    analytics.track_event(
+                        WORKER_ID, 
+                        "ai_worker_job_success", 
+                        {"job_id": job_id, "worker_id": WORKER_ID}
+                    )
+                    mark_worker_success(job_id)
+                else:
+                    error_msg = result.get("error", "job did not complete") if result else "job missing"
+                    analytics.track_event(
+                        WORKER_ID, 
+                        "ai_worker_job_failed", 
+                        {"job_id": job_id, "worker_id": WORKER_ID, "error": error_msg}
+                    )
+                    mark_worker_failure(job_id, error_msg)
+            except Exception as exc:
+                analytics.track_event(
+                    WORKER_ID, 
+                    "ai_worker_job_exception", 
+                    {"job_id": job_id, "worker_id": WORKER_ID, "error": str(exc)}
+                )
+                mark_worker_failure(job_id, str(exc))
+                raise
+    finally:
+        # ... [cleanup omitted] ...
+```
+### WHY THIS MATTERS: AI worker process that claims jobs from Redis queue, processes them, and handles failures/retries.
+
+---
+
+### FILE: c:\Users\naren\Work\Projects\proxy_notebooklm\backend\settings.yaml
+```yaml
+llm:
+  provider: "openai"
+  model: "meta/llama-3.1-70b-instruct"
+  max_new_tokens: 800
+  context_window: 128000
+  temperature: 0.1
+  timeout_seconds: 60
+  fallback_model: "meta/llama-3.1-8b-instruct"
+
+embedding:
+  provider: "openai"
+  model: "nvidia/nv-embedqa-e5-v5"
+  embed_dim: 1024
+
+vector_backend:
+  provider: "faiss"
+  qdrant_url: "http://localhost:6333"
+  qdrant_api_key: ""
+  collection_prefix: "tenant_"
+  timeout_seconds: 20
+
+rag:
+  similarity_top_k: 8
+  rerank:
+    enabled: true
+    model: "cross-encoder/ms-marco-MiniLM-L-2-v2"
+    top_n: 5
+  dedup:
+    similarity_threshold: 0.85
+  context:
+    max_tokens: 3000
+    compress_lower_ranked: true
+```
+### WHY THIS MATTERS: Configuration showing active AI provider (OpenAI), vector store (FAISS), and RAG settings.
+
+---
+
+### FILE: c:\Users\naren\Work\Projects\proxy_notebooklm\frontend\src\app\student\overview\StudentOverviewClient.tsx
+```typescript
+type StudentOverviewBootstrap = {
+    dashboard?: DashboardStats | null;
+    weak_topics?: WeakTopicPayload | null;
+    streaks?: StreakInfo | null;
+    recommendations?: { items?: PersonalizedRecommendation[] } | null;
+    study_path?: { plan?: StudyPathPlan | null } | null;
+};
+
+const emptyStats: DashboardStats = {
+    attendance_pct: 0,
+    avg_marks: 0,
+    pending_assignments: 0,
+    next_assignment: null,
+    ai_queries_today: 0,
+    ai_queries_limit: 50,
+    upcoming_classes: [],
+    my_uploads: 0,
+    ai_insight: null,
+};
+
+function normalizeBootstrap(payload: StudentOverviewBootstrap | null | undefined) {
+    const dashboardPayload = payload?.dashboard || emptyStats;
+    const topicPayload = payload?.weak_topics || { weak_topics: [], strong_topics: [] };
+    const recommendationPayload = payload?.recommendations || { items: [] };
+    const studyPathPayload = payload?.study_path || { plan: null };
+
+    return {
+        stats: dashboardPayload as DashboardStats,
+        weakTopics: topicPayload.weak_topics || [],
+        strongTopics: topicPayload.strong_topics || [],
+        streak: (payload?.streaks || null) as StreakInfo | null,
+        recommendations: Array.isArray(recommendationPayload.items) ? recommendationPayload.items : [],
+        studyPath: (studyPathPayload.plan || null) as StudyPathPlan | null,
+    };
+}
+```
+### WHY THIS MATTERS: Frontend student dashboard fetches personalized data including streaks, recommendations, and study paths.
+
+---
+
+## GAPS REPORT
+
+### Integration Points for Mascot + Profiling System
+1. **Student Profile Personalization**: The `student_profiles` table aggregates academic data but lacks personality traits, learning styles, or mascot preferences. No table exists for storing mascot assignments or interaction history.
+2. **AI Prompt Customization**: The AI system uses static prompts; no per-student prompt engineering based on profile data exists.
+3. **Mascot Memory**: No persistent storage for mascot conversation context or relationship building across sessions.
+4. **Dynamic AI Behavior**: The LangGraph agents don't access student profile data for behavior adaptation.
+
+### Missing Tables
+1. `mascots` - Mascot definitions (name, personality, avatar, voice characteristics)
+2. `student_mascot_assignments` - Which mascot is assigned to which student
+3. `mascot_interactions` - History of mascot conversations and relationship metrics
+4. `student_personality_profiles` - Learning styles, communication preferences, motivational triggers
+5. `mascot_memory` - Persistent context for mascot relationships
+
+### Missing Services
+1. **Mascot Orchestrator**: Service to manage mascot assignments and personality-driven AI behavior
+2. **Profile Analyzer**: Background job to analyze student behavior and update personality profiles
+3. **Mascot Memory Manager**: Service to maintain conversation context and relationship state
+4. **Personalization Engine**: Service to customize AI responses based on student profiles
+
+### Architectural Conflicts
+1. **Stateless AI Agents**: Current LangGraph agents are stateless; mascot system requires persistent personality context.
+2. **No Profile Integration**: AI pipeline doesn't query student profiles for customization.
+3. **Missing Relationship Tracking**: No system to track mascot-student bond strength or adaptation.
+
+### Required Dependencies
+1. **Personality Analysis Library**: For analyzing student communication patterns
+2. **Memory Management**: Redis extensions or new database tables for mascot context
+3. **Avatar Generation**: If dynamic mascot avatars are needed
+4. **Voice Synthesis**: If mascot audio responses are implemented
+
+This codebase provides a solid foundation with comprehensive AI tooling, gamification, and WhatsApp integration, but requires the new mascot + profiling system to be built as a parallel domain with integration points into the existing AI and student profile systems.

@@ -1,0 +1,16 @@
+{
+  "alwaysUpdateLinks": true,
+  "showUnsupportedFiles": true,
+  "uriCallbacks": true,
+  "userIgnoreFilters": [
+    ".venv",
+    ".pytest_tmp",
+    ".pytest_cache",
+    "pytest_tmp",
+    "node_modules",
+    "__pycache__",
+    ".git",
+    "MagicMock",
+    "DEEP MIND"
+  ]
+}

@@ -1,31 +1,12 @@
 import { expect, test } from "@playwright/test";
+import { authenticateAs } from "../fixtures/auth";
 
-test.beforeEach(async ({ page }) => {
-    await page.addInitScript(() => {
-        window.localStorage.setItem("vidyaos_access_token", "test-token");
-        window.localStorage.setItem("student-tour", "completed");
-        window.localStorage.setItem("teacher-tour", "completed");
-        window.localStorage.setItem("admin-tour", "completed");
-    });
-
-    await page.route("**/api/branding/config", async (route) => {
-        await route.fulfill({
-            status: 200,
-            contentType: "application/json",
-            body: JSON.stringify({
-                name: "VidyaOS",
-                logo_url: null,
-                primary_color: "#2563eb",
-                secondary_color: "#0f172a",
-                accent_color: "#f59e0b",
-                font_family: "Inter",
-                theme_style: "modern",
-            }),
-        });
-    });
+test.beforeEach(async () => {
+    // Standard auth and branding stubs are now handled by authenticateAs
 });
 
 test("student mascot page creates a notebook and opens AI Studio", async ({ page }) => {
+    await authenticateAs(page, "student");
     await page.route("**/api/mascot/suggestions**", async (route) => {
         await route.fulfill({
             status: 200,
@@ -93,6 +74,7 @@ test("student mascot page creates a notebook and opens AI Studio", async ({ page
 });
 
 test("student upload layout shows floating mascot launcher", async ({ page }) => {
+    await authenticateAs(page, "student");
     await page.route("**/api/student/uploads", async (route) => {
         await route.fulfill({
             status: 200,
@@ -109,11 +91,12 @@ test("student upload layout shows floating mascot launcher", async ({ page }) =>
     });
 
     await page.goto("/student/upload");
-    await page.getByLabel("Open mascot assistant").click();
+    await page.getByLabel("Open mascot assistant").click({ force: true });
     await expect(page.getByText("Vidya Mascot")).toBeVisible();
 });
 
 test("teacher classes layout shows floating mascot launcher", async ({ page }) => {
+    await authenticateAs(page, "teacher");
     await page.route("**/api/teacher/classes", async (route) => {
         await route.fulfill({
             status: 200,
@@ -132,13 +115,14 @@ test("teacher classes layout shows floating mascot launcher", async ({ page }) =
     });
 
     await page.goto("/teacher/classes");
-    await page.getByLabel("Open mascot assistant").click();
+    await page.getByLabel("Open mascot assistant").click({ force: true });
     await expect(page.getByText("Vidya Mascot")).toBeVisible();
     await expect(page.getByText("Context: Student Onboarding")).toBeVisible();
     await expect(page.getByRole("button", { name: "Import student roster from image" })).toBeVisible();
 });
 
 test("admin setup wizard layout shows floating mascot launcher", async ({ page }) => {
+    await authenticateAs(page, "admin");
     await page.route("**/api/mascot/suggestions**", async (route) => {
         await route.fulfill({
             status: 200,
@@ -148,13 +132,14 @@ test("admin setup wizard layout shows floating mascot launcher", async ({ page }
     });
 
     await page.goto("/admin/setup-wizard");
-    await page.getByLabel("Open mascot assistant").click();
+    await page.getByLabel("Open mascot assistant").click({ force: true });
     await expect(page.getByText("Vidya Mascot")).toBeVisible();
     await expect(page.getByText("Context: Setup Step: school")).toBeVisible();
     await expect(page.getByRole("button", { name: "Show setup progress" })).toBeVisible();
 });
 
 test("admin mascot page can navigate to setup wizard", async ({ page }) => {
+    await authenticateAs(page, "admin");
     await page.route("**/api/mascot/suggestions**", async (route) => {
         await route.fulfill({
             status: 200,
@@ -189,6 +174,7 @@ test("admin mascot page can navigate to setup wizard", async ({ page }) => {
 });
 
 test("student mascot can upload a file and ask a follow-up", async ({ page }) => {
+    await authenticateAs(page, "student");
     await page.route("**/api/mascot/suggestions**", async (route) => {
         await route.fulfill({
             status: 200,

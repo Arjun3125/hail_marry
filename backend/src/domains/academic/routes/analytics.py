@@ -1,5 +1,7 @@
 """Analytics API endpoints for reports, dashboard data, and exports."""
 import logging
+from datetime import datetime, timedelta
+from typing import Any, cast, Dict, List
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -12,9 +14,13 @@ from src.domains.academic.services.analytics import AttendanceAnalytics, Academi
 from src.domains.academic.services.pdf_reporter import PDFReportGenerator
 from starlette.responses import StreamingResponse
 
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/analytics", tags=["Analytics"])
+
+
+def _get_tenant_id(user: User) -> UUID:
+    return cast(UUID, user.tenant_id)
 
 
 # ─── Attendance Analytics ──────────────────────────────────
@@ -24,11 +30,12 @@ async def get_student_attendance(
     days: int = 30,
     current_user: User = Depends(require_role("teacher", "admin", "parent")),
     db: Session = Depends(get_db),
-):
+) -> Dict[str, Any]:
     """Get attendance analytics for a student."""
-    data = AttendanceAnalytics.get_student_attendance_summary(
+    tenant_id: UUID = _get_tenant_id(current_user)
+    data: Dict[str, Any] = AttendanceAnalytics.get_student_attendance_summary(
         db=db,
-        tenant_id=current_user.tenant_id,
+        tenant_id=tenant_id,
         student_id=student_id,
         days=days,
     )
@@ -41,11 +48,12 @@ async def get_class_attendance(
     days: int = 30,
     current_user: User = Depends(require_role("teacher", "admin")),
     db: Session = Depends(get_db),
-):
+) -> Dict[str, Any]:
     """Get attendance analytics for entire class."""
-    data = AttendanceAnalytics.get_class_attendance_summary(
+    tenant_id: UUID = _get_tenant_id(current_user)
+    data: Dict[str, Any] = AttendanceAnalytics.get_class_attendance_summary(
         db=db,
-        tenant_id=current_user.tenant_id,
+        tenant_id=tenant_id,
         class_id=class_id,
         days=days,
     )
@@ -59,19 +67,28 @@ async def get_class_attendance_trend(
     end_date: str,    # ISO format: 2026-04-30
     current_user: User = Depends(require_role("teacher", "admin")),
     db: Session = Depends(get_db),
-):
-    """Get daily attendance trend for a class."""
-    from datetime import datetime
-    
+) -> Dict[str, Any]:
+    """Get daily attendance trend for a class (max 365 days to prevent DOS)."""
     try:
-        start = datetime.fromisoformat(start_date).date()
-        end = datetime.fromisoformat(end_date).date()
+        start: datetime = datetime.fromisoformat(start_date)
+        end: datetime = datetime.fromisoformat(end_date) + timedelta(days=1) - timedelta(microseconds=1)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format. Use ISO format: YYYY-MM-DD")
 
-    data = AttendanceAnalytics.get_attendance_by_date_range(
+    # Prevent DOS: limit date range to 365 days
+    if (end.date() - start.date()).days > 365:
+        raise HTTPException(
+            status_code=400,
+            detail="Date range cannot exceed 365 days. Please select a smaller range.",
+        )
+
+    if start > end:
+        raise HTTPException(status_code=400, detail="start_date must be before or equal to end_date")
+
+    tenant_id: UUID = _get_tenant_id(current_user)
+    data: List[Dict[str, Any]] = AttendanceAnalytics.get_attendance_by_date_range(
         db=db,
-        tenant_id=current_user.tenant_id,
+        tenant_id=tenant_id,
         class_id=class_id,
         start_date=start,
         end_date=end,
@@ -85,11 +102,12 @@ async def get_student_performance(
     student_id: UUID,
     current_user: User = Depends(require_role("teacher", "admin", "parent")),
     db: Session = Depends(get_db),
-):
+) -> Dict[str, Any]:
     """Get academic performance analytics for a student."""
-    data = AcademicAnalytics.get_student_performance_summary(
+    tenant_id: UUID = _get_tenant_id(current_user)
+    data: Dict[str, Any] = AcademicAnalytics.get_student_performance_summary(
         db=db,
-        tenant_id=current_user.tenant_id,
+        tenant_id=tenant_id,
         student_id=student_id,
     )
     return {"success": True, "data": data}
@@ -100,11 +118,12 @@ async def get_class_performance(
     class_id: UUID,
     current_user: User = Depends(require_role("teacher", "admin")),
     db: Session = Depends(get_db),
-):
+) -> Dict[str, Any]:
     """Get academic performance analytics for entire class."""
-    data = AcademicAnalytics.get_class_performance_summary(
+    tenant_id: UUID = _get_tenant_id(current_user)
+    data: Dict[str, Any] = AcademicAnalytics.get_class_performance_summary(
         db=db,
-        tenant_id=current_user.tenant_id,
+        tenant_id=tenant_id,
         class_id=class_id,
     )
     return {"success": True, "data": data}
@@ -115,11 +134,12 @@ async def get_exam_analysis(
     exam_id: UUID,
     current_user: User = Depends(require_role("teacher", "admin")),
     db: Session = Depends(get_db),
-):
+) -> Dict[str, Any]:
     """Get detailed analysis for a specific exam."""
-    data = AcademicAnalytics.get_exam_analysis(
+    tenant_id: UUID = _get_tenant_id(current_user)
+    data: Dict[str, Any] = AcademicAnalytics.get_exam_analysis(
         db=db,
-        tenant_id=current_user.tenant_id,
+        tenant_id=tenant_id,
         exam_id=exam_id,
     )
     if not data:
@@ -135,13 +155,14 @@ async def export_student_report_pdf(
     include_academics: bool = True,
     current_user: User = Depends(require_role("admin", "parent")),
     db: Session = Depends(get_db),
-):
+) -> StreamingResponse:
     """Export student report as PDF."""
     try:
+        tenant_id: UUID = _get_tenant_id(current_user)
         generator = PDFReportGenerator()
-        pdf_bytes = generator.generate_student_report(
+        pdf_bytes: bytes = generator.generate_student_report(
             db=db,
-            tenant_id=current_user.tenant_id,
+            tenant_id=tenant_id,
             student_id=student_id,
             include_attendance=include_attendance,
             include_academics=include_academics,
@@ -167,13 +188,14 @@ async def export_class_report_pdf(
     include_academics: bool = True,
     current_user: User = Depends(require_role("admin", "teacher")),
     db: Session = Depends(get_db),
-):
+) -> StreamingResponse:
     """Export class report as PDF."""
     try:
+        tenant_id: UUID = _get_tenant_id(current_user)
         generator = PDFReportGenerator()
-        pdf_bytes = generator.generate_class_report(
+        pdf_bytes: bytes = generator.generate_class_report(
             db=db,
-            tenant_id=current_user.tenant_id,
+            tenant_id=tenant_id,
             class_id=class_id,
             include_attendance=include_attendance,
             include_academics=include_academics,

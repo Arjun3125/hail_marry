@@ -14,16 +14,17 @@ call) is the #1 most-requested notification by Indian parents.
 from __future__ import annotations
 
 import logging
+from typing import Any
 from uuid import UUID
 
 from database import SessionLocal
 from src.domains.academic.models.parent_link import ParentLink
 from src.domains.identity.models.user import User
 
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
 # ── Localized message templates ──────────────────────────────────────
-ABSENCE_TEMPLATES = {
+ABSENCE_TEMPLATES: dict[str, str] = {
     "en": (
         "📋 Attendance Alert\n\n"
         "Your child *{child_name}* was marked *absent* today ({date}) "
@@ -38,7 +39,7 @@ ABSENCE_TEMPLATES = {
     ),
 }
 
-LATE_TEMPLATES = {
+LATE_TEMPLATES: dict[str, str] = {
     "en": (
         "⏰ Late Arrival Alert\n\n"
         "Your child *{child_name}* arrived *late* today ({date}) "
@@ -51,7 +52,7 @@ LATE_TEMPLATES = {
     ),
 }
 
-STREAK_ALERT_TEMPLATES = {
+STREAK_ALERT_TEMPLATES: dict[str, str] = {
     "en": (
         "⚠️ Attendance Concern\n\n"
         "Your child *{child_name}* has been absent for "
@@ -101,8 +102,8 @@ async def notify_parents_on_absence(
             logger.warning("Student %s not found for attendance notification", student_id)
             return []
 
-        child_name = student.full_name or student.email or "your child"
-        locale = student.preferred_locale or "en"
+        child_name: Any | str = student.full_name or student.email or "your child"
+        locale: Any | str = student.preferred_locale or "en"
 
         # 2. Find all linked parents
         parent_links = db.query(ParentLink).filter(
@@ -116,16 +117,16 @@ async def notify_parents_on_absence(
 
         # 3. Select the right template
         if consecutive_absent_days >= 3:
-            templates = STREAK_ALERT_TEMPLATES
+            templates: dict[str, str] = STREAK_ALERT_TEMPLATES
             category = "behavior_alert"
         elif status == "late":
-            templates = LATE_TEMPLATES
+            templates: dict[str, str] = LATE_TEMPLATES
             category = "attendance"
         else:
-            templates = ABSENCE_TEMPLATES
+            templates: dict[str, str] = ABSENCE_TEMPLATES
             category = "attendance"
 
-        title = {
+        title: str = {
             "attendance": "Attendance Alert",
             "behavior_alert": "Attendance Concern",
         }.get(category, "School Update")
@@ -138,15 +139,15 @@ async def notify_parents_on_absence(
             if not parent:
                 continue
 
-            parent_locale = parent.preferred_locale or locale
-            parent_body = templates.get(parent_locale, templates["en"]).format(
+            parent_locale: Any | str = parent.preferred_locale or locale
+            parent_body: str = templates.get(parent_locale, templates["en"]).format(
                 child_name=child_name,
                 date=date_str,
                 class_name=class_name,
                 streak_days=consecutive_absent_days,
             )
 
-            result = await dispatch_notification(
+            result: list[dict[str, Any]] = await dispatch_notification(
                 tenant_id=tenant_id,
                 recipient_id=str(link.parent_id),
                 recipient_role="parent",

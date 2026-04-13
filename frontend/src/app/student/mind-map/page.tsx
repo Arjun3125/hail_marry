@@ -107,13 +107,19 @@ export default function InteractiveMindMapPage() {
         setData(null);
         try {
             const result = await api.student.generateTool({ tool: "mindmap", topic: topic.trim() });
-            const rawResult = result as unknown as Record<string, unknown> | null;
-            const tree = rawResult?.data || rawResult?.content || rawResult?.mindmap || rawResult;
-
-            if (tree && typeof tree === "object" && "label" in tree) {
-                setData(tree as MindNode);
+            // Type guard: check if result has the expected structure
+            if (result && typeof result === "object") {
+                const data = result as Record<string, unknown>;
+                const tree = data.data || data.content || data.mindmap || result;
+                
+                if (tree && typeof tree === "object" && "label" in tree) {
+                    setData(tree as MindNode);
+                } else {
+                    const keys = typeof tree === "object" && tree !== null ? Object.keys(tree).join(",") : "null";
+                    setError(`Could not parse mind map data. Keys: ${keys}`);
+                }
             } else {
-                setError(`Could not parse mind map data. Keys: ${rawResult ? Object.keys(rawResult).join(",") : "null"}`);
+                setError("Invalid response from server");
             }
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : String(err);

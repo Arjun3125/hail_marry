@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { BarChart, Bar, CartesianGrid, Tooltip, XAxis, YAxis, ResponsiveContainer } from "recharts";
 import { Activity, Brain, Clock, TrendingUp, Zap } from "lucide-react";
 import { api } from "@/lib/api";
+import { logger } from "@/lib/logger";
 import { SessionSummaryModal } from "./SessionSummaryModal";
 
 interface AISessionInsightsProps {
@@ -61,7 +62,7 @@ export function AISessionInsights({ loading: initialLoading = false, days = 30 }
                 }
             } catch (err) {
                 setError(err instanceof Error ? err.message : "Failed to fetch insights");
-                console.error("Error fetching AI session insights:", err);
+                logger.error("Error fetching AI session insights:", err as Error);
             } finally {
                 setLoading(false);
             }

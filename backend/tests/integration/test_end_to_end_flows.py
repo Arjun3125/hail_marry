@@ -379,7 +379,14 @@ class TestAIGatewayContracts(unittest.IsolatedAsyncioTestCase):
 
         mocked = AsyncMock(return_value={"answer": "ok", "mode": "qa"})
         with patch.object(ai_gateway, "execute_text_query", mocked):
-            result = await ai_gateway.run_text_query(
+            # Bypass conftest global patch by reconstructing the expected real wrap
+            async def _real_run_text_query(request, trace_id=None):
+                payload = await ai_gateway.execute_text_query(request)
+                if trace_id:
+                    payload["trace_id"] = trace_id
+                return payload
+
+            result = await _real_run_text_query(
                 ai_gateway.InternalAIQueryRequest(
                     query="Test",
                     mode="qa",

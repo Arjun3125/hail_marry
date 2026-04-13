@@ -154,7 +154,8 @@ export function MascotShell({
     const pathname = usePathname();
     const router = useRouter();
     const searchParams = useSearchParams();
-    const [draft, setDraft] = useState("");
+    const initialPrompt = searchParams.get("prompt")?.trim() || "";
+    const [draft, setDraft] = useState(initialPrompt);
     const [messages, setMessages] = useState<MascotChatMessage[]>([
         {
             id: "mascot-welcome",
@@ -170,7 +171,7 @@ export function MascotShell({
     const [notebookId, setNotebookId] = useState<string | null>(null);
     const [pageContext, setPageContext] = useState<ReturnType<typeof readMascotPageContext>>(null);
     const [activeNotebookLabel, setActiveNotebookLabel] = useState<string | null>(null);
-    const seededPromptRef = useRef<string | null>(null);
+    const seededPromptRef = useRef<string | null>(initialPrompt || null);
 
     useEffect(() => {
         if (typeof window === "undefined") return;

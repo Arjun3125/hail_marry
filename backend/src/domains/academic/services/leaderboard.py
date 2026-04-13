@@ -1,12 +1,16 @@
 """Leaderboard ranking service for competitive exam test series."""
+from typing import List
+from decimal import Decimal
+from typing import Tuple
 import uuid as _uuid
+from sqlalchemy.engine.row import Row
 from sqlalchemy.orm import Session
-from sqlalchemy import desc
+from sqlalchemy import ColumnElement, desc
 from src.domains.academic.models.test_series import TestSeries, MockTestAttempt
 from src.domains.identity.models.user import User
 
 
-def _to_uuid(value):
+def _to_uuid(value) -> _uuid.UUID:
     """Convert a string to uuid.UUID if needed (SQLite compatibility)."""
     if isinstance(value, _uuid.UUID):
         return value
@@ -22,7 +26,7 @@ def calculate_rankings(db: Session, test_series_id: str, tenant_id: str) -> list
 
     Returns ordered list of ranked students.
     """
-    attempts = db.query(MockTestAttempt).filter(
+    attempts: List[MockTestAttempt] = db.query(MockTestAttempt).filter(
         MockTestAttempt.test_series_id == _to_uuid(test_series_id),
         MockTestAttempt.tenant_id == _to_uuid(tenant_id),
     ).all()
@@ -33,12 +37,12 @@ def calculate_rankings(db: Session, test_series_id: str, tenant_id: str) -> list
     # Sort: highest percentage first, then lowest time
     scored = []
     for a in attempts:
-        pct = (a.marks_obtained / a.total_marks * 100) if a.total_marks > 0 else 0
+        pct: ColumnElement[float | Decimal] | int = (a.marks_obtained / a.total_marks * 100) if a.total_marks > 0 else 0
         scored.append({"attempt": a, "pct": pct})
 
     scored.sort(key=lambda x: (-x["pct"], x["attempt"].time_taken_minutes or 999))
 
-    total = len(scored)
+    total: int = len(scored)
     results = []
     for rank_idx, item in enumerate(scored, start=1):
         attempt = item["attempt"]
@@ -61,7 +65,7 @@ def calculate_rankings(db: Session, test_series_id: str, tenant_id: str) -> list
 
 def get_leaderboard(db: Session, test_series_id: str, tenant_id: str, limit: int = 50) -> dict:
     """Get the leaderboard for a test series with student names."""
-    series = db.query(TestSeries).filter(
+    series: TestSeries | None = db.query(TestSeries).filter(
         TestSeries.id == _to_uuid(test_series_id),
         TestSeries.tenant_id == _to_uuid(tenant_id),
     ).first()
@@ -69,7 +73,7 @@ def get_leaderboard(db: Session, test_series_id: str, tenant_id: str, limit: int
     if not series:
         return {"error": "Test series not found"}
 
-    attempts = db.query(MockTestAttempt, User.full_name, User.email).join(
+    attempts: List[Row[Tuple[MockTestAttempt, str, str]]] = db.query(MockTestAttempt, User.full_name, User.email).join(
         User, MockTestAttempt.student_id == User.id,
     ).filter(
         MockTestAttempt.test_series_id == _to_uuid(test_series_id),
@@ -95,7 +99,7 @@ def get_leaderboard(db: Session, test_series_id: str, tenant_id: str, limit: int
 
 def get_student_rank(db: Session, test_series_id: str, student_id: str, tenant_id: str) -> dict:
     """Get a specific student's rank in a test series."""
-    attempt = db.query(MockTestAttempt).filter(
+    attempt: MockTestAttempt | None = db.query(MockTestAttempt).filter(
         MockTestAttempt.test_series_id == _to_uuid(test_series_id),
         MockTestAttempt.student_id == _to_uuid(student_id),
         MockTestAttempt.tenant_id == _to_uuid(tenant_id),
@@ -104,7 +108,7 @@ def get_student_rank(db: Session, test_series_id: str, student_id: str, tenant_i
     if not attempt:
         return {"rank": None, "message": "No attempt found for this test"}
 
-    total_attempts = db.query(MockTestAttempt).filter(
+    total_attempts: int = db.query(MockTestAttempt).filter(
         MockTestAttempt.test_series_id == _to_uuid(test_series_id),
         MockTestAttempt.tenant_id == _to_uuid(tenant_id),
     ).count()
@@ -123,14 +127,14 @@ def get_student_rank(db: Session, test_series_id: str, student_id: str, tenant_i
 
 def get_all_series(db: Session, tenant_id: str) -> list[dict]:
     """Get all active test series for a tenant with attempt counts."""
-    series_list = db.query(TestSeries).filter(
+    series_list: List[TestSeries] = db.query(TestSeries).filter(
         TestSeries.tenant_id == _to_uuid(tenant_id),
         TestSeries.is_active,
     ).order_by(desc(TestSeries.created_at)).all()
 
     results = []
     for s in series_list:
-        attempt_count = db.query(MockTestAttempt).filter(
+        attempt_count: int = db.query(MockTestAttempt).filter(
             MockTestAttempt.test_series_id == s.id,
             MockTestAttempt.tenant_id == _to_uuid(tenant_id),
         ).count()

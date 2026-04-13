@@ -1,7 +1,9 @@
 """Demo management routes — role switching, data reset, status."""
 import os
+from typing import List
 from fastapi import APIRouter, Depends, Response
 from sqlalchemy.orm import Session
+from sqlalchemy.sql.schema import Column
 
 from auth.dependencies import _demo_user_cache
 from database import get_db, Base, engine
@@ -11,7 +13,7 @@ from src.domains.identity.models.user import User
 
 router = APIRouter(prefix="/api/demo", tags=["Demo"])
 
-DEMO_MODE = os.getenv("DEMO_MODE", "false").lower() in ("true", "1", "yes")
+DEMO_MODE: bool = os.getenv("DEMO_MODE", "false").lower() in ("true", "1", "yes")
 
 
 def _cookie_policy() -> tuple[bool, str]:
@@ -50,9 +52,9 @@ async def demo_status():
 @router.get("/profiles")
 async def demo_profiles(db: Session = Depends(get_db)):
     """Return demo personas plus role-specific walkthrough steps."""
-    role_order = ["student", "teacher", "admin", "parent"]
-    users = db.query(User).filter(User.role.in_(role_order), User.is_active).all()
-    user_by_role = {u.role: u for u in users}
+    role_order: list[str] = ["student", "teacher", "admin", "parent"]
+    users: List[User] = db.query(User).filter(User.role.in_(role_order), User.is_active).all()
+    user_by_role: dict[Column[str], User] = {u.role: u for u in users}
 
     profile_templates = [
         {
@@ -205,7 +207,7 @@ async def demo_profiles(db: Session = Depends(get_db)):
     profiles = []
     for template in profile_templates:
         role = template["role"]
-        user = user_by_role.get(role)
+        user: User | None = user_by_role.get(role)
         profiles.append(
             {
                 "role": role,
@@ -228,7 +230,7 @@ async def demo_profiles(db: Session = Depends(get_db)):
 
 
 @router.post("/switch-role")
-async def switch_role(data: dict, response: Response):
+async def switch_role(data: dict, response: Response) -> dict[str, str]:
     """Switch the active demo role via cookie."""
     role = data.get("role", "student")
     if role not in ("student", "teacher", "admin", "parent"):
@@ -252,7 +254,7 @@ async def switch_role(data: dict, response: Response):
 
 
 @router.post("/reset")
-async def reset_demo(db: Session = Depends(get_db)):
+async def reset_demo(db: Session = Depends(get_db)) -> dict[str, str]:
     """Reset the demo database to its initial seeded state."""
     if not DEMO_MODE:
         return {"error": "Reset is only available in DEMO_MODE"}

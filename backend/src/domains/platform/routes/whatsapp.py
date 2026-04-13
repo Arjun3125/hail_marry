@@ -10,37 +10,39 @@ Endpoints:
 - DELETE /whatsapp/sessions/{session_id} — Force logout
 - GET  /whatsapp/analytics — Usage metrics
 """
+from __future__ import annotations
+
 import logging
 from datetime import datetime, timezone
-from typing import Literal, Optional
+from typing import Callable, Generator, Any, Literal, NoReturn, Optional
 
 try:
     from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 except ModuleNotFoundError:  # Lightweight test environments
     class HTTPException(Exception):
-        def __init__(self, status_code: int, detail: str):
+        def __init__(self, status_code: int, detail: str) -> None:
             super().__init__(detail)
-            self.status_code = status_code
-            self.detail = detail
+            self.status_code: int = status_code
+            self.detail: str = detail
 
     class BackgroundTasks:
-        def __init__(self):
+        def __init__(self) -> None:
             self.tasks = []
 
-        def add_task(self, fn, *args, **kwargs):
+        def add_task(self, fn, *args, **kwargs) -> None:
             self.tasks.append((fn, args, kwargs))
 
     class Request:  # pragma: no cover - typing shim only
         headers: dict
 
-    def Depends(_dependency):
+    def Depends(_dependency) -> None:
         return None
 
     def Query(default=None, **_kwargs):
         return default
 
     class APIRouter:
-        def __init__(self, *args, **kwargs):
+        def __init__(self, *args, **kwargs) -> None:
             pass
 
         def get(self, *_args, **_kwargs):
@@ -56,12 +58,12 @@ try:
     from pydantic import BaseModel, Field
 except ModuleNotFoundError:  # Lightweight test environments
     class BaseModel:
-        def __init__(self, **data):
+        def __init__(self, **data) -> None:
             for key, value in data.items():
                 setattr(self, key, value)
 
-        def model_dump(self, exclude_none: bool = False):
-            data = self.__dict__.copy()
+        def model_dump(self, exclude_none: bool = False) -> dict[str, Any]:
+            data: dict[str, Any] = self.__dict__.copy()
             if exclude_none:
                 return {k: v for k, v in data.items() if v is not None}
             return data
@@ -73,9 +75,9 @@ try:
     from starlette.responses import Response as StarletteResponse
 except ModuleNotFoundError:  # Lightweight test environments
     class StarletteResponse:
-        def __init__(self, content=None, media_type: str | None = None, headers: dict | None = None):
+        def __init__(self, content=None, media_type: str | None = None, headers: dict | None = None) -> None:
             self.body = content
-            self.media_type = media_type
+            self.media_type: str | None = media_type
             self.headers = headers or {}
 
 try:
@@ -86,10 +88,10 @@ except ModuleNotFoundError:  # Lightweight test environments
 try:
     from auth.dependencies import get_current_user, require_role
 except ModuleNotFoundError:  # Lightweight test environments
-    async def get_current_user():
+    async def get_current_user() -> NoReturn:
         raise HTTPException(status_code=503, detail="Authentication dependencies unavailable")
 
-    def require_role(*_roles):
+    def require_role(*_roles: str) -> Callable:
         return get_current_user
 
 try:
@@ -97,7 +99,7 @@ try:
 except ModuleNotFoundError:  # Lightweight test environments
     SessionLocal = None
 
-    def get_db():
+    def get_db() -> Generator[None, Any, None]:
         yield None
 try:
     from sqlalchemy import func as sqlfunc
@@ -112,45 +114,45 @@ try:
     from src.domains.identity.models.user import User
 except ModuleNotFoundError:  # Lightweight test environments
     class User:  # pragma: no cover - query shim for lightweight tests
-        id = "id"
-        role = "role"
-        email = "email"
-        tenant_id = "tenant_id"
+        id: str = "id"
+        role: str = "role"
+        email: str = "email"
+        tenant_id: str = "tenant_id"
 
 try:
     from src.domains.identity.models.tenant import Tenant
 except ModuleNotFoundError:  # Lightweight test environments
     class Tenant:  # pragma: no cover - query shim for lightweight tests
-        id = "id"
-        name = "name"
+        id: str = "id"
+        name: str = "name"
 
 try:
     from src.domains.platform.models.whatsapp_models import PhoneUserLink, WhatsAppMessage
 except ModuleNotFoundError:  # Lightweight test environments
     class PhoneUserLink:  # pragma: no cover - query shim for lightweight tests
-        phone = "phone"
-        user_id = "user_id"
-        tenant_id = "tenant_id"
-        verified = "verified"
-        verified_at = "verified_at"
+        phone: str = "phone"
+        user_id: str = "user_id"
+        tenant_id: str = "tenant_id"
+        verified: str = "verified"
+        verified_at: str = "verified_at"
 
-        def __init__(self, **kwargs):
+        def __init__(self, **kwargs) -> None:
             for key, value in kwargs.items():
                 setattr(self, key, value)
 
     class WhatsAppMessage:  # pragma: no cover - query shim for lightweight tests
-        id = "id"
-        phone = "phone"
-        tenant_id = "tenant_id"
-        created_at = "created_at"
-        direction = "direction"
-        intent = "intent"
-        latency_ms = "latency_ms"
+        id: str = "id"
+        phone: str = "phone"
+        tenant_id: str = "tenant_id"
+        created_at: str = "created_at"
+        direction: str = "direction"
+        intent: str = "intent"
+        latency_ms: str = "latency_ms"
 
 try:
     from src.domains.academic.services.report_card import generate_report_card_pdf
 except ModuleNotFoundError:  # Lightweight test environments
-    def generate_report_card_pdf(*_args, **_kwargs):  # pragma: no cover - runtime guard
+    def generate_report_card_pdf(*_args, **_kwargs) -> NoReturn:  # pragma: no cover - runtime guard
         raise HTTPException(status_code=503, detail="Report card service unavailable")
 from src.domains.platform.application.whatsapp_analytics import build_whatsapp_usage_snapshot
 from src.domains.platform.services.notification_dispatch import dispatch_notification
@@ -172,7 +174,7 @@ from src.domains.platform.services.whatsapp_gateway import (
 )
 from src.shared.ai_tools.whatsapp_tools import serialize_tool_catalog
 
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/whatsapp", tags=["WhatsApp"])
 WHATSAPP_TEXT_CHUNK_LIMIT = 1500
 
@@ -206,7 +208,7 @@ class SendMessageRequest(BaseModel):
     document_filename: Optional[str] = Field(default=None, max_length=240)
     document_caption: Optional[str] = Field(default=None, max_length=1024)
 
-    def __init__(self, **data):
+    def __init__(self, **data) -> None:
         super().__init__(**data)
         if self.message_type == "buttons":
             if not self.buttons:
@@ -247,7 +249,7 @@ async def whatsapp_webhook_verify(
     hub_mode: Optional[str] = Query(None, alias="hub.mode"),
     hub_verify_token: Optional[str] = Query(None, alias="hub.verify_token"),
     hub_challenge: Optional[str] = Query(None, alias="hub.challenge"),
-):
+) -> int | str:
     """Meta webhook verification handshake.
 
     Meta sends a GET request with hub.mode, hub.verify_token, and hub.challenge.
@@ -263,7 +265,7 @@ async def whatsapp_webhook_verify(
 async def whatsapp_webhook_inbound(
     request: Request,
     background_tasks: BackgroundTasks,
-):
+) -> dict[str, str]:
     """Process inbound WhatsApp messages from Meta Cloud API.
 
     Must respond with 200 OK within 5 seconds. Heavy processing is done
@@ -316,9 +318,9 @@ async def _process_and_respond(
     media_id: str | None = None,
     media_filename: str | None = None,
     media_mime_type: str | None = None,
-):
+) -> None:
     """Background task: process message through the gateway and send response."""
-    db = SessionLocal() if SessionLocal else None
+    db: Any | None = SessionLocal() if SessionLocal else None
     try:
         result = await process_inbound_message(
             db,
@@ -382,26 +384,26 @@ async def _dispatch_outbound_response(phone: str, result: dict) -> None:
 
 def _chunk_whatsapp_text(text: str, chunk_size: int = WHATSAPP_TEXT_CHUNK_LIMIT) -> list[str]:
     """Split long WhatsApp text into readable chunks without mid-word truncation."""
-    normalized = str(text or "").strip()
+    normalized: str = str(text or "").strip()
     if not normalized:
         return []
     if len(normalized) <= chunk_size:
         return [normalized]
 
     chunks: list[str] = []
-    remaining = normalized
+    remaining: str = normalized
     while len(remaining) > chunk_size:
-        split_at = remaining.rfind("\n\n", 0, chunk_size + 1)
+        split_at: int = remaining.rfind("\n\n", 0, chunk_size + 1)
         if split_at < max(200, chunk_size // 3):
-            split_at = remaining.rfind("\n", 0, chunk_size + 1)
+            split_at: int = remaining.rfind("\n", 0, chunk_size + 1)
         if split_at < max(200, chunk_size // 3):
-            split_at = remaining.rfind(" ", 0, chunk_size + 1)
+            split_at: int = remaining.rfind(" ", 0, chunk_size + 1)
         if split_at <= 0:
-            split_at = chunk_size
-        chunk = remaining[:split_at].strip()
+            split_at: int = chunk_size
+        chunk: str = remaining[:split_at].strip()
         if chunk:
             chunks.append(chunk)
-        remaining = remaining[split_at:].strip()
+        remaining: str = remaining[split_at:].strip()
 
     if remaining:
         chunks.append(remaining)
@@ -460,7 +462,7 @@ def _extract_messages(payload: dict) -> list[dict]:
 async def initiate_phone_linking(
     data: PhoneLinkRequest,
     db: Session = Depends(get_db),
-):
+) -> dict[str, str]:
     """Initiate phone-to-ERP account linking by sending an OTP.
 
     Can be called from the web UI settings page or via WhatsApp.
@@ -478,7 +480,7 @@ async def initiate_phone_linking(
     if existing:
         raise HTTPException(status_code=400, detail="This phone is already linked to an account")
 
-    otp = generate_otp(data.phone, data.email.lower())
+    otp: str = generate_otp(data.phone, data.email.lower())
     await send_text_message(data.phone, f"🔐 Your VidyaOS verification code is: *{otp}*\nExpires in 5 minutes.")
 
     return {"message": "OTP sent to WhatsApp", "phone": data.phone}
@@ -527,7 +529,7 @@ async def complete_phone_verification(
 async def whatsapp_report_card_download(
     token: str,
     db: Session = Depends(get_db),
-):
+) -> StarletteResponse:
     """Download a WhatsApp-shared report card PDF using a short-lived token."""
     payload = consume_report_card_token(token)
     if not payload:
@@ -537,7 +539,7 @@ async def whatsapp_report_card_download(
     school_name = tenant.name if tenant and hasattr(tenant, "name") else "VidyaOS School"
 
     try:
-        pdf_bytes = _generate_report_card_pdf(
+        pdf_bytes: bytes = _generate_report_card_pdf(
             db,
             student_id=payload["child_id"],
             tenant_id=payload["tenant_id"],
@@ -576,7 +578,7 @@ async def admin_send_message(
     ).first()
 
     if data.message_type == "text" and linked_user:
-        delivery = await dispatch_notification(
+        delivery: list[dict[str, Any]] = await dispatch_notification(
             tenant_id=str(current_user.tenant_id),
             recipient_id=str(linked_user.user_id),
             recipient_role="admin",
@@ -680,7 +682,7 @@ async def force_logout_session(
     phone: str,
     current_user=Depends(require_role("admin")),
     db: Session = Depends(get_db),
-):
+) -> dict[str, str]:
     """Force-logout a WhatsApp session (admin only)."""
     delete_session(db, phone)
     await send_text_message(phone, "🔒 Your session has been ended by an administrator. Send any message to log in again.")
@@ -707,12 +709,12 @@ async def whatsapp_release_gate_snapshot(
 ):
     """Return a release-gate-friendly WhatsApp staging evidence snapshot."""
     analytics = _build_whatsapp_usage_snapshot(current_user, db, days)
-    tenant_id = getattr(current_user, "tenant_id", None)
-    metrics = get_whatsapp_metrics(str(tenant_id) if tenant_id else None)
+    tenant_id: Any | None = getattr(current_user, "tenant_id", None)
+    metrics: dict[str, int] = get_whatsapp_metrics(str(tenant_id) if tenant_id else None)
 
-    routing_total = metrics.get("routing_success_total", 0) + metrics.get("routing_failure_total", 0)
-    outbound_total = metrics.get("outbound_success_total", 0) + metrics.get("outbound_failure_total", 0)
-    inbound_total = metrics.get("inbound_total", 0)
+    routing_total: int = metrics.get("routing_success_total", 0) + metrics.get("routing_failure_total", 0)
+    outbound_total: int = metrics.get("outbound_success_total", 0) + metrics.get("outbound_failure_total", 0)
+    inbound_total: int = metrics.get("inbound_total", 0)
 
     def _pct(numerator: int, denominator: int) -> float:
         if denominator <= 0:

@@ -1,8 +1,10 @@
 """WebSocket connection management and real-time event broadcasting."""
 import asyncio
+import json
 import logging
-from datetime import datetime
-from typing import Any, Dict, Optional, Set
+import os
+from datetime import datetime, timezone
+from typing import Any, Dict, Optional, Set, cast
 from uuid import UUID
 
 from fastapi import WebSocket
@@ -11,15 +13,64 @@ from sqlalchemy.orm import Session
 logger = logging.getLogger(__name__)
 
 
+def _get_redis_pubsub():
+    """Get Redis client for pub/sub (distributed broadcasting across servers).
+    
+    Returns:
+        Redis client or None if Redis is unavailable
+    """
+    try:
+        import redis
+        
+        # Try to import settings dynamically
+        settings_obj = None
+        try:
+            import config
+            settings_obj = getattr(config, 'settings', None)
+        except (ImportError, AttributeError):
+            pass
+        
+        redis_url = None
+        if settings_obj:
+            redis_attr = getattr(settings_obj, 'redis', None)
+            if redis_attr:
+                redis_url = getattr(redis_attr, 'state_url', None)
+        if not redis_url:
+            redis_url = os.getenv('REDIS_URL')
+        if not redis_url:
+            return None
+        
+        client = redis.from_url(
+            redis_url,
+            decode_responses=True,
+            socket_connect_timeout=2,
+            socket_timeout=2,
+        )
+        client_any = cast(Any, client)
+        client_any.ping()
+        return client
+    except Exception:
+        return None
+
+
 class ConnectionManager:
     """Manages WebSocket connections and broadcasts events to connected clients.
     
     Features:
     - Connection pooling per tenant and user role
     - Efficient broadcasting to specific users/roles/tenants
-    - Connection state tracking
+    - Connection state tracking with asyncio.Lock() for thread safety
     - Automatic cleanup on disconnect
-    - Message queue (optional future feature)
+    - Distributed broadcasting via Redis pub/sub (for multi-server deployments)
+    
+    Thread Safety:
+    - All connection state modifications protected by asyncio.Lock()
+    - Safe for concurrent WebSocket operations
+    
+    Distributed Support:
+    - Broadcasts automatically published to Redis channels
+    - Each server subscribes to relevant channels and relays to local connections
+    - Enables real-time messaging across load-balanced instances
     """
 
     def __init__(self):
@@ -63,7 +114,7 @@ class ConnectionManager:
                 "user_id": str(user_id),
                 "tenant_id": str(tenant_id),
                 "role": role,
-                "connected_at": datetime.utcnow().isoformat(),
+                "connected_at": datetime.now(timezone.utc).isoformat(),
             }
         
         logger.info(f"WebSocket connected: {connection_id} (user={user_id}, tenant={tenant_id}, role={role})")
@@ -102,6 +153,8 @@ class ConnectionManager:
     ) -> int:
         """Send an event to a specific user's all connections.
         
+        Distributed: Uses Redis pub/sub to reach users across all server instances.
+        
         Args:
             tenant_id: Tenant ID
             user_id: User ID to send to
@@ -115,12 +168,14 @@ class ConnectionManager:
         user_str = str(user_id)
         sent_count = 0
         
-        payload = {
+        payload: Dict[str, Any] = {
             "event": event_type,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "data": data,
         }
         
+        # Step 1: Send to local connections
+        connections = []
         async with self._lock:
             if tenant_str in self.active_connections:
                 if user_str in self.active_connections[tenant_str]:
@@ -133,12 +188,23 @@ class ConnectionManager:
             except Exception as e:
                 logger.warning(f"Failed to send message to user {user_id}: {str(e)}")
         
+        # Step 2: Also publish to Redis so other servers can deliver to this user if present there
+        try:
+            redis_client = cast(Any, _get_redis_pubsub())
+            if redis_client:
+                channel = f"ws:user:{tenant_str}:{user_str}"
+                redis_client.publish(channel, json.dumps(payload))
+        except Exception as e:
+            logger.warning(f"Failed to publish to Redis user channel: {e}")
+        
         return sent_count
 
     async def broadcast_to_role(
         self, tenant_id: UUID, role: str, event_type: str, data: Dict[str, Any]
     ) -> int:
         """Send an event to all connected users with a specific role.
+        
+        Distributed: Uses Redis pub/sub to reach users across all server instances.
         
         Args:
             tenant_id: Tenant ID
@@ -152,14 +218,14 @@ class ConnectionManager:
         tenant_str = str(tenant_id)
         sent_count = 0
         
-        payload = {
+        payload: Dict[str, Any] = {
             "event": event_type,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "data": data,
         }
         
-        # Collect all matching connections
-        matching_connections = []
+        # Step 1: Collect all matching connections on this server
+        matching_connections: Any = []
         async with self._lock:
             if tenant_str in self.active_connections:
                 for user_connections in self.active_connections[tenant_str].values():
@@ -174,12 +240,23 @@ class ConnectionManager:
             except Exception as e:
                 logger.warning(f"Failed to broadcast to role {role}: {str(e)}")
         
+        # Step 2: Also publish to Redis so other servers can deliver
+        try:
+            redis_client = cast(Any, _get_redis_pubsub())
+            if redis_client:
+                channel = f"ws:role:{tenant_str}:{role}"
+                redis_client.publish(channel, json.dumps(payload))
+        except Exception as e:
+            logger.warning(f"Failed to publish to Redis role channel: {e}")
+        
         return sent_count
 
     async def broadcast_to_tenant(
         self, tenant_id: UUID, event_type: str, data: Dict[str, Any]
     ) -> int:
         """Send an event to all connected users in a tenant.
+        
+        Distributed: Uses Redis pub/sub to reach users across all server instances.
         
         Args:
             tenant_id: Tenant ID
@@ -192,14 +269,14 @@ class ConnectionManager:
         tenant_str = str(tenant_id)
         sent_count = 0
         
-        payload = {
+        payload: Dict[str, Any] = {
             "event": event_type,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "data": data,
         }
         
-        # Collect all matching connections
-        matching_connections = []
+        # Step 1: Collect all matching connections on this server
+        matching_connections: Any = []
         async with self._lock:
             if tenant_str in self.active_connections:
                 for user_connections in self.active_connections[tenant_str].values():
@@ -212,6 +289,15 @@ class ConnectionManager:
                 sent_count += 1
             except Exception as e:
                 logger.warning(f"Failed to broadcast to tenant {tenant_id}: {str(e)}")
+        
+        # Step 2: Also publish to Redis so other servers can deliver
+        try:
+            redis_client = cast(Any, _get_redis_pubsub())
+            if redis_client:
+                channel = f"ws:tenant:{tenant_str}"
+                redis_client.publish(channel, json.dumps(payload))
+        except Exception as e:
+            logger.warning(f"Failed to publish to Redis tenant channel: {e}")
         
         return sent_count
 
@@ -238,10 +324,10 @@ class ConnectionManager:
             return 0
         
         # Collect teacher and student IDs
-        target_user_ids = {class_record.teacher_id}
+        target_user_ids: Set[UUID] = {cast(UUID, getattr(class_record, "teacher_id"))}
         enrollments = db.query(Enrollment).filter(Enrollment.class_id == class_id).all()
         for enrollment in enrollments:
-            target_user_ids.add(enrollment.student_id)
+            target_user_ids.add(cast(UUID, enrollment.student_id))
         
         # Broadcast to each user
         sent_count = 0
@@ -317,7 +403,7 @@ async def emit_attendance_event(
             "student_id": str(student_id),
             "class_id": str(class_id),
             "status": status,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         },
         db=db,
     )
@@ -345,7 +431,7 @@ async def emit_assignment_event(
         data={
             "assignment_id": str(assignment_id),
             "class_id": str(class_id),
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         },
         db=db,
     )
@@ -375,6 +461,6 @@ async def emit_marks_event(
             "score": score,
             "max_score": max_score,
             "percentage": round((score / max_score * 100), 2) if max_score > 0 else 0,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         },
     )

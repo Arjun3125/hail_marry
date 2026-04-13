@@ -16,6 +16,7 @@
   --role-teacher: #10b981;
   --role-admin: #8b5cf6;
   --role-parent: #f97316;
+  --bottom-nav-height: 4.5rem;
 
   --primary: var(--ai-primary);
   --primary-light: rgba(79, 142, 247, 0.12);
@@ -320,11 +321,11 @@ h3 {
   }
 }
 
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
 
   to {
     opacity: 1;

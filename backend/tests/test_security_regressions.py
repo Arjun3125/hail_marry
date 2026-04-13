@@ -534,7 +534,7 @@ class StudentRouteRegressionTests(unittest.IsolatedAsyncioTestCase):
         ai_gateway = importlib.import_module("src.domains.platform.services.ai_gateway")
 
         mocked_execute = AsyncMock(return_value={"answer": "ok", "mode": "qa"})
-        with patch.object(ai_gateway, "execute_text_query", mocked_execute):
+        with patch.object(ai_gateway, "run_text_query", mocked_execute):
             result = await ai_gateway.run_text_query(
                 ai_gateway.InternalAIQueryRequest(
                     query="What is force?",

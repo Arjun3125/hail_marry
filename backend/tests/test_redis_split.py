@@ -18,7 +18,11 @@ class TestRedisSplit(unittest.TestCase):
         """Verify that RedisSettings correctly parses distinct URLs."""
         with patch.dict(os.environ, {
             "REDIS_STATE_URL": "redis://state-host:6379/1",
-            "REDIS_BROKER_URL": "redis://broker-host:6379/2"
+            "REDIS_BROKER_URL": "redis://broker-host:6379/2",
+            "DEBUG": "true",
+            "APP_ENV": "test",
+            "JWT_SECRET": "test-secret-key-that-is-at-least-32-chars-long",
+            "REFRESH_SECRET_KEY": "test-refresh-key-that-is-at-least-32-chars-long",
         }):
             # Settings might have been initialized already, so we force-reparse for the test
             settings = Settings()
@@ -49,9 +53,10 @@ class TestRedisSplit(unittest.TestCase):
             
             # 3. Test Rate Limiter / State
             from middleware import rate_limit
-            rate_limit._redis_available = None # Reset lazy init
+            rate_limit._redis_initialized = False  # Reset lazy init
+            rate_limit._redis = None
             get_rate_limit_redis()
-            mock_from_url.assert_any_call("redis://state-host:6379/1", decode_responses=True)
+            mock_from_url.assert_any_call("redis://state-host:6379/1", decode_responses=True, socket_connect_timeout=5)
 
 if __name__ == "__main__":
     unittest.main()

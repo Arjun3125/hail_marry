@@ -1,7 +1,7 @@
 import { test, expect } from '../../fixtures/auth';
 
 test.describe('Teacher Attendance - Mobile (360px)', () => {
-  test('should load attendance interface', async ({ teacherPage }) => {
+  test('should load attendance interface', async ({ teacherPage }: any) => {
     await teacherPage.goto('/teacher/attendance');
 
     // Check viewport size
@@ -21,7 +21,7 @@ test.describe('Teacher Attendance - Mobile (360px)', () => {
     expect(scrollWidth).toBeLessThanOrEqual(360);
   });
 
-  test('should display class selection', async ({ teacherPage }) => {
+  test('should display class selection', async ({ teacherPage }: any) => {
     await teacherPage.goto('/teacher/attendance');
 
     // Should show class selector or current class
@@ -30,7 +30,7 @@ test.describe('Teacher Attendance - Mobile (360px)', () => {
     )).toBeVisible();
   });
 
-  test('should show student list with attendance controls', async ({ teacherPage }) => {
+  test('should show student list with attendance controls', async ({ teacherPage }: any) => {
     await teacherPage.goto('/teacher/attendance');
 
     // Should display students
@@ -48,7 +48,7 @@ test.describe('Teacher Attendance - Mobile (360px)', () => {
     await expect(attendanceControls.first()).toBeVisible();
   });
 
-  test('should have touch-friendly attendance toggles', async ({ teacherPage }) => {
+  test('should have touch-friendly attendance toggles', async ({ teacherPage }: any) => {
     await teacherPage.goto('/teacher/attendance');
 
     // Check radio buttons or toggle buttons
@@ -66,7 +66,7 @@ test.describe('Teacher Attendance - Mobile (360px)', () => {
     }
   });
 
-  test('should display student names clearly', async ({ teacherPage }) => {
+  test('should display student names clearly', async ({ teacherPage }: any) => {
     await teacherPage.goto('/teacher/attendance');
 
     // Check student name text size
@@ -75,21 +75,21 @@ test.describe('Teacher Attendance - Mobile (360px)', () => {
     });
 
     for (const name of await studentNames.all()) {
-      const fontSize = await name.evaluate((el) => {
+      const fontSize = await name.evaluate((el: HTMLElement) => {
         return parseFloat(getComputedStyle(el).fontSize);
       });
       expect(fontSize).toBeGreaterThanOrEqual(14); // Names should be readable
     }
   });
 
-  test('should show attendance summary', async ({ teacherPage }) => {
+  test('should show attendance summary', async ({ teacherPage }: any) => {
     await teacherPage.goto('/teacher/attendance');
 
     // Should show summary stats
     await expect(teacherPage.locator('text=/present|absent|total|marked/i')).toBeVisible();
   });
 
-  test('should handle save/submit attendance', async ({ teacherPage }) => {
+  test('should handle save/submit attendance', async ({ teacherPage }: any) => {
     await teacherPage.goto('/teacher/attendance');
 
     // Look for save/submit button
@@ -107,7 +107,7 @@ test.describe('Teacher Attendance - Mobile (360px)', () => {
     }
   });
 
-  test('should navigate between dates/classes', async ({ teacherPage }) => {
+  test('should navigate between dates/classes', async ({ teacherPage }: any) => {
     await teacherPage.goto('/teacher/attendance');
 
     // Check for date navigation

@@ -9,6 +9,7 @@ from uuid import UUID
 from zipfile import ZIP_DEFLATED, ZipFile
 
 from fastapi import HTTPException
+from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
 from config import settings
@@ -121,11 +122,11 @@ def create_compliance_export(
         audit_filter.append(AuditLog.user_id == scope_user_id)
         incident_event_filter.append(IncidentEvent.actor_user_id == scope_user_id)
 
-    users = [_serialize_user(user) for user in db.query(User).filter(*user_filter).all()]
-    ai_queries = [_serialize_ai_query(query) for query in db.query(AIQuery).filter(*ai_filter).all()]
-    audits = [_serialize_audit(log) for log in db.query(AuditLog).filter(*audit_filter).all()]
-    incidents = [_serialize_incident(incident) for incident in db.query(Incident).filter(*incident_filter).all()]
-    incident_events = [_serialize_incident_event(event) for event in db.query(IncidentEvent).filter(*incident_event_filter).all()]
+    users = [_serialize_user(user) for user in db.query(User).filter(*user_filter).limit(50000).all()]
+    ai_queries = [_serialize_ai_query(query) for query in db.query(AIQuery).filter(*ai_filter).order_by(desc(AIQuery.created_at)).limit(50000).all()]
+    audits = [_serialize_audit(log) for log in db.query(AuditLog).filter(*audit_filter).order_by(desc(AuditLog.created_at)).limit(50000).all()]
+    incidents = [_serialize_incident(incident) for incident in db.query(Incident).filter(*incident_filter).order_by(desc(Incident.created_at)).limit(50000).all()]
+    incident_events = [_serialize_incident_event(event) for event in db.query(IncidentEvent).filter(*incident_event_filter).order_by(desc(IncidentEvent.created_at)).limit(50000).all()]
 
     manifest = {
         "export_id": str(export.id),

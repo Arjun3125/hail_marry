@@ -215,13 +215,13 @@ class RedisSettings(BaseSettings):
 
 class AuthSettings(BaseSettings):
     jwt_secret: str = Field(
-        default=os.getenv(
+        default_factory=lambda: os.getenv(
             "JWT_SECRET",
             _yaml_config.get("auth", {}).get("jwt_secret", ""),
         )
     )
     refresh_secret: str = Field(
-        default=os.getenv(
+        default_factory=lambda: os.getenv(
             "REFRESH_SECRET_KEY",
             _yaml_config.get("auth", {}).get("refresh_secret", ""),
         )
@@ -230,6 +230,36 @@ class AuthSettings(BaseSettings):
     jwt_expiry_minutes: int = Field(
         default=_yaml_config.get("auth", {}).get("jwt_expiry_minutes", 60)
     )
+    
+    @field_validator("jwt_secret", mode="after")
+    def validate_jwt_secret(cls, v: str) -> str:
+        """Validate JWT secret has minimum length and is not empty."""
+        if not v or not isinstance(v, str):
+            raise ValueError(
+                "JWT_SECRET must be set via environment variable or config file. "
+                "It must be at least 32 characters long."
+            )
+        if len(v) < 32:
+            raise ValueError(
+                f"JWT_SECRET must be at least 32 characters long, got {len(v)}. "
+                "Example: {secrets.token_urlsafe(32)}"
+            )
+        return v
+    
+    @field_validator("refresh_secret", mode="after")
+    def validate_refresh_secret(cls, v: str) -> str:
+        """Validate refresh secret has minimum length and is not empty."""
+        if not v or not isinstance(v, str):
+            raise ValueError(
+                "REFRESH_SECRET_KEY must be set via environment variable or config file. "
+                "It must be at least 32 characters long."
+            )
+        if len(v) < 32:
+            raise ValueError(
+                f"REFRESH_SECRET_KEY must be at least 32 characters long, got {len(v)}. "
+                "Example: {secrets.token_urlsafe(32)}"
+            )
+        return v
     google_client_id: str = Field(
         default=os.getenv(
             "GOOGLE_CLIENT_ID",

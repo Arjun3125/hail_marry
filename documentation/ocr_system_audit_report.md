@@ -22,6 +22,13 @@ The audit covered every backend `UploadFile` input point in the current applicat
 | `/api/onboarding/import-students` | `backend/src/domains/identity/routes/onboarding.py` | self-serve school onboarding import | Fixed in this pass | `ocr_optional` |
 | `/api/branding/extract` | `backend/src/domains/platform/routes/branding.py` | logo color extraction | OCR not applicable; image is visual input, not text input | `ocr_not_applicable` |
 | `/api/mascot/upload` | `backend/src/domains/platform/routes/mascot.py` | mascot knowledge upload | Already OCR-enabled before this pass | `ocr_optional` |
+| `/api/mascot/message` | `backend/src/domains/platform/routes/mascot.py` | mascot interactive message with optional attachment | OCR not applicable; message attachment is contextual media | `ocr_not_applicable` |
+| `/api/student/complaints` | `backend/src/domains/academic/routes/students.py` | student complaint with optional evidence attachment | OCR not applicable; image is evidence, not text input | `ocr_not_applicable` |
+| `/api/student/tools/generate` | `backend/src/domains/academic/routes/students.py` | study tool generation with optional context file | OCR not applicable; file is supplementary context | `ocr_not_applicable` |
+| `/api/student/tools/generate/jobs` | `backend/src/domains/academic/routes/students.py` | async study tool generation job with optional context file | OCR not applicable; file is supplementary context | `ocr_not_applicable` |
+| `/api/student/tools/quiz-results` | `backend/src/domains/academic/routes/students.py` | quiz result submission with optional screenshot | OCR not applicable; screenshot is evidence, not text input | `ocr_not_applicable` |
+| `/api/teacher/assignments` | `backend/src/domains/academic/routes/teacher.py` | teacher assignment creation with reference material | OCR not applicable; file is reference material, not text input | `ocr_not_applicable` |
+| `/api/teacher/youtube` | `backend/src/domains/academic/routes/teacher.py` | teacher YouTube video ingestion with optional thumbnail | OCR not applicable; file is thumbnail image | `ocr_not_applicable` |
 | WhatsApp media upload flow | `backend/src/domains/platform/services/whatsapp_gateway.py` | OCR-backed knowledge ingestion from WhatsApp | Already OCR-enabled before this pass | `ocr_optional` |
 
 ## Fixes Applied

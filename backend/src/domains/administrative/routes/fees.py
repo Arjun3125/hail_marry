@@ -7,6 +7,8 @@ from typing import Optional
 from uuid import UUID
 
 from auth.dependencies import require_role
+from src.domains.administrative.models.fee import FeeStructure
+from src.domains.administrative.models.fee import FeePayment
 from database import get_db
 from src.domains.academic.models.core import Class
 from src.domains.administrative.services.fee_management import (
@@ -48,7 +50,7 @@ class RecordPaymentRequest(BaseModel):
 def _parse_uuid(value: str, field_name: str) -> UUID:
     try:
         return UUID(value)
-    except (TypeError, ValueError):
+    except ValueError:
         raise HTTPException(status_code=400, detail=f"Invalid {field_name}")
 
 
@@ -64,9 +66,9 @@ def create_structure(
     if body.amount <= 0:
         raise HTTPException(status_code=400, detail="Amount must be positive")
 
-    class_uuid = _parse_uuid(body.class_id, "class_id") if body.class_id else None
+    class_uuid: UUID | None = _parse_uuid(body.class_id, "class_id") if body.class_id else None
     try:
-        structure = create_fee_structure(
+        structure: FeeStructure = create_fee_structure(
             db,
             user.tenant_id,
             body.fee_type,
@@ -93,7 +95,7 @@ def get_structures(
     db: Session = Depends(get_db),
 ):
     """List fee structures. Admin only."""
-    structures = list_fee_structures(db, user.tenant_id)
+    structures: list[FeeStructure] = list_fee_structures(db, user.tenant_id)
     return {
         "structures": [
             {
@@ -117,7 +119,7 @@ def generate_fee_invoices(
 ):
     """Generate invoices for enrolled students. Admin only."""
     try:
-        due = datetime.fromisoformat(body.due_date)
+        due: datetime = datetime.fromisoformat(body.due_date)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid due_date format (use ISO)")
 
@@ -143,7 +145,7 @@ def get_invoices(
     db: Session = Depends(get_db),
 ):
     """List invoices with filters. Admin only."""
-    sid = _parse_uuid(student_id, "student_id") if student_id else None
+    sid: UUID | None = _parse_uuid(student_id, "student_id") if student_id else None
     invoices, total = list_invoices(db, user.tenant_id, status, sid, limit, offset)
     return {
         "invoices": [
@@ -171,7 +173,7 @@ def make_payment(
     if body.amount <= 0:
         raise HTTPException(status_code=400, detail="Amount must be positive")
     try:
-        payment = record_payment(
+        payment: FeePayment = record_payment(
             db,
             _parse_uuid(body.invoice_id, "invoice_id"),
             body.amount,

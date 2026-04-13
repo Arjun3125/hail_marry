@@ -29,6 +29,9 @@ class _QueryStub:
     def order_by(self, *args, **kwargs):
         return self
 
+    def limit(self, *args, **kwargs):
+        return self
+
     def first(self):
         if isinstance(self.value, list):
             return self.value[0] if self.value else None

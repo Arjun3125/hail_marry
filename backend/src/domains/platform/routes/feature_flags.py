@@ -1,6 +1,7 @@
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import Column
 from sqlalchemy.orm import Session
 
 from auth.dependencies import require_role
@@ -38,11 +39,11 @@ def _record_audit_log(
 def get_features(
     current_user: User = Depends(require_role("admin")),
     db: Session = Depends(get_db),
-):
+) -> List[FeatureFlag]:
     """
     Retrieve all feature flags categorized as AI or Non-AI.
     """
-    _ = current_user
+    _: User = current_user
     return get_all_feature_flags(db)
 
 
@@ -52,16 +53,16 @@ def toggle_feature(
     payload: FeatureFlagToggleRequest,
     current_user: User = Depends(require_role("admin")),
     db: Session = Depends(get_db),
-):
+) -> FeatureFlag:
     """
     Toggle a specific platform feature flag on or off.
     """
-    feature = db.query(FeatureFlag).filter(FeatureFlag.feature_id == feature_id).first()
+    feature: FeatureFlag | None = db.query(FeatureFlag).filter(FeatureFlag.feature_id == feature_id).first()
     if not feature:
         raise HTTPException(status_code=404, detail=f"Feature '{feature_id}' not found.")
 
-    previous_enabled = feature.enabled
-    updated = toggle_feature_flag(db, feature_id, payload.enabled)
+    previous_enabled: Column[bool] = feature.enabled
+    updated: FeatureFlag = toggle_feature_flag(db, feature_id, payload.enabled)
     _record_audit_log(
         db,
         current_user,

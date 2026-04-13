@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -32,7 +33,7 @@ from src.domains.platform.services.study_path_service import (
 )
 
 router = APIRouter(prefix="/api/personalization", tags=["Personalization"])
-_ALLOWED_PERSONALIZATION_EVENTS = {
+_ALLOWED_PERSONALIZATION_EVENTS: set[str] = {
     "recommendation_click",
     "study_path_open",
     "study_path_step_complete",
@@ -191,7 +192,7 @@ async def record_personalization_event(
     payload: PersonalizationEventRequest,
     current_user: User = Depends(require_role("student")),
     db: Session = Depends(get_db),
-):
+) -> dict[str, bool]:
     if payload.event_type not in _ALLOWED_PERSONALIZATION_EVENTS:
         raise HTTPException(status_code=400, detail="Unsupported event_type")
 
@@ -211,7 +212,7 @@ async def record_personalization_event(
 async def get_personalization_metrics(
     current_user: User = Depends(require_role("admin")),
 ):
-    rows = snapshot_personalization_metrics()
+    rows: list[dict[str, Any]] = snapshot_personalization_metrics()
     summary = _build_personalization_metrics_summary(rows)
     return {
         "metrics": rows,

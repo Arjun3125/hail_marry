@@ -1,14 +1,16 @@
 """Teacher-facing API routes — dashboard, attendance, marks, assignments, upload, insights."""
 import logging
-from datetime import datetime
+from datetime import date, datetime
+from pathlib import Path
 from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import Any, List, Optional
 import io
 from uuid import UUID
 from starlette.responses import StreamingResponse
 
+from src.infrastructure.vector_store.ocr_service import OCRExtractionResult
 from database import get_db
 from auth.dependencies import require_role
 from auth.scoping import get_teacher_class_ids
@@ -91,12 +93,12 @@ from src.domains.platform.services.usage_governance import (
 
 router = APIRouter(prefix="/api/teacher", tags=["Teacher"])
 
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
-UPLOAD_DIR = ensure_storage_dir("uploads")
-ALLOWED_EXTENSIONS = TEACHER_ALLOWED_EXTENSIONS
-ALLOWED_ATTENDANCE_STATUSES = {"present", "absent", "late"}
-MAX_FILE_SIZE = TEACHER_MAX_FILE_SIZE
+UPLOAD_DIR: Path = ensure_storage_dir("uploads")
+ALLOWED_EXTENSIONS: set[str] = TEACHER_ALLOWED_EXTENSIONS
+ALLOWED_ATTENDANCE_STATUSES: set[str] = {"present", "absent", "late"}
+MAX_FILE_SIZE: int = TEACHER_MAX_FILE_SIZE
 
 
 # ─── Pydantic Schemas ────────────────────────────────────────
@@ -160,8 +162,8 @@ def _get_subject_in_scope(
     subject_id: str,
     allowed_class_ids: set[UUID],
 ) -> Subject:
-    subject_uuid = _parse_uuid(subject_id, "subject_id")
-    subject = db.query(Subject).filter(
+    subject_uuid: UUID = _parse_uuid(subject_id, "subject_id")
+    subject: Subject | None = db.query(Subject).filter(
         Subject.id == subject_uuid,
         Subject.tenant_id == current_user.tenant_id,
     ).first()
@@ -178,15 +180,15 @@ def _get_exam_with_subject_in_scope(
     exam_id: str,
     allowed_class_ids: set[UUID],
 ) -> tuple[Exam, Subject]:
-    exam_uuid = _parse_uuid(exam_id, "exam_id")
-    exam = db.query(Exam).filter(
+    exam_uuid: UUID = _parse_uuid(exam_id, "exam_id")
+    exam: Exam | None = db.query(Exam).filter(
         Exam.id == exam_uuid,
         Exam.tenant_id == current_user.tenant_id,
     ).first()
     if not exam:
         raise HTTPException(status_code=404, detail="Exam not found")
 
-    subject = db.query(Subject).filter(
+    subject: Subject | None = db.query(Subject).filter(
         Subject.id == exam.subject_id,
         Subject.tenant_id == current_user.tenant_id,
     ).first()
@@ -203,8 +205,8 @@ def _validate_student_in_class(
     student_id: str,
     class_id: UUID,
 ) -> UUID:
-    student_uuid = _parse_uuid(student_id, "student_id")
-    enrollment = db.query(Enrollment).filter(
+    student_uuid: UUID = _parse_uuid(student_id, "student_id")
+    enrollment: Enrollment | None = db.query(Enrollment).filter(
         Enrollment.tenant_id == current_user.tenant_id,
         Enrollment.student_id == student_uuid,
         Enrollment.class_id == class_id,
@@ -221,7 +223,7 @@ def _resolve_student_identifier_in_class(
     class_id: UUID,
 ) -> UUID:
     """Allow OCR imports to refer to students by UUID, email, or full name."""
-    cleaned = identifier.strip()
+    cleaned: str = identifier.strip()
     if not cleaned:
         raise HTTPException(status_code=400, detail="Missing student identifier")
 
@@ -230,16 +232,17 @@ def _resolve_student_identifier_in_class(
     except HTTPException:
         pass
 
-    match_value = cleaned.casefold()
-    enrollments = db.query(Enrollment).filter(
+    match_value: str = cleaned.casefold()
+    # N+1 fix: Use joinedload to fetch users in a single query
+    enrollments: List[Enrollment] = db.query(Enrollment).filter(
         Enrollment.tenant_id == current_user.tenant_id,
         Enrollment.class_id == class_id,
+    ).options(
+        joinedload(Enrollment.student)
     ).all()
     for enrollment in enrollments:
-        student = db.query(User).filter(
-            User.id == enrollment.student_id,
-            User.tenant_id == current_user.tenant_id,
-        ).first()
+        # Use pre-loaded relationship instead of querying again
+        student = enrollment.student
         if not student:
             continue
         if student.email and student.email.casefold() == match_value:
@@ -257,11 +260,11 @@ def _load_structured_import_rows(
     parser,
     empty_detail: str,
 ) -> tuple[list[tuple[str, int | str]], dict]:
-    ext = get_extension(filename)
+    ext: str = get_extension(filename)
     if ext not in {"csv", "txt", "jpg", "jpeg", "png"}:
         raise HTTPException(status_code=400, detail="Only CSV, TXT, JPG, JPEG, PNG files allowed.")
     try:
-        extraction = extract_upload_content_result(filename, content)
+        extraction: OCRExtractionResult = extract_upload_content_result(filename, content)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     parsed: StructuredImportParseResult = parser(extraction.text)
@@ -270,7 +273,7 @@ def _load_structured_import_rows(
     review_required = extraction.review_required or parsed.review_required
     warning = parsed.warning or extraction.warning
     if extraction.used_ocr and not warning and parsed.unmatched_lines:
-        warning = f"OCR parsed {len(parsed.rows)} rows but some lines need manual review."
+        warning: str = f"OCR parsed {len(parsed.rows)} rows but some lines need manual review."
     metadata = {
         "ocr_processed": extraction.used_ocr,
         "ocr_review_required": review_required,
@@ -289,7 +292,7 @@ async def teacher_dashboard(
     current_user: User = Depends(require_role("teacher", "admin")),
     teacher_class_ids: list = Depends(get_teacher_class_ids),
     db: Session = Depends(get_db),
-):
+) -> dict[str, Any]:
     """Teacher dashboard: classes overview with stats."""
     return _build_teacher_dashboard_response_impl(
         db=db,
@@ -317,16 +320,16 @@ async def submit_attendance(
 ):
     """Bulk attendance entry for a class."""
     allowed_class_ids = set(teacher_class_ids)
-    class_uuid = _parse_uuid(data.class_id, "class_id")
+    class_uuid: UUID = _parse_uuid(data.class_id, "class_id")
     _ensure_class_access(current_user, class_uuid, allowed_class_ids)
 
     try:
-        att_date = datetime.strptime(data.date, "%Y-%m-%d").date()
+        att_date: date = datetime.strptime(data.date, "%Y-%m-%d").date()
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date. Expected YYYY-MM-DD.")
 
     try:
-        count = apply_bulk_attendance_entries(
+        count: int = apply_bulk_attendance_entries(
             db=db,
             current_user=current_user,
             entries=data.entries,
@@ -363,10 +366,10 @@ async def get_class_attendance(
     current_user: User = Depends(require_role("teacher", "admin")),
     teacher_class_ids: list = Depends(get_teacher_class_ids),
     db: Session = Depends(get_db),
-):
+) -> List[dict[str, Any]]:
     """Get attendance records for a class."""
     allowed_class_ids = set(teacher_class_ids)
-    class_uuid = _parse_uuid(class_id, "class_id")
+    class_uuid: UUID = _parse_uuid(class_id, "class_id")
     _ensure_class_access(current_user, class_uuid, allowed_class_ids)
     return _build_class_attendance_response_impl(
         db=db,
@@ -386,11 +389,11 @@ async def notify_absent_parents(
 ):
     """Send WhatsApp follow-up messages to parents of absent students."""
     allowed_class_ids = set(teacher_class_ids)
-    class_uuid = _parse_uuid(data.class_id, "class_id")
+    class_uuid: UUID = _parse_uuid(data.class_id, "class_id")
     _ensure_class_access(current_user, class_uuid, allowed_class_ids)
 
     try:
-        att_date = datetime.strptime(data.date, "%Y-%m-%d").date()
+        att_date: date = datetime.strptime(data.date, "%Y-%m-%d").date()
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date. Expected YYYY-MM-DD.")
 
@@ -398,25 +401,25 @@ async def notify_absent_parents(
     skipped = 0
     failed = 0
     for student_id in data.absent_student_ids:
-        student_uuid = _validate_student_in_class(db, current_user, student_id, class_uuid)
-        student = db.query(User).filter(
+        student_uuid: UUID = _validate_student_in_class(db, current_user, student_id, class_uuid)
+        student: User | None = db.query(User).filter(
             User.id == student_uuid,
             User.tenant_id == current_user.tenant_id,
         ).first()
-        links = db.query(ParentLink).filter(
+        
+        # N+1 fix: Batch load all parent links and users in one query
+        links: List[ParentLink] = db.query(ParentLink).filter(
             ParentLink.tenant_id == current_user.tenant_id,
             ParentLink.child_id == student_uuid,
+        ).options(
+            joinedload(ParentLink.parent)
         ).all()
         if not links:
             skipped += 1
             continue
         for link in links:
-            parent = db.query(User).filter(
-                User.id == link.parent_id,
-                User.tenant_id == current_user.tenant_id,
-                User.role == "parent",
-                User.is_active,
-            ).first()
+            # Use pre-loaded parent relationship instead of querying
+            parent = link.parent
             if not parent or not parent.phone_number:
                 skipped += 1
                 continue
@@ -442,10 +445,10 @@ async def create_exam(
     current_user: User = Depends(require_role("teacher", "admin")),
     teacher_class_ids: list = Depends(get_teacher_class_ids),
     db: Session = Depends(get_db),
-):
+) -> dict[str, Any]:
     """Create a new exam."""
     allowed_class_ids = set(teacher_class_ids)
-    subject = _get_subject_in_scope(
+    subject: Subject = _get_subject_in_scope(
         db=db,
         current_user=current_user,
         subject_id=data.subject_id,
@@ -481,7 +484,7 @@ async def submit_marks(
     )
 
     try:
-        count = apply_bulk_marks_entries(
+        count: int = apply_bulk_marks_entries(
             db=db,
             current_user=current_user,
             entries=data.entries,
@@ -513,7 +516,7 @@ async def submit_marks(
     # ─── Hook: Notify parents of assessment results ───────────────────
     try:
         # Get all marks for this exam and notify parents
-        marks = db.query(Mark).filter(Mark.exam_id == exam.id).all()
+        marks: List[Mark] = db.query(Mark).filter(Mark.exam_id == exam.id).all()
         for mark in marks:
             await ParentNotificationService.notify_assessment_results(
                 db=db,
@@ -533,7 +536,7 @@ async def submit_marks(
 async def list_assignments(
     current_user: User = Depends(require_role("teacher", "admin")),
     db: Session = Depends(get_db),
-):
+) -> List[dict[str, Any]]:
     """List all assignments created by this teacher."""
     return _build_teacher_assignments_response_impl(
         db=db,
@@ -549,17 +552,17 @@ async def create_assignment(
     current_user: User = Depends(require_role("teacher", "admin")),
     teacher_class_ids: list = Depends(get_teacher_class_ids),
     db: Session = Depends(get_db),
-):
+) -> dict[str, Any]:
     """Create a new assignment."""
     allowed_class_ids = set(teacher_class_ids)
-    subject = _get_subject_in_scope(
+    subject: Subject = _get_subject_in_scope(
         db=db,
         current_user=current_user,
         subject_id=data.subject_id,
         allowed_class_ids=allowed_class_ids,
     )
     try:
-        response = _build_created_assignment_response_impl(
+        response: dict[str, Any] = _build_created_assignment_response_impl(
             db=db,
             current_user=current_user,
             subject_id=subject.id,
@@ -575,20 +578,21 @@ async def create_assignment(
     try:
         from datetime import timedelta
         # Get the newly created assignment
-        assignment_id = response.get("id")
-        assignment = db.query(Assignment).filter(Assignment.id == assignment_id).first()
+        assignment_id: Any | None = response.get("id")
+        assignment: Assignment | None = db.query(Assignment).filter(Assignment.id == assignment_id).first()
         
         if assignment:
-            tomorrow_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
-            tomorrow_end = tomorrow_start + timedelta(days=1)
+            tomorrow_start: datetime = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
+            tomorrow_end: datetime = tomorrow_start + timedelta(days=1)
             
             # Check if due date is tomorrow
             if tomorrow_start <= assignment.due_date < tomorrow_end:
-                # Get all students in the class and notify their parents
-                enrollments = db.query(Enrollment).filter(
+                # N+1 fix: Get all enrollments in a single query (don't loop with individual queries)
+                enrollments: List[Enrollment] = db.query(Enrollment).filter(
                     Enrollment.class_id == subject.class_id
                 ).all()
                 
+                # Notify on all enrollments without per-student queries
                 for enrollment in enrollments:
                     await ParentNotificationService.notify_assignment_due_tomorrow(
                         db=db,
@@ -609,7 +613,7 @@ async def upload_document(
     file: UploadFile = File(...),
     current_user: User = Depends(require_role("teacher", "admin")),
     db: Session = Depends(get_db),
-):
+) -> dict[str, Any]:
     """Upload a document or OCR image for AI ingestion with the RAG pipeline."""
     try:
         return await _upload_teacher_document_impl(
@@ -639,7 +643,7 @@ async def ingest_youtube_video(
     current_user: User = Depends(require_role("teacher", "admin")),
     teacher_class_ids: list = Depends(get_teacher_class_ids),
     db: Session = Depends(get_db),
-):
+) -> dict[str, Any]:
     """Ingest a YouTube transcript for AI."""
     try:
         return await _ingest_teacher_youtube_video_impl(
@@ -666,7 +670,7 @@ async def onboard_students(
     preview: bool = False,
     current_user: User = Depends(require_role("teacher", "admin")),
     db: Session = Depends(get_db),
-):
+) -> dict[str, Any]:
     """
     Teacher can onboard a list of students via CSV or Image.
     Format is same as admin teacher onboarding: name (email/password generated).
@@ -694,7 +698,7 @@ async def teacher_classes(
     current_user: User = Depends(require_role("teacher", "admin")),
     teacher_class_ids: list = Depends(get_teacher_class_ids),
     db: Session = Depends(get_db),
-):
+) -> List[dict[str, Any]]:
     """List classes with students."""
     return _build_teacher_classes_response_impl(
         db=db,
@@ -711,7 +715,7 @@ async def teacher_classes(
 async def teacher_resource_history(
     current_user: User = Depends(require_role("teacher", "admin")),
     db: Session = Depends(get_db),
-):
+) -> dict[str, Any]:
     """Return six-month document and lecture history for teacher demo surfaces."""
     return _build_teacher_resource_history_impl(
         db=db,
@@ -724,7 +728,7 @@ async def teacher_profile_summary(
     current_user: User = Depends(require_role("teacher", "admin")),
     teacher_class_ids: list = Depends(get_teacher_class_ids),
     db: Session = Depends(get_db),
-):
+) -> dict[str, Any]:
     """Return six-month teaching summary for the profile surface."""
     return _build_teacher_profile_summary_impl(
         db=db,
@@ -739,7 +743,7 @@ async def teacher_insights(
     current_user: User = Depends(require_role("teacher", "admin")),
     teacher_class_ids: list = Depends(get_teacher_class_ids),
     db: Session = Depends(get_db),
-):
+) -> dict[str, Any]:
     """AI-powered class analytics and weak topic insights."""
     return _build_teacher_insights_response_impl(
         db=db,
@@ -769,7 +773,7 @@ async def generate_assessment(
 ):
     """Generate an NCERT-aligned formative assessment using RAG + LLM."""
     allowed_class_ids = set(teacher_class_ids)
-    subject = _get_subject_in_scope(
+    subject: Subject = _get_subject_in_scope(
         db=db, current_user=current_user,
         subject_id=data.subject_id, allowed_class_ids=allowed_class_ids,
     )
@@ -794,7 +798,7 @@ async def teacher_doubt_heatmap(
     current_user: User = Depends(require_role("teacher", "admin")),
     teacher_class_ids: list = Depends(get_teacher_class_ids),
     db: Session = Depends(get_db),
-):
+) -> dict[str, Any]:
     """Aggregate student AI queries by subject to identify doubt hotspots."""
     return _build_teacher_doubt_heatmap_response_impl(
         db=db,
@@ -832,15 +836,15 @@ async def import_attendance_csv(
         raise HTTPException(status_code=400, detail="class_id and date are required query params")
 
     allowed_class_ids = set(teacher_class_ids)
-    class_uuid = _parse_uuid(class_id, "class_id")
+    class_uuid: UUID = _parse_uuid(class_id, "class_id")
     _ensure_class_access(current_user, class_uuid, allowed_class_ids)
 
     try:
-        att_date = datetime.strptime(date, "%Y-%m-%d").date()
+        att_date: date = datetime.strptime(date, "%Y-%m-%d").date()
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date. Expected YYYY-MM-DD.")
 
-    content = await file.read()
+    content: bytes = await file.read()
     rows, ocr_meta = _load_structured_import_rows(
         file.filename or "",
         content,
@@ -868,12 +872,12 @@ async def export_attendance_csv(
     current_user: User = Depends(require_role("teacher", "admin")),
     teacher_class_ids: list = Depends(get_teacher_class_ids),
     db: Session = Depends(get_db),
-):
+) -> StreamingResponse:
     """Export class attendance as CSV."""
     allowed_class_ids = set(teacher_class_ids)
-    class_uuid = _parse_uuid(class_id, "class_id")
+    class_uuid: UUID = _parse_uuid(class_id, "class_id")
     _ensure_class_access(current_user, class_uuid, allowed_class_ids)
-    payload = _build_attendance_csv_payload_impl(
+    payload: dict[str, str] = _build_attendance_csv_payload_impl(
         db=db,
         current_user=current_user,
         class_uuid=class_uuid,
@@ -903,7 +907,7 @@ async def import_marks_csv(
     allowed_class_ids = set(teacher_class_ids)
     exam, subject = _get_exam_with_subject_in_scope(db, current_user, exam_id, allowed_class_ids)
 
-    content = await file.read()
+    content: bytes = await file.read()
     rows, ocr_meta = _load_structured_import_rows(
         file.filename or "",
         content,
@@ -930,11 +934,11 @@ async def export_marks_csv(
     current_user: User = Depends(require_role("teacher", "admin")),
     teacher_class_ids: list = Depends(get_teacher_class_ids),
     db: Session = Depends(get_db),
-):
+) -> StreamingResponse:
     """Export exam marks as CSV."""
     allowed_class_ids = set(teacher_class_ids)
     exam, subject = _get_exam_with_subject_in_scope(db, current_user, exam_id, allowed_class_ids)
-    payload = _build_marks_csv_payload_impl(
+    payload: dict[str, str] = _build_marks_csv_payload_impl(
         db=db,
         current_user=current_user,
         exam=exam,
@@ -962,11 +966,11 @@ async def ai_grade_answer_sheet(
     current_user: User = Depends(require_role("teacher", "admin")),
     teacher_class_ids: list = Depends(get_teacher_class_ids),
     db: Session = Depends(get_db),
-):
+) -> dict[str, Any]:
     """Upload a student answer sheet image for AI-assisted grading.
     Returns a job ID that can be polled for results.
     """
-    content = await file.read()
+    content: bytes = await file.read()
     exam = None
     if exam_id:
         allowed_class_ids = set(teacher_class_ids)
@@ -1007,7 +1011,7 @@ async def create_test_series(
     data: TestSeriesCreate,
     current_user: User = Depends(require_role("teacher", "admin")),
     db: Session = Depends(get_db),
-):
+) -> dict[str, Any]:
     """Create a new test series / mock test."""
     try:
         return _build_created_test_series_response_impl(

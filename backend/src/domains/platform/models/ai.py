@@ -1,6 +1,6 @@
 """AI query log with trace support."""
 import uuid
-from sqlalchemy import Column, String, Integer, Text, DateTime, ForeignKey, func, Boolean, Float
+from sqlalchemy import Column, String, Integer, Text, DateTime, ForeignKey, func, Boolean, Float, Index
 from sqlalchemy.dialects.postgresql import UUID
 from database import Base
 
@@ -17,12 +17,19 @@ class AIQuery(Base):
     response_time_ms = Column(Integer, nullable=True)
     trace_id = Column(String(64), nullable=True)
     citation_count = Column(Integer, default=0)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
     # History management fields
     title = Column(String(200), nullable=True)
     is_pinned = Column(Boolean, default=False)
     folder_id = Column(UUID(as_uuid=True), ForeignKey("ai_folders.id"), nullable=True)
     deleted_at = Column(DateTime(timezone=True), nullable=True)
+    
+    # Composite indexes for common query patterns
+    __table_args__ = (
+        Index("ix_ai_query_tenant_created", "tenant_id", "created_at"),
+        Index("ix_ai_query_user_created", "user_id", "created_at"),
+        Index("ix_ai_query_tenant_mode", "tenant_id", "mode"),
+    )
 
 
 class AISessionEvent(Base):
@@ -60,6 +67,13 @@ class AISessionEvent(Base):
     started_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
     ended_at = Column(DateTime(timezone=True), nullable=True, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Composite indexes for session analytics queries
+    __table_args__ = (
+        Index("ix_ai_session_tenant_user_subject", "tenant_id", "user_id", "subject"),
+        Index("ix_ai_session_user_created", "user_id", "created_at"),
+        Index("ix_ai_session_tenant_created", "tenant_id", "created_at"),
+    )
 
 
 class AIFolder(Base):

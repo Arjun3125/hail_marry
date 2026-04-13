@@ -48,6 +48,30 @@ type AIHistoryItem = {
     folder_id: string | null;
 };
 
+/**
+ * Type guard to safely check if an object matches ToolData structure
+ */
+function isToolData(value: unknown): value is ToolData {
+    if (value === null || typeof value === "string") return true;
+    if (!value || typeof value !== "object") return false;
+    
+    const obj = value as Record<string, unknown>;
+    
+    // Check for array types (QuizQ[] or Flashcard[])
+    if (Array.isArray(obj)) return true;
+    
+    // Check for MindNode (has label, possibly children)
+    if ("label" in obj && typeof obj.label === "string") return true;
+    
+    // Check for ConceptMap (has nodes and edges arrays)
+    if ("nodes" in obj && Array.isArray(obj.nodes) && "edges" in obj && Array.isArray(obj.edges)) return true;
+    
+    // Check for FlowchartData (has mermaid string and steps array)
+    if ("mermaid" in obj && typeof obj.mermaid === "string" && "steps" in obj && Array.isArray(obj.steps)) return true;
+    
+    return false;
+}
+
 const tools: { id: Tool; label: string; icon: typeof Brain; desc: string; color: string }[] = [
     { id: "quiz", label: "Quiz", icon: HelpCircle, desc: "MCQ quiz from your notes", color: "from-violet-500 to-pink-600" },
     { id: "flashcards", label: "Flashcards", icon: Layers, desc: "Revision cards", color: "from-amber-500 to-orange-600" },
@@ -185,12 +209,18 @@ export default function StudyToolsPage() {
 
             if (isDemoMode) {
                 // In demo mode, use synchronous endpoint to bypass Redis job queue
-                const data = (await api.student.generateTool({
+                const response = (await api.student.generateTool({
                     tool: activeTool,
                     topic: topic.trim(),
                 })) as { data?: ToolData; citations?: Citation[] };
-                setResult(data.data || data as unknown as ToolData);
-                setCitations(data.citations || []);
+                
+                // Type-safe data extraction: prefer data field, fall back to entire response if it matches ToolData
+                if (response.data) {
+                    setResult(response.data);
+                } else if (isToolData(response)) {
+                    setResult(response);
+                }
+                setCitations(response.citations || []);
                 setLoading(false);
             } else {
                 setJobStatus("queued");

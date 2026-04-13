@@ -30,6 +30,11 @@ def create_lifespan(container):
             try:
                 enforce_startup_dependencies("api")
             except Exception as exc:
+                app_env = os.environ.get("APP_ENV", "production").lower()
+                is_production = app_env not in ("local", "development", "test")
+                if is_production:
+                    logger.error("❌ Production startup failed: %s", exc)
+                    raise
                 logger.warning(
                     "Startup dependency checks failed (continuing in demo mode): %s", exc
                 )
@@ -95,6 +100,11 @@ def _apply_demo_schema_compatibility_fixes(engine) -> None:
 
     def ensure_column(connection, table_name: str, column_name: str, ddl: str, table_names: set[str]) -> None:
         if table_name not in table_names:
+            return
+        # Validate table_name against whitelist to prevent SQL injection
+        valid_tables = {"ai_queries", "documents", "kg_concepts", "audit_logs", "ai_jobs", "users"}
+        if table_name not in valid_tables:
+            logger.warning(f"Attempted to alter invalid table: {table_name}")
             return
         existing_columns = {
             row[1]

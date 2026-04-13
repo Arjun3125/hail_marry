@@ -143,7 +143,7 @@ test.describe("Prism representative visual smoke", () => {
 
             await page.goto("/student/ai-studio");
 
-            await expect(page.getByRole("heading", { name: /Ask, revise, and build answers from your own study material/i })).toBeVisible();
+            await expect(page.getByRole("heading", { name: /Start with one clear intent, then open the full study desk/i })).toBeVisible();
             await expect(page.getByText(/Deep Work Layout/i)).toBeVisible();
             await expect(page.getByText(/Context Lab/i)).toBeVisible();
 
@@ -189,9 +189,9 @@ test.describe("Prism representative visual smoke", () => {
 
             await page.goto("/teacher/dashboard");
 
-            await expect(page.getByRole("heading", { name: /Run the school day from one teaching desk/i })).toBeVisible();
-            await expect(page.getByText(/Today's teaching flow/i)).toBeVisible();
-            await expect(page.getByText(/Performance Matrix/i)).toBeVisible();
+            await expect(page.getByRole("heading", { name: /Guide the day, not the dashboard/i })).toBeVisible();
+            await expect(page.getByText(/Today.s classes/i)).toBeVisible();
+            await expect(page.getByText(/Needs your attention/i)).toBeVisible();
 
             await capture(page, testInfo, "teacher-dashboard-prism");
         });
@@ -325,7 +325,7 @@ test.describe("Prism representative visual smoke", () => {
 
             await page.goto("/admin/dashboard");
 
-            await expect(page.getByRole("heading", { name: /Run school health from a calm academic control surface/i })).toBeVisible();
+            await expect(page.getByRole("heading", { name: /See school health in one screen before you drill down/i })).toBeVisible();
             await expect(page.getByRole("heading", { name: /WhatsApp release gate/i })).toBeVisible();
             await expect(page.getByRole("heading", { name: /Mascot Release Gate/i })).toBeVisible();
 
@@ -365,9 +365,9 @@ test.describe("Prism representative visual smoke", () => {
 
             await page.goto("/parent/dashboard");
 
-            await expect(page.getByRole("heading", { name: /See your child['’]s week in one clear family summary/i })).toBeVisible();
-            await expect(page.getByRole("heading", { name: /Listen to update/i })).toBeVisible();
-            await expect(page.getByRole("heading", { name: /Next class/i })).toBeVisible();
+            await expect(page.getByRole("heading", { name: /Read your child['’]s week in under a minute/i })).toBeVisible();
+            await expect(page.getByText(/Last week.s highlights/i)).toBeVisible();
+            await expect(page.getByText(/Quick links/i)).toBeVisible();
 
             await capture(page, testInfo, "parent-dashboard-prism");
         });

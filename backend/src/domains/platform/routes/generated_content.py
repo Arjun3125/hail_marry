@@ -1,10 +1,13 @@
 """API routes for generated content management."""
 from datetime import datetime
+from typing import Tuple
+from typing import Sequence
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import and_, func, select
+from sqlalchemy import Result, and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql.elements import ColumnElement
 
 from auth.dependencies import get_current_user
 from database import get_async_session
@@ -30,14 +33,14 @@ async def _ensure_notebook_access(
     current_user: User,
     session: AsyncSession,
 ) -> Notebook:
-    result = await session.execute(
+    result: Result[Tuple[Notebook]] = await session.execute(
         select(Notebook).where(
             Notebook.id == notebook_id,
             Notebook.tenant_id == current_user.tenant_id,
             Notebook.user_id == current_user.id,
         )
     )
-    notebook = result.scalar_one_or_none()
+    notebook: Notebook | None = result.scalar_one_or_none()
     if not notebook:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notebook not found")
     return notebook
@@ -56,7 +59,7 @@ async def list_generated_content(
     """List generated content for a notebook."""
     await _ensure_notebook_access(notebook_id, current_user, session)
 
-    conditions = [
+    conditions: list[ColumnElement[bool]] = [
         GeneratedContent.tenant_id == current_user.tenant_id,
         GeneratedContent.notebook_id == notebook_id,
         GeneratedContent.user_id == current_user.id,
@@ -66,19 +69,19 @@ async def list_generated_content(
     if not is_archived:
         conditions.append(GeneratedContent.is_archived.is_(False))
 
-    total_result = await session.execute(
+    total_result: Result[Tuple[int]] = await session.execute(
         select(func.count()).select_from(GeneratedContent).where(and_(*conditions))
     )
-    total = total_result.scalar() or 0
+    total: int = total_result.scalar() or 0
 
-    result = await session.execute(
+    result: Result[Tuple[GeneratedContent]] = await session.execute(
         select(GeneratedContent)
         .where(and_(*conditions))
         .order_by(GeneratedContent.created_at.desc())
         .offset(offset)
         .limit(limit)
     )
-    items = result.scalars().all()
+    items: Sequence[GeneratedContent] = result.scalars().all()
 
     return GeneratedContentListResponse(
         items=[_to_response(item) for item in items],
@@ -93,7 +96,7 @@ async def create_generated_content(
     session: AsyncSession = Depends(get_async_session),
 ) -> GeneratedContentResponse:
     """Create new generated content."""
-    notebook = await _ensure_notebook_access(data.notebook_id, current_user, session)
+    notebook: Notebook = await _ensure_notebook_access(data.notebook_id, current_user, session)
 
     content = GeneratedContent(
         tenant_id=notebook.tenant_id,
@@ -118,14 +121,14 @@ async def get_generated_content(
     session: AsyncSession = Depends(get_async_session),
 ) -> GeneratedContentResponse:
     """Get a specific generated content item."""
-    result = await session.execute(
+    result: Result[Tuple[GeneratedContent]] = await session.execute(
         select(GeneratedContent).where(
             GeneratedContent.id == content_id,
             GeneratedContent.tenant_id == current_user.tenant_id,
             GeneratedContent.user_id == current_user.id,
         )
     )
-    content = result.scalar_one_or_none()
+    content: GeneratedContent | None = result.scalar_one_or_none()
     if not content:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Content not found")
     return _to_response(content)
@@ -139,14 +142,14 @@ async def update_generated_content(
     session: AsyncSession = Depends(get_async_session),
 ) -> GeneratedContentResponse:
     """Update generated content."""
-    result = await session.execute(
+    result: Result[Tuple[GeneratedContent]] = await session.execute(
         select(GeneratedContent).where(
             GeneratedContent.id == content_id,
             GeneratedContent.tenant_id == current_user.tenant_id,
             GeneratedContent.user_id == current_user.id,
         )
     )
-    content = result.scalar_one_or_none()
+    content: GeneratedContent | None = result.scalar_one_or_none()
     if not content:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Content not found")
 
@@ -170,14 +173,14 @@ async def delete_generated_content(
     session: AsyncSession = Depends(get_async_session),
 ) -> None:
     """Archive generated content."""
-    result = await session.execute(
+    result: Result[Tuple[GeneratedContent]] = await session.execute(
         select(GeneratedContent).where(
             GeneratedContent.id == content_id,
             GeneratedContent.tenant_id == current_user.tenant_id,
             GeneratedContent.user_id == current_user.id,
         )
     )
-    content = result.scalar_one_or_none()
+    content: GeneratedContent | None = result.scalar_one_or_none()
     if not content:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Content not found")
 
@@ -193,14 +196,14 @@ async def restore_generated_content(
     session: AsyncSession = Depends(get_async_session),
 ) -> GeneratedContentResponse:
     """Restore archived generated content."""
-    result = await session.execute(
+    result: Result[Tuple[GeneratedContent]] = await session.execute(
         select(GeneratedContent).where(
             GeneratedContent.id == content_id,
             GeneratedContent.tenant_id == current_user.tenant_id,
             GeneratedContent.user_id == current_user.id,
         )
     )
-    content = result.scalar_one_or_none()
+    content: GeneratedContent | None = result.scalar_one_or_none()
     if not content:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Content not found")
 

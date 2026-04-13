@@ -11,7 +11,9 @@ from src.domains.academic.services.student_profile_sync import sync_student_prof
 from src.domains.identity.models.tenant import Tenant
 from src.domains.identity.models.user import User
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+import sys
+_bcrypt_rounds = 4 if "pytest" in sys.modules else 12
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto", bcrypt__rounds=_bcrypt_rounds)
 
 
 def create_tenant_with_admin(

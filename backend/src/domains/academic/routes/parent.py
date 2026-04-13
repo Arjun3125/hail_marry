@@ -1,12 +1,16 @@
 """Parent-facing API routes."""
+from typing import Any
+from typing import Dict
 from uuid import UUID
 from pydantic import BaseModel
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import Column
 from sqlalchemy.orm import Session
 from starlette.responses import Response as StarletteResponse
 
 from auth.dependencies import require_role
+from src.domains.platform.models.notification import NotificationPreference
 from database import get_db
 from src.domains.academic.application.parent_portal import (
     build_parent_attendance_response as _build_parent_attendance_response_impl,
@@ -112,8 +116,8 @@ async def parent_dashboard(
     child_id: str | None = None,
     current_user: User = Depends(require_role("parent")),
     db: Session = Depends(get_db),
-):
-    child = _get_child_for_parent(current_user=current_user, db=db, child_id=child_id)
+) -> dict[str, Any]:
+    child: User = _get_child_for_parent(current_user=current_user, db=db, child_id=child_id)
     return _build_parent_dashboard_response_impl(
         db=db,
         current_user=current_user,
@@ -138,8 +142,8 @@ async def parent_attendance(
     child_id: str | None = None,
     current_user: User = Depends(require_role("parent")),
     db: Session = Depends(get_db),
-):
-    child = _get_child_for_parent(current_user=current_user, db=db, child_id=child_id)
+) -> dict[str, Any]:
+    child: User = _get_child_for_parent(current_user=current_user, db=db, child_id=child_id)
     return _build_parent_attendance_response_impl(
         db=db,
         current_user=current_user,
@@ -153,8 +157,8 @@ async def parent_results(
     child_id: str | None = None,
     current_user: User = Depends(require_role("parent")),
     db: Session = Depends(get_db),
-):
-    child = _get_child_for_parent(current_user=current_user, db=db, child_id=child_id)
+) -> dict[str, Any]:
+    child: User = _get_child_for_parent(current_user=current_user, db=db, child_id=child_id)
     return _build_parent_results_response_impl(
         db=db,
         current_user=current_user,
@@ -170,8 +174,8 @@ async def parent_reports(
     child_id: str | None = None,
     current_user: User = Depends(require_role("parent")),
     db: Session = Depends(get_db),
-):
-    child = _get_child_for_parent(current_user=current_user, db=db, child_id=child_id)
+) -> dict[str, Any]:
+    child: User = _get_child_for_parent(current_user=current_user, db=db, child_id=child_id)
     return _build_parent_reports_response_impl(
         db=db,
         current_user=current_user,
@@ -192,9 +196,9 @@ async def parent_audio_report(
     child_id: str | None = None,
     current_user: User = Depends(require_role("parent")),
     db: Session = Depends(get_db),
-):
+) -> dict[str, Any]:
     """Generate a text summary of child's progress for browser TTS playback."""
-    child = _get_child_for_parent(current_user=current_user, db=db, child_id=child_id)
+    child: User = _get_child_for_parent(current_user=current_user, db=db, child_id=child_id)
     return _build_parent_audio_report_response_impl(
         db=db,
         current_user=current_user,
@@ -212,7 +216,7 @@ async def parent_audio_report(
 async def parent_digest_preview(
     current_user: User = Depends(require_role("parent")),
     db: Session = Depends(get_db),
-):
+) -> dict[str, Any]:
     """Preview the weekly digest email that would be sent to this parent."""
     return _build_parent_digest_preview_response_impl(
         db=db,
@@ -228,7 +232,7 @@ async def parent_digest_preview(
 async def parent_report_card(
     current_user: User = Depends(require_role("parent")),
     db: Session = Depends(get_db),
-):
+) -> StarletteResponse:
     """Download the report card PDF for the parent's linked child."""
     pdf_bytes, filename = _build_parent_report_card_payload_impl(
         db=db,
@@ -258,9 +262,9 @@ async def parent_ai_insights(
     Get AI learning insights about child's recent AI Studio activity.
     Includes study time, engagement, mastery progress, and areas for improvement.
     """
-    child = _get_child_for_parent(current_user=current_user, db=db, child_id=child_id)
+    child: User = _get_child_for_parent(current_user=current_user, db=db, child_id=child_id)
     
-    insights = ParentAIInsightNotificationService.generate_ai_insight_summary(
+    insights: Dict[str, Any] | None = ParentAIInsightNotificationService.generate_ai_insight_summary(
         db=db,
         child_id=child.id,
         days=days,
@@ -289,13 +293,13 @@ async def parent_ai_insights(
 async def get_notification_preferences(
     current_user: User = Depends(require_role("parent")),
     db: Session = Depends(get_db),
-):
+) -> NotificationPreferencesResponse:
     """
     Get parent's notification preferences (channels, quiet hours, category toggles).
     """
-    tenant_id = current_user.tenant_id
+    tenant_id: Column[UUID] = current_user.tenant_id
     
-    prefs = ParentNotificationService.get_or_create_preferences(
+    prefs: NotificationPreference = ParentNotificationService.get_or_create_preferences(
         db=db,
         tenant_id=tenant_id,
         parent_id=current_user.id,
@@ -309,7 +313,7 @@ async def update_notification_preferences(
     request: NotificationPreferencesRequest,
     current_user: User = Depends(require_role("parent")),
     db: Session = Depends(get_db),
-):
+) -> NotificationPreferencesResponse:
     """
     Update parent's notification preferences.
     
@@ -326,12 +330,12 @@ async def update_notification_preferences(
             }
         }
     """
-    tenant_id = current_user.tenant_id
+    tenant_id: Column[UUID] = current_user.tenant_id
     
     # Filter out None values for updating only provided fields
-    update_data = {k: v for k, v in request.model_dump().items() if v is not None}
+    update_data: dict[str, Any] = {k: v for k, v in request.model_dump().items() if v is not None}
     
-    prefs = ParentNotificationService.update_preferences(
+    prefs: NotificationPreference = ParentNotificationService.update_preferences(
         db=db,
         tenant_id=tenant_id,
         parent_id=current_user.id,

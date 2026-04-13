@@ -12,28 +12,28 @@ Security:
 """
 
 import logging
-from typing import Optional
+from typing import Any, Optional
 
 try:
     from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 except ModuleNotFoundError:
     class HTTPException(Exception):
-        def __init__(self, status_code: int, detail: str):
+        def __init__(self, status_code: int, detail: str) -> None:
             super().__init__(detail)
-            self.status_code = status_code
-            self.detail = detail
+            self.status_code: int = status_code
+            self.detail: str = detail
 
     class BackgroundTasks:
-        def __init__(self):
+        def __init__(self) -> None:
             self.tasks = []
-        def add_task(self, fn, *args, **kwargs):
+        def add_task(self, fn, *args, **kwargs) -> None:
             self.tasks.append((fn, args, kwargs))
 
     class Request:
         headers: dict
 
     class APIRouter:
-        def __init__(self, *args, **kwargs):
+        def __init__(self, *args, **kwargs) -> None:
             pass
         def post(self, *_args, **_kwargs):
             return lambda fn: fn
@@ -42,7 +42,7 @@ try:
     from pydantic import BaseModel, Field
 except ModuleNotFoundError:
     class BaseModel:
-        def __init__(self, **data):
+        def __init__(self, **data) -> None:
             for k, v in data.items():
                 setattr(self, k, v)
     def Field(default=None, **_kw):
@@ -58,7 +58,7 @@ from src.domains.platform.services.whatsapp_gateway import (
     send_text_message,
 )
 
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/whatsapp/bridge", tags=["WhatsApp Bridge"])
 
@@ -82,7 +82,7 @@ async def bridge_inbound(
     payload: BridgeInboundPayload,
     request: Request,
     background_tasks: BackgroundTasks,
-):
+) -> dict[str, str]:
     """Receive a normalized WhatsApp message from the Node.js gateway."""
     # Validate internal header
     gw_header = request.headers.get(INTERNAL_HEADER, "")
@@ -118,9 +118,9 @@ async def _bridge_process_and_respond(
     media_id: str | None = None,
     media_filename: str | None = None,
     media_mime_type: str | None = None,
-):
+) -> None:
     """Background worker: process the bridged message through the gateway."""
-    db = SessionLocal() if SessionLocal else None
+    db: Any | None = SessionLocal() if SessionLocal else None
     try:
         result = await process_inbound_message(
             db,

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Key, Save, ShieldCheck, Globe, UserCheck } from "lucide-react";
 import { PrismHeroKicker, PrismPage, PrismPageIntro, PrismSection } from "@/components/prism/PrismPage";
 import { api } from "@/lib/api";
+import { logger } from "@/lib/logger";
 
 export default function SSOSettingsPage() {
     const [settings, setSettings] = useState({
@@ -24,7 +25,7 @@ export default function SSOSettingsPage() {
                 const data = await api.enterprise.ssoSettings();
                 if (data) setSettings(data);
             } catch (err) {
-                console.error("Failed to load SSO settings", err);
+                logger.error("Failed to load SSO settings", err as Error);
             } finally {
                 setLoading(false);
             }

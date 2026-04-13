@@ -5,7 +5,6 @@ Directly uses Ollama for embeddings and FAISS for vector storage.
 No complex backend dependencies required.
 """
 import sqlite3
-import pickle
 import requests
 from pathlib import Path
 from uuid import uuid4
@@ -90,15 +89,23 @@ def extract_text_from_pdf(file_path: Path) -> str:
 
 
 def save_to_vector_store(tenant_id: str, chunks: list, embeddings: list, metadata: list):
-    """Save chunks and embeddings to FAISS-like store (using pickle for demo)."""
+    """Save chunks and embeddings to FAISS-like store (using JSON for demo)."""
+    import json
+    import logging
+    logger = logging.getLogger(__name__)
+    
     VECTOR_STORE_PATH.mkdir(exist_ok=True)
 
-    store_file = VECTOR_STORE_PATH / f"tenant_{tenant_id}.pkl"
+    store_file = VECTOR_STORE_PATH / f"tenant_{tenant_id}.json"
 
     # Load existing if present
     if store_file.exists():
-        with open(store_file, "rb") as f:
-            store = pickle.load(f)
+        try:
+            with open(store_file, "r", encoding="utf-8") as f:
+                store = json.load(f)
+        except json.JSONDecodeError as e:
+            logger.warning(f"Failed to load existing vector store, creating new: {e}")
+            store = {"chunks": [], "embeddings": [], "metadata": []}
     else:
         store = {"chunks": [], "embeddings": [], "metadata": []}
 
@@ -108,8 +115,12 @@ def save_to_vector_store(tenant_id: str, chunks: list, embeddings: list, metadat
     store["metadata"].extend(metadata)
 
     # Save back
-    with open(store_file, "wb") as f:
-        pickle.dump(store, f)
+    try:
+        with open(store_file, "w", encoding="utf-8") as f:
+            json.dump(store, f, indent=2, ensure_ascii=False)
+    except Exception as e:
+        logger.error(f"Failed to save vector store: {e}")
+        raise
 
     return len(chunks)
 

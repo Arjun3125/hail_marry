@@ -46,14 +46,14 @@ export function ContextBar({
 
     return (
         <div className="flex flex-col gap-3 rounded-[1.5rem] border border-[var(--border)] bg-[rgba(8,14,28,0.48)] px-4 py-3 shadow-[0_18px_34px_rgba(2,6,23,0.08)] sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
-                <span>{schoolName}</span>
-                <ChevronRight className="h-3 w-3 opacity-50" />
-                <span>{titleCase(role)}</span>
-                <ChevronRight className="h-3 w-3 opacity-50" />
+            <div className="flex flex-wrap items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+                <span className="hidden sm:inline">{schoolName}</span>
+                <ChevronRight className="hidden h-3 w-3 opacity-50 sm:inline" />
+                <span className="hidden sm:inline">{titleCase(role)}</span>
+                <ChevronRight className="hidden h-3 w-3 opacity-50 sm:inline" />
                 <span className="text-[var(--text-secondary)]">{currentSection}</span>
                 <label className="ml-2 inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[rgba(148,163,184,0.06)] px-3 py-1.5 normal-case tracking-normal text-[var(--text-secondary)]">
-                    <span className="text-[10px] uppercase tracking-[0.14em] text-[var(--text-muted)]">Viewing as</span>
+                    <span className="text-xs uppercase tracking-[0.14em] text-[var(--text-muted)]">Viewing as</span>
                     <select
                         value={role}
                         onChange={(event) => {
@@ -91,7 +91,7 @@ export function ContextBar({
                     </span>
                 ) : null}
                 {!hasSignals ? (
-                    <span className="text-[11px] uppercase tracking-[0.14em] text-[var(--text-muted)]">
+                    <span className="text-xs uppercase tracking-[0.14em] text-[var(--text-muted)]">
                         Context follows your current workflow
                     </span>
                 ) : null}

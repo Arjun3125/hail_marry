@@ -8,6 +8,13 @@ import os
 import socket
 
 from config import settings
+from constants import (
+    AI_WORKER_AGGREGATION_INTERVAL_SECONDS,
+    AI_WORKER_AGGREGATION_RETRY_SECONDS,
+    AI_WORKER_AGGREGATION_STARTUP_DELAY_SECONDS,
+    AI_WORKER_HEARTBEAT_MIN_INTERVAL_SECONDS,
+    AI_WORKER_HEARTBEAT_MAX_INTERVAL_SECONDS,
+)
 from database import engine
 from src.domains.platform.services.ai_queue import claim_next_job, process_job, recover_processing_jobs
 from src.domains.platform.services.sentry_config import configure_sentry
@@ -53,25 +60,45 @@ async def _run_periodic_aggregation() -> None:
     """Periodically aggregate tenant analytics. Resilient to missing tables."""
     from sqlalchemy.exc import ProgrammingError, OperationalError
 
-    # Wait 30s on first run to give migrations time to complete
-    await asyncio.sleep(30)
+    # Wait on first run to give migrations time to complete
+    await asyncio.sleep(AI_WORKER_AGGREGATION_STARTUP_DELAY_SECONDS)
 
     while True:
         try:
             from src.domains.administrative.services.analytics_aggregator import run_analytics_aggregation
             await asyncio.to_thread(run_analytics_aggregation)
-            await asyncio.sleep(900)  # 15 minutes
+
+            # Run mascot nightly jobs
+            from src.domains.mascot.services.nightly_jobs import run_mascot_nightly_jobs
+            import time as _time
+            from src.infrastructure.llm.cache import _get_redis as _get_redis_client
+            MASCOT_JOBS_LAST_RUN_KEY = "mascot_nightly_last_run"
+            redis_client = _get_redis_client()
+            if redis_client is not None:
+                last_run = redis_client.get(MASCOT_JOBS_LAST_RUN_KEY)
+                if not last_run or (_time.time() - float(last_run)) > 82800:  # 23 hours
+                    try:
+                        result = await run_mascot_nightly_jobs()
+                        redis_client.setex(MASCOT_JOBS_LAST_RUN_KEY, 90000, str(_time.time()))
+                        logger.info("Mascot nightly jobs completed: %s", result)
+                    except Exception as e:
+                        logger.warning("Mascot nightly jobs failed: %s", e)
+
+            await asyncio.sleep(AI_WORKER_AGGREGATION_INTERVAL_SECONDS)
         except (ProgrammingError, OperationalError) as db_err:
             # Table doesn't exist yet (migrations haven't run) — wait and retry
             logger.warning("Analytics aggregation skipped (DB schema not ready): %s", type(db_err).__name__)
-            await asyncio.sleep(120)  # Retry in 2 minutes
+            await asyncio.sleep(AI_WORKER_AGGREGATION_RETRY_SECONDS)
         except Exception as e:
             logger.error("Error in periodic aggregation task: %s", e)
-            await asyncio.sleep(60)
+            await asyncio.sleep(AI_WORKER_AGGREGATION_RETRY_SECONDS)
 
 
 async def _heartbeat_loop() -> None:
-    interval = max(5, min(settings.worker_health.heartbeat_stale_seconds // 3, 20))
+    interval = max(
+        AI_WORKER_HEARTBEAT_MIN_INTERVAL_SECONDS,
+        min(settings.worker_health.heartbeat_stale_seconds // 3, AI_WORKER_HEARTBEAT_MAX_INTERVAL_SECONDS)
+    )
     while True:
         await asyncio.sleep(interval)
         try:

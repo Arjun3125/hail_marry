@@ -41,16 +41,28 @@ export async function authenticateAs(page: Page, role: "student" | "teacher" | "
     await page.addInitScript(({ token, user: userData }) => {
         window.localStorage.setItem("vidyaos_access_token", token);
         window.localStorage.setItem("vidyaos_user", JSON.stringify(userData));
+        
+        // Comprehensive tour and onboarding bypasses for all roles
         window.localStorage.setItem("student-tour", "completed");
-        window.localStorage.setItem("student-onboarding", JSON.stringify({
-            "profile-ready": true,
-            "upload-material": true,
-            "ask-ai": true,
-            "read-timetable": true
-        }));
         window.localStorage.setItem("teacher-tour", "completed");
         window.localStorage.setItem("admin-tour", "completed");
         window.localStorage.setItem("parent-tour", "completed");
+
+        const onboardingCompleted = JSON.stringify({
+            "profile-ready": true,
+            "upload-material": true,
+            "ask-ai": true,
+            "read-timetable": true,
+            "setup-identity": true,
+            "setup-structure": true,
+            "onboard-teachers": true
+        });
+
+        window.localStorage.setItem("student-onboarding", onboardingCompleted);
+        window.localStorage.setItem("teacher-onboarding", onboardingCompleted);
+        window.localStorage.setItem("admin-onboarding", onboardingCompleted);
+        window.localStorage.setItem("parent-onboarding", onboardingCompleted);
+        
     }, {
         token: `mock-token-${role}`,
         user,

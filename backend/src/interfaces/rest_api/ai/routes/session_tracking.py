@@ -1,19 +1,22 @@
 """AI session tracking routes for student learning activity."""
 from uuid import UUID
 from datetime import datetime, timedelta, timezone
-from typing import Optional, List, Any, Dict
+from typing import Optional, List, Any, Dict, cast
 import json
+import logging
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from sqlalchemy import desc, and_
 from sqlalchemy.orm import Session
 
 from auth.dependencies import get_current_user
+from constants import JSON_ARRAY_MAX_ITEMS, SECONDS_PER_HOUR
 from database import get_db
 from src.domains.identity.models.user import User
 from src.domains.platform.models.ai import AISessionEvent
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/ai/sessions", tags=["AI Sessions"])
 
 
@@ -60,18 +63,103 @@ class AISessionEventCreate(BaseModel):
 
 
 class AISessionEventUpdate(BaseModel):
-    """Update session event fields (for session end)."""
+    """Update session event fields (for session end) with proper type validation."""
     ended_at: datetime
     total_duration_seconds: Optional[int] = None
     engagement_score: Optional[float] = None
-    key_concepts: Optional[str] = None
-    misconceptions: Optional[str] = None
+    key_concepts: Optional[str] = None  # JSON string or None
+    misconceptions: Optional[str] = None  # JSON string or None
     mastery_level: Optional[str] = None
     confidence_change: Optional[float] = None
     was_quiz_attempted: Optional[bool] = None
     quiz_score_percent: Optional[float] = None
     flashcard_correct_count: Optional[int] = None
     flashcard_total_shown: Optional[int] = None
+
+    # ─── Generic range validators (eliminate duplication) ───
+    def _validate_range(self, value: Optional[float], min_val: float, max_val: float, field_name: str) -> Optional[float]:
+        """Reusable validator for numeric ranges."""
+        if value is not None:
+            if not min_val <= value <= max_val:
+                raise ValueError(f"{field_name} must be between {min_val} and {max_val}")
+            return float(value)
+        return None
+
+    def _validate_non_negative_int(self, value: Optional[int], field_name: str) -> Optional[int]:
+        """Reusable validator for non-negative integers."""
+        if value is not None:
+            if value < 0:
+                raise ValueError(f"{field_name} must be non-negative")
+        return value
+
+    @field_validator("total_duration_seconds")
+    @classmethod
+    def validate_duration(cls, v: Optional[int]) -> Optional[int]:
+        """Ensure duration is non-negative."""
+        if v is not None and v < 0:
+            raise ValueError("total_duration_seconds must be non-negative")
+        return v
+
+    @field_validator("engagement_score")
+    @classmethod
+    def validate_engagement_score(cls, v: Optional[float]) -> Optional[float]:
+        """Ensure engagement score is between 0-100."""
+        if v is not None:
+            if not 0 <= v <= 100:
+                raise ValueError("engagement_score must be between 0 and 100")
+            return float(v)
+        return None
+
+    @field_validator("confidence_change")
+    @classmethod
+    def validate_confidence_change(cls, v: Optional[float]) -> Optional[float]:
+        """Ensure confidence change is between -100 and +100."""
+        if v is not None:
+            if not -100 <= v <= 100:
+                raise ValueError("confidence_change must be between -100 and +100")
+            return float(v)
+        return None
+
+    @field_validator("quiz_score_percent")
+    @classmethod
+    def validate_quiz_score(cls, v: Optional[float]) -> Optional[float]:
+        """Ensure quiz score is between 0-100."""
+        if v is not None:
+            if not 0 <= v <= 100:
+                raise ValueError("quiz_score_percent must be between 0 and 100")
+            return float(v)
+        return None
+
+    @field_validator("flashcard_correct_count", "flashcard_total_shown")
+    @classmethod
+    def validate_flashcard_counts(cls, v: Optional[int]) -> Optional[int]:
+        """Ensure flashcard counts are non-negative integers."""
+        if v is not None:
+            if v < 0:
+                raise ValueError("Flashcard counts must be non-negative")
+        return v
+
+    @field_validator("key_concepts", "misconceptions")
+    @classmethod
+    def validate_json_fields(cls, v: Optional[str]) -> Optional[str]:
+        """Validate that JSON fields are valid JSON strings."""
+        if v is not None:
+            try:
+                # Verify it's valid JSON
+                parsed = json.loads(v)
+                # Ensure it's a list (as database stores JSON arrays)
+                if not isinstance(parsed, list):
+                    raise ValueError("JSON field must represent an array")
+                # Prevent extremely large arrays (enforced constraint)
+                parsed_list = cast(List[Any], parsed)
+                if len(parsed_list) > JSON_ARRAY_MAX_ITEMS:
+                    raise ValueError(f"JSON array cannot have more than {JSON_ARRAY_MAX_ITEMS} items")
+                # Prevent duplicates in concepts/misconceptions
+                if len(parsed_list) != len(set(parsed_list)):
+                    raise ValueError("JSON array contains duplicate items")
+            except json.JSONDecodeError as e:
+                raise ValueError(f"Invalid JSON: {str(e)}")
+        return v
 
 
 class AISessionEventResponse(BaseModel):
@@ -183,29 +271,30 @@ async def update_session_event(
     if not session_event:
         raise HTTPException(status_code=404, detail="Session event not found")
 
-    # Update fields
+    # Update fields (all validated by AISessionEventUpdate schema validators)
+    session_event_any = cast(Any, session_event)
     if update.ended_at:
-        session_event.ended_at = update.ended_at  # type: ignore
+        session_event_any.ended_at = update.ended_at
     if update.total_duration_seconds is not None:
-        session_event.total_duration_seconds = update.total_duration_seconds  # type: ignore
+        session_event_any.total_duration_seconds = update.total_duration_seconds
     if update.engagement_score is not None:
-        session_event.engagement_score = update.engagement_score  # type: ignore
+        session_event_any.engagement_score = update.engagement_score
     if update.key_concepts is not None:
-        session_event.key_concepts = update.key_concepts  # type: ignore
+        session_event_any.key_concepts = update.key_concepts
     if update.misconceptions is not None:
-        session_event.misconceptions = update.misconceptions  # type: ignore
+        session_event_any.misconceptions = update.misconceptions
     if update.mastery_level is not None:
-        session_event.mastery_level = update.mastery_level  # type: ignore
+        session_event_any.mastery_level = update.mastery_level
     if update.confidence_change is not None:
-        session_event.confidence_change = update.confidence_change  # type: ignore
+        session_event_any.confidence_change = update.confidence_change
     if update.was_quiz_attempted is not None:
-        session_event.was_quiz_attempted = update.was_quiz_attempted  # type: ignore
+        session_event_any.was_quiz_attempted = update.was_quiz_attempted
     if update.quiz_score_percent is not None:
-        session_event.quiz_score_percent = update.quiz_score_percent  # type: ignore
+        session_event_any.quiz_score_percent = update.quiz_score_percent
     if update.flashcard_correct_count is not None:
-        session_event.flashcard_correct_count = update.flashcard_correct_count  # type: ignore
+        session_event_any.flashcard_correct_count = update.flashcard_correct_count
     if update.flashcard_total_shown is not None:
-        session_event.flashcard_total_shown = update.flashcard_total_shown  # type: ignore
+        session_event_any.flashcard_total_shown = update.flashcard_total_shown
 
     db.commit()
     db.refresh(session_event)
@@ -234,33 +323,34 @@ async def get_recent_sessions(
 
     result: List[AISessionSummary] = []
     for session in sessions:
+        session_any = cast(Any, session)
         # Parse key concepts and misconceptions from JSON strings
         concepts: List[str] = []
-        if session.key_concepts:  # type: ignore
+        if session_any.key_concepts is not None:
             try:
-                concepts = json.loads(session.key_concepts)  # type: ignore
+                concepts = json.loads(str(session_any.key_concepts))
             except (TypeError, ValueError, json.JSONDecodeError):
                 concepts = []
 
         insights = [f"Studied: {', '.join(concepts[:3])}" if concepts else "Completed session"]
-        if session.misconceptions:  # type: ignore
+        if session_any.misconceptions is not None:
             try:
-                misconceptions = json.loads(session.misconceptions)  # type: ignore
+                misconceptions = json.loads(str(session_any.misconceptions))
                 insights.append(f"Topics to revisit: {', '.join(misconceptions[:2])}")
-            except (TypeError, ValueError, json.JSONDecodeError):
-                pass
+            except (TypeError, ValueError, json.JSONDecodeError) as e:
+                logger.warning(f"Failed to parse misconceptions JSON for session {session_any.session_id}: {type(e).__name__}: {e}")
 
         result.append(AISessionSummary(
-            session_id=session.session_id,  # type: ignore
-            tool_mode=session.tool_mode,  # type: ignore
-            subject=session.subject,  # type: ignore
-            topic=session.topic,  # type: ignore
-            duration_seconds=session.total_duration_seconds,  # type: ignore
-            engagement_score=session.engagement_score,  # type: ignore
-            mastery_level=session.mastery_level,  # type: ignore
-            quiz_score_percent=session.quiz_score_percent,  # type: ignore
-            started_at=session.started_at,  # type: ignore
-            ended_at=session.ended_at,  # type: ignore
+            session_id=cast(str, session_any.session_id),
+            tool_mode=cast(str, session_any.tool_mode),
+            subject=cast(Optional[str], session_any.subject),
+            topic=cast(Optional[str], session_any.topic),
+            duration_seconds=int(cast(int, session_any.total_duration_seconds or 0)),
+            engagement_score=float(cast(float, session_any.engagement_score or 0.0)),
+            mastery_level=cast(str, session_any.mastery_level),
+            quiz_score_percent=cast(Optional[float], session_any.quiz_score_percent),
+            started_at=cast(datetime, session_any.started_at),
+            ended_at=cast(Optional[datetime], session_any.ended_at),
             key_insights=insights,
         ))
 
@@ -290,24 +380,19 @@ async def get_sessions_by_subject(
 
     result: List[AISessionSummary] = []
     for session in sessions:
-        if session.key_concepts:  # type: ignore
-            try:
-                json.loads(session.key_concepts)  # type: ignore
-            except (TypeError, ValueError, json.JSONDecodeError):
-                pass
-
+        session_any = cast(Any, session)
         result.append(AISessionSummary(
-            session_id=session.session_id,  # type: ignore
-            tool_mode=session.tool_mode,  # type: ignore
-            subject=session.subject,  # type: ignore
-            topic=session.topic,  # type: ignore
-            duration_seconds=session.total_duration_seconds,  # type: ignore
-            engagement_score=session.engagement_score,  # type: ignore
-            mastery_level=session.mastery_level,  # type: ignore
-            quiz_score_percent=session.quiz_score_percent,  # type: ignore
-            started_at=session.started_at,  # type: ignore
-            ended_at=session.ended_at,  # type: ignore
-            key_insights=[f"Topic: {session.topic}" if session.topic else "Session completed"],  # type: ignore
+            session_id=cast(str, session_any.session_id),
+            tool_mode=cast(str, session_any.tool_mode),
+            subject=cast(Optional[str], session_any.subject),
+            topic=cast(Optional[str], session_any.topic),
+            duration_seconds=int(cast(int, session_any.total_duration_seconds or 0)),
+            engagement_score=float(cast(float, session_any.engagement_score or 0.0)),
+            mastery_level=cast(str, session_any.mastery_level),
+            quiz_score_percent=cast(Optional[float], session_any.quiz_score_percent),
+            started_at=cast(datetime, session_any.started_at),
+            ended_at=cast(Optional[datetime], session_any.ended_at),
+            key_insights=[f"Topic: {cast(str, session_any.topic)}" if session_any.topic else "Session completed"],
         ))
 
     return result
@@ -349,39 +434,40 @@ async def get_parent_insights(
         )
 
     # Calculate aggregates
-    total_duration: int = sum(s.total_duration_seconds for s in sessions)  # type: ignore
-    total_duration_hours: float = (total_duration / 3600.0) if total_duration else 0.0
+    sessions_any = [cast(Any, s) for s in sessions]
+    total_duration: int = sum(int(cast(int, s.total_duration_seconds or 0)) for s in sessions_any)
+    total_duration_hours: float = (total_duration / SECONDS_PER_HOUR) if total_duration else 0.0
 
     active_subjects_set: set[str] = set()
-    for s in sessions:
-        if s.subject:  # type: ignore
-            active_subjects_set.add(str(s.subject))  # type: ignore
+    for s in sessions_any:
+        if s.subject:
+            active_subjects_set.add(str(s.subject))
     active_subjects: list[str] = list(active_subjects_set)
     
-    average_engagement: float = float(sum(s.engagement_score for s in sessions)) / len(sessions)  # type: ignore
+    average_engagement: float = float(sum(float(cast(float, s.engagement_score or 0.0)) for s in sessions_any)) / len(sessions_any)
 
     recent_topics: List[str] = []
-    for s in sessions[-5:]:
-        if s.topic:  # type: ignore
-            recent_topics.append(str(s.topic))  # type: ignore
+    for s in sessions_any[-5:]:
+        if s.topic:
+            recent_topics.append(str(s.topic))
 
-    quiz_sessions = [s for s in sessions if s.was_quiz_attempted]  # type: ignore
+    quiz_sessions = [s for s in sessions_any if cast(bool, s.was_quiz_attempted)]
     quiz_attempts = len(quiz_sessions)
     average_quiz_score: Optional[float] = None
     if quiz_sessions:
-        quiz_scores = [s.quiz_score_percent for s in quiz_sessions if s.quiz_score_percent]  # type: ignore
+        quiz_scores = [float(cast(float, s.quiz_score_percent)) for s in quiz_sessions if s.quiz_score_percent is not None]
         if quiz_scores:
-            average_quiz_score = float(sum(quiz_scores)) / len(quiz_scores)  # type: ignore
+            average_quiz_score = float(sum(quiz_scores)) / len(quiz_scores)
 
     # Build mastery progress by subject
     mastery_progress: Dict[str, str] = {}
     for subject_name in active_subjects:
-        subject_sessions = [s for s in sessions if str(s.subject) == subject_name]  # type: ignore
+        subject_sessions = [s for s in sessions if str(s.subject) == subject_name]
         if subject_sessions:
             # Average mastery level
             levels = {"beginner": 1, "intermediate": 2, "advanced": 3}
             avg_level_value = float(sum(
-                levels.get(str(s.mastery_level), 1) for s in subject_sessions  # type: ignore
+                levels.get(str(s.mastery_level), 1) for s in subject_sessions
             )) / len(subject_sessions)
             if avg_level_value >= 2.5:
                 mastery_progress[subject_name] = "advanced"
@@ -392,10 +478,10 @@ async def get_parent_insights(
 
     # Identify topics with misconceptions for parent guidance
     recommended_topics: List[str] = []
-    for s in sessions:
-        if s.misconceptions:  # type: ignore
+    for s in sessions_any:
+        if s.misconceptions:
             try:
-                misconceptions = json.loads(s.misconceptions)  # type: ignore
+                misconceptions = json.loads(str(s.misconceptions))
                 for topic in misconceptions:
                     if topic not in recommended_topics:
                         recommended_topics.append(topic)

@@ -121,10 +121,10 @@ async def run_scheduled_notifications_loop(stop_event: asyncio.Event) -> None:
     """
     try:
         from src.domains.academic.services.scheduled_notifications import (
-            ScheduledNotificationsService,
+            run_scheduled_notifications_loop as run_scheduled_notifications,
         )
 
-        await ScheduledNotificationsService.run_scheduled_notifications_loop(stop_event)
+        await run_scheduled_notifications(stop_event)
     except Exception as e:
         logger.error(f"Scheduled notifications loop failed: {str(e)}")
         raise

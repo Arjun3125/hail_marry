@@ -74,3 +74,4 @@ backend/dump_live_routes.py
 # OS
 .DS_Store
 Thumbs.db
+.gitnexus

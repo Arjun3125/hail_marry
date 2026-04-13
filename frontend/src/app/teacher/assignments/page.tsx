@@ -46,7 +46,7 @@ export default function TeacherAssignmentsPage() {
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
-    const { activeClassId, activeSubject, mergeContext } = useVidyaContext();
+    const { activeSubject, mergeContext } = useVidyaContext();
 
     const allSubjects = useMemo(() => {
         const seen = new Set<string>();
@@ -78,10 +78,6 @@ export default function TeacherAssignmentsPage() {
         const subjects = Array.from(new Set(assignments.map(a => a.subject)));
         return subjects.sort();
     }, [assignments]);
-
-    const selectedClass = useMemo(() => {
-        return classes.find(c => c.id === activeClassId);
-    }, [classes, activeClassId]);
 
     const assignmentSummary = useMemo(() => {
         const filtered = filteredAssignments;

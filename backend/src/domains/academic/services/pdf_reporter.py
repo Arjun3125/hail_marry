@@ -1,41 +1,78 @@
 """PDF report generation for student reports, attendance summaries, and analytics exports."""
+import importlib
 import io
 import logging
 from datetime import datetime
+from typing import Any, Dict, cast
 from uuid import UUID
 
-from reportlab.lib import colors
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.units import inch
-from reportlab.platypus import (
-    SimpleDocTemplate,
-    Table,
-    TableStyle,
-    Paragraph,
-    Spacer,
-    PageBreak,
-)
 from sqlalchemy.orm import Session
-
-from src.domains.academic.services.analytics import AttendanceAnalytics, AcademicAnalytics
-from src.domains.identity.models.user import User
 from src.domains.academic.models.core import Class
+from src.domains.academic.services.analytics import AcademicAnalytics, AttendanceAnalytics
+from src.domains.identity.models.user import User
 
-logger = logging.getLogger(__name__)
+_reportlab = None
+try:
+    _reportlab = importlib.import_module("reportlab")
+except ModuleNotFoundError:
+    pass
+
+colors: Any
+PAGE_SIZE_DEFAULT: Any
+getSampleStyleSheet: Any
+ParagraphStyle: Any
+inch: Any
+SimpleDocTemplate: Any
+Table: Any
+TableStyle: Any
+Paragraph: Any
+Spacer: Any
+PageBreak: Any
+
+if _reportlab is not None:
+    colors = _reportlab.lib.colors
+    page_size_default = _reportlab.lib.pagesizes.A4
+    getSampleStyleSheet = _reportlab.lib.styles.getSampleStyleSheet
+    ParagraphStyle = _reportlab.lib.styles.ParagraphStyle
+    inch = _reportlab.lib.units.inch
+    SimpleDocTemplate = _reportlab.platypus.SimpleDocTemplate
+    Table = _reportlab.platypus.Table
+    TableStyle = _reportlab.platypus.TableStyle
+    Paragraph = _reportlab.platypus.Paragraph
+    Spacer = _reportlab.platypus.Spacer
+    PageBreak = _reportlab.platypus.PageBreak
+else:
+    colors = cast(Any, None)
+    page_size_default = cast(Any, None)
+    getSampleStyleSheet = cast(Any, None)
+    ParagraphStyle = cast(Any, None)
+    inch = 72
+    SimpleDocTemplate = cast(Any, None)
+    Table = cast(Any, None)
+    TableStyle = cast(Any, None)
+    Paragraph = cast(Any, None)
+    Spacer = cast(Any, None)
+    PageBreak = cast(Any, None)
+
+logger: logging.Logger = logging.getLogger(__name__)
 
 
 class PDFReportGenerator:
     """Generate PDF reports for student performance, attendance, and analytics."""
 
-    def __init__(self, page_size=A4, margin_top=0.5 * inch, margin_bottom=0.5 * inch):
-        self.page_size = page_size
-        self.margin_top = margin_top
-        self.margin_bottom = margin_bottom
-        self.styles = getSampleStyleSheet()
+    def __init__(
+        self,
+        page_size: Any = page_size_default,
+        margin_top: float = 0.5 * inch,
+        margin_bottom: float = 0.5 * inch,
+    ) -> None:
+        self.page_size: Any = page_size
+        self.margin_top: float = margin_top
+        self.margin_bottom: float = margin_bottom
+        self.styles: Any = getSampleStyleSheet()
         self._setup_custom_styles()
 
-    def _setup_custom_styles(self):
+    def _setup_custom_styles(self) -> None:
         """Setup custom paragraph styles for reports."""
         self.styles.add(ParagraphStyle(
             name="Title",
@@ -75,17 +112,17 @@ class PDFReportGenerator:
             PDF bytes ready to save or download
         """
         buffer = io.BytesIO()
-        doc = SimpleDocTemplate(
+        doc: Any = SimpleDocTemplate(
             buffer,
             pagesize=self.page_size,
             topMargin=self.margin_top,
             bottomMargin=self.margin_bottom,
         )
 
-        story = []
+        story: list[Any] = []
 
         # Get student info
-        student = db.query(User).filter(User.id == student_id).first()
+        student: User | None = db.query(User).filter(User.id == student_id).first()
         if not student:
             logger.error(f"Student {student_id} not found")
             return b""
@@ -95,9 +132,9 @@ class PDFReportGenerator:
         story.append(title)
 
         # Student info section
-        student_info = [
-            ["Name:", student.full_name],
-            ["Email:", student.email or "N/A"],
+        student_info: list[list[str]] = [
+            ["Name:", cast(str, student.full_name)],
+            ["Email:", cast(str, student.email or "N/A")],
             ["Student ID:", str(student.id)],
             ["Generated:", datetime.now().strftime("%Y-%m-%d %H:%M:%S")],
         ]
@@ -117,13 +154,13 @@ class PDFReportGenerator:
 
         # Attendance section
         if include_attendance:
-            attendance_data = AttendanceAnalytics.get_student_attendance_summary(
+            attendance_data: Dict[str, Any] = AttendanceAnalytics.get_student_attendance_summary(
                 db, tenant_id, student_id, days=30
             )
 
             story.append(Paragraph("Attendance Summary (Last 30 Days)", self.styles["SectionHeader"]))
 
-            att_content = [
+            att_content: list[list[str]] = [
                 ["Metric", "Value"],
                 ["Total Days", str(attendance_data["total_days"])],
                 ["Present", str(attendance_data["present"])],
@@ -150,11 +187,11 @@ class PDFReportGenerator:
 
         # Academic performance section
         if include_academics:
-            perf_data = AcademicAnalytics.get_student_performance_summary(db, tenant_id, student_id)
+            perf_data: Dict[str, Any] = AcademicAnalytics.get_student_performance_summary(db, tenant_id, student_id)
 
             story.append(Paragraph("Academic Performance", self.styles["SectionHeader"]))
 
-            perf_content = [
+            perf_content: list[list[str]] = [
                 ["Metric", "Value"],
                 ["Total Exams", str(perf_data.get("total_exams", 0))],
                 ["Average Score", f"{perf_data.get('average_score', 0):.1f}"],
@@ -181,7 +218,7 @@ class PDFReportGenerator:
                 story.append(Spacer(1, 0.2 * inch))
                 story.append(Paragraph("Performance by Subject", self.styles["SectionHeader"]))
 
-                subject_content = [["Subject", "Average", "Exams"]]
+                subject_content: list[list[str]] = [["Subject", "Average", "Exams"]]
                 for subject in perf_data["subjects"]:
                     subject_content.append([
                         subject["subject"],
@@ -223,17 +260,17 @@ class PDFReportGenerator:
             PDF bytes ready to save or download
         """
         buffer = io.BytesIO()
-        doc = SimpleDocTemplate(
+        doc: Any = SimpleDocTemplate(
             buffer,
             pagesize=self.page_size,
             topMargin=self.margin_top,
             bottomMargin=self.margin_bottom,
         )
 
-        story = []
+        story: list[Any] = []
 
         # Get class info
-        class_obj = db.query(Class).filter(Class.id == class_id).first()
+        class_obj: Class | None = db.query(Class).filter(Class.id == class_id).first()
         if not class_obj:
             logger.error(f"Class {class_id} not found")
             return b""
@@ -243,8 +280,8 @@ class PDFReportGenerator:
         story.append(title)
 
         # Class info section
-        class_info = [
-            ["Class:", class_obj.name or "N/A"],
+        class_info: list[list[str]] = [
+            ["Class:", cast(str, class_obj.name or "N/A")],
             ["Total Students:", "TBD"],  # Will be added by analytics
             ["Generated:", datetime.now().strftime("%Y-%m-%d %H:%M:%S")],
         ]
@@ -264,13 +301,13 @@ class PDFReportGenerator:
 
         # Attendance section
         if include_attendance:
-            attendance_data = AttendanceAnalytics.get_class_attendance_summary(
+            attendance_data: Dict[str, Any] = AttendanceAnalytics.get_class_attendance_summary(
                 db, tenant_id, class_id, days=30
             )
 
             story.append(Paragraph("Attendance Summary (Last 30 Days)", self.styles["SectionHeader"]))
 
-            att_content = [
+            att_content: list[list[str]] = [
                 ["Metric", "Value"],
                 ["Total Students", str(attendance_data["total_students"])],
                 ["Average Attendance %", f"{attendance_data['average_percentage']:.1f}%"],
@@ -294,7 +331,7 @@ class PDFReportGenerator:
             if attendance_data.get("students"):
                 story.append(Paragraph("Student Attendance (Top 10)", self.styles["SectionHeader"]))
 
-                student_content = [["Student Name", "Attendance %", "Status"]]
+                student_content: list[list[str]] = [["Student Name", "Attendance %", "Status"]]
                 for student in attendance_data["students"][:10]:
                     status = student.get("status_today", "N/A")
                     student_content.append([
@@ -318,12 +355,12 @@ class PDFReportGenerator:
 
         # Academic performance section
         if include_academics:
-            perf_data = AcademicAnalytics.get_class_performance_summary(db, tenant_id, class_id)
+            perf_data: Dict[str, Any] = AcademicAnalytics.get_class_performance_summary(db, tenant_id, class_id)
 
             story.append(PageBreak())
             story.append(Paragraph("Academic Performance", self.styles["SectionHeader"]))
 
-            perf_content = [
+            perf_content: list[list[str]] = [
                 ["Metric", "Value"],
                 ["Average Class Score", f"{perf_data.get('average_score', 0):.1f}"],
                 ["Total Students", str(perf_data.get("total_students", 0))],
@@ -346,7 +383,7 @@ class PDFReportGenerator:
                 story.append(Spacer(1, 0.2 * inch))
                 story.append(Paragraph("Top Performers", self.styles["SectionHeader"]))
 
-                top_content = [["Rank", "Name", "Average", "Exams"]]
+                top_content: list[list[str]] = [["Rank", "Name", "Average", "Exams"]]
                 for i, student in enumerate(perf_data["top_performers"], 1):
                     top_content.append([
                         str(i),

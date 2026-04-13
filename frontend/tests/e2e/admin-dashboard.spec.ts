@@ -292,7 +292,7 @@ test("admin dashboard shows alerts and dispatches them", async ({ page }) => {
 
     await page.goto("/admin/dashboard");
 
-    await expect(page.getByRole("heading", { name: /Run school health from a calm academic control surface/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /See school health in one screen before you drill down/i })).toBeVisible();
     await expect(page.getByRole("heading", { name: /WhatsApp release gate/i })).toBeVisible();
     await expect(page.getByRole("heading", { name: /Mascot release gate/i })).toBeVisible();
     await expect(page.getByRole("heading", { name: /Student risk radar/i })).toBeVisible();

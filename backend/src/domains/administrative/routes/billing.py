@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from auth.dependencies import require_role
+from src.domains.administrative.models.billing import PaymentRecord
 from database import get_db
 from src.domains.administrative.services.billing import (
     capture_payment,
@@ -43,7 +44,7 @@ async def create_billing_order(
     """Create a Razorpay payment order. Admin only."""
     if body.amount <= 0:
         raise HTTPException(status_code=400, detail="Amount must be positive")
-    record = await create_order(db, user.tenant_id, body.amount, body.description)
+    record: PaymentRecord = await create_order(db, user.tenant_id, body.amount, body.description)
     return {
         "order_id": record.razorpay_order_id,
         "amount": record.amount,
@@ -57,10 +58,10 @@ def verify_payment(
     body: VerifyPaymentRequest,
     user=Depends(require_role("admin")),
     db: Session = Depends(get_db),
-):
+) -> dict[str, str]:
     """Verify a completed Razorpay payment. Admin only."""
     try:
-        record = capture_payment(
+        record: PaymentRecord = capture_payment(
             db,
             body.razorpay_order_id,
             body.razorpay_payment_id,
@@ -72,10 +73,10 @@ def verify_payment(
 
 
 @router.post("/webhook")
-async def razorpay_webhook(request: Request, db: Session = Depends(get_db)):
+async def razorpay_webhook(request: Request, db: Session = Depends(get_db)) -> dict[str, str]:
     """Razorpay webhook receiver. No auth — verified via HMAC signature."""
-    body = await request.body()
-    signature = request.headers.get("X-Razorpay-Signature", "")
+    body: bytes = await request.body()
+    signature: str = request.headers.get("X-Razorpay-Signature", "")
     if not verify_webhook_signature(body, signature):
         raise HTTPException(status_code=400, detail="Invalid webhook signature")
 
@@ -85,7 +86,7 @@ async def razorpay_webhook(request: Request, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Invalid JSON payload")
 
     event_type = payload.get("event", "")
-    result = handle_webhook_event(db, event_type, payload)
+    result: str = handle_webhook_event(db, event_type, payload)
     return {"status": "ok", "message": result}
 
 

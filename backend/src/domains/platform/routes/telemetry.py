@@ -21,16 +21,16 @@ async def track_event(
     tenant_id: UUID | None = Depends(get_tenant_id_optional),
 ):
     """Record a business/product event from the frontend."""
-    event_name = event_payload.get("eventName")
+    event_name: Any | None = event_payload.get("eventName")
     if not event_name:
         return {"status": "ignored", "reason": "missing_event_name"}
 
     # Extract metadata and surface info
     metadata = event_payload.get("metadata", {})
-    event_family = event_payload.get("eventFamily")
-    surface = event_payload.get("surface")
-    target = event_payload.get("target")
-    channel = event_payload.get("channel")
+    event_family: Any | None = event_payload.get("eventFamily")
+    surface: Any | None = event_payload.get("surface")
+    target: Any | None = event_payload.get("target")
+    channel: Any | None = event_payload.get("channel")
     value = float(event_payload.get("value", 1.0))
 
     # Persist the event

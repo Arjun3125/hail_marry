@@ -18,8 +18,6 @@ from pathlib import Path
 from loguru import logger
 from dotenv import load_dotenv
 
-load_dotenv("../.env")
-
 from database import SessionLocal, engine, Base
 import models  # noqa — register all ORM models
 
@@ -49,6 +47,9 @@ from src.domains.platform.models.knowledge_graph import KGConcept, KGRelationshi
 from src.domains.platform.models.notification import Notification, NotificationPreference
 from src.domains.platform.models.study_session import StudySession
 from src.domains.platform.models.usage_counter import UsageCounter
+
+# ── Load environment variables ────────────────────────────────
+load_dotenv("../.env")
 
 # ── Config ────────────────────────────────────────────────────
 EMBED_MODEL = "nvidia/nv-embedqa-e5-v5"

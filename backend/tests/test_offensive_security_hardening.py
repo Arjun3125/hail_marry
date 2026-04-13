@@ -147,7 +147,7 @@ class SecurityHardeningTests(unittest.IsolatedAsyncioTestCase):
         original_max_keys = rate_limit._MEMORY_STORE_MAX_KEYS
         rate_limit._MEMORY_STORE_MAX_KEYS = 2
         rate_limit._memory_store.clear()
-        rate_limit._redis_available = False
+        rate_limit._redis_initialized = True
         rate_limit._redis = None
         try:
             middleware = rate_limit.RateLimitMiddleware(app=lambda *_args, **_kwargs: None)

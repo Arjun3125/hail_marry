@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Search, Loader2, ShieldAlert, Zap, BookOpen, Settings2 } from "lucide-react";
 import { PrismHeroKicker, PrismPage, PrismPageIntro, PrismSection } from "@/components/prism/PrismPage";
 import { api } from "@/lib/api";
+import { logger } from "@/lib/logger";
 
 type FeatureFlag = {
     id: number;
@@ -33,7 +34,7 @@ export default function FeatureFlagsPage() {
             const data = await api.admin.features();
             setFeatures(data);
         } catch (error) {
-            console.error("Failed to load features", error);
+            logger.error("Failed to load features", error as Error);
         } finally {
             setLoading(false);
         }
@@ -47,7 +48,7 @@ export default function FeatureFlagsPage() {
             ));
             await api.admin.toggleFeature(featureId, !currentEnabled);
         } catch (error) {
-            console.error("Failed to toggle feature", error);
+            logger.error("Failed to toggle feature", error as Error);
             setFeatures(prev => prev.map(f => 
                 f.feature_id === featureId ? { ...f, enabled: currentEnabled } : f
             ));
@@ -66,7 +67,7 @@ export default function FeatureFlagsPage() {
             await loadFeatures();
             alert(`Profile '${profileName}' applied successfully!`);
         } catch (error) {
-            console.error("Failed to apply profile", error);
+            logger.error("Failed to apply profile", error as Error);
             alert("Failed to apply system profile.");
         } finally {
             setApplyingProfile(null);

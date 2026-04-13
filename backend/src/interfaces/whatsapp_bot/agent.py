@@ -130,6 +130,7 @@ class WhatsAppAgentState(TypedDict):
     tool_result: Optional[str]
     response: Optional[str]
     response_type: str
+    mascot_intent: Optional[bool]
 
 
 class IntentInterpretation(BaseModel):
@@ -688,6 +689,8 @@ def classify_intent(state: WhatsAppAgentState) -> dict:
         llm_tool=interpretation.tool_name if interpretation else None,
     )
     if clarification:
+        # Mascot routing: if role is student and no tool intent matched, route to mascot agent
+        clarification["mascot_intent"] = state.get("role") == "student" and not clarification.get("tool_name")
         _log_intent_decision(
             role=role,
             message=message,
@@ -709,6 +712,8 @@ def classify_intent(state: WhatsAppAgentState) -> dict:
             normalized_message=interpretation.normalized_message,
             translated_message=interpretation.translated_message,
         )
+        # Mascot routing: if role is student and no tool intent matched, route to mascot agent
+        result["mascot_intent"] = state.get("role") == "student" and not result.get("tool_name")
         _log_intent_decision(
             role=role,
             message=message,
@@ -723,6 +728,8 @@ def classify_intent(state: WhatsAppAgentState) -> dict:
 
     if tool_name:
         result = _build_intent_result(tool_name, message)
+        # Mascot routing: if role is student and no tool intent matched, route to mascot agent
+        result["mascot_intent"] = state.get("role") == "student" and not result.get("tool_name")
         _log_intent_decision(
             role=role,
             message=message,
@@ -743,6 +750,8 @@ def classify_intent(state: WhatsAppAgentState) -> dict:
             topic=topic,
             question=topic or message,
         )
+        # Mascot routing: if role is student and no tool intent matched, route to mascot agent
+        result["mascot_intent"] = state.get("role") == "student" and not result.get("tool_name")
         _log_intent_decision(
             role=role,
             message=message,
@@ -761,6 +770,8 @@ def classify_intent(state: WhatsAppAgentState) -> dict:
         "tool_args": {"normalized_message": message.strip()},
         "response_type": "text",
     }
+    # Mascot routing: if role is student and no tool intent matched, route to mascot agent
+    result["mascot_intent"] = state.get("role") == "student" and not result.get("tool_name")
     _log_intent_decision(
         role=role,
         message=message,
@@ -895,6 +906,8 @@ def format_for_whatsapp(state: WhatsAppAgentState) -> dict:
 
 
 def needs_tool(state: WhatsAppAgentState) -> str:
+    if state.get("mascot_intent"):
+        return "run_mascot_agent"
     if state.get("tool_name"):
         return "execute_tool"
     return "generate_response"
@@ -906,9 +919,35 @@ def route_after_tool(state: WhatsAppAgentState) -> str:
     return "generate_response"
 
 
+async def run_mascot_agent_node(state: WhatsAppAgentState) -> dict:
+    from src.domains.mascot.services.mascot_agent import run_mascot_agent
+    import uuid
+
+    # Determine session_id from conversation_history or generate one
+    session_id = str(uuid.uuid4())
+
+    # Get student name from DB or use "Student" as fallback
+    student_name = "Student"  # will be replaced by DB lookup below
+    result = await run_mascot_agent(
+        student_message=state["message"],
+        student_id=state["user_id"],
+        tenant_id=state["tenant_id"],
+        student_name=student_name,
+        session_id=session_id,
+        turn_number=len(state.get("conversation_history", [])) + 1,
+        conversation_history=state.get("conversation_history", []),
+    )
+    return {
+        "response": result["response"],
+        "response_type": "text",
+        "intent": "mascot_chat",
+    }
+
+
 def build_whatsapp_agent_graph() -> StateGraph:
     graph = StateGraph(WhatsAppAgentState)
     graph.add_node("classify_intent", classify_intent)
+    graph.add_node("run_mascot_agent", run_mascot_agent_node)
     graph.add_node("execute_tool", execute_tool)
     graph.add_node("generate_response", generate_response)
     graph.add_node("format_for_whatsapp", format_for_whatsapp)
@@ -917,6 +956,7 @@ def build_whatsapp_agent_graph() -> StateGraph:
         "classify_intent",
         needs_tool,
         {
+            "run_mascot_agent": "run_mascot_agent",
             "execute_tool": "execute_tool",
             "generate_response": "generate_response",
         },
@@ -930,6 +970,7 @@ def build_whatsapp_agent_graph() -> StateGraph:
         },
     )
     graph.add_edge("generate_response", "format_for_whatsapp")
+    graph.add_edge("run_mascot_agent", "format_for_whatsapp")
     graph.add_edge("format_for_whatsapp", END)
     return graph
 

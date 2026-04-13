@@ -8,6 +8,7 @@ import { PrismInput, PrismTableShell, PrismTextarea } from "@/components/prism/P
 import { PrismDialog, PrismDialogFooter, PrismDialogHeader, PrismOverlay } from "@/components/prism/PrismOverlays";
 import { PrismHeroKicker, PrismPage, PrismPageIntro, PrismPanel, PrismSection } from "@/components/prism/PrismPage";
 import ErrorRemediation from "@/components/ui/ErrorRemediation";
+import { logger } from "@/lib/logger";
 import { api } from "@/lib/api";
 
 type TeacherClass = {
@@ -189,7 +190,7 @@ export default function TeacherClassesPage() {
             const payload = await api.teacher.getQrTokens(classId) as QrTokensPayload;
             setQrTokens(payload.tokens || []);
         } catch (err) {
-            console.error("Failed to fetch QR tokens", err);
+            logger.error("Failed to fetch QR tokens", err as Error);
         } finally {
             setLoadingQr(false);
         }
@@ -222,7 +223,7 @@ export default function TeacherClassesPage() {
                 handleCloseBroadcastModal();
             }, 2000);
         } catch (err) {
-            console.error("Broadcast failed", err);
+            logger.error("Broadcast failed", err as Error);
             setBroadcastError(err instanceof Error ? err.message : "Broadcast failed");
         } finally {
             setSendingBroadcast(false);

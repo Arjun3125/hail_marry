@@ -188,7 +188,7 @@ export default function Sidebar({ items, role, userName }: SidebarProps) {
                                         className="flex w-full items-center justify-between rounded-xl px-2 py-2 text-left transition-colors hover:bg-[rgba(148,163,184,0.08)]"
                                     >
                                         <div className="min-w-0">
-                                            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--text-muted)]">{group.label}</p>
+                                            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-muted)]">{group.label}</p>
                                             <p className="mt-1 text-xs text-[var(--text-secondary)]">
                                                 {activeInGroup ? "Current section is inside this group" : `${group.items.length} destinations`}
                                             </p>
@@ -218,7 +218,7 @@ export default function Sidebar({ items, role, userName }: SidebarProps) {
                         className="flex w-full items-center justify-between rounded-xl px-2 py-2 text-left transition-colors hover:bg-[rgba(148,163,184,0.08)]"
                     >
                         <div>
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--text-muted)]">Utility</p>
+                            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-muted)]">Utility</p>
                             <p className="mt-1 text-xs text-[var(--text-secondary)]">Profile, appearance, language, and account controls</p>
                         </div>
                         <ChevronDown className={`h-4 w-4 text-[var(--text-muted)] transition-transform ${utilityOpen ? "rotate-180" : ""}`} />
@@ -326,7 +326,7 @@ export default function Sidebar({ items, role, userName }: SidebarProps) {
                 </button>
             </aside>
 
-            <div className={`hidden flex-shrink-0 transition-all duration-[var(--transition-base)] lg:block ${collapsed ? "w-[76px]" : "w-[304px]"}`} />
+            <div className={`hidden flex-shrink-0 lg:block ${collapsed ? "w-[76px]" : "w-[304px]"}`} aria-hidden="true" />
         </>
     );
 }

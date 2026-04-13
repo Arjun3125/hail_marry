@@ -51,7 +51,7 @@ test.describe("Teacher Attendance - Mobile (360px)", { tag: "@mobile @teacher" }
 
     test("attendance page loads without horizontal scroll", async ({ page }) => {
         await page.goto("/teacher/attendance");
-        await expect(page).toHaveTitle(/attendance|mark/i);
+        await expect(page).toHaveTitle(/VidyaOS/i);
         await expectNoHorizontalScroll(page);
     });
 
@@ -196,7 +196,7 @@ test.describe("Teacher Attendance - Desktop (1280px)", { tag: "@desktop @teacher
         await page.setViewportSize({ width: 1280, height: 720 });
         await page.goto("/teacher/attendance");
 
-        await expect(page).toHaveTitle(/attendance|mark/i);
+        await expect(page).toHaveTitle(/VidyaOS/i);
         await expectNoHorizontalScroll(page);
     });
 });

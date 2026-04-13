@@ -1,9 +1,11 @@
 """API routes for notebook management."""
 from datetime import datetime
+from typing import Tuple
+from typing import Sequence
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import func, select
+from sqlalchemy import Select, Result, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth.dependencies import get_current_user
@@ -36,14 +38,14 @@ async def _get_user_notebook(
     current_user: User,
     session: AsyncSession,
 ) -> Notebook:
-    result = await session.execute(
+    result: Result[Tuple[Notebook]] = await session.execute(
         select(Notebook).where(
             Notebook.id == notebook_id,
             Notebook.tenant_id == current_user.tenant_id,
             Notebook.user_id == current_user.id,
         )
     )
-    notebook = result.scalar_one_or_none()
+    notebook: Notebook | None = result.scalar_one_or_none()
     if not notebook:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notebook not found")
     return notebook
@@ -56,14 +58,14 @@ async def list_notebooks(
     include_inactive: bool = False,
 ) -> NotebookListResponse:
     """List all notebooks for the current user."""
-    query = select(Notebook).where(Notebook.user_id == current_user.id)
-    query = query.where(Notebook.tenant_id == current_user.tenant_id)
+    query: Select[Tuple[Notebook]] = select(Notebook).where(Notebook.user_id == current_user.id)
+    query: Select[Tuple[Notebook]] = query.where(Notebook.tenant_id == current_user.tenant_id)
     if not include_inactive:
-        query = query.where(Notebook.is_active.is_(True))
-    query = query.order_by(Notebook.updated_at.desc())
+        query: Select[Tuple[Notebook]] = query.where(Notebook.is_active.is_(True))
+    query: Select[Tuple[Notebook]] = query.order_by(Notebook.updated_at.desc())
 
-    result = await session.execute(query)
-    notebooks = result.scalars().all()
+    result: Result[Tuple[Notebook]] = await session.execute(query)
+    notebooks: Sequence[Notebook] = result.scalars().all()
 
     return NotebookListResponse(
         items=[_to_notebook_response(notebook) for notebook in notebooks],
@@ -100,7 +102,7 @@ async def get_notebook(
     session: AsyncSession = Depends(get_async_session),
 ) -> NotebookResponse:
     """Get a specific notebook by ID."""
-    notebook = await _get_user_notebook(notebook_id, current_user, session)
+    notebook: Notebook = await _get_user_notebook(notebook_id, current_user, session)
     return _to_notebook_response(notebook)
 
 
@@ -112,7 +114,7 @@ async def update_notebook(
     session: AsyncSession = Depends(get_async_session),
 ) -> NotebookResponse:
     """Update a notebook."""
-    notebook = await _get_user_notebook(notebook_id, current_user, session)
+    notebook: Notebook = await _get_user_notebook(notebook_id, current_user, session)
 
     if data.name is not None:
         notebook.name = data.name
@@ -140,7 +142,7 @@ async def delete_notebook(
     session: AsyncSession = Depends(get_async_session),
 ) -> None:
     """Soft delete a notebook (mark as inactive)."""
-    notebook = await _get_user_notebook(notebook_id, current_user, session)
+    notebook: Notebook = await _get_user_notebook(notebook_id, current_user, session)
     notebook.is_active = False
     notebook.updated_at = datetime.utcnow()
     await session.commit()
@@ -155,16 +157,16 @@ async def get_notebook_stats(
     """Get comprehensive statistics for a notebook."""
     await _get_user_notebook(notebook_id, current_user, session)
 
-    doc_result = await session.execute(
+    doc_result: Result[Tuple[int]] = await session.execute(
         select(func.count(Document.id)).where(
             Document.tenant_id == current_user.tenant_id,
             Document.notebook_id == notebook_id,
             Document.uploaded_by == current_user.id,
         )
     )
-    document_count = doc_result.scalar() or 0
+    document_count: int = doc_result.scalar() or 0
 
-    query_result = await session.execute(
+    query_result: Result[Tuple[int]] = await session.execute(
         select(func.count(AIQuery.id)).where(
             AIQuery.tenant_id == current_user.tenant_id,
             AIQuery.notebook_id == notebook_id,
@@ -172,9 +174,9 @@ async def get_notebook_stats(
             AIQuery.deleted_at.is_(None),
         )
     )
-    question_count = query_result.scalar() or 0
+    question_count: int = query_result.scalar() or 0
 
-    quiz_result = await session.execute(
+    quiz_result: Result[Tuple[int]] = await session.execute(
         select(func.count(GeneratedContent.id)).where(
             GeneratedContent.tenant_id == current_user.tenant_id,
             GeneratedContent.notebook_id == notebook_id,
@@ -183,9 +185,9 @@ async def get_notebook_stats(
             GeneratedContent.is_archived.is_(False),
         )
     )
-    quiz_count = quiz_result.scalar() or 0
+    quiz_count: int = quiz_result.scalar() or 0
 
-    flashcard_result = await session.execute(
+    flashcard_result: Result[Tuple[int]] = await session.execute(
         select(func.count(GeneratedContent.id)).where(
             GeneratedContent.tenant_id == current_user.tenant_id,
             GeneratedContent.notebook_id == notebook_id,
@@ -194,9 +196,9 @@ async def get_notebook_stats(
             GeneratedContent.is_archived.is_(False),
         )
     )
-    flashcard_count = flashcard_result.scalar() or 0
+    flashcard_count: int = flashcard_result.scalar() or 0
 
-    mindmap_result = await session.execute(
+    mindmap_result: Result[Tuple[int]] = await session.execute(
         select(func.count(GeneratedContent.id)).where(
             GeneratedContent.tenant_id == current_user.tenant_id,
             GeneratedContent.notebook_id == notebook_id,
@@ -205,9 +207,9 @@ async def get_notebook_stats(
             GeneratedContent.is_archived.is_(False),
         )
     )
-    mindmap_count = mindmap_result.scalar() or 0
+    mindmap_count: int = mindmap_result.scalar() or 0
 
-    last_query_result = await session.execute(
+    last_query_result: Result[Tuple[datetime]] = await session.execute(
         select(AIQuery.created_at)
         .where(
             AIQuery.tenant_id == current_user.tenant_id,
@@ -218,9 +220,9 @@ async def get_notebook_stats(
         .order_by(AIQuery.created_at.desc())
         .limit(1)
     )
-    last_accessed = last_query_result.scalar()
+    last_accessed: datetime | None = last_query_result.scalar()
 
-    study_time_result = await session.execute(
+    study_time_result: Result[Tuple[int]] = await session.execute(
         select(func.sum(AIQuery.response_time_ms)).where(
             AIQuery.tenant_id == current_user.tenant_id,
             AIQuery.notebook_id == notebook_id,
@@ -228,8 +230,8 @@ async def get_notebook_stats(
             AIQuery.deleted_at.is_(None),
         )
     )
-    total_response_time = study_time_result.scalar() or 0
-    total_study_time = (total_response_time / 1000 + question_count * 30) / 60
+    total_response_time: int = study_time_result.scalar() or 0
+    total_study_time: float = (total_response_time / 1000 + question_count * 30) / 60
 
     return NotebookStats(
         document_count=document_count,
@@ -249,9 +251,9 @@ async def export_notebook(
     session: AsyncSession = Depends(get_async_session),
 ) -> NotebookExport:
     """Export all notebook data for backup or sharing."""
-    notebook = await _get_user_notebook(notebook_id, current_user, session)
+    notebook: Notebook = await _get_user_notebook(notebook_id, current_user, session)
 
-    doc_result = await session.execute(
+    doc_result: Result[Tuple[Document]] = await session.execute(
         select(Document).where(
             Document.tenant_id == current_user.tenant_id,
             Document.notebook_id == notebook_id,
@@ -268,7 +270,7 @@ async def export_notebook(
         for document in doc_result.scalars().all()
     ]
 
-    history_result = await session.execute(
+    history_result: Result[Tuple[AIQuery]] = await session.execute(
         select(AIQuery)
         .where(
             AIQuery.tenant_id == current_user.tenant_id,
@@ -289,7 +291,7 @@ async def export_notebook(
         for item in history_result.scalars().all()
     ]
 
-    content_result = await session.execute(
+    content_result: Result[Tuple[GeneratedContent]] = await session.execute(
         select(GeneratedContent).where(
             GeneratedContent.tenant_id == current_user.tenant_id,
             GeneratedContent.notebook_id == notebook_id,
@@ -307,7 +309,7 @@ async def export_notebook(
         for item in content_result.scalars().all()
     ]
 
-    stats = await get_notebook_stats(notebook_id, current_user, session)
+    stats: NotebookStats = await get_notebook_stats(notebook_id, current_user, session)
 
     return NotebookExport(
         notebook=_to_notebook_response(notebook),
@@ -331,7 +333,7 @@ async def bulk_notebook_operation(
 
     for notebook_id in data.notebook_ids:
         try:
-            notebook = await _get_user_notebook(notebook_id, current_user, session)
+            notebook: Notebook = await _get_user_notebook(notebook_id, current_user, session)
             if data.operation in {"archive", "delete"}:
                 notebook.is_active = False
             elif data.operation == "restore":

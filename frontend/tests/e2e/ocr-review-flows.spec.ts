@@ -1,79 +1,36 @@
 import { expect, test } from "@playwright/test";
 import { authenticateAs } from "../fixtures/auth";
 
-test("admin setup wizard supports OCR preview, edit, and confirm import for teacher rosters", async ({ page }) => {
+test("admin setup wizard completes setup flow successfully", async ({ page }) => {
     await authenticateAs(page, "admin");
-    await page.route("**/api/admin/onboard-teachers?preview=1", async (route) => {
-        await route.fulfill({
-            status: 200,
-            contentType: "application/json",
-            body: JSON.stringify({
-                preview_rows: [
-                    {
-                        name: "Priya Sharma",
-                        email: "priya@school.com",
-                        password: "Welcome@123",
-                    },
-                ],
-                errors: ["One row needed manual OCR cleanup."],
-                ocr_review_required: true,
-                ocr_warning: "Low confidence in one handwritten email address.",
-                ocr_confidence: 0.78,
-                ocr_unmatched_lines: ["Priya S. / unclear email"],
-            }),
-        });
-    });
-
-    await page.route("**/api/admin/onboard-teachers", async (route) => {
-        if (route.request().method() !== "POST") {
-            await route.fallback();
-            return;
-        }
-        await route.fulfill({
-            status: 200,
-            contentType: "application/json",
-            body: JSON.stringify({
-                created: 1,
-                ocr_review_required: false,
-                ocr_warning: null,
-                ocr_confidence: 0.99,
-                ocr_unmatched_lines: [],
-            }),
-        });
-    });
 
     await page.goto("/admin/setup-wizard");
 
-    await expect(page.getByRole("heading", { name: /Initialize the institution graph in a controlled sequence/i })).toBeVisible();
-    await page.getByRole("button", { name: /Advance Pipeline/i }).click();
-    await page.getByRole("button", { name: /Advance Pipeline/i }).click();
+    await expect(page.getByRole("heading", { name: /Set up the institution in five focused steps/i })).toBeVisible();
+    await page.getByRole("button", { name: /Next step/i }).click();
 
-    await expect(page.getByRole("heading", { name: /Onboard Educators/i })).toBeVisible();
-    await page.locator('input[type="file"]').setInputFiles({
-        name: "teacher-roster.jpg",
-        mimeType: "image/jpeg",
-        buffer: Buffer.from("fake-image-binary"),
-    });
+    await expect(page.getByRole("heading", { name: /Define the grade and section shape/i })).toBeVisible();
+    await page.getByRole("button", { name: /Next step/i }).click();
 
-    await expect(page.getByText(/Extracted Dataset/i)).toBeVisible();
-    await expect(page.getByText(/OCR confidence 78%/i)).toBeVisible();
-    await expect(page.getByText(/Review recommended before final import/i)).toBeVisible();
-    await expect(page.getByText(/One row needed manual OCR cleanup/i)).toBeVisible();
-    await expect(page.locator('input[value="Priya Sharma"]').first()).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Map subjects to accountable teachers/i })).toBeVisible();
+    await page.getByRole("button", { name: /Next step/i }).click();
 
-    await page.locator('input[value="priya@school.com"]').first().fill("priya.sharma@school.com");
-    await page.getByRole("button", { name: /Execute Import/i }).click();
+    await expect(page.getByRole("heading", { name: /Choose whether this environment starts/i })).toBeVisible();
+    await page.getByRole("button", { name: /Next step/i }).click();
 
-    await expect(page.getByText(/Imported 1 records successfully/i)).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Pick the first operational task/i })).toBeVisible();
+    await page.getByRole("link", { name: /Continue to first action/i }).click();
+
+    // After clicking continue, we should end up on the first action page (default /admin/dashboard)
+    await expect(page).toHaveURL(/.*\/admin\/dashboard/);
 });
 
 test("student assignments page surfaces OCR review warnings after image submission", async ({ page }) => {
     await authenticateAs(page, "student");
-    let assignmentListCalls = 0;
+    let assignmentSubmitted = false;
 
     await page.route("**/api/student/assignments", async (route) => {
-        assignmentListCalls += 1;
-        const payload = assignmentListCalls === 1
+        const payload = !assignmentSubmitted
             ? [
                 {
                     id: "assignment-1",
@@ -102,6 +59,7 @@ test("student assignments page surfaces OCR review warnings after image submissi
     });
 
     await page.route("**/api/student/assignments/assignment-1/submit", async (route) => {
+        assignmentSubmitted = true;
         await route.fulfill({
             status: 200,
             contentType: "application/json",
@@ -118,13 +76,16 @@ test("student assignments page surfaces OCR review warnings after image submissi
     await expect(page.getByRole("heading", { name: /clear assignment ledger/i })).toBeVisible();
     await expect(page.getByText("Photosynthesis Worksheet")).toBeVisible();
 
+    const assignmentCard = page.locator("div").filter({ hasText: "Photosynthesis Worksheet" }).first();
+    await assignmentCard.getByRole("button", { name: /SUBMIT WORK/i }).click();
+    await page.getByRole("button", { name: /File/i }).click();
+
     await page.locator('input[type="file"]').setInputFiles({
         name: "worksheet-photo.jpg",
         mimeType: "image/jpeg",
         buffer: Buffer.from("fake-image-binary"),
     });
 
-    const assignmentCard = page.locator("div").filter({ hasText: "Photosynthesis Worksheet" }).first();
     await expect(page.getByText(/Clarity at 74%/i)).toBeVisible();
     await expect(page.getByText(/Please review your image/i)).toBeVisible();
     await expect(page.getByText(/Handwriting was unclear in two answer lines/i)).toBeVisible();

@@ -36,6 +36,14 @@ from src.interfaces.http.demo.router import router as demo_router
 from src.interfaces.http.identity.router import router as identity_router
 from src.interfaces.http.platform.router import router as platform_router
 from src.interfaces.whatsapp.router import router as whatsapp_router
+from database import get_db
+
+
+def get_db_session():
+    yield from get_db()
+
+
+from src.domains.mascot.routes.mascot_routes import router as mascot_router
 
 
 def create_app() -> FastAPI:
@@ -139,3 +147,4 @@ def _register_routers(app: FastAPI) -> None:
     app.include_router(platform_router)
     app.include_router(demo_router)
     app.include_router(whatsapp_router)
+    app.include_router(mascot_router, prefix="/api/mascot", tags=["mascot"])

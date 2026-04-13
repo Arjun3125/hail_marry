@@ -26,7 +26,10 @@ from src.domains.identity.services.saml_sso import (
 )
 from src.shared.analytics import analytics
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+import sys
+
+_bcrypt_rounds = 4 if "pytest" in sys.modules else 12
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto", bcrypt__rounds=_bcrypt_rounds)
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 
 

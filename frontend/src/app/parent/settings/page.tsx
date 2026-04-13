@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Bell, Clock, MessageCircle, Mail, Smartphone, Eye, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { Bell, MessageCircle, Mail, Eye, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { api } from "@/lib/api";
+import { logger } from "@/lib/logger";
 import { PrismPage, PrismPageIntro, PrismPanel, PrismSectionHeader } from "@/components/prism/PrismPage";
 import ErrorRemediation from "@/components/ui/ErrorRemediation";
 
@@ -49,7 +50,7 @@ export default function ParentSettingsPage() {
                 setError(null);
             } catch (err) {
                 setError(err instanceof Error ? err.message : "Failed to load preferences");
-                console.error("Error fetching preferences:", err);
+                logger.error("Error fetching preferences:", err as Error);
             } finally {
                 setLoading(false);
             }
@@ -94,7 +95,7 @@ export default function ParentSettingsPage() {
             setTimeout(() => setSuccess(false), 3000);
         } catch (err) {
             setError(err instanceof Error ? err.message : "Failed to save preferences");
-            console.error("Error saving preferences:", err);
+            logger.error("Error saving preferences:", err as Error);
         } finally {
             setSaving(false);
         }

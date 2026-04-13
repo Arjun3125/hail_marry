@@ -4,7 +4,12 @@ import shutil
 import sys
 import uuid
 from pathlib import Path
+from unittest.mock import patch
 from importlib.util import find_spec
+
+# Prevent heavy ML modules from being imported during parallel worker test compilation
+sys.modules["sentence_transformers"] = None
+sys.modules["faiss"] = None
 
 # Ensure backend modules can be imported when tests are run from backend dir.
 backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -28,7 +33,8 @@ os.environ["TESTING"] = "true"
 
 _TEST_TEMP_DIR = os.path.join(project_root, ".pytest_tmp")
 os.makedirs(_TEST_TEMP_DIR, exist_ok=True)
-_TEST_DB_PATH = os.path.join(_TEST_TEMP_DIR, f"test_suite_{uuid.uuid4().hex}.sqlite3")
+worker_id = os.environ.get("PYTEST_XDIST_WORKER", uuid.uuid4().hex[:8])
+_TEST_DB_PATH = os.path.join(_TEST_TEMP_DIR, f"test_suite_{worker_id}.sqlite3")
 _TEST_DB_URL = f"sqlite:///{Path(_TEST_DB_PATH).as_posix()}"
 os.environ["TEST_DATABASE_URL"] = _TEST_DB_URL
 os.environ["DATABASE_URL"] = _TEST_DB_URL
@@ -121,7 +127,7 @@ def _reset_rate_limit_state():
 
         rate_limit._memory_store.clear()
         rate_limit._redis = None
-        rate_limit._redis_available = False
+        rate_limit._redis_initialized = True
     except Exception:
         pass
     yield
@@ -130,9 +136,168 @@ def _reset_rate_limit_state():
 
         rate_limit._memory_store.clear()
         rate_limit._redis = None
-        rate_limit._redis_available = False
+        rate_limit._redis_initialized = True
     except Exception:
         pass
+
+
+# --- Global AI Mocking Logic ---
+
+class FakeLLMProvider:
+    async def generate(self, prompt, **kwargs):
+        return {"response": f"Fake response to: {prompt[:50]}...", "status": "success"}
+
+    async def generate_structured(self, prompt, schema, **kwargs):
+        # Handle MascotInterpretation schema detection generically
+        schema_str = str(schema)
+        if "MascotInterpretation" in schema_str:
+             return {
+                "intent": "chat",
+                "confidence": 0.95,
+                "translated_message": prompt,
+                "normalized_message": str(prompt).lower().strip(),
+                "language": "en",
+                "parameters": {},
+                "requires_confirmation": False
+            }
+        return {}
+
+    def get_model_name(self):
+        return "fake-llm-1.0"
+
+
+class FakeEmbeddingProvider:
+    def __init__(self, dimension=768):
+        self.dimension = dimension
+
+    async def embed(self, text):
+        return [0.0] * self.dimension
+
+    async def embed_batch(self, texts):
+        return [[0.0] * self.dimension for _ in texts]
+
+    def get_dimension(self):
+        return self.dimension
+
+
+class FakeVectorStoreProvider:
+    def add_chunks(self, *args, **kwargs):
+        pass
+
+    def search(self, *args, **kwargs):
+        return []
+
+    def similarity_search_with_score(self, *args, **kwargs):
+        return []
+
+
+def pytest_sessionstart(session):
+    """
+    Called before any tests are collected or run.
+    We apply global patches here to ensure they are active even for modules
+    that perform top-level imports of providers or gateway functions.
+    """
+    # 1. Define Fake Objects
+    fake_llm = FakeLLMProvider()
+    fake_embedding = FakeEmbeddingProvider()
+    fake_vector_store = FakeVectorStoreProvider()
+
+    # 2. Patch Providers
+    # Pre-import to avoid AttributeError on submodules during patching
+    print("\n[DEBUG] pytest_sessionstart: Starting global patches...")
+    try:
+        from src.infrastructure.llm import providers
+        from src.domains.platform.services import ai_gateway
+        from src.bootstrap import app_factory, startup
+        
+        patch.object(providers, "get_llm_provider", return_value=fake_llm).start()
+        patch.object(providers, "get_embedding_provider", return_value=fake_embedding).start()
+        patch.object(providers, "get_vector_store_provider", return_value=fake_vector_store).start()
+        print("[DEBUG] AI Providers patched.")
+    except Exception as e:
+        print(f"[DEBUG] AI Providers patch failed: {e}")
+
+    # 3. Patch Gateway/Service functions (to bypass deep logic)
+    async def fake_run_text_query(*args, **kwargs):
+        return {"answer": "Fake AI Answer", "citations": [], "mode": "general"}
+        
+    async def fake_run_study_tool(*args, **kwargs):
+        return {"data": [], "citations": []}
+
+    async def fake_ingest_youtube(*args, **kwargs):
+        return {"id": "fake_yt_123", "title": "Fake Video"}
+
+    # Patch in multiple locations where they are imported or used
+    # AI Gateway - Patch all entry points
+    gateway_mocks = [
+        "run_text_query", "run_audio_overview", "run_video_overview",
+        "run_study_tool", "run_teacher_assessment", "run_url_ingestion",
+        "run_teacher_document_ingestion", "run_teacher_youtube_ingestion",
+        "run_whatsapp_media_ingestion"
+    ]
+    for mock_name in gateway_mocks:
+        try:
+            patch.object(ai_gateway, mock_name, side_effect=fake_run_text_query).start()
+        except AttributeError:
+            pass
+    print("[DEBUG] AI Gateway patched.")
+        
+    # Ingestion
+    patch("src.infrastructure.vector_store.ingestion.ingest_youtube", side_effect=fake_ingest_youtube).start()
+
+    # 4. Disable Heavy Startup/Observability Logic during tests
+    # This prevents redundant seeding, telemetry, and logging setup for every app instance.
+    try:
+        from src.bootstrap import app_factory, startup
+        patch.object(app_factory, "initialize_demo_mode").start()
+        patch.object(app_factory, "configure_application_logging").start()
+        patch.object(app_factory, "configure_telemetry").start()
+        patch.object(app_factory, "configure_sentry").start()
+        patch.object(app_factory, "instrument_sqlalchemy_engine").start()
+        
+        # Also patch deep in startup just in case
+        patch.object(startup, "initialize_demo_mode").start()
+        patch.object(startup, "init_feature_flags").start()
+    except (ImportError, AttributeError):
+        pass
+
+    # 5. Patch LangGraph/LangChain to speed up collection and execution
+    # This prevents real model discovery or heavy graph compilation
+    try:
+        patch("langchain_ollama.ChatOllama").start()
+
+        # Build a fake compiled graph that returns the input state with plan_node-like defaults
+        class _FakeCompiledGraph:
+            def invoke(self, state, *args, **kwargs):
+                # Simulate the plan_node: set a pending_mode/prompt or complete
+                result = dict(state)
+                current_step = int(result.get("current_step") or 0)
+                if current_step >= 3:
+                    result["status"] = "completed"
+                    result["pending_mode"] = None
+                    result["pending_prompt"] = None
+                else:
+                    result.get("workflow_type", "deep_study")
+                    topic = result.get("topic", "General")
+                    fallback_modes = ["qa", "quiz", "study_guide"]
+                    mode = fallback_modes[current_step % len(fallback_modes)]
+                    result["pending_mode"] = mode
+                    result["pending_prompt"] = f"Provide a {mode} regarding {topic}"
+                return result
+
+            async def ainvoke(self, state, *args, **kwargs):
+                return self.invoke(state)
+
+        _fake_compiled = _FakeCompiledGraph()
+        patch("langgraph.graph.StateGraph.compile", return_value=_fake_compiled).start()
+    except (ImportError, AttributeError):
+        pass
+
+
+@pytest.fixture(autouse=True)
+def global_ai_mocks():
+    """No-op legacy fixture (logic moved to sessionstart)"""
+    yield
 
 
 @pytest.fixture(autouse=True)
@@ -275,18 +440,13 @@ def db_session(setup_database):
         transaction.rollback()
     connection.close()
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def app_instance():
-    from database import reset_database_state
     from src.bootstrap.app_factory import create_app
 
-    reset_database_state()
     app = create_app()
-    try:
-        yield app
-    finally:
-        app.dependency_overrides.clear()
-        reset_database_state()
+    yield app
+    app.dependency_overrides.clear()
 
 
 @pytest.fixture
@@ -294,30 +454,65 @@ def client(db_session, app_instance):
     fastapi = pytest.importorskip("fastapi.testclient")
     from database import get_db, get_async_session
 
-    class AsyncSessionAdapter:
+    class AsyncSessionMock:
         def __init__(self, session):
             self._session = session
+            self.identity_map = session.identity_map
 
-        async def execute(self, *args, **kwargs):
-            return self._session.execute(*args, **kwargs)
+        async def execute(self, statement, *args, **kwargs):
+            return self._session.execute(statement, *args, **kwargs)
+
+        async def scalars(self, statement, *args, **kwargs):
+            result = self._session.execute(statement, *args, **kwargs)
+            return result.scalars()
+
+        async def scalar(self, statement, *args, **kwargs):
+            return self._session.scalar(statement, *args, **kwargs)
 
         def add(self, instance):
             self._session.add(instance)
 
+        def add_all(self, instances):
+            self._session.add_all(instances)
+
         async def commit(self):
             self._session.commit()
 
-        async def refresh(self, instance):
-            self._session.refresh(instance)
+        async def flush(self):
+            self._session.flush()
+
+        async def refresh(self, instance, *args, **kwargs):
+            self._session.refresh(instance, *args, **kwargs)
 
         async def rollback(self):
             self._session.rollback()
+
+        async def close(self):
+            self._session.close()
+
+        async def delete(self, instance):
+            self._session.delete(instance)
+
+        async def get(self, entity, ident, **kwargs):
+            return self._session.get(entity, ident, **kwargs)
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            pass
+            
+        def begin(self):
+            class AsyncCM:
+                async def __aenter__(self): return None
+                async def __aexit__(self, *a): pass
+            return AsyncCM()
 
     def override_get_db():
         yield db_session
 
     async def override_get_async_session():
-        yield AsyncSessionAdapter(db_session)
+        yield AsyncSessionMock(db_session)
 
     app_instance.dependency_overrides[get_db] = override_get_db
     app_instance.dependency_overrides[get_async_session] = override_get_async_session

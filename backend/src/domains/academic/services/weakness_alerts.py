@@ -1,9 +1,10 @@
 """Smart weakness alert generation based on subject performance thresholds."""
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, List
 from uuid import UUID
 
+from sqlalchemy import Column
 from sqlalchemy.orm import Session
 
 from src.domains.academic.models.performance import SubjectPerformance
@@ -21,7 +22,7 @@ def generate_weakness_alerts(
     tenant_id: UUID,
 ) -> list[dict[str, Any]]:
     """Scan subject performances and generate alerts for subjects below threshold."""
-    performances = db.query(SubjectPerformance).filter(
+    performances: List[SubjectPerformance] = db.query(SubjectPerformance).filter(
         SubjectPerformance.student_id == user_id,
         SubjectPerformance.tenant_id == tenant_id,
     ).all()
@@ -34,10 +35,10 @@ def generate_weakness_alerts(
         if avg >= WEAK_THRESHOLD_PCT:
             continue
 
-        subject = db.query(Subject).filter(Subject.id == perf.subject_id).first()
-        subject_name = subject.name if subject else "Unknown Subject"
+        subject: Subject | None = db.query(Subject).filter(Subject.id == perf.subject_id).first()
+        subject_name: Column[str] | str = subject.name if subject else "Unknown Subject"
 
-        severity = "critical" if avg < 40 else "warning"
+        severity: str = "critical" if avg < 40 else "warning"
         alerts.append({
             "subject_id": str(perf.subject_id),
             "subject_name": subject_name,
@@ -55,7 +56,7 @@ def generate_weakness_alerts(
         })
 
     # Scan Topic Mastery for granular conceptual gaps
-    mastery_risks = db.query(TopicMastery).filter(
+    mastery_risks: List[TopicMastery] = db.query(TopicMastery).filter(
         TopicMastery.user_id == user_id,
         TopicMastery.tenant_id == tenant_id,
         TopicMastery.concept == "core",

@@ -28,21 +28,21 @@ def _build_time_slots(time_grid: dict) -> tuple[list[TimeSlot], dict[SlotKey, Ti
     days_per_week = int(time_grid.get("days_per_week", 5))
     periods_per_day = int(time_grid.get("periods_per_day", 7))
     period_minutes = int(time_grid.get("period_minutes", 45))
-    start_time = _parse_hhmm(time_grid.get("day_start_time", "09:00"))
+    start_time: time = _parse_hhmm(time_grid.get("day_start_time", "09:00"))
 
     breaks = time_grid.get("breaks") or []
-    break_keys = {SlotKey(int(b["day"]), int(b["period"])) for b in breaks if "day" in b and "period" in b}
+    break_keys: set[SlotKey] = {SlotKey(int(b["day"]), int(b["period"])) for b in breaks if "day" in b and "period" in b}
 
     slots: list[TimeSlot] = []
     slot_map: dict[SlotKey, TimeSlot] = {}
-    start_dt = datetime.combine(datetime.today().date(), start_time)
+    start_dt: datetime = datetime.combine(datetime.today().date(), start_time)
     for day in range(days_per_week):
         for period in range(periods_per_day):
             key = SlotKey(day, period)
             if key in break_keys:
                 continue
-            slot_start = start_dt + timedelta(minutes=period * period_minutes)
-            slot_end = slot_start + timedelta(minutes=period_minutes)
+            slot_start: datetime = start_dt + timedelta(minutes=period * period_minutes)
+            slot_end: datetime = slot_start + timedelta(minutes=period_minutes)
             slot = TimeSlot(day=day, period=period, start_time=slot_start.time(), end_time=slot_end.time())
             slots.append(slot)
             slot_map[key] = slot
@@ -57,7 +57,7 @@ def _teacher_availability(teacher: dict, slot_keys: Iterable[SlotKey], time_grid
     days = availability.get("days") or list(range(days_per_week))
     start_period = int(availability.get("start_period", 0))
     end_period = int(availability.get("end_period", periods_per_day - 1))
-    blocked_slots = {
+    blocked_slots: set[SlotKey] = {
         SlotKey(int(b["day"]), int(b["period"]))
         for b in availability.get("blocked_slots", [])
         if "day" in b and "period" in b
@@ -82,10 +82,10 @@ def generate_timetable(payload: dict) -> dict:
     fixed_lessons = payload.get("fixed_lessons") or []
     rules = payload.get("rules") or {}
     max_nodes_value = payload.get("max_nodes")
-    max_nodes = int(max_nodes_value) if max_nodes_value is not None else 200000
+    max_nodes: int = int(max_nodes_value) if max_nodes_value is not None else 200000
 
     slots, slot_map = _build_time_slots(time_grid)
-    slot_keys = set(slot_map.keys())
+    slot_keys: set[SlotKey] = set(slot_map.keys())
 
     teacher_map = {t["id"]: t for t in teachers}
     teacher_ids = list(teacher_map.keys())
@@ -248,7 +248,7 @@ def generate_timetable(payload: dict) -> dict:
             return False
         return True
 
-    def place(class_id: str, subject_id: str, teacher_id: str, slot_key: SlotKey):
+    def place(class_id: str, subject_id: str, teacher_id: str, slot_key: SlotKey) -> None:
         assignment = {
             "class_id": class_id,
             "subject_id": subject_id,
@@ -265,7 +265,7 @@ def generate_timetable(payload: dict) -> dict:
         ) + 1
         assignments.append(assignment)
 
-    def unplace(class_id: str, subject_id: str, teacher_id: str, slot_key: SlotKey):
+    def unplace(class_id: str, subject_id: str, teacher_id: str, slot_key: SlotKey) -> None:
         class_schedule.get(class_id, {}).pop(slot_key, None)
         teacher_schedule.get(teacher_id, {}).pop(slot_key, None)
         teacher_weekly_counts[teacher_id] = max(0, teacher_weekly_counts.get(teacher_id, 0) - 1)
@@ -276,9 +276,9 @@ def generate_timetable(payload: dict) -> dict:
         assignments.pop()
 
     def balance_delta(class_id: str, subject_id: str, day: int) -> float:
-        total_required = required_totals.get((class_id, subject_id), 0)
-        ideal = float(total_required) / max(1, int(time_grid.get("days_per_week", 5)))
-        current = class_subject_day_counts.get((class_id, subject_id, day), 0)
+        total_required: int = required_totals.get((class_id, subject_id), 0)
+        ideal: float = float(total_required) / max(1, int(time_grid.get("days_per_week", 5)))
+        current: int = class_subject_day_counts.get((class_id, subject_id, day), 0)
         return abs((current + 1) - ideal) - abs(current - ideal)
 
     def backtrack(index: int) -> bool:
@@ -287,9 +287,9 @@ def generate_timetable(payload: dict) -> dict:
             return True
         if nodes > max_nodes:
             return False
-        key = tasks[index]
+        key: tuple[str, str] = tasks[index]
         class_id, subject_id = key
-        candidates = candidates_by_req.get(key, [])
+        candidates: list[tuple[str, SlotKey]] = candidates_by_req.get(key, [])
         candidates.sort(key=lambda c: (
             balance_delta(class_id, subject_id, c[1].day),
             teacher_weekly_counts.get(c[0], 0),
@@ -306,7 +306,7 @@ def generate_timetable(payload: dict) -> dict:
             unplace(class_id, subject_id, teacher_id, slot_key)
         return False
 
-    solved = backtrack(0)
+    solved: bool = backtrack(0)
     if not solved:
         return {
             "status": "infeasible",
@@ -320,7 +320,7 @@ def generate_timetable(payload: dict) -> dict:
     output_assignments = []
     for assignment in fixed_assignments + assignments:
         slot_key = SlotKey(assignment["day"], assignment["period"])
-        slot = slot_map.get(slot_key)
+        slot: TimeSlot | None = slot_map.get(slot_key)
         if slot:
             assignment = {**assignment}
             assignment["start_time"] = slot.start_time.strftime("%H:%M")
@@ -329,13 +329,13 @@ def generate_timetable(payload: dict) -> dict:
 
     class_balance_score = 0.0
     for (class_id, subject_id, day), count in class_subject_day_counts.items():
-        total_required = required_totals.get((class_id, subject_id), 0)
-        ideal = float(total_required) / max(1, int(time_grid.get("days_per_week", 5)))
+        total_required: int = required_totals.get((class_id, subject_id), 0)
+        ideal: float = float(total_required) / max(1, int(time_grid.get("days_per_week", 5)))
         class_balance_score += abs(count - ideal)
 
     teacher_loads = {}
     for tid in teacher_ids:
-        daily = {str(day): teacher_daily_counts.get((tid, day), 0) for day in range(int(time_grid.get("days_per_week", 5)))}
+        daily: dict[str, int] = {str(day): teacher_daily_counts.get((tid, day), 0) for day in range(int(time_grid.get("days_per_week", 5)))}
         teacher_loads[tid] = {
             "weekly": teacher_weekly_counts.get(tid, 0),
             "daily": daily,

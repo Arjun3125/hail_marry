@@ -14,6 +14,7 @@ import { QueryProvider } from "@/components/providers/QueryProvider";
 import { PostHogProvider } from "@/providers/PostHogProvider";
 import { PrismBackdrop } from "@/components/prism/PrismBackdrop";
 import { getServerBrandingConfig } from "@/lib/server-api";
+import { logger } from "@/lib/logger";
 import { configureBoneyard, registerBones } from "boneyard-js/react";
 import { Analytics } from "@vercel/analytics/next";
 import { VidyaContextProvider } from "@/providers/VidyaContextProvider";
@@ -56,7 +57,7 @@ export default async function RootLayout({
   try {
     brandingConfig = (await getServerBrandingConfig()) ?? defaultBrandingConfig;
   } catch (err) {
-    console.error("Failed to resolve branding config in RootLayout", err);
+    logger.error("Failed to resolve branding config in RootLayout", err as Error);
   }
 
   const brandingStyle = buildBrandingStyle(brandingConfig);

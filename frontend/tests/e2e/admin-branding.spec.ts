@@ -64,7 +64,7 @@ test("admin branding page loads config, extracts palette, and saves settings", a
     await expect(page.locator('input[value="#112233"]').first()).toBeVisible();
     await expect(page.locator('input[value="#445566"]').first()).toBeVisible();
 
-    await page.selectOption("select", "Poppins");
+    await page.getByRole("combobox").selectOption({ value: "Poppins" });
     await page.getByRole("button", { name: /save brand settings/i }).click();
 
     await expect(page.getByText("Brand settings saved. Reload the app shell to see the updated identity everywhere.")).toBeVisible();

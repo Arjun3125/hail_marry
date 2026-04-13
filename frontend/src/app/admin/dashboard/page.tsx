@@ -1,4 +1,5 @@
 import { serverApiFetch } from "@/lib/server-api";
+import { logger } from "@/lib/logger";
 import { AdminDashboardClient } from "./AdminDashboardClient";
 
 export default async function AdminDashboardPage() {
@@ -7,7 +8,7 @@ export default async function AdminDashboardPage() {
     try {
         initialData = await serverApiFetch<Record<string, unknown>>("/api/admin/dashboard-bootstrap");
     } catch (err) {
-        console.error("Failed to fetch /api/admin/dashboard-bootstrap for admin dashboard page", err);
+        logger.error("Failed to fetch /api/admin/dashboard-bootstrap for admin dashboard page", err as Error);
         initialData = null;
     }
 

@@ -3,13 +3,14 @@ import logging
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
-from sqlalchemy import desc
-from datetime import datetime
+from sqlalchemy import Row, desc
+from datetime import datetime, time
 from pydantic import BaseModel
-from typing import Optional
+from typing import List, Optional, Tuple
 import io
 from uuid import UUID
 
+from sqlalchemy.orm.query import RowReturningQuery
 from starlette.responses import StreamingResponse
 from starlette.responses import Response as StarletteResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -127,10 +128,10 @@ from src.shared.ocr_imports import (
 )
 
 router = APIRouter(prefix="/api/admin", tags=["Admin"])
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
-ALLOWED_COMPLAINT_STATUSES = {"open", "in_review", "resolved"}
-SUPPORTED_WEBHOOK_EVENTS = {
+ALLOWED_COMPLAINT_STATUSES: set[str] = {"open", "in_review", "resolved"}
+SUPPORTED_WEBHOOK_EVENTS: set[str] = {
     "student.enrolled",
     "document.ingested",
     "ai.query.completed",
@@ -148,10 +149,10 @@ def _pct(numerator: int, denominator: int) -> float:
 
 def _build_whatsapp_release_gate_snapshot(current_user: User, db: Session, days: int) -> dict:
     analytics = _build_whatsapp_usage_snapshot_impl(current_user, db, days)
-    metrics = get_whatsapp_metrics(str(current_user.tenant_id))
-    routing_total = metrics.get("routing_success_total", 0) + metrics.get("routing_failure_total", 0)
-    outbound_total = metrics.get("outbound_success_total", 0) + metrics.get("outbound_failure_total", 0)
-    inbound_total = metrics.get("inbound_total", 0)
+    metrics: dict[str, int] = get_whatsapp_metrics(str(current_user.tenant_id))
+    routing_total: int = metrics.get("routing_success_total", 0) + metrics.get("routing_failure_total", 0)
+    outbound_total: int = metrics.get("outbound_success_total", 0) + metrics.get("outbound_failure_total", 0)
+    inbound_total: int = metrics.get("inbound_total", 0)
     return {
         "generated_at": datetime.utcnow().isoformat(),
         "period_days": days,
@@ -173,7 +174,7 @@ def _parse_uuid(value: str, field_name: str) -> UUID:
         raise HTTPException(status_code=400, detail=f"Invalid {field_name}")
 
 
-def _parse_hhmm(value: str, field_name: str):
+def _parse_hhmm(value: str, field_name: str) -> time:
     try:
         return datetime.strptime(value, "%H:%M").time()
     except (TypeError, ValueError):
@@ -201,9 +202,9 @@ def _resolve_user_names(db: Session, user_ids: list[str]) -> dict[str, str]:
             continue
     if not ids:
         return {}
-    rows = db.query(User.id, User.full_name, User.email).filter(User.id.in_(ids)).all()
+    rows: List[Row[Tuple[UUID, str, str]]] = db.query(User.id, User.full_name, User.email).filter(User.id.in_(ids)).all()
     return {
-        str(row.id): (row.full_name or row.email or "Unknown")
+        str(row[0]): f"{row[1]} ({row[2]})"
         for row in rows
     }
 
@@ -215,14 +216,14 @@ def _ai_job_audit_history(
     job_id: str | None = None,
     limit: int = 50,
 ) -> list[dict]:
-    query = db.query(AuditLog, User.full_name, User.email).outerjoin(User, AuditLog.user_id == User.id).filter(
+    query: RowReturningQuery[Tuple[AuditLog, str, str]] = db.query(AuditLog, User.full_name, User.email).outerjoin(User, AuditLog.user_id == User.id).filter(
         AuditLog.tenant_id == tenant_id,
         AuditLog.entity_type == "ai_job",
     )
     if job_id:
-        job_uuid = _parse_uuid(job_id, "job_id")
-        query = query.filter(AuditLog.entity_id == job_uuid)
-    rows = query.order_by(desc(AuditLog.created_at)).limit(max(1, min(limit, 200))).all()
+        job_uuid: UUID = _parse_uuid(job_id, "job_id")
+        query: RowReturningQuery[Tuple[AuditLog, str, str]] = query.filter(AuditLog.entity_id == job_uuid)
+    rows: List[Row[Tuple[AuditLog, str, str]]] = query.order_by(desc(AuditLog.created_at)).limit(max(1, min(limit, 200))).all()
     history = []
     for row, full_name, email in rows:
         metadata = row.metadata_ or {}
@@ -244,7 +245,7 @@ def _load_review_history(
 ) -> tuple[dict[str, list[dict]], dict[str, dict]]:
     if not query_ids:
         return {}, {}
-    rows = db.query(AuditLog, User.full_name, User.email).outerjoin(User, AuditLog.user_id == User.id).filter(
+    rows: List[Row[Tuple[AuditLog, str, str]]] = db.query(AuditLog, User.full_name, User.email).outerjoin(User, AuditLog.user_id == User.id).filter(
         AuditLog.tenant_id == tenant_id,
         AuditLog.entity_type == "ai_review",
         AuditLog.entity_id.in_(query_ids),
@@ -411,8 +412,8 @@ async def onboard_teachers(
     CSV Format: name, email, password (optional)
     Image Format: handwritten or printed list of names (one per line). Emails/passwords auto-generated.
     """
-    safe_filename = file.filename or ""
-    content = await file.read()
+    safe_filename: str = file.filename or ""
+    content: bytes = await file.read()
     return _process_teacher_onboarding_upload_impl(
         db=db,
         tenant_id=current_user.tenant_id,
@@ -450,7 +451,7 @@ async def resume_ai_queue(current_user: User = Depends(require_role("admin"))):
 async def drain_ai_queue(current_user: User = Depends(require_role("admin"))):
     """Drain all pending jobs immediately to dead-letter for this tenant."""
     try:
-        drained_count = drain_admin_queue(str(current_user.tenant_id))
+        drained_count: int = drain_admin_queue(str(current_user.tenant_id))
         return {"success": True, "message": f"Drained {drained_count} jobs.", "drained_count": drained_count}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -569,19 +570,19 @@ async def update_ai_review(
     data: AIReviewAction,
     current_user: User = Depends(require_role("admin")),
     db: Session = Depends(get_db),
-):
+) -> dict[str, bool]:
     if data.action not in {"approve", "flag"}:
         raise HTTPException(status_code=400, detail="Invalid review action")
 
-    review_uuid = _parse_uuid(review_id, "review_id")
-    query = db.query(AIQuery).filter(
+    review_uuid: UUID = _parse_uuid(review_id, "review_id")
+    query: AIQuery | None = db.query(AIQuery).filter(
         AIQuery.tenant_id == current_user.tenant_id,
         AIQuery.id == review_uuid,
     ).first()
     if not query:
         raise HTTPException(status_code=404, detail="AI review item not found")
 
-    action = "ai_review.approved" if data.action == "approve" else "ai_review.flagged"
+    action: str = "ai_review.approved" if data.action == "approve" else "ai_review.flagged"
     db.add(
         AuditLog(
             tenant_id=current_user.tenant_id,
@@ -646,7 +647,7 @@ async def admin_complaints(current_user: User = Depends(require_role("admin")), 
     )
 
 @router.patch("/complaints/{complaint_id}")
-async def update_complaint(complaint_id: str, data: ComplaintAction, current_user: User = Depends(require_role("admin")), db: Session = Depends(get_db)):
+async def update_complaint(complaint_id: str, data: ComplaintAction, current_user: User = Depends(require_role("admin")), db: Session = Depends(get_db)) -> dict[str, bool]:
     result = _update_admin_complaint_impl(
         db=db,
         tenant_id=current_user.tenant_id,
@@ -1039,7 +1040,7 @@ async def export_attendance_csv(
     current_user: User = Depends(require_role("admin")),
     db: Session = Depends(get_db),
     academic_year: str = "",
-):
+) -> StreamingResponse:
     payload = _build_admin_attendance_csv_export_impl(
         db=db,
         tenant_id=current_user.tenant_id,
@@ -1055,7 +1056,7 @@ async def export_attendance_csv(
 async def export_performance_csv(
     current_user: User = Depends(require_role("admin")),
     db: Session = Depends(get_db),
-):
+) -> StreamingResponse:
     payload = _build_admin_performance_csv_export_impl(
         db=db,
         tenant_id=current_user.tenant_id,
@@ -1071,7 +1072,7 @@ async def export_performance_csv(
 async def export_ai_usage_csv(
     current_user: User = Depends(require_role("admin")),
     db: Session = Depends(get_db),
-):
+) -> StreamingResponse:
     payload = _build_admin_ai_usage_csv_export_impl(
         db=db,
         tenant_id=current_user.tenant_id,
@@ -1089,7 +1090,7 @@ async def export_ai_usage_csv(
 async def download_csv_template(
     template_type: str,
     current_user: User = Depends(require_role("admin")),
-):
+) -> StreamingResponse:
     """Download a pre-filled CSV template for bulk import."""
     payload = _build_admin_csv_template_payload_impl(template_type=template_type)
     return StreamingResponse(
@@ -1109,8 +1110,8 @@ async def onboard_students(
     preview: bool = False,
 ):
     """Onboard students from CSV/TXT or OCR image. Columns: full_name, email, password, class_name"""
-    safe_filename = file.filename or ""
-    content = await file.read()
+    safe_filename: str = file.filename or ""
+    content: bytes = await file.read()
     return _process_student_onboarding_upload_impl(
         db=db,
         tenant_id=current_user.tenant_id,
@@ -1141,7 +1142,7 @@ async def generate_qr_tokens(
 ):
     """Generate QR login tokens for students.
     Supports optional class filtering and token reuse when still valid."""
-    payload = data or QrTokenBatchRequest()
+    payload: QrTokenBatchRequest = data or QrTokenBatchRequest()
     return _generate_admin_qr_tokens_impl(
         db=db,
         tenant_id=current_user.tenant_id,
@@ -1160,7 +1161,7 @@ async def download_report_card(
     student_id: str,
     current_user: User = Depends(require_role("admin")),
     db: Session = Depends(get_db),
-):
+) -> StarletteResponse:
     payload = _build_admin_report_card_payload_impl(
         db=db,
         tenant_id=current_user.tenant_id,

@@ -80,7 +80,7 @@ class TestPerUserBurstRateLimit(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.rate_limit = importlib.import_module("middleware.rate_limit")
         self.rate_limit._memory_store.clear()
-        self.rate_limit._redis_available = False
+        self.rate_limit._redis_initialized = True
         self.rate_limit._redis = None
 
     def tearDown(self):
@@ -145,7 +145,7 @@ class TestPerTenantRateLimit(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.rate_limit = importlib.import_module("middleware.rate_limit")
         self.rate_limit._memory_store.clear()
-        self.rate_limit._redis_available = False
+        self.rate_limit._redis_initialized = True
         self.rate_limit._redis = None
 
     def tearDown(self):
@@ -179,7 +179,7 @@ class TestUserIsolation(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.rate_limit = importlib.import_module("middleware.rate_limit")
         self.rate_limit._memory_store.clear()
-        self.rate_limit._redis_available = False
+        self.rate_limit._redis_initialized = True
         self.rate_limit._redis = None
 
     def tearDown(self):
@@ -210,7 +210,7 @@ class TestNonAIPathExemption(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.rate_limit = importlib.import_module("middleware.rate_limit")
         self.rate_limit._memory_store.clear()
-        self.rate_limit._redis_available = False
+        self.rate_limit._redis_initialized = True
         self.rate_limit._redis = None
 
     def tearDown(self):
@@ -261,7 +261,7 @@ class TestAIPathCoverage(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.rate_limit = importlib.import_module("middleware.rate_limit")
         self.rate_limit._memory_store.clear()
-        self.rate_limit._redis_available = False
+        self.rate_limit._redis_initialized = True
         self.rate_limit._redis = None
 
     def tearDown(self):
@@ -294,7 +294,7 @@ class TestSlidingWindowBehavior(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.rate_limit = importlib.import_module("middleware.rate_limit")
         self.rate_limit._memory_store.clear()
-        self.rate_limit._redis_available = False
+        self.rate_limit._redis_initialized = True
         self.rate_limit._redis = None
 
     def tearDown(self):

@@ -1,0 +1,11 @@
+{
+  "extends": "../frontend/tsconfig.json",
+  "compilerOptions": {
+    "skipLibCheck": true
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.js"
+  ],
+  "exclude": ["node_modules"]
+}

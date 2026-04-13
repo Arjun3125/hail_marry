@@ -221,7 +221,7 @@ export function MobileBottomNav({
                     <a
                         key={item.href}
                         href={item.href}
-                        className={`flex flex-col items-center gap-0.5 px-2 py-1 text-[10px] font-medium transition-colors ${
+                        className={`flex flex-col items-center gap-0.5 px-2 py-1 text-xs font-medium transition-colors ${
                             isActive
                                 ? "text-[var(--primary)]"
                                 : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"

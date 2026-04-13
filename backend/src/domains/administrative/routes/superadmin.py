@@ -11,9 +11,10 @@ from src.domains.identity.models.user import User
 try:
     from auth.auth import pwd_context
 except ImportError:
-    # Fallback to local import if the circular dependency issue occurs
+    import sys
+    _bcrypt_rounds: int = 4 if "pytest" in sys.modules else 12
     from passlib.context import CryptContext
-    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto", bcrypt__rounds=_bcrypt_rounds)
 
 router = APIRouter(prefix="/api/superadmin", tags=["Superadmin"])
 
@@ -34,7 +35,7 @@ async def create_tenant(request: TenantCreateRequest, db: Session = Depends(get_
     Creates a new Tenant (School/Institute) and its first Admin user.
     Protected by SUPERADMIN_SECRET environment variable.
     """
-    secret = os.getenv("SUPERADMIN_SECRET")
+    secret: str | None = os.getenv("SUPERADMIN_SECRET")
     if not secret:
         # If no secret is configured, we disallow tenant creation for security
         raise HTTPException(
@@ -49,11 +50,11 @@ async def create_tenant(request: TenantCreateRequest, db: Session = Depends(get_
         )
 
     # Check if tenant or admin already exists
-    existing_tenant = db.query(Tenant).filter(Tenant.domain == request.domain.strip()).first()
+    existing_tenant: Tenant | None = db.query(Tenant).filter(Tenant.domain == request.domain.strip()).first()
     if existing_tenant:
         raise HTTPException(status_code=400, detail="Tenant with this domain already exists")
 
-    existing_user = db.query(User).filter(User.email == request.admin_email.strip()).first()
+    existing_user: User | None = db.query(User).filter(User.email == request.admin_email.strip()).first()
     if existing_user:
         raise HTTPException(status_code=400, detail="User with this email already exists")
 

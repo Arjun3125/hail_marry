@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { Bot } from "lucide-react";
 
 import { MascotShell } from "./MascotShell";
@@ -9,12 +9,23 @@ export function MascotLauncher({ role, fullPage = false }: { role: string; fullP
     const [open, setOpen] = useState(fullPage);
 
     if (fullPage) {
-        return <MascotShell role={role} fullPage />;
+        return (
+            <Suspense fallback={null}>
+                <MascotShell role={role} fullPage />
+            </Suspense>
+        );
     }
 
     return (
-        <div className="fixed bottom-5 right-5 z-[70] flex flex-col items-end gap-3">
-            {open ? <MascotShell role={role} onClose={() => setOpen(false)} /> : null}
+        <div 
+            className="fixed right-5 z-[70] flex flex-col items-end gap-3 bottom-5 lg:bottom-5"
+            style={{ bottom: "calc(var(--bottom-nav-height, 0rem) + 1.25rem)" }}
+        >
+            {open ? (
+                <Suspense fallback={null}>
+                    <MascotShell role={role} onClose={() => setOpen(false)} />
+                </Suspense>
+            ) : null}
             <button
                 type="button"
                 onClick={() => setOpen((value) => !value)}

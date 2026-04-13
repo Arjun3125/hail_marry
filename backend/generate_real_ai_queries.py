@@ -5,7 +5,6 @@ This creates actual AIQuery records with real LLM-generated responses.
 """
 import json
 import sqlite3
-import pickle
 import requests
 from pathlib import Path
 from uuid import uuid4
@@ -65,23 +64,40 @@ def get_ollama_json_response(prompt: str, model: str = "llama3.1:8b-instruct-q4_
             response_text = resp.json().get("response", "{}")
             try:
                 return json.loads(response_text)
-            except Exception:
+            except json.JSONDecodeError as e:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.warning(f"Failed to parse JSON response from Ollama: {e}")
                 return {"response": response_text}
         else:
             return {"error": f"HTTP {resp.status_code}"}
     except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error getting JSON response from Ollama: {e}")
         return {"error": str(e)}
 
 
 def retrieve_context(query: str, top_k: int = 5) -> list:
     """Retrieve context chunks from vector store."""
-    store_file = VECTOR_STORE_PATH / f"tenant_{DEMO_TENANT_ID}.pkl"
+    import json
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    store_file = VECTOR_STORE_PATH / f"tenant_{DEMO_TENANT_ID}.json"
 
     if not store_file.exists():
         return []
 
-    with open(store_file, "rb") as f:
-        store = pickle.load(f)
+    try:
+        with open(store_file, "r", encoding="utf-8") as f:
+            store = json.load(f)
+    except json.JSONDecodeError as e:
+        logger.error(f"Failed to deserialize vector store JSON: {e}")
+        return []
+    except Exception as e:
+        logger.error(f"Error reading vector store: {e}")
+        return []
 
     # Simple keyword matching for retrieval (FAISS would be better)
     query_words = set(query.lower().split())

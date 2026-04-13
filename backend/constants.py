@@ -17,6 +17,12 @@ GRADE_THRESHOLDS = [
 ]
 GRADE_FAIL = "F"
 
+# Grade distribution thresholds for analytics
+GRADE_A_THRESHOLD = 80
+GRADE_B_THRESHOLD = 60
+GRADE_C_THRESHOLD = 40
+GRADE_D_THRESHOLD = 20
+
 
 def compute_grade(pct: float) -> str:
     """Return letter grade for a percentage score."""
@@ -34,6 +40,11 @@ ATTENDANCE_WARNING_PCT = 60
 PERFORMANCE_GOOD_PCT = 80
 PERFORMANCE_AVERAGE_PCT = 60
 WEAK_TOPIC_THRESHOLD_PCT = 60
+
+# ── Engagement Thresholds ──
+ENGAGEMENT_EXCELLENT_PCT = 80
+ENGAGEMENT_GOOD_PCT = 60
+ENGAGEMENT_FAIR_PCT = 40
 
 # ── File Upload Limits ──
 TEACHER_MAX_FILE_SIZE = 50 * 1024 * 1024   # 50 MB
@@ -130,3 +141,37 @@ SUPPORTED_LLM_PROVIDERS = {"ollama", "openai", "anthropic"}
 
 # ── Extended Connectors ──
 EXTENDED_FILE_TYPES = {"pptx", "xlsx", "google_doc", "notion"}
+
+# ── Timeouts & Intervals (in seconds) ──
+# Used by ai_worker.py, config.py, background_runtime.py
+JWT_EXPIRY_MINUTES = 60
+AI_SERVICE_TIMEOUT_SECONDS = 90
+LLM_TIMEOUT_SECONDS = 60
+WORKER_HEARTBEAT_STALE_SECONDS = 60
+AI_QUEUE_METRICS_WINDOW_SECONDS = 3600  # 1 hour
+AI_QUEUE_RESULT_TTL_SECONDS = 86400  # 24 hours
+AI_QUEUE_POLL_TIMEOUT_SECONDS = 5
+AI_QUEUE_STUCK_AFTER_SECONDS = 300  # 5 minutes
+AI_QUEUE_MAX_RETRIES = 2
+AI_QUEUE_MAX_PENDING_JOBS = 1000
+AI_QUEUE_MAX_PENDING_JOBS_PER_TENANT = 200
+
+# Worker heartbeat and aggregation intervals
+AI_WORKER_AGGREGATION_INTERVAL_SECONDS = 900  # 15 minutes
+AI_WORKER_AGGREGATION_RETRY_SECONDS = 120  # 2 minutes
+AI_WORKER_AGGREGATION_STARTUP_DELAY_SECONDS = 30
+AI_WORKER_HEARTBEAT_MIN_INTERVAL_SECONDS = 5
+AI_WORKER_HEARTBEAT_MAX_INTERVAL_SECONDS = 20
+
+# Observability latency warning thresholds (in milliseconds)
+OBSERVABILITY_GENERATION_LATENCY_WARN_MS = 12000
+OBSERVABILITY_TRANSCRIPTION_LATENCY_WARN_MS = 60000
+OBSERVABILITY_EMBEDDING_LATENCY_WARN_MS = 10000
+
+# ── Unit Conversions ──
+SECONDS_PER_HOUR = 3600
+MINUTES_PER_HOUR = 60
+
+# ── Data Limits & Constraints ──
+JSON_ARRAY_MAX_ITEMS = 1000  # Max items in JSON array fields
+SESSION_TRACKING_MAX_ITEMS = 1000  # Max concepts/misconceptions per session

@@ -17,7 +17,8 @@ from sqlalchemy.orm import DeclarativeBase
 # without modifying any model code.
 
 def _setup_compilers():
-    from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB as PG_JSONB
+    from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB as PG_JSONB, ARRAY as PG_ARRAY
+    from sqlalchemy import ARRAY as SA_ARRAY
     from sqlalchemy.ext.compiler import compiles
 
     @compiles(PG_UUID, "sqlite")
@@ -26,6 +27,14 @@ def _setup_compilers():
 
     @compiles(PG_JSONB, "sqlite")
     def compile_jsonb_sqlite(type_, compiler, **kw):
+        return "TEXT"
+
+    @compiles(PG_ARRAY, "sqlite")
+    def compile_array_sqlite(type_, compiler, **kw):
+        return "TEXT"
+
+    @compiles(SA_ARRAY, "sqlite")
+    def compile_sa_array_sqlite(type_, compiler, **kw):
         return "TEXT"
 
 
@@ -258,7 +267,7 @@ AsyncSessionLocal = _LazyProxy(get_async_session_local)
 
 class Base(DeclarativeBase):
     """Base class for all models."""
-    pass
+    __allow_unmapped__ = True
 
 
 def get_db():

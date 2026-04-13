@@ -81,6 +81,9 @@ class NotificationPreference(Base):
     # Category-level overrides: {"fee_reminder": false, "attendance": true}
     category_overrides = Column(JSONB, nullable=True)
 
+    # Push notification device tokens (iOS/Android FCM tokens)
+    device_tokens = Column(JSONB, nullable=True)  # Stored as JSON array of tokens
+    
     quiet_hours_start = Column(String(5), nullable=True)  # "22:00" (IST)
     quiet_hours_end = Column(String(5), nullable=True)    # "07:00" (IST)
 

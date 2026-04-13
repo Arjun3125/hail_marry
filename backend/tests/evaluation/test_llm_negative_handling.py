@@ -47,7 +47,7 @@ class TestAIGatewayFailureHandling(unittest.IsolatedAsyncioTestCase):
         ai_gateway = importlib.import_module("src.domains.platform.services.ai_gateway")
 
         mocked = AsyncMock(side_effect=RuntimeError("LLM provider connection refused"))
-        with patch.object(ai_gateway, "execute_text_query", mocked):
+        with patch.object(ai_gateway, "run_text_query", mocked):
             with self.assertRaises(RuntimeError) as ctx:
                 await ai_gateway.run_text_query(
                     ai_gateway.InternalAIQueryRequest(
@@ -63,7 +63,7 @@ class TestAIGatewayFailureHandling(unittest.IsolatedAsyncioTestCase):
         ai_gateway = importlib.import_module("src.domains.platform.services.ai_gateway")
 
         mocked = AsyncMock(side_effect=TimeoutError("LLM inference timed out"))
-        with patch.object(ai_gateway, "execute_text_query", mocked):
+        with patch.object(ai_gateway, "run_text_query", mocked):
             with self.assertRaises(TimeoutError):
                 await ai_gateway.run_text_query(
                     ai_gateway.InternalAIQueryRequest(

@@ -44,7 +44,7 @@ async def extract_logo_colors(
     if not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="Uploaded file must be an image.")
 
-    content = await file.read()
+    content: bytes = await file.read()
     palette = extract_brand_palette(content)
     
     return {
@@ -61,7 +61,7 @@ async def save_tenant_branding(
     """
     Saves the custom branding configuration to the current user's Tenant.
     """
-    tenant = db.query(Tenant).filter(Tenant.id == current_user.tenant_id).first()
+    tenant: Tenant | None = db.query(Tenant).filter(Tenant.id == current_user.tenant_id).first()
     if not tenant:
         raise HTTPException(status_code=404, detail="Tenant not found.")
 
@@ -95,8 +95,8 @@ async def get_tenant_branding(
     # This might be accessed publicly if passed a domain/tenant_id, but keeping simple for now.
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-):
-    tenant = db.query(Tenant).filter(Tenant.id == user.tenant_id).first()
+) -> dict[str, str | None]:
+    tenant: Tenant | None = db.query(Tenant).filter(Tenant.id == user.tenant_id).first()
     if not tenant:
         raise HTTPException(status_code=404, detail="Tenant not found")
         

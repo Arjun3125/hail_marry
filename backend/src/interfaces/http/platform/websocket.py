@@ -1,8 +1,9 @@
 """WebSocket endpoint for real-time streaming."""
 import logging
+from typing import Any, cast
 from uuid import UUID
 
-from fastapi import APIRouter, WebSocketDisconnect
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from sqlalchemy.orm import Session
 
 from src.domains.identity.models.user import User
@@ -14,7 +15,7 @@ router = APIRouter(prefix="/ws", tags=["WebSocket"])
 
 
 @router.websocket("/ws/realtime")
-async def websocket_realtime_endpoint(websocket=None, db: Session = None):
+async def websocket_realtime_endpoint(websocket: WebSocket, db: Session) -> None:
     """WebSocket endpoint for real-time updates.
     
     To connect:
@@ -44,11 +45,11 @@ async def websocket_realtime_endpoint(websocket=None, db: Session = None):
 
 # Alternative approach: Direct WebSocket handler for integration with existing auth
 async def handle_websocket_connection(
-    websocket,
+    websocket: WebSocket,
     tenant_id: UUID,
     user: User,
     db: Session,
-):
+) -> None:
     """Handle a WebSocket connection with proper auth and cleanup.
     
     Args:
@@ -58,15 +59,16 @@ async def handle_websocket_connection(
         db: Database session
     """
     connection_id = await manager.connect(
-        websocket=websocket,
+        websocket=cast(Any, websocket),
         tenant_id=tenant_id,
-        user_id=user.id,
-        role=user.role,
+        user_id=cast(UUID, user.id),
+        role=cast(str, user.role),
     )
     
     try:
         # Send connection confirmation
-        await websocket.send_json({
+        websocket_any = cast(Any, websocket)
+        await websocket_any.send_json({
             "event": "connection.established",
             "connection_id": connection_id,
             "user_id": str(user.id),
@@ -75,11 +77,11 @@ async def handle_websocket_connection(
         
         # Keep connection alive and listen for messages
         while True:
-            data = await websocket.receive_text()
+            data: str = await websocket_any.receive_text()
             
             # Handle heartbeat/ping-pong
             if data == "ping":
-                await websocket.send_text("pong")
+                await websocket_any.send_text("pong")
                 continue
             
             # Handle other message types (future extension)

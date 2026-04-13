@@ -136,7 +136,7 @@ test("admin timetable page supports generation and manual slot changes", async (
     await expect(timetableTable.getByText("Mathematics")).toBeVisible();
 
     await page.getByLabel("Subject").selectOption("science");
-    await page.getByLabel("Teacher").selectOption("admin-1");
+    await page.getByLabel("Teacher", { exact: true }).selectOption("admin-1");
     await page.getByLabel("Start time").fill("10:00");
     await page.getByLabel("End time").fill("10:45");
     await page.getByRole("button", { name: /add slot/i }).click();

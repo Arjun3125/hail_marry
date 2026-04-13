@@ -79,7 +79,10 @@ def check_ollama():
             embed_models = [m for m in models if "embed" in m.get("name", "").lower()]
             return len(embed_models) > 0, embed_models
         return False, []
-    except Exception:
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f"Failed to check Ollama availability: {e}")
         return False, []
 
 

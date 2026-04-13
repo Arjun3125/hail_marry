@@ -1,7 +1,7 @@
 import { test, expect } from '../../fixtures/auth';
 
 test.describe('AI Studio - Mobile (360px)', () => {
-  test('should load AI Studio interface', async ({ studentPage }) => {
+  test('should load AI Studio interface', async ({ studentPage }: any) => {
     await studentPage.goto('/student/ai-studio');
 
     // Check viewport size
@@ -21,7 +21,7 @@ test.describe('AI Studio - Mobile (360px)', () => {
     expect(scrollWidth).toBeLessThanOrEqual(360);
   });
 
-  test('should display AI assistant interface', async ({ studentPage }) => {
+  test('should display AI assistant interface', async ({ studentPage }: any) => {
     await studentPage.goto('/student/ai-studio');
 
     // Check for input field
@@ -31,7 +31,7 @@ test.describe('AI Studio - Mobile (360px)', () => {
     await expect(studentPage.locator('text=/ai|assistant|thinking/i')).toBeVisible();
   });
 
-  test('should show intent selector', async ({ studentPage }) => {
+  test('should show intent selector', async ({ studentPage }: any) => {
     await studentPage.goto('/student/ai-studio');
 
     // Look for intent selector button or interface
@@ -47,7 +47,7 @@ test.describe('AI Studio - Mobile (360px)', () => {
     }
   });
 
-  test('should display tool cards with proper sizing', async ({ studentPage }) => {
+  test('should display tool cards with proper sizing', async ({ studentPage }: any) => {
     await studentPage.goto('/student/ai-studio');
 
     // Check for tool cards (quiz, flashcards, mindmap, etc.)
@@ -68,7 +68,7 @@ test.describe('AI Studio - Mobile (360px)', () => {
     }
   });
 
-  test('should handle text input and submission', async ({ studentPage }) => {
+  test('should handle text input and submission', async ({ studentPage }: any) => {
     await studentPage.goto('/student/ai-studio');
 
     const input = studentPage.locator('input[type="text"], textarea').first();
@@ -87,7 +87,7 @@ test.describe('AI Studio - Mobile (360px)', () => {
     }
   });
 
-  test('should maintain readable text in tool descriptions', async ({ studentPage }) => {
+  test('should maintain readable text in tool descriptions', async ({ studentPage }: any) => {
     await studentPage.goto('/student/ai-studio');
 
     // Check tool descriptions
@@ -96,7 +96,7 @@ test.describe('AI Studio - Mobile (360px)', () => {
     });
 
     for (const desc of await descriptions.all()) {
-      const fontSize = await desc.evaluate((el) => {
+      const fontSize = await desc.evaluate((el: HTMLElement) => {
         return parseFloat(getComputedStyle(el).fontSize);
       });
       expect(fontSize).toBeGreaterThanOrEqual(12); // Minimum readable for descriptions

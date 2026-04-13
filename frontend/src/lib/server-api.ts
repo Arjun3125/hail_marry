@@ -25,7 +25,7 @@ export async function serverApiFetch<T>(
     init: RequestInit & {
         cookieHeader?: string;
     } = {},
-): Promise<T> {
+): Promise<T | null> {
     const { cookieHeader, headers, ...rest } = init;
     const mergedHeaders = new Headers(headers || {});
     const resolvedCookieHeader = cookieHeader ?? await getRequestCookieHeader();
@@ -37,24 +37,30 @@ export async function serverApiFetch<T>(
         mergedHeaders.set("content-type", "application/json");
     }
 
-    const response = await fetch(`${getServerApiBase()}${path}`, {
-        ...rest,
-        headers: mergedHeaders,
-        cache: "no-store",
-    });
+    try {
+        const response = await fetch(`${getServerApiBase()}${path}`, {
+            ...rest,
+            headers: mergedHeaders,
+            cache: "no-store",
+            signal: AbortSignal.timeout(1500),
+        });
 
-    if (!response.ok) {
-        const detail = await response.text().catch(() => "");
-        throw new Error(detail || `Failed to load ${path} (${response.status})`);
+        if (!response.ok) {
+            console.error(`[ERROR] serverApiFetch status ${response.status} for ${path}`);
+            return null;
+        }
+
+        if (response.status === 204) {
+            return null;
+        }
+
+        return await response.json();
+    } catch (error) {
+        console.error(`[ERROR] serverApiFetch failed for ${path}:`, error);
+        return null;
     }
-
-    if (response.status === 204) {
-        return null as T;
-    }
-
-    return response.json() as Promise<T>;
 }
 
 export const getServerBrandingConfig = cache(async () => {
-    return await serverApiFetch<BrandingConfig | null>("/api/branding/config");
+    return await serverApiFetch<BrandingConfig>("/api/branding/config");
 });

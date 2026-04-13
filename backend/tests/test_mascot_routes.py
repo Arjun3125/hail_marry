@@ -3,10 +3,14 @@ import uuid
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
+# Pre-compute the password hash ONCE at module load (not per-test).
+from src.domains.identity.routes.auth import pwd_context
+_PRECOMPUTED_HASH = pwd_context.hash("pass123!")
+
 
 def _create_user_and_login(client, db_session, tenant_id, *, email: str, role: str = "student"):
+    from auth.jwt import create_access_token
     from src.domains.identity.models.user import User
-    from src.domains.identity.routes.auth import pwd_context
 
     user = User(
         id=uuid.uuid4(),
@@ -14,15 +18,19 @@ def _create_user_and_login(client, db_session, tenant_id, *, email: str, role: s
         email=email,
         full_name="Mascot Tester",
         role=role,
-        hashed_password=pwd_context.hash("pass123!"),
+        hashed_password=_PRECOMPUTED_HASH,
         is_active=True,
     )
     db_session.add(user)
     db_session.commit()
 
-    response = client.post("/api/auth/login", json={"email": email, "password": "pass123!"})
-    token = response.json().get("access_token")
-    assert token
+    # Mint JWT directly — skip the HTTP round-trip through /api/auth/login.
+    token = create_access_token({
+        "user_id": str(user.id),
+        "tenant_id": str(tenant_id),
+        "email": email,
+        "role": role,
+    })
     return user, token
 
 

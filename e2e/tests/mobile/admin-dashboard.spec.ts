@@ -1,7 +1,7 @@
 import { test, expect } from '../../fixtures/auth';
 
 test.describe('Admin Dashboard - Mobile (360px)', () => {
-  test('should load admin dashboard', async ({ adminPage }) => {
+  test('should load admin dashboard', async ({ adminPage }: any) => {
     // Check viewport size
     const viewport = adminPage.viewportSize();
     expect(viewport?.width).toBe(360);
@@ -19,7 +19,7 @@ test.describe('Admin Dashboard - Mobile (360px)', () => {
     expect(scrollWidth).toBeLessThanOrEqual(360);
   });
 
-  test('should display key admin metrics', async ({ adminPage }) => {
+  test('should display key admin metrics', async ({ adminPage }: any) => {
     // Should show system overview stats
     await expect(adminPage.locator('text=/total|active|users|schools|students|teachers/i')).toBeVisible();
 
@@ -33,7 +33,7 @@ test.describe('Admin Dashboard - Mobile (360px)', () => {
     }
   });
 
-  test('should show user management overview', async ({ adminPage }) => {
+  test('should show user management overview', async ({ adminPage }: any) => {
     // Should display user counts by role
     const userStats = adminPage.locator('text=/admin|teacher|student|parent/i').filter({
       hasText: /\d+/
@@ -42,7 +42,7 @@ test.describe('Admin Dashboard - Mobile (360px)', () => {
     await expect(userStats.first()).toBeVisible();
   });
 
-  test('should provide navigation to management sections', async ({ adminPage }) => {
+  test('should provide navigation to management sections', async ({ adminPage }: any) => {
     // Should have navigation to key admin sections
     const navItems = adminPage.locator('a, button').filter({
       hasText: /user|school|system|config|report|complaint/i
@@ -60,7 +60,7 @@ test.describe('Admin Dashboard - Mobile (360px)', () => {
     }
   });
 
-  test('should display system alerts or notifications', async ({ adminPage }) => {
+  test('should display system alerts or notifications', async ({ adminPage }: any) => {
     // Look for system alerts, warnings, or notifications
     const alerts = adminPage.locator('[class*="alert"], [class*="notification"], [class*="warning"]').filter({
       hasText: /alert|warning|error|notice/i
@@ -72,7 +72,7 @@ test.describe('Admin Dashboard - Mobile (360px)', () => {
     }
   });
 
-  test('should show recent activity or logs', async ({ adminPage }) => {
+  test('should show recent activity or logs', async ({ adminPage }: any) => {
     // Should display recent system activity
     const activityFeed = adminPage.locator('text=/recent|activity|log|event/i');
 
@@ -81,7 +81,7 @@ test.describe('Admin Dashboard - Mobile (360px)', () => {
     }
   });
 
-  test('should handle sidebar navigation on mobile', async ({ adminPage }) => {
+  test('should handle sidebar navigation on mobile', async ({ adminPage }: any) => {
     // Check for mobile menu toggle
     const menuToggle = adminPage.locator('[aria-label*="menu"], .hamburger, .sidebar-toggle, [class*="menu"]').first();
 
@@ -103,21 +103,21 @@ test.describe('Admin Dashboard - Mobile (360px)', () => {
     }
   });
 
-  test('should display readable metric values', async ({ adminPage }) => {
+  test('should display readable metric values', async ({ adminPage }: any) => {
     // Check font sizes for key metrics
     const metrics = adminPage.locator('[class*="metric"], [class*="stat"], [class*="count"]').filter({
       hasText: /\d+/
     });
 
     for (const metric of await metrics.all()) {
-      const fontSize = await metric.evaluate((el) => {
+      const fontSize = await metric.evaluate((el: HTMLElement) => {
         return parseFloat(getComputedStyle(el).fontSize);
       });
       expect(fontSize).toBeGreaterThanOrEqual(16); // Metrics should be prominent
     }
   });
 
-  test('should provide access to detailed reports', async ({ adminPage }) => {
+  test('should provide access to detailed reports', async ({ adminPage }: any) => {
     // Look for report generation or detailed view buttons
     const reportButtons = adminPage.locator('button, a').filter({
       hasText: /report|export|download|detail/i

@@ -1,0 +1,226 @@
+{
+  "main": {
+    "id": "dfa31bb62ba80212",
+    "type": "split",
+    "children": [
+      {
+        "id": "f45a7a34c7ad7385",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "454d2d7629fe1529",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "md/STAR_FEATURES_ANALYSIS.md",
+                "mode": "source",
+                "source": false,
+                "backlinks": true,
+                "backlinkOpts": {
+                  "collapseAll": false,
+                  "extraContext": false,
+                  "sortOrder": "alphabetical",
+                  "showSearch": false,
+                  "searchQuery": "",
+                  "backlinkCollapsed": false,
+                  "unlinkedCollapsed": true
+                }
+              },
+              "icon": "lucide-file",
+              "title": "STAR_FEATURES_ANALYSIS"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "ecd6160b6b698a38",
+    "type": "split",
+    "children": [
+      {
+        "id": "9d1d4b6d7440e5d2",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "b027a865b063ee33",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false
+              },
+              "icon": "lucide-folder-closed",
+              "title": "Files"
+            }
+          },
+          {
+            "id": "03204a8014f26994",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "Search"
+            }
+          },
+          {
+            "id": "5fdaca968e826e59",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {},
+              "icon": "lucide-bookmark",
+              "title": "Bookmarks"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "78b3dc5c26881c6f",
+    "type": "split",
+    "children": [
+      {
+        "id": "d78a76515ae0829c",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "40e2e6665bbe9eb7",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "file": "md/STAR_FEATURES_ANALYSIS.md",
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "Backlinks for STAR_FEATURES_ANALYSIS"
+            }
+          },
+          {
+            "id": "a1ddcd7ffa5fa641",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "file": "md/STAR_FEATURES_ANALYSIS.md",
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "Outgoing links from STAR_FEATURES_ANALYSIS"
+            }
+          },
+          {
+            "id": "f5ef87b669512a5f",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "Tags"
+            }
+          },
+          {
+            "id": "b802d3a99525c452",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "All properties"
+            }
+          },
+          {
+            "id": "0ace3d517c35e19a",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "md/STAR_FEATURES_ANALYSIS.md",
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "Outline of STAR_FEATURES_ANALYSIS"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:Open quick switcher": false,
+      "graph:Open graph view": false,
+      "canvas:Create new canvas": false,
+      "daily-notes:Open today's daily note": false,
+      "templates:Insert template": false,
+      "command-palette:Open command palette": false,
+      "bases:Create new base": false
+    }
+  },
+  "active": "454d2d7629fe1529",
+  "lastOpenFiles": [
+    "frontend/test-results",
+    "frontend/playwright-report/data/5eceb3e6df3e03f9bcaa1a61596babf0c7fbde3e.webm",
+    "frontend/playwright-report/data/8852c12e853f7eb3dfbace72f02b9cee260ae5b0.webm",
+    "frontend/playwright-report/data/a966ef2091970fd62c3a61ba8a1513f6be40db18.md",
+    "frontend/playwright-report/data/27ec3633b8ef7213c070503e3ec9af4bb87a5b9f.png",
+    "frontend/playwright-report/data",
+    "frontend/test-results/student-learning-flows-stu-71b29-ata-for-image-uploads-smoke-Mobile-Chrome/error-context.md",
+    "frontend/test-results/student-learning-flows-stu-71b29-ata-for-image-uploads-smoke-Mobile-Chrome/video.webm",
+    "frontend/test-results/student-learning-flows-stu-71b29-ata-for-image-uploads-smoke-Mobile-Chrome/test-failed-1.png",
+    "frontend/test-results/student-learning-flows-stu-71b29-ata-for-image-uploads-smoke-Mobile-Chrome",
+    "backend-e2e.pid",
+    "backend/vidyaos_demo.db-journal",
+    "INDEX.md",
+    "backend/src/domains/mascot/services/__pycache__/signal_extractor.cpython-314.pyc",
+    "backend/src/domains/mascot/services/__pycache__/mascot_agent.cpython-314.pyc",
+    "backend/src/domains/mascot/services/__pycache__/prompt_builder.cpython-314.pyc",
+    "frontend/test-results/smoke-landing-page-renders-smoke-Mobile-Chrome/error-context.md",
+    "frontend/test-results/student-learning-flows-stu-71b29-ata-for-image-uploads-smoke-Tablet/error-context.md",
+    "frontend/playwright-report/data/54c54ce7a1481743e12b18f086300d26e940fd0a.md",
+    "frontend/playwright-report/data/b37757e1722e54f3dc5686023f05d0f0e0502418.md",
+    "frontend/playwright-report/data/e19e4f9b6345a05740b6c8c31005e098f58d7ed2.md",
+    "frontend/test-results/student-learning-flows-stu-485ca-ders-grounded-results-smoke-Tablet/error-context.md",
+    "frontend/test-results/student-learning-flows-stu-71b29-ata-for-image-uploads-smoke-Desktop-Small/error-context.md",
+    "frontend/test-results/student-learning-flows-stu-485ca-ders-grounded-results-smoke-Desktop-Small/error-context.md",
+    "frontend/test-results/smoke-landing-page-renders-smoke-Tablet/error-context.md",
+    "Untitled.canvas",
+    "2026-04-13.md"
+  ]
+}

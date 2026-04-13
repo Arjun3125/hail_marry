@@ -26,8 +26,8 @@ BADGES = [
 
 def record_login(db: Session, user_id: UUID, tenant_id: UUID) -> LoginStreak:
     """Update the user's login streak. Call on each authenticated session."""
-    today = date.today()
-    streak = db.query(LoginStreak).filter(
+    today: date = date.today()
+    streak: LoginStreak | None = db.query(LoginStreak).filter(
         LoginStreak.user_id == user_id,
         LoginStreak.tenant_id == tenant_id,
     ).first()
@@ -67,7 +67,7 @@ def get_badges(streak: LoginStreak) -> list[dict[str, Any]]:
     """Return badges earned based on streak thresholds."""
     earned = []
     for badge in BADGES:
-        value = getattr(streak, badge["field"], 0)
+        value: Any | int = getattr(streak, badge["field"], 0)
         if value >= badge["threshold"]:
             earned.append({
                 "id": badge["id"],
@@ -80,7 +80,7 @@ def get_badges(streak: LoginStreak) -> list[dict[str, Any]]:
 
 def get_streak_info(db: Session, user_id: UUID, tenant_id: UUID) -> dict[str, Any]:
     """Return full streak + badge data for the student dashboard."""
-    streak = db.query(LoginStreak).filter(
+    streak: LoginStreak | None = db.query(LoginStreak).filter(
         LoginStreak.user_id == user_id,
         LoginStreak.tenant_id == tenant_id,
     ).first()

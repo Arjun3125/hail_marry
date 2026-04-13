@@ -8,7 +8,9 @@ from passlib.context import CryptContext
 
 @lru_cache(maxsize=1)
 def get_password_context() -> CryptContext:
-    return CryptContext(schemes=["bcrypt"], deprecated="auto")
+    import sys
+    _bcrypt_rounds = 4 if "pytest" in sys.modules else 12
+    return CryptContext(schemes=["bcrypt"], deprecated="auto", bcrypt__rounds=_bcrypt_rounds)
 
 
 def hash_password(value: str) -> str:

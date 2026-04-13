@@ -1,5 +1,6 @@
 """Student-facing API routes — dashboard, attendance, results, timetable, assignments, lectures, complaints, upload."""
 import logging
+from pathlib import Path
 from typing import Any, Optional
 from uuid import UUID
 
@@ -127,15 +128,15 @@ from constants import (
 
 router = APIRouter(prefix="/api/student", tags=["Student"])
 
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 DEMO_NOTICE = "Demo mode preview. This response is mock content and not grounded in uploaded materials."
-DEMO_SOURCES = ["demo-mode"]
+DEMO_SOURCES: list[str] = ["demo-mode"]
 
-UPLOAD_DIR = ensure_storage_dir("uploads")
-STUDENT_ALLOWED_EXTENSIONS = STUDENT_ALLOWED_EXTENSIONS_CONST
-MAX_FILE_SIZE = STUDENT_MAX_FILE_SIZE
-ASSIGNMENT_SUBMISSION_DIR = ensure_storage_dir("uploads", "assignment_submissions")
-OCR_OUTPUT_DIR = ensure_storage_dir("uploads", "ocr_output")
+UPLOAD_DIR: Path = ensure_storage_dir("uploads")
+STUDENT_ALLOWED_EXTENSIONS: set[str] = STUDENT_ALLOWED_EXTENSIONS_CONST
+MAX_FILE_SIZE: int = STUDENT_MAX_FILE_SIZE
+ASSIGNMENT_SUBMISSION_DIR: Path = ensure_storage_dir("uploads", "assignment_submissions")
+OCR_OUTPUT_DIR: Path = ensure_storage_dir("uploads", "ocr_output")
 
 
 class ComplaintCreate(BaseModel):
@@ -194,7 +195,7 @@ def _record_mastery_outcome_metrics(
             metadata={"topic": topic},
         )
 
-    active_plan = get_active_study_path_for_topic(
+    active_plan: dict[str, Any] | None = get_active_study_path_for_topic(
         db,
         tenant_id=current_user.tenant_id,
         user_id=current_user.id,
@@ -275,7 +276,7 @@ async def student_overview_bootstrap(
         )
     except Exception:
         logger.exception("Failed to build student study path bootstrap for user %s", current_user.id)
-        study_path = {"plan": None}
+        study_path: dict[str, None] = {"plan": None}
 
     return {
         "dashboard": _build_student_dashboard_response_impl(
@@ -324,7 +325,7 @@ async def student_overview_bootstrap(
 async def student_attendance(
     current_user: User = Depends(require_role("student")),
     db: Session = Depends(get_db),
-):
+) -> list[dict[str, str]]:
     """List student's attendance records."""
     return _list_student_attendance_impl(
         db=db,
@@ -337,7 +338,7 @@ async def student_attendance(
 async def student_mastery_map(
     current_user: User = Depends(require_role("student")),
     db: Session = Depends(get_db),
-):
+) -> dict[str, object]:
     """Get the student's mastery map from live profile and topic records."""
     return _build_student_mastery_map_impl(
         db=db,
@@ -350,7 +351,7 @@ async def student_mastery_map(
 async def student_results(
     current_user: User = Depends(require_role("student")),
     db: Session = Depends(get_db),
-):
+) -> list[dict[str, Any]]:
     """Get student's exam results grouped by subject."""
     return _build_student_results_impl(
         db=db,
@@ -363,7 +364,7 @@ async def student_results(
 async def student_result_trends(
     current_user: User = Depends(require_role("student")),
     db: Session = Depends(get_db),
-):
+) -> list[dict[str, Any]]:
     """Get chronological marks trend by subject for charting."""
     return _build_student_result_trends_impl(
         db=db,
@@ -376,7 +377,7 @@ async def student_result_trends(
 async def student_timetable(
     current_user: User = Depends(require_role("student")),
     db: Session = Depends(get_db),
-):
+) -> list[dict[str, object]]:
     """Get student's weekly timetable."""
     return _list_student_timetable_impl(
         db=db,
@@ -389,7 +390,7 @@ async def student_timetable(
 async def student_assignments(
     current_user: User = Depends(require_role("student")),
     db: Session = Depends(get_db),
-):
+) -> list[dict[str, object]]:
     """Get student's assignments with submission status."""
     return _list_student_assignments_impl(
         db=db,
@@ -404,9 +405,9 @@ async def submit_assignment(
     file: UploadFile = File(...),
     current_user: User = Depends(require_role("student")),
     db: Session = Depends(get_db),
-):
+) -> dict[str, Any]:
     """Upload or replace student's assignment submission."""
-    assignment_uuid = _parse_uuid(assignment_id, "assignment_id")
+    assignment_uuid: UUID = _parse_uuid(assignment_id, "assignment_id")
     try:
         return await _submit_student_assignment_impl(
             db=db,
@@ -429,7 +430,7 @@ async def submit_assignment(
 async def student_lectures(
     current_user: User = Depends(require_role("student")),
     db: Session = Depends(get_db),
-):
+) -> list[dict[str, object]]:
     """List lectures available to student."""
     return _list_student_lectures_impl(
         db=db,
@@ -442,7 +443,7 @@ async def student_lectures(
 async def student_complaints(
     current_user: User = Depends(require_role("student")),
     db: Session = Depends(get_db),
-):
+) -> list[dict[str, str]]:
     """List student's complaints."""
     return _list_student_complaints_impl(
         db=db,
@@ -456,7 +457,7 @@ async def create_complaint(
     data: ComplaintCreate,
     current_user: User = Depends(require_role("student")),
     db: Session = Depends(get_db),
-):
+) -> dict[str, object]:
     """Submit a new complaint."""
     return _create_student_complaint_impl(
         db=db,
@@ -473,9 +474,9 @@ async def generate_study_tool(
     data: StudyToolGenerateRequest,
     current_user: User = Depends(require_role("student")),
     db: Session = Depends(get_db),
-):
+) -> dict[str, Any]:
     """Generate structured study tools from student's grounded materials."""
-    topic = data.topic.strip()
+    topic: str = data.topic.strip()
     if not topic:
         raise HTTPException(status_code=400, detail="topic is required")
     try:
@@ -501,9 +502,9 @@ async def generate_study_tool_job(
     data: StudyToolGenerateRequest,
     current_user: User = Depends(require_role("student")),
     db: Session = Depends(get_db),
-):
+) -> dict[str, Any]:
     """Queue structured study tool generation for worker execution."""
-    topic = data.topic.strip()
+    topic: str = data.topic.strip()
     if not topic:
         raise HTTPException(status_code=400, detail="topic is required")
     try:
@@ -534,7 +535,7 @@ async def submit_quiz_result(
     data: QuizResultSubmitRequest,
     current_user: User = Depends(require_role("student")),
     db: Session = Depends(get_db),
-):
+) -> dict[str, Any]:
     """Persist quiz performance as mastery evidence for adaptive learning."""
     try:
         return _process_student_quiz_result_impl(
@@ -567,7 +568,7 @@ async def student_upload(
     file: UploadFile = File(...),
     current_user: User = Depends(require_role("student")),
     db: Session = Depends(get_db),
-):
+) -> dict[str, Any]:
     """
     Student uploads study materials (PDF, DOCX, PPTX, XLSX, or OCR images).
     Uploaded files are ingested into the RAG pipeline.
@@ -600,7 +601,7 @@ async def student_uploads(
     db: Session = Depends(get_db),
     page: int = 1,
     page_size: int = 20,
-):
+) -> dict[str, object]:
     """List files uploaded by this student (paginated)."""
     return _list_student_uploads_impl(
         db=db,
@@ -617,7 +618,7 @@ async def student_study_tool_history(
     db: Session = Depends(get_db),
     tool: str | None = None,
     limit: int = 8,
-):
+) -> dict[str, Any]:
     """List recently generated study artifacts for seeded demo recovery and history panels."""
     return _list_student_study_tool_history_impl(
         db=db,
@@ -632,7 +633,7 @@ async def student_study_tool_history(
 async def student_profile_summary(
     current_user: User = Depends(require_role("student")),
     db: Session = Depends(get_db),
-):
+) -> dict[str, Any]:
     """Return six-month activity summary for the student profile surface."""
     return _build_student_profile_summary_impl(
         db=db,
@@ -646,7 +647,7 @@ async def student_profile_summary(
 async def student_weak_topics(
     current_user: User = Depends(require_role("student")),
     db: Session = Depends(get_db),
-):
+) -> dict[str, object]:
     """
     Get the student's weak topics based on subject_performance.
     Returns subjects where average score < 60%.
@@ -673,7 +674,7 @@ class ReviewCompleteRequest(BaseModel):
 async def student_reviews(
     current_user: User = Depends(require_role("student")),
     db: Session = Depends(get_db),
-):
+) -> dict[str, Any]:
     """Get student's spaced repetition review cards (due and upcoming)."""
     return _list_student_reviews_impl(
         db=db,
@@ -687,7 +688,7 @@ async def create_review(
     data: ReviewCreateRequest,
     current_user: User = Depends(require_role("student")),
     db: Session = Depends(get_db),
-):
+) -> dict[str, Any]:
     """Create a new spaced repetition review card."""
     try:
         return _create_student_review_impl(
@@ -709,7 +710,7 @@ async def complete_review(
     data: ReviewCompleteRequest,
     current_user: User = Depends(require_role("student")),
     db: Session = Depends(get_db),
-):
+) -> dict[str, Any]:
     """Mark a review as completed with quality self-rating (SM-2)."""
     try:
         return _complete_student_review_impl(
@@ -744,7 +745,7 @@ async def complete_review(
 async def student_streaks(
     current_user: User = Depends(require_role("student")),
     db: Session = Depends(get_db),
-):
+) -> dict[str, Any]:
     """Get student's login streak, longest streak, and earned badges."""
     return _get_student_streak_overview_impl(
         db=db,
@@ -761,7 +762,7 @@ async def student_streaks(
 async def student_weakness_alerts(
     current_user: User = Depends(require_role("student")),
     db: Session = Depends(get_db),
-):
+) -> list[dict[str, Any]]:
     """Get proactive alerts for subjects where the student is below 60%."""
     return _get_student_weakness_alerts_impl(
         db=db,
@@ -777,7 +778,7 @@ async def student_weakness_alerts(
 async def list_test_series(
     current_user: User = Depends(require_role("student")),
     db: Session = Depends(get_db),
-):
+) -> list[dict[str, Any]]:
     """List all active test series available to the student."""
     return _list_student_test_series_impl(
         db=db,
@@ -791,7 +792,7 @@ async def view_leaderboard(
     series_id: str,
     current_user: User = Depends(require_role("student")),
     db: Session = Depends(get_db),
-):
+) -> dict[str, Any]:
     """View the leaderboard for a test series."""
     return _get_student_test_series_leaderboard_impl(
         db=db,
@@ -806,7 +807,7 @@ async def my_rank(
     series_id: str,
     current_user: User = Depends(require_role("student")),
     db: Session = Depends(get_db),
-):
+) -> dict[str, Any]:
     """Get the student's rank in a test series."""
     return _get_student_test_series_rank_impl(
         db=db,
@@ -828,7 +829,7 @@ async def submit_mock_test(
     data: MockTestSubmission,
     current_user: User = Depends(require_role("student")),
     db: Session = Depends(get_db),
-):
+) -> dict[str, Any]:
     """Submit a mock test attempt and get updated rankings."""
     try:
         return _submit_student_mock_test_impl(
@@ -852,7 +853,7 @@ async def submit_mock_test(
 async def student_mastery_map_v2(
     current_user: User = Depends(require_role("student")),
     db: Session = Depends(get_db),
-):
+) -> dict[str, object]:
     """Get the student's full sub-topic mastery map backed by real unified records."""
     return _build_student_mastery_map_impl(
         db=db,

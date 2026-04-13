@@ -137,8 +137,6 @@ export default function ResultsPage() {
         return [...filteredSubjects].sort((a, b) => b.avg - a.avg)[0];
     }, [filteredSubjects]);
 
-    const subjectCount = subjects.length;
-
     return (
         <PrismPage variant="workspace" className="space-y-6">
             <PrismSection className="space-y-6">
