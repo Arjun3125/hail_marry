@@ -191,8 +191,7 @@ test.describe("AI Studio - Desktop (1280px)", { tag: "@desktop @ai-studio" }, ()
         await expect(page).toHaveTitle(/VidyaOS/i);
         await expectNoHorizontalScroll(page);
 
-        // Desktop should have full sidebar
-        const sidebar = await page.locator("nav, aside").first().isVisible();
-        expect(sidebar).toBeTruthy();
+        // Desktop should have full sidebar — use retrying assertion to survive React hydration delay
+        await expect(page.locator("nav, aside").first()).toBeVisible({ timeout: 10000 });
     });
 });

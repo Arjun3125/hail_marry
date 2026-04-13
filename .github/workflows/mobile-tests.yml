@@ -1,8 +1,5 @@
 name: Mobile Responsiveness Tests
 
-env:
-  PYTHON_VERSION: "3.11"
-
 on:
   push:
     branches: [ main, develop ]
@@ -26,13 +23,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          cache: pip
-          cache-dependency-path: backend/requirements.txt
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -49,31 +39,11 @@ jobs:
         working-directory: frontend
         run: npm run build
 
-      - name: Setup backend
-        working-directory: backend
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt
-
-      - name: Start backend
-        working-directory: backend
-        run: |
-          python main.py &
-          sleep 10
-
       - name: Run mobile responsiveness tests
         working-directory: frontend
         run: npm run test:e2e:responsive
         env:
-          BASE_URL: http://localhost:8000
-          STUDENT_EMAIL: student@vidyaos.test
-          STUDENT_PASSWORD: password123
-          TEACHER_EMAIL: teacher@vidyaos.test
-          TEACHER_PASSWORD: password123
-          PARENT_EMAIL: parent@vidyaos.test
-          PARENT_PASSWORD: password123
-          ADMIN_EMAIL: admin@vidyaos.test
-          ADMIN_PASSWORD: password123
+          CI: "true"
 
       - uses: actions/upload-artifact@v4
         if: always()
