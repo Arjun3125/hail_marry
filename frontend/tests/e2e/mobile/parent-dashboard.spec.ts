@@ -54,6 +54,22 @@ test.describe("Parent Dashboard - Mobile (360px)", { tag: "@mobile @parent" }, (
                 }),
             });
         });
+
+        await page.route("**/api/parent/dashboard**", (route) => {
+            route.fulfill({
+                status: 200,
+                contentType: "application/json",
+                body: JSON.stringify({
+                    child: { id: "child-1", name: "Rajesh Kumar", email: "rajesh@example.com", class: "10-A" },
+                    attendance_pct: 92,
+                    avg_marks: 78,
+                    pending_assignments: 2,
+                    next_assignment: { title: "Math Homework", subject: "Mathematics", due: "2026-04-20" },
+                    latest_mark: { subject: "Science", exam: "Unit Test 3", percentage: 82, date: "2026-04-10" },
+                    summary: { assignments_submitted: 5, study_sessions: 8, ai_requests: 12, generated_tools: 3, latest_ai_session: null },
+                }),
+            });
+        });
     });
 
     test("parent dashboard loads without horizontal scroll", async ({ page }) => {

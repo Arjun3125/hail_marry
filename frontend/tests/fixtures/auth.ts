@@ -62,6 +62,11 @@ export async function authenticateAs(page: Page, role: "student" | "teacher" | "
         window.localStorage.setItem("teacher-onboarding", onboardingCompleted);
         window.localStorage.setItem("admin-onboarding", onboardingCompleted);
         window.localStorage.setItem("parent-onboarding", onboardingCompleted);
+
+        // Skip AI Studio intent selector so workspace renders directly (sidebar visible)
+        if (userData.role === "student") {
+            window.localStorage.setItem("student-ai-studio-intent", "understand_topic");
+        }
         
     }, {
         token: `mock-token-${role}`,

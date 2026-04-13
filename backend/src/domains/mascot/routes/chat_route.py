@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from src.bootstrap.app_factory import get_db_session
+from database import get_db as get_db_session
 from src.domains.identity.models.user import User
 from src.domains.mascot.services.mascot_agent import run_mascot_agent
 from auth.dependencies import get_current_user
@@ -41,7 +41,7 @@ async def chat_with_mascot(
     session_id = request.session_id or str(uuid.uuid4())
 
     # Get conversation history (simplified - would need proper history management)
-    conversation_history = []  # TODO: Implement proper conversation history retrieval
+    conversation_history: list[dict] = []  # TODO: Implement proper conversation history retrieval
 
     # Get student name
     student_name = current_user.full_name or "Student"

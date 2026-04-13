@@ -7,7 +7,7 @@ from typing import Dict
 
 from sqlalchemy.orm import Session
 
-from src.bootstrap.app_factory import get_db_session
+from database import get_db as get_db_session
 from src.domains.mascot.services.profile_manager import promote_signals_to_profile
 
 logger = logging.getLogger(__name__)

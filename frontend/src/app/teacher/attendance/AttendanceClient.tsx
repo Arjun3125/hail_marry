@@ -533,7 +533,7 @@ export default function TeacherAttendanceClient() {
                                                             <td className="text-center">
                                                                 <button
                                                                     onClick={() => toggleStatus(student.id)}
-                                                                    className={`inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-xs font-medium transition hover:-translate-y-0.5 ${cfg.bg} ${cfg.color} ${cfg.ring}`}
+                                                                    className={`inline-flex min-h-[44px] items-center gap-1.5 rounded-full border px-4 py-3 text-xs font-medium transition hover:-translate-y-0.5 ${cfg.bg} ${cfg.color} ${cfg.ring}`}
                                                                 >
                                                                     <Icon className="h-3.5 w-3.5" />
                                                                     {status}

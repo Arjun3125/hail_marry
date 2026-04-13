@@ -224,7 +224,7 @@ export function ParentDashboardClient({ initialData = null }: { initialData?: un
 }
 
 function MetricCard({ icon: Icon, title, value, summary }: { icon: typeof CalendarCheck; title: string; value: string; summary: string }) {
-    return <PrismPanel className="p-6"><div className="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-[rgba(249,115,22,0.12)] text-status-orange"><Icon className="h-5 w-5" /></div><p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-muted)]">{title}</p><p className="mt-2 text-3xl font-black text-[var(--text-primary)]">{value}</p><p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">{summary}</p></PrismPanel>;
+    return <PrismPanel data-testid="metric-card" className="p-6"><div className="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-[rgba(249,115,22,0.12)] text-status-orange"><Icon className="h-5 w-5" /></div><p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-muted)]">{title}</p><p className="mt-2 text-3xl font-black text-[var(--text-primary)]">{value}</p><p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">{summary}</p></PrismPanel>;
 }
 
 function HighlightRow({ title, detail }: { title: string; detail: string }) {

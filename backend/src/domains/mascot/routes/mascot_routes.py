@@ -8,7 +8,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from src.bootstrap.app_factory import get_db_session
+from database import get_db as get_db_session
 from src.domains.identity.models.user import User
 from auth.dependencies import get_current_user
 from src.domains.mascot.models.conversation import ConversationTurnRead

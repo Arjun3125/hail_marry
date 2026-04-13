@@ -266,7 +266,7 @@ export default function Sidebar({ items, role, userName }: SidebarProps) {
             <div className="fixed left-0 right-0 top-0 z-50 flex h-16 items-center gap-3 border-b border-[var(--border)] bg-[rgba(8,14,28,0.9)] px-4 backdrop-blur-xl lg:hidden">
                 <button
                     onClick={() => setMobileOpen(true)}
-                    className="rounded-xl p-2 text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] active:bg-[var(--border)]"
+                    className="flex h-11 w-11 items-center justify-center rounded-xl text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] active:bg-[var(--border)]"
                     aria-label="Open menu"
                 >
                     <Menu className="h-5 w-5" />
