@@ -105,7 +105,7 @@ export function ToolRail({ activeTool, onToolChange, collapsed, onToggleCollapse
 
                     <button
                         onClick={onToggleCollapse}
-                        className="rounded-xl border border-[var(--border)] bg-[rgba(148,163,184,0.06)] p-2 text-[var(--text-muted)] transition hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
+                        className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-[var(--border)] bg-[rgba(148,163,184,0.06)] p-2 text-[var(--text-muted)] transition hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
                         title={collapsed ? "Expand tool rail" : "Collapse tool rail"}
                     >
                         {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}

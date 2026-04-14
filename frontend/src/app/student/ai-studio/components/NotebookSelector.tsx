@@ -133,7 +133,7 @@ export function NotebookSelector({ activeNotebookId, onNotebookChange, onCreateN
         <div className="border-b border-[var(--border)]/80">
             <button
                 onClick={() => setIsOpen((prev) => !prev)}
-                className="w-full px-4 py-4 transition-colors hover:bg-[rgba(148,163,184,0.04)]"
+                className="w-full min-h-[44px] px-4 py-4 transition-colors hover:bg-[rgba(148,163,184,0.04)]"
             >
                 <div className="flex items-center justify-between gap-3">
                     <div className="flex min-w-0 items-center gap-3">
@@ -202,14 +202,14 @@ export function NotebookSelector({ activeNotebookId, onNotebookChange, onCreateN
                                 <div className="flex items-center justify-end gap-2 pt-1">
                                     <button
                                         onClick={() => setShowCreateForm(false)}
-                                        className="rounded-xl px-3 py-1.5 text-xs font-medium text-[var(--text-muted)] transition hover:text-[var(--text-primary)]"
+                                        className="inline-flex min-h-[44px] items-center rounded-xl px-3 py-1.5 text-xs font-medium text-[var(--text-muted)] transition hover:text-[var(--text-primary)]"
                                     >
                                         Cancel
                                     </button>
                                     <button
                                         onClick={handleCreate}
                                         disabled={!createName.trim()}
-                                        className="rounded-xl bg-[linear-gradient(135deg,rgba(96,165,250,0.96),rgba(129,140,248,0.92))] px-3 py-1.5 text-xs font-semibold text-[#06101e] disabled:opacity-50"
+                                        className="inline-flex min-h-[44px] items-center rounded-xl bg-[linear-gradient(135deg,rgba(96,165,250,0.96),rgba(129,140,248,0.92))] px-3 py-1.5 text-xs font-semibold text-[#06101e] disabled:opacity-50"
                                     >
                                         Create
                                     </button>
@@ -250,12 +250,12 @@ export function NotebookSelector({ activeNotebookId, onNotebookChange, onCreateN
                                                     if (event.key === "Escape") setEditingNotebook(null);
                                                 }}
                                             />
-                                            <button
-                                                onClick={() => void handleRename(notebook)}
-                                                className="rounded-lg p-1 text-status-emerald transition hover:bg-[rgba(16,185,129,0.12)]"
-                                            >
-                                                <Check className="h-4 w-4" />
-                                            </button>
+                                                    <button
+                                                        onClick={() => void handleRename(notebook)}
+                                                        className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg p-1 text-status-emerald transition hover:bg-[rgba(16,185,129,0.12)]"
+                                                    >
+                                                        <Check className="h-4 w-4" />
+                                                    </button>
                                         </div>
                                     ) : (
                                         <>
@@ -288,7 +288,7 @@ export function NotebookSelector({ activeNotebookId, onNotebookChange, onCreateN
                                                             setEditingNotebook(notebook);
                                                             setEditName(notebook.name);
                                                         }}
-                                                        className="rounded-lg p-1 text-[var(--text-muted)] transition hover:bg-[rgba(148,163,184,0.08)] hover:text-[var(--text-primary)]"
+                                                        className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg p-1 text-[var(--text-muted)] transition hover:bg-[rgba(148,163,184,0.08)] hover:text-[var(--text-primary)]"
                                                     >
                                                         <Edit2 className="h-3 w-3" />
                                                     </button>
@@ -297,7 +297,7 @@ export function NotebookSelector({ activeNotebookId, onNotebookChange, onCreateN
                                                             event.stopPropagation();
                                                             void handleDelete(notebook.id);
                                                         }}
-                                                        className="rounded-lg p-1 text-[var(--text-muted)] transition hover:bg-[rgba(239,68,68,0.12)] hover:text-status-red"
+                                                        className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg p-1 text-[var(--text-muted)] transition hover:bg-[rgba(239,68,68,0.12)] hover:text-status-red"
                                                     >
                                                         <Trash2 className="h-3 w-3" />
                                                     </button>
@@ -316,7 +316,7 @@ export function NotebookSelector({ activeNotebookId, onNotebookChange, onCreateN
                                 setShowCreateForm((prev) => !prev);
                                 setSearch("");
                             }}
-                            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-[var(--border)] bg-[rgba(148,163,184,0.05)] px-3 py-2.5 text-sm font-medium text-[var(--text-primary)] transition hover:border-[var(--border-strong)] hover:bg-[rgba(148,163,184,0.08)]"
+                            className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-2xl border border-[var(--border)] bg-[rgba(148,163,184,0.05)] px-3 py-2.5 text-sm font-medium text-[var(--text-primary)] transition hover:border-[var(--border-strong)] hover:bg-[rgba(148,163,184,0.08)]"
                         >
                             {showCreateForm ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
                             {showCreateForm ? "Close composer" : "Create notebook"}

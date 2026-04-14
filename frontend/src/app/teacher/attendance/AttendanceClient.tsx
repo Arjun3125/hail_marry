@@ -352,7 +352,7 @@ export default function TeacherAttendanceClient() {
                                 </p>
                             </div>
                             <button
-                                className="inline-flex items-center gap-2 rounded-2xl bg-[linear-gradient(135deg,rgba(96,165,250,0.96),rgba(129,140,248,0.94))] px-4 py-2.5 text-sm font-semibold text-[#06101e] shadow-[0_18px_34px_rgba(96,165,250,0.22)] transition-all hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+                                className="inline-flex min-h-[44px] items-center gap-2 rounded-2xl bg-[linear-gradient(135deg,rgba(96,165,250,0.96),rgba(129,140,248,0.94))] px-4 py-2.5 text-sm font-semibold text-[#06101e] shadow-[0_18px_34px_rgba(96,165,250,0.22)] transition-all hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
                                 onClick={() => void saveAttendance()}
                                 disabled={saving || importing || !selectedClass}
                             >
@@ -392,7 +392,7 @@ export default function TeacherAttendanceClient() {
 
                                 <label className="space-y-2">
                                     <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">OCR import</span>
-                                    <span className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-2xl border border-[var(--primary)]/20 bg-[var(--primary-light)] px-4 py-3 text-sm font-medium text-[var(--primary)] transition-colors hover:bg-[var(--primary)] hover:text-white">
+                                    <span className="inline-flex min-h-[44px] cursor-pointer items-center justify-center gap-2 rounded-2xl border border-[var(--primary)]/20 bg-[var(--primary-light)] px-4 py-3 text-sm font-medium text-[var(--primary)] transition-colors hover:bg-[var(--primary)] hover:text-white">
                                         <Upload className="h-4 w-4" />
                                         {importing ? "Importing..." : "Import OCR / CSV"}
                                         <input
