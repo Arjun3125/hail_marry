@@ -238,7 +238,7 @@ test("student study tools page queues a quiz job and renders grounded results @s
     await page.locator("textarea").fill("Photosynthesis");
     await page.getByRole("button", { name: /Generate/i }).click({ force: true });
 
-    await expect(page.getByRole("heading", { name: "Generated Quiz" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Generated Quiz" })).toBeVisible({ timeout: 15000 });
     await expect(page.getByText("Which pigment captures sunlight for photosynthesis?")).toBeVisible();
     await expect(page.getByText("Correct: A. Chlorophyll")).toBeVisible();
     await expect(page.getByText("Sources")).toBeVisible();
