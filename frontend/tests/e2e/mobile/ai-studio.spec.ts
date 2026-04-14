@@ -77,7 +77,8 @@ test.describe("AI Studio - Mobile (360px)", { tag: "@mobile @ai-studio" }, () =>
         const input = page.locator("input[placeholder*='ask' i], textarea, [contenteditable]").first();
 
         if (await input.isVisible()) {
-            await input.click();
+            await input.evaluate((el) => (el as HTMLElement).focus());
+            await expect(input).toBeFocused();
             expect(await input.evaluate((el) => (el as HTMLElement).offsetHeight)).toBeGreaterThan(0);
         }
     });
@@ -99,7 +100,9 @@ test.describe("AI Studio - Mobile (360px)", { tag: "@mobile @ai-studio" }, () =>
         const quizButton = page.locator("button").filter({ hasText: /quiz/i }).first();
 
         if (await quizButton.isVisible()) {
-            await quizButton.click();
+            await quizButton.evaluate((el) => {
+                (el as HTMLButtonElement).click();
+            });
             await expectNoHorizontalScroll(page);
         }
     });

@@ -354,3 +354,17 @@ All test suites are active and executing:
 - E2E tests: ⏳ In progress
 
 **Next:** Await E2E completion and backend pytest final results
+
+---
+
+## Related
+- [[INDEX]] — Knowledge hub
+- [[TEST_EXECUTION_SUMMARY_COMPLETE]] — Complete results table
+- [[TEST_EXECUTION_PROCEDURES]] — How tests were run
+- [[BACKEND_TEST_FIXES_SUMMARY]] — Backend test fix log
+- [[FRONTEND_E2E_INFRASTRUCTURE_FIX]] — E2E config fix
+- [[PRODUCTION_READINESS_REPORTS_INDEX]] — Reports overview
+- [[COMPREHENSIVE_PRODUCTION_READINESS_REPORT]] — Full report
+- [[CODE_QUALITY_IMPROVEMENTS]]
+- [[EXECUTIVE_BRIEFING]]
+- [[production_readiness_report]]

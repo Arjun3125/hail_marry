@@ -358,7 +358,7 @@ function ComposerBox({ activeTool }: { activeTool: string }) {
     const config = toolConfig[activeTool] || toolConfig.qa;
 
     return (
-        <div className="border-t border-[var(--border)]/80 bg-[rgba(255,255,255,0.02)] p-4">
+        <div className="sticky bottom-0 z-10 border-t border-[var(--border)]/80 bg-[rgba(12,19,32,0.96)] p-4 pb-[calc(var(--bottom-nav-height)+0.75rem)] backdrop-blur-md lg:pb-4">
             <ComposerPrimitive.Root className="relative">
                 <div className="flex items-end gap-2 rounded-[1.35rem] border border-[var(--border)] bg-[rgba(8,15,30,0.78)] p-2 shadow-[0_18px_36px_rgba(2,6,23,0.2)] transition-all focus-within:border-[var(--primary)] focus-within:ring-2 focus-within:ring-[var(--primary)]/40">
                     <ComposerPrimitive.Input
@@ -612,7 +612,7 @@ function AssistantStudioThread({
                     </div>
                 </div>
 
-                <ThreadPrimitive.Root className="flex min-h-0 flex-1 flex-row">
+                <ThreadPrimitive.Root className="flex min-h-0 flex-1 flex-col lg:flex-row">
                     <div className="flex flex-1 flex-col overflow-hidden">
                         <ThreadPrimitive.Viewport className="flex-1 overflow-y-auto px-6 py-5">
                             <ThreadPrimitive.Empty>

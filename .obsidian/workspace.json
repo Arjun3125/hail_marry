@@ -11,24 +11,10 @@
             "id": "454d2d7629fe1529",
             "type": "leaf",
             "state": {
-              "type": "markdown",
-              "state": {
-                "file": "md/STAR_FEATURES_ANALYSIS.md",
-                "mode": "source",
-                "source": false,
-                "backlinks": true,
-                "backlinkOpts": {
-                  "collapseAll": false,
-                  "extraContext": false,
-                  "sortOrder": "alphabetical",
-                  "showSearch": false,
-                  "searchQuery": "",
-                  "backlinkCollapsed": false,
-                  "unlinkedCollapsed": true
-                }
-              },
-              "icon": "lucide-file",
-              "title": "STAR_FEATURES_ANALYSIS"
+              "type": "graph",
+              "state": {},
+              "icon": "lucide-git-fork",
+              "title": "Graph view"
             }
           }
         ]
@@ -104,7 +90,6 @@
             "state": {
               "type": "backlink",
               "state": {
-                "file": "md/STAR_FEATURES_ANALYSIS.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -114,7 +99,7 @@
                 "unlinkedCollapsed": true
               },
               "icon": "links-coming-in",
-              "title": "Backlinks for STAR_FEATURES_ANALYSIS"
+              "title": "Backlinks"
             }
           },
           {
@@ -123,12 +108,12 @@
             "state": {
               "type": "outgoing-link",
               "state": {
-                "file": "md/STAR_FEATURES_ANALYSIS.md",
+                "file": "frontend/node_modules/jose/README.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               },
               "icon": "links-going-out",
-              "title": "Outgoing links from STAR_FEATURES_ANALYSIS"
+              "title": "Outgoing links from README"
             }
           },
           {
@@ -166,21 +151,20 @@
             "state": {
               "type": "outline",
               "state": {
-                "file": "md/STAR_FEATURES_ANALYSIS.md",
+                "file": "frontend/node_modules/jose/README.md",
                 "followCursor": false,
                 "showSearch": false,
                 "searchQuery": ""
               },
               "icon": "lucide-list",
-              "title": "Outline of STAR_FEATURES_ANALYSIS"
+              "title": "Outline of README"
             }
           }
         ]
       }
     ],
     "direction": "horizontal",
-    "width": 300,
-    "collapsed": true
+    "width": 300
   },
   "left-ribbon": {
     "hiddenItems": {
@@ -195,32 +179,52 @@
   },
   "active": "454d2d7629fe1529",
   "lastOpenFiles": [
+    "frontend/node_modules/jose/README.md",
+    "repo/llama_index/docs/api_reference/api_reference/llms/you.md",
+    "frontend/test-results/junit.xml",
     "frontend/test-results",
-    "frontend/playwright-report/data/5eceb3e6df3e03f9bcaa1a61596babf0c7fbde3e.webm",
-    "frontend/playwright-report/data/8852c12e853f7eb3dfbace72f02b9cee260ae5b0.webm",
-    "frontend/playwright-report/data/a966ef2091970fd62c3a61ba8a1513f6be40db18.md",
-    "frontend/playwright-report/data/27ec3633b8ef7213c070503e3ec9af4bb87a5b9f.png",
-    "frontend/playwright-report/data",
-    "frontend/test-results/student-learning-flows-stu-71b29-ata-for-image-uploads-smoke-Mobile-Chrome/error-context.md",
-    "frontend/test-results/student-learning-flows-stu-71b29-ata-for-image-uploads-smoke-Mobile-Chrome/video.webm",
-    "frontend/test-results/student-learning-flows-stu-71b29-ata-for-image-uploads-smoke-Mobile-Chrome/test-failed-1.png",
-    "frontend/test-results/student-learning-flows-stu-71b29-ata-for-image-uploads-smoke-Mobile-Chrome",
-    "backend-e2e.pid",
-    "backend/vidyaos_demo.db-journal",
-    "INDEX.md",
-    "backend/src/domains/mascot/services/__pycache__/signal_extractor.cpython-314.pyc",
-    "backend/src/domains/mascot/services/__pycache__/mascot_agent.cpython-314.pyc",
-    "backend/src/domains/mascot/services/__pycache__/prompt_builder.cpython-314.pyc",
-    "frontend/test-results/smoke-landing-page-renders-smoke-Mobile-Chrome/error-context.md",
-    "frontend/test-results/student-learning-flows-stu-71b29-ata-for-image-uploads-smoke-Tablet/error-context.md",
-    "frontend/playwright-report/data/54c54ce7a1481743e12b18f086300d26e940fd0a.md",
-    "frontend/playwright-report/data/b37757e1722e54f3dc5686023f05d0f0e0502418.md",
-    "frontend/playwright-report/data/e19e4f9b6345a05740b6c8c31005e098f58d7ed2.md",
-    "frontend/test-results/student-learning-flows-stu-485ca-ders-grounded-results-smoke-Tablet/error-context.md",
-    "frontend/test-results/student-learning-flows-stu-71b29-ata-for-image-uploads-smoke-Desktop-Small/error-context.md",
-    "frontend/test-results/student-learning-flows-stu-485ca-ders-grounded-results-smoke-Desktop-Small/error-context.md",
-    "frontend/test-results/smoke-landing-page-renders-smoke-Tablet/error-context.md",
-    "Untitled.canvas",
-    "2026-04-13.md"
+    "frontend/playwright-report/data/dd0929637602c85b9b8cf3fba5d6bb96ab62f59e.webm",
+    "frontend/playwright-report/data/be9b12fac91f9c8f744d985ba4d53b044e66a37f.zip",
+    "frontend/playwright-report/data/4b9ac59ab531d6ed5419cbe290fa3c40b782b4ce.webm",
+    "frontend/playwright-report/data/a352fc788f094fc6572e9d3fca6cad54a884677a.webm",
+    "frontend/playwright-report/data/0f0223e06d1e846ebeb97258e6ced99979518ff2.webm",
+    "frontend/playwright-report/data/67900872c3b60c8490fd306bd36aa0402f511bdf.zip",
+    "frontend/playwright-report/data/ab86df0d83b69a793a0d0bdbe003d28585698142.webm",
+    "frontend/playwright-report/data/9cd97f5e8d248f9994b3084da7d5b89f677da916.png",
+    "frontend/playwright-report/data/853293a484ec044f5388b9a05f54b7a36503eb62.webm",
+    "frontend/playwright-report/trace/playwright-logo.svg",
+    "frontend/playwright-report/data/fe48b8a473a2f2b5340383e8b9cfcf513b51d080.png",
+    "frontend/test-results/mobile-ai-studio-AI-Studio-18354-ract-with-quiz-if-displayed-Mobile-Chrome-retry2/error-context.md",
+    "frontend/test-results/mobile-ai-studio-AI-Studio-18354-ract-with-quiz-if-displayed-Mobile-Chrome-retry2/test-failed-1.png",
+    "frontend/test-results/mobile-ai-studio-AI-Studio-18354-ract-with-quiz-if-displayed-Mobile-Chrome-retry1/error-context.md",
+    "frontend/test-results/mobile-ai-studio-AI-Studio-18354-ract-with-quiz-if-displayed-Mobile-Chrome-retry1/test-failed-1.png",
+    "frontend/test-results/mobile-ai-studio-AI-Studio-18354-ract-with-quiz-if-displayed-Mobile-Chrome/error-context.md",
+    "frontend/test-results/mobile-ai-studio-AI-Studio-18354-ract-with-quiz-if-displayed-Mobile-Chrome/test-failed-1.png",
+    "frontend/test-results/mobile-ai-studio-AI-Studio-0efd4-ion-panel-responds-to-touch-Mobile-Chrome-retry2/error-context.md",
+    "frontend/test-results/mobile-ai-studio-AI-Studio-0efd4-ion-panel-responds-to-touch-Mobile-Chrome-retry2/test-failed-1.png",
+    "frontend/test-results/mobile-ai-studio-AI-Studio-0efd4-ion-panel-responds-to-touch-Mobile-Chrome-retry1/error-context.md",
+    "frontend/test-results/mobile-ai-studio-AI-Studio-0efd4-ion-panel-responds-to-touch-Mobile-Chrome-retry1/test-failed-1.png",
+    "frontend/test-results/mobile-ai-studio-AI-Studio-0efd4-ion-panel-responds-to-touch-Mobile-Chrome/error-context.md",
+    "frontend/test-results/mobile-ai-studio-AI-Studio-0efd4-ion-panel-responds-to-touch-Mobile-Chrome/test-failed-1.png",
+    "frontend/playwright-report/data/72f1b06f0a7f679a9bdea602f1a0ad16f2802800.png",
+    "frontend/playwright-report/data/63486c7bd34e03a43e1d59afc03074df52662ebc.md",
+    "frontend/playwright-report/data/073c21235ad9eba6e27f7bacb7673a7b2f323058.md",
+    "frontend/test-results/mobile-parent-dashboard-Pa-e4a25-ce-metrics-display-properly-Mobile-Chrome/error-context.md",
+    "frontend/test-results/mobile-parent-dashboard-Pa-a9839-plays-full-dashboard-layout-Mobile-Chrome/error-context.md",
+    "frontend/test-results/mobile-parent-dashboard-Pa-8c99e-s-without-horizontal-scroll-Mobile-Chrome/error-context.md",
+    "frontend/test-results/mobile-ai-studio-AI-Studio-3b219-dio-displays-full-interface-Mobile-Chrome/error-context.md",
+    "frontend/test-results/mobile-parent-dashboard-Pa-e4a25-ce-metrics-display-properly-chromium/error-context.md",
+    "frontend/test-results/mobile-ai-studio-AI-Studio-a7ee1-s-without-horizontal-scroll-Mobile-Chrome/error-context.md",
+    "frontend/test-results/mobile-parent-dashboard-Pa-a9839-plays-full-dashboard-layout-chromium/error-context.md",
+    "frontend/test-results/mobile-ai-studio-AI-Studio-70c48-tool-buttons-are-accessible-Mobile-Chrome/error-context.md",
+    "frontend/test-results/mobile-ai-studio-AI-Studio-70c48-tool-buttons-are-accessible-chromium/error-context.md",
+    "frontend/test-results/mobile-ai-studio-AI-Studio-5d760-display-side-by-side-layout-chromium/error-context.md",
+    "md/STAR_FEATURES_ANALYSIS.md",
+    "frontend/test-results/student-mastery-student-ma-132a7-nders-live-sub-topic-signal-chromium/error-context.md",
+    "frontend/test-results/student-mastery-student-ma-132a7-nders-live-sub-topic-signal-Mobile-Chrome/error-context.md",
+    "frontend/test-results/performance-budgets-Mobile-437b7-ays-within-budget-on-mobile-Tablet/error-context.md",
+    "frontend/test-results/performance-budgets-Mobile-437b7-ays-within-budget-on-mobile-Mobile-Chrome/error-context.md",
+    "frontend/test-results/mobile-ai-studio-AI-Studio-70c48-tool-buttons-are-accessible-Tablet/error-context.md",
+    "Untitled.canvas"
   ]
 }

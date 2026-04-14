@@ -983,3 +983,14 @@ def test_session_update_rejects_large_concepts():
 *Generated: April 12, 2026*  
 *Analyzed by: Comprehensive Codebase Audit*  
 *Coverage: Full backend (Python) + frontend (TypeScript) + test files*
+
+---
+
+## Related
+- [[INDEX]] — Knowledge hub
+- [[CODE_QUALITY_IMPROVEMENTS]] — Fixes applied to these issues
+- [[FIXES_COMPLETED]] — What got fixed
+- [[BACKEND_TEST_FIXES_SUMMARY]] — Related test fixes
+- [[IMPLEMENTATION_TRACKER]] — Implementation phases
+- [[COMPREHENSIVE_PRODUCTION_READINESS_REPORT]] — Full readiness context
+- [[PRODUCTION_READINESS_SUMMARY]]

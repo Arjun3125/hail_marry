@@ -177,3 +177,14 @@ python -m pytest tests/ -v --tb=no | tail -1
 ## Conclusion
 
 The backend has a **solid 95% test pass rate** with production-ready code. The 42 remaining failures are primarily in integration/E2E tests that require deeper infrastructure setup and mocking, not critical code bugs. The system is ready for deployment with standard production validation procedures.
+
+---
+
+## Related
+- [[INDEX]] — Knowledge hub
+- [[TEST_EXECUTION_SUMMARY_COMPLETE]] — Full test results table
+- [[CI_TEST_EXECUTION_REPORT]] — CI results
+- [[TEST_EXECUTION_PROCEDURES]] — How tests run
+- [[CODEBASE_ISSUES_ANALYSIS]] — Related code issues
+- [[FIXES_COMPLETED]] — All completed fixes
+- [[COMPREHENSIVE_PRODUCTION_READINESS_REPORT]]

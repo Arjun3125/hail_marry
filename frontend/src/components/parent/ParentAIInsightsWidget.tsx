@@ -17,6 +17,25 @@ interface ParentAIInsights {
     message?: string;
 }
 
+function normalizeParentAIInsights(payload: unknown, days: number): ParentAIInsights | null {
+    if (!payload || typeof payload !== "object") return null;
+    const candidate = payload as Partial<ParentAIInsights>;
+
+    return {
+        total_sessions: Number(candidate.total_sessions ?? 0),
+        total_study_time_hours: Number(candidate.total_study_time_hours ?? 0),
+        active_subjects: Array.isArray(candidate.active_subjects) ? candidate.active_subjects : [],
+        average_engagement: Number(candidate.average_engagement ?? 0),
+        recent_topics: Array.isArray(candidate.recent_topics) ? candidate.recent_topics : [],
+        quiz_count: Number(candidate.quiz_count ?? 0),
+        average_quiz_score:
+            typeof candidate.average_quiz_score === "number" ? candidate.average_quiz_score : undefined,
+        topics_to_review: Array.isArray(candidate.topics_to_review) ? candidate.topics_to_review : [],
+        period_days: Number(candidate.period_days ?? days),
+        message: typeof candidate.message === "string" ? candidate.message : undefined,
+    };
+}
+
 interface ParentAIInsightsWidgetProps {
     childId?: string;
     days?: number;
@@ -37,7 +56,7 @@ export function ParentAIInsightsWidget({
             try {
                 setLoading(true);
                 setError(null);
-                const data = await api.parent.aiInsights(childId, days);
+                const data = normalizeParentAIInsights(await api.parent.aiInsights(childId, days), days);
                 setInsights(data);
             } catch (err) {
                 setError(err instanceof Error ? err.message : "Failed to load AI insights");

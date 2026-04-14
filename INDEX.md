@@ -4,76 +4,40 @@ tags: [index, vidyaos, knowledge-hub]
 
 # VidyaOS Knowledge Hub
 
-Central index — all major docs wikilinked for Obsidian backlink graph.
+Central index � all major docs wikilinked for Obsidian graph.
 
-## Architecture & Design
-- [[all_documents/Architecture]]
-- [[all_documents/System overview]]
-- [[all_documents/AI engine deep design]]
-- [[all_documents/Tech stack]]
-- [[all_documents/Filtering logic]]
-- [[all_documents/Hosting and development env]]
+## Overview
+- [[README]] � Project overview, architecture, feature count
+- [[AGENTS]] � GitNexus code intelligence guide
 
-## Features & Product
-- [[all_documents/VidyaOS_Features_List]]
-- [[all_documents/VidyaOs_feature_guide]]
-- [[all_documents/STAR_FEATURES_ANALYSIS]]
-- [[all_documents/feature_guide]]
-- [[md/VidyaOS_Features_List]]
-- [[md/STAR_FEATURES_ANALYSIS]]
-
-## Implementation & Plans
-- [[all_documents/implementation_plan]]
-- [[all_documents/action_split]]
-- [[all_documents/MULTI_TIER_ROLLOUT_PLAN]]
-- [[md/MULTI_TIER_ROLLOUT_PLAN]]
-- [[md/AI_STUDIO_IMPLEMENTATION_PLAN]]
-- [[md/PRODUCTION_READY_PLAN]]
-- [[md/WHATSAPP_MIGRATION_PLAN]]
-
-## Documentation
-- [[all_documents/DOCUMENTATION_INDEX]]
-- [[all_documents/api_reference]]
-- [[all_documents/quickstart]]
-- [[all_documents/business_analysis]]
-- [[all_documents/IMPLEMENTATION_VERIFICATION_REPORT]]
-- [[documentation/system_architecture_map]]
-- [[documentation/structural_audit]]
-
-## Compliance & Security
-- [[all_documents/DPDP_COMPLIANCE]]
-- [[all_documents/Security checks]]
-- [[all_documents/Backup and recovery policy]]
-- [[documentation/DPDP_COMPLIANCE]]
-- [[documentation/usage_governance_framework]]
-
-## WhatsApp Integration
-- [[all_documents/whatsapp_integration]]
-- [[all_documents/whatsapp_access_implementation_plan]]
-- [[documentation/whatsapp_integration]]
-- [[documentation/whatsapp_release_gate]]
-
-## Production & Operations
-- [[PRODUCTION_READINESS_SUMMARY]]
-- [[COMPREHENSIVE_PRODUCTION_READINESS_REPORT]]
-- [[EXECUTIVE_BRIEFING]]
-- [[OPERATIONS_MONITORING_GUIDE]]
-- [[documentation/production_readiness_audit_report]]
-- [[documentation/production_readiness_checklist]]
+## Production Readiness
+- [[PRODUCTION_READINESS_REPORTS_INDEX]] � Which report to read for your role
+- [[EXECUTIVE_BRIEFING]] � C-level summary, go/no-go verdict (75% ready)
+- [[COMPREHENSIVE_PRODUCTION_READINESS_REPORT]] � Full technical breakdown
+- [[PRODUCTION_READINESS_SUMMARY]] � Mid-level actionable summary
+- [[production_readiness_report]] � Automated gate results (CI output)
+- [[README_REPORTS]] � User-facing report summary
 
 ## Testing
-- [[TEST_EXECUTION_SUMMARY_COMPLETE]]
-- [[BACKEND_TEST_FIXES_SUMMARY]]
-- [[CI_TEST_EXECUTION_REPORT]]
-- [[documentation/detailed_test_suite_blueprint]]
+- [[CI_TEST_EXECUTION_REPORT]] � Lint, typecheck, E2E all-in-one
+- [[TEST_EXECUTION_SUMMARY_COMPLETE]] � 1,384 tests, 78% pass rate
+- [[TEST_EXECUTION_PROCEDURES]] � How to run every test type
+- [[BACKEND_TEST_FIXES_SUMMARY]] � 95% pass rate, 42 remaining failures
+- [[FRONTEND_E2E_INFRASTRUCTURE_FIX]] � Playwright config fix
 
-## Session & Changelog
-- [[md/CURRENT_WORK]]
-- [[md/REMAINING_WORK]]
-- [[md/SESSION_WALKTHROUGH]]
-- [[all_documents/CHANGELOG]]
+## Implementation & Features
+- [[IMPLEMENTATION_TRACKER]] � 11 pending features, 7 phases
+- [[IMPLEMENTED_FEATURES_INVENTORY]] � 79 features, 64+ DB models
+- [[NOTIFICATION_FEATURES_IMPLEMENTATION]] � FCM, SMS, email dispatch
 
-## Project Config
-- [[CLAUDE]]
-- [[AGENTS]]
-- [[README]]
+## Code Quality
+- [[CODEBASE_ISSUES_ANALYSIS]] � 7 P2 + 4 P3 issues found
+- [[CODE_QUALITY_IMPROVEMENTS]] � 48 fixes, Phase 8 complete
+- [[FIXES_COMPLETED]] � Completed fix log
+- [[STRINGS_INVENTORY]] � 80+ hardcoded strings for i18n
+
+## Operations
+- [[OPERATIONS_MONITORING_GUIDE]] � DB query, Redis, performance monitoring
+
+## Daily Notes
+- [[2026-04-13]]

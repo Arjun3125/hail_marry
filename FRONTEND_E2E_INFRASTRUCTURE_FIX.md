@@ -145,3 +145,13 @@ The critical blocker of "backend not available" during E2E tests has been fixed.
 - Fail on legitimate code issues rather than infrastructure problems
 
 The next phase is addressing the application-level test failures to achieve higher pass rates.
+
+---
+
+## Related
+- [[INDEX]] — Knowledge hub
+- [[CI_TEST_EXECUTION_REPORT]] — CI results
+- [[TEST_EXECUTION_SUMMARY_COMPLETE]] — Test results table
+- [[TEST_EXECUTION_PROCEDURES]] — Test procedures
+- [[IMPLEMENTATION_TRACKER]] — Feature phases
+- [[COMPREHENSIVE_PRODUCTION_READINESS_REPORT]]

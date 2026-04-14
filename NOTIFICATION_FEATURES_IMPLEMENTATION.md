@@ -467,3 +467,12 @@ TWILIO_AUTH_TOKEN = "..."
 - ✅ Documentation complete
 
 **Next Phase:** Deploy to production environment
+
+---
+
+## Related
+- [[INDEX]] — Knowledge hub
+- [[IMPLEMENTATION_TRACKER]] — Overall feature tracker (Phase 8)
+- [[IMPLEMENTED_FEATURES_INVENTORY]] — Full features list
+- [[CODE_QUALITY_IMPROVEMENTS]] — Other Phase 8 work
+- [[OPERATIONS_MONITORING_GUIDE]] — Monitoring notifications in prod

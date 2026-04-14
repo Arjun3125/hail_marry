@@ -216,3 +216,11 @@ Once Phase 2a is complete, move to **Phase 3: Session Wrap-Up** which requires b
 - [ ] RTL language support (future enhancement, not in Phase 2)
 - [ ] Pluralization rules for Hindi (currently simplified)
 - [ ] Number formatting by locale (e.g., 1,00,000 in Indian English)
+
+---
+
+## Related
+- [[INDEX]] — Knowledge hub
+- [[IMPLEMENTATION_TRACKER]] — Phase 2 deliverable
+- [[IMPLEMENTED_FEATURES_INVENTORY]] — Features needing i18n
+- [[CODE_QUALITY_IMPROVEMENTS]] — Related quality work

@@ -242,3 +242,19 @@ npm run test:e2e:smoke                              # Should: 2-5 tests passing
 - Deployment blockers: **None - all critical features implemented and tested**
 
 The system is production-ready. Remaining test failures are in integration/E2E tests that require deeper infrastructure setup, not critical code bugs. Standard pre-deployment validation recommended.
+
+---
+
+## Related
+- [[INDEX]] — Knowledge hub
+- [[CI_TEST_EXECUTION_REPORT]] — Lint and typecheck
+- [[TEST_EXECUTION_PROCEDURES]] — How to run tests
+- [[BACKEND_TEST_FIXES_SUMMARY]] — Backend fixes
+- [[FRONTEND_E2E_INFRASTRUCTURE_FIX]] — E2E fix
+- [[COMPREHENSIVE_PRODUCTION_READINESS_REPORT]] — Full technical report
+- [[EXECUTIVE_BRIEFING]] — Executive verdict
+- [[2026-04-13]]
+- [[PRODUCTION_READINESS_REPORTS_INDEX]]
+- [[PRODUCTION_READINESS_SUMMARY]]
+- [[README_REPORTS]]
+- [[production_readiness_report]]

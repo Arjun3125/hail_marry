@@ -432,3 +432,12 @@ print("""
 End of Operations Guide
 ═══════════════════════════════════════════════════════════════════════════════
 """)
+
+---
+
+## Related
+- [[INDEX]] — Knowledge hub
+- [[PRODUCTION_READINESS_SUMMARY]] — Monitoring gap identified here
+- [[COMPREHENSIVE_PRODUCTION_READINESS_REPORT]] — Full production context
+- [[NOTIFICATION_FEATURES_IMPLEMENTATION]] — Notifications to monitor
+- [[production_readiness_report]] — Gate results this guide validates

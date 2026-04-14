@@ -145,6 +145,7 @@
         height: auto;
         min-height: 0;
         flex-direction: column;
+        gap: 0.75rem;
     }
 
     .tool-rail,
@@ -155,17 +156,20 @@
     }
 
     .tool-rail {
+        order: 2;
         border-right: none;
         border-bottom: 1px solid rgba(148, 163, 184, 0.14);
     }
 
-    .context-panel {
-        border-left: none;
-        border-top: 1px solid rgba(148, 163, 184, 0.14);
+    .learning-workspace {
+        order: 1;
+        min-height: 36rem;
     }
 
-    .learning-workspace {
-        min-height: 36rem;
+    .context-panel {
+        order: 3;
+        border-left: none;
+        border-top: 1px solid rgba(148, 163, 184, 0.14);
     }
 }
 

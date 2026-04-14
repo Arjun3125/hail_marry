@@ -243,3 +243,13 @@ Primary docs:
 - `documentation/mascot_whatsapp_staging_manual_test_script.md`
 - `documentation/mascot_whatsapp_staging_evidence_template.md`
 - `documentation/mascot_release_gate.md`
+
+---
+
+## Related
+- [[INDEX]] — Knowledge hub
+- [[PRODUCTION_READINESS_REPORTS_INDEX]] — Reports overview
+- [[EXECUTIVE_BRIEFING]] — Executive summary
+- [[CI_TEST_EXECUTION_REPORT]] — CI/lint results
+- [[TEST_EXECUTION_SUMMARY_COMPLETE]] — Full test results
+- [[OPERATIONS_MONITORING_GUIDE]]
