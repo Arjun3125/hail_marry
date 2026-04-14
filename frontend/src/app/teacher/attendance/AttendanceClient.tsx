@@ -443,7 +443,7 @@ export default function TeacherAttendanceClient() {
                                             type="button"
                                             onClick={() => void notifyAbsentParents()}
                                             disabled={attendanceCounts.absent === 0 || parentNoticeQueued || notifyingParents}
-                                            className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[var(--success)]/30 bg-[rgba(16,185,129,0.12)] px-4 py-2.5 text-xs font-bold text-[var(--success)] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-55"
+                                            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-2xl border border-[var(--success)]/30 bg-[rgba(16,185,129,0.12)] px-4 py-2.5 text-xs font-bold text-[var(--success)] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-55"
                                         >
                                             <Send className="h-4 w-4" />
                                             {attendanceCounts.absent === 0

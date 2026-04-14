@@ -94,6 +94,9 @@ test.describe("Parent Dashboard - Mobile (360px)", { tag: "@mobile @parent" }, (
     test("performance metrics display properly", async ({ page }) => {
         await page.goto("/parent/dashboard");
 
+        // Wait for at least one metric card to appear (client-side data load after SSR null)
+        await page.locator("[data-testid='metric-card']").first().waitFor({ state: "visible", timeout: 10000 });
+
         // Look for metrics cards
         const metricCards = await page.locator("[data-testid*='metric'], [data-testid*='card']").all();
         expect(metricCards.length).toBeGreaterThan(0);

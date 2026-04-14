@@ -50,7 +50,13 @@ export default defineConfig({
         },
     ],
     webServer: {
-        command: `npm run dev -- --port ${devPort}`,
+        // In CI the production build is already compiled by `npm run build`.
+        // Use `next start` so pages are served immediately (no on-demand compilation)
+        // and SSR metadata (title) is in the initial HTML response.
+        // Locally, reuse an existing dev server if one is already running.
+        command: process.env.CI
+            ? `npm run start -- --port ${devPort}`
+            : `npm run dev -- --port ${devPort}`,
         url: baseURL,
         reuseExistingServer: !process.env.CI,
         timeout: 120 * 1000,

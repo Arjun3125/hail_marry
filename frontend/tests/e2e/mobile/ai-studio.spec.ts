@@ -191,7 +191,8 @@ test.describe("AI Studio - Desktop (1280px)", { tag: "@desktop @ai-studio" }, ()
         await expect(page).toHaveTitle(/VidyaOS/i);
         await expectNoHorizontalScroll(page);
 
-        // Desktop should have full sidebar — use retrying assertion to survive React hydration delay
-        await expect(page.locator("nav, aside").first()).toBeVisible({ timeout: 10000 });
+        // Desktop sidebar has class lg:flex; mobile drawer has class lg:hidden and comes first in DOM.
+        // Use :not(.prism-drawer) to skip the mobile drawer and target the persistent desktop aside.
+        await expect(page.locator("aside:not(.prism-drawer)").first()).toBeVisible({ timeout: 10000 });
     });
 });
