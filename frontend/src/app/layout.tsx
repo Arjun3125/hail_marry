@@ -76,11 +76,6 @@ export default async function RootLayout({
     >
       <head>
         <meta name="theme-color" content="#0f172a" />
-        <script
-          src="https://accounts.google.com/gsi/client"
-          async
-          defer
-        />
       </head>
       <body
         className="prism-app bg-[var(--bg-page)] text-[var(--text-primary)] antialiased transition-colors duration-300"

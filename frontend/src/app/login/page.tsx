@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Script from "next/script";
 import { GraduationCap, Loader2, QrCode, Sparkles } from "lucide-react";
 import { api, API_BASE, clearDemoSession, setStoredAccessToken } from "@/lib/api";
 import { getRoleDashboard } from "@/lib/auth";
@@ -88,8 +89,13 @@ export default function LoginPage() {
   };
 
   return (
-    <PrismPage className="flex min-h-screen items-center py-10">
-      <PrismSection className="grid w-full items-center gap-8 lg:grid-cols-[0.95fr_1.05fr]">
+    <>
+      <Script
+        src="https://accounts.google.com/gsi/client"
+        strategy="lazyOnload"
+      />
+      <PrismPage className="flex min-h-screen items-center py-10">
+        <PrismSection className="grid w-full items-center gap-8 lg:grid-cols-[0.95fr_1.05fr]">
         <div className="space-y-6">
           <PrismHeroKicker>
             <Sparkles className="h-3.5 w-3.5" />
@@ -181,5 +187,6 @@ export default function LoginPage() {
         </PrismPanel>
       </PrismSection>
     </PrismPage>
+    </>
   );
 }
