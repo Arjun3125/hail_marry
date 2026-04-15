@@ -14,6 +14,7 @@ import {
     Flame,
     Globe,
     User,
+    Bot,
 } from "lucide-react";
 
 const teacherNav = [
@@ -35,11 +36,11 @@ import { MobileBottomNav } from "@/components/ui/SharedUI";
 import { ContextBar } from "@/components/ContextBar";
 
 const mobileNav = [
-    { label: "My Classes", href: "/teacher/dashboard", icon: LayoutDashboard },
+    { label: "Dashboard", href: "/teacher/dashboard", icon: LayoutDashboard },
+    { label: "Classes", href: "/teacher/classes", icon: Users },
     { label: "Attendance", href: "/teacher/attendance", icon: CalendarCheck },
-    { label: "Assessments", href: "/teacher/generate-assessment", icon: ClipboardList },
-    { label: "Insights", href: "/teacher/insights", icon: BarChart3 },
-    { label: "Profile", href: "/teacher/profile", icon: User },
+    { label: "Upload", href: "/teacher/upload", icon: Upload },
+    { label: "Assistant", href: "/teacher/assistant", icon: Bot },
 ];
 
 
