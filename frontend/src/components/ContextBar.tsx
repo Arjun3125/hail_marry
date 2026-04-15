@@ -45,8 +45,8 @@ export function ContextBar({
     const hasSignals = Boolean(classLabel || subjectLabel || aiTopicLabel);
 
     return (
-        <div className="flex flex-col gap-3 rounded-[1.5rem] border border-[var(--border)] bg-[rgba(8,14,28,0.48)] px-4 py-3 shadow-[0_18px_34px_rgba(2,6,23,0.08)] sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex flex-wrap items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+        <div className="flex flex-col gap-3 rounded-[1.85rem] border border-[var(--border)] bg-[rgba(8,14,28,0.48)] px-6 py-4.5 shadow-[0_18px_34px_rgba(2,6,23,0.08)] sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-wrap items-center gap-2.5 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
                 <span className="hidden sm:inline">{schoolName}</span>
                 <ChevronRight className="hidden h-3 w-3 opacity-50 sm:inline" />
                 <span className="hidden sm:inline">{titleCase(role)}</span>
@@ -71,21 +71,21 @@ export function ContextBar({
                 </label>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--text-secondary)]">
+            <div className="flex flex-wrap items-center gap-3 text-xs text-[var(--text-secondary)]">
                 {classLabel ? (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-[rgba(148,163,184,0.08)] px-3 py-1.5">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-[rgba(148,163,184,0.08)] px-4 py-2">
                         <Layers3 className="h-3.5 w-3.5" />
                         {classLabel}
                     </span>
                 ) : null}
                 {subjectLabel ? (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(79,142,247,0.22)] bg-[rgba(79,142,247,0.08)] px-3 py-1.5 text-[var(--text-primary)]">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(79,142,247,0.22)] bg-[rgba(79,142,247,0.08)] px-4 py-2 text-[var(--text-primary)]">
                         <Bookmark className="h-3.5 w-3.5" />
                         {subjectLabel}
                     </span>
                 ) : null}
                 {aiTopicLabel && aiTopicLabel !== subjectLabel ? (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(251,191,36,0.24)] bg-[rgba(251,191,36,0.09)] px-3 py-1.5 text-[var(--text-primary)]">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(251,191,36,0.24)] bg-[rgba(251,191,36,0.09)] px-4 py-2 text-[var(--text-primary)]">
                         <Sparkles className="h-3.5 w-3.5" />
                         AI: {aiTopicLabel}
                     </span>

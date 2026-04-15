@@ -265,9 +265,9 @@ export default function AdminTimetablePage() {
                     />
                 ) : null}
 
-                <div className="grid gap-6 xl:grid-cols-[minmax(0,1.05fr)_minmax(360px,0.95fr)]">
-                    <div className="space-y-6 min-w-0">
-                        <PrismPanel className="p-5">
+                <div className="grid gap-10 xl:grid-cols-[minmax(0,1.05fr)_minmax(360px,0.95fr)]">
+                    <div className="space-y-10 min-w-0">
+                        <PrismPanel className="p-8">
                             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                                 <div>
                                     <h2 className="text-base font-semibold text-[var(--text-primary)]">Schedule Controls</h2>
@@ -290,7 +290,7 @@ export default function AdminTimetablePage() {
                                 </div>
                             </div>
 
-                            <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                            <div className="mt-8 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
                                 <Field label="Day" htmlFor="day-selector">
                                     <PrismSelect id="day-selector" value={dayOfWeek} onChange={(event) => setDayOfWeek(Number(event.target.value))} className="text-sm">
                                         {DAYS.map((day) => <option key={day.value} value={day.value}>{day.label}</option>)}
@@ -321,13 +321,13 @@ export default function AdminTimetablePage() {
                             </div>
                         </PrismPanel>
 
-                        <PrismPanel className="p-5">
+                        <PrismPanel className="p-8">
                             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                                 <div>
                                     <h2 className="text-base font-semibold text-[var(--text-primary)]">Class Timetable</h2>
                                     <p className="text-sm text-[var(--text-secondary)]">The current class timetable remains editable from the grid below.</p>
                                 </div>
-                                <div className="rounded-full border border-[var(--border)] bg-[rgba(148,163,184,0.05)] px-3 py-1.5 text-xs text-[var(--text-secondary)]">{rows.length} time rows</div>
+                                <div className="rounded-full border border-[var(--border)] bg-[rgba(148,163,184,0.05)] px-4 py-2 text-xs text-[var(--text-secondary)]">{rows.length} time rows</div>
                             </div>
 
                             {loading ? (
@@ -337,8 +337,8 @@ export default function AdminTimetablePage() {
                                     <EmptyState icon={Clock} title="No timetable slots found" description="Add a manual slot or apply a generated schedule to populate the grid." />
                                 </div>
                             ) : (
-                                <PrismTableShell className="mt-4">
-                                    <table className="prism-table min-w-full">
+                                <PrismTableShell className="mt-6 overflow-x-auto">
+                                    <table className="prism-table min-w-[1000px]">
                                         <thead>
                                             <tr>
                                                 <th className="w-36">Time</th>

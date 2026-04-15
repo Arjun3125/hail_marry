@@ -105,8 +105,8 @@ export default function AdminClassesPage() {
     };
 
     return (
-        <PrismPage variant="workspace" className="space-y-6">
-            <PrismSection className="space-y-6">
+        <PrismPage variant="workspace" className="space-y-10">
+            <PrismSection className="space-y-10">
                 <PrismPageIntro
                     kicker={(
                         <PrismHeroKicker>
@@ -140,24 +140,24 @@ export default function AdminClassesPage() {
                     <ErrorRemediation error={error} scope="admin-classes" onRetry={() => window.location.reload()} />
                 ) : null}
 
-                <div className="grid gap-6 lg:grid-cols-2">
-                    <PrismPanel className="p-5">
+                <div className="grid gap-10 lg:grid-cols-2">
+                    <PrismPanel className="p-8">
                         <PrismSectionHeader
                             title="Add class"
                             description="Create the learning group first so attendance, results, and student access all share the same academic structure."
                         />
-                        <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_140px_auto]">
+                        <div className="mt-6 grid gap-6 sm:grid-cols-[1fr_140px_auto]">
                             <input
                                 value={className}
                                 onChange={(e) => setClassName(e.target.value)}
                                 placeholder="Class name"
-                                className="rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.03)] px-3 py-3 text-sm text-[var(--text-primary)]"
+                                className="rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.03)] px-4 py-4 text-sm text-[var(--text-primary)]"
                             />
                             <input
                                 value={gradeLevel}
                                 onChange={(e) => setGradeLevel(e.target.value)}
                                 placeholder="Grade"
-                                className="rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.03)] px-3 py-3 text-sm text-[var(--text-primary)]"
+                                className="rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.03)] px-4 py-4 text-sm text-[var(--text-primary)]"
                             />
                             <button
                                 className="prism-action"
@@ -171,22 +171,22 @@ export default function AdminClassesPage() {
                         </div>
                     </PrismPanel>
 
-                    <PrismPanel className="p-5">
+                    <PrismPanel className="p-8">
                         <PrismSectionHeader
                             title="Add subject"
                             description="Attach subjects to a class so the downstream teacher, student, and reporting flows can reference the right academic context."
                         />
-                        <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
+                        <div className="mt-6 grid gap-6 sm:grid-cols-[1fr_1fr_auto]">
                             <input
                                 value={subjectName}
                                 onChange={(e) => setSubjectName(e.target.value)}
                                 placeholder="Subject name"
-                                className="rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.03)] px-3 py-3 text-sm text-[var(--text-primary)]"
+                                className="rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.03)] px-4 py-4 text-sm text-[var(--text-primary)]"
                             />
                             <select
                                 value={subjectClassId}
                                 onChange={(e) => setSubjectClassId(e.target.value)}
-                                className="rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.03)] px-3 py-3 text-sm text-[var(--text-primary)]"
+                                className="rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.03)] px-4 py-4 text-sm text-[var(--text-primary)]"
                                 disabled={classOptions.length === 0}
                             >
                                 {classOptions.length === 0 ? (
@@ -210,7 +210,7 @@ export default function AdminClassesPage() {
                     </PrismPanel>
                 </div>
 
-                <PrismPanel className="space-y-5 p-5">
+                <PrismPanel className="space-y-8 p-8">
                     <PrismSectionHeader
                         title="Current class map"
                         description="Review the live academic structure and confirm subjects are attached to the right groups before students and teachers start using it."
@@ -226,9 +226,9 @@ export default function AdminClassesPage() {
                             eyebrow="Academic structure empty"
                         />
                     ) : (
-                        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                        <div className="grid gap-8 md:grid-cols-2 xl:grid-cols-3">
                             {items.map((item) => (
-                                <div key={item.id} className="rounded-3xl border border-[var(--border)] bg-[rgba(255,255,255,0.03)] p-4">
+                                <div key={item.id} className="rounded-3xl border border-[var(--border)] bg-[rgba(255,255,255,0.03)] p-6">
                                     <div className="mb-3 flex items-center justify-between gap-3">
                                         <div>
                                             <h3 className="text-base font-semibold text-[var(--text-primary)]">{item.name}</h3>

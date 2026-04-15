@@ -329,8 +329,8 @@ function AIStudioContent() {
         : "All notebooks available";
 
     return (
-        <PrismPage variant="workspace" className="space-y-5 pb-8">
-            <PrismSection className="space-y-6">
+        <PrismPage variant="workspace" className="space-y-8 pb-8">
+            <PrismSection className="space-y-10">
                 <PrismPageIntro
                     kicker={(
                         <PrismHeroKicker>
@@ -400,7 +400,7 @@ function AIStudioContent() {
                 </div>
 
                 {showIntentSelector ? (
-                    <PrismPanel className="p-6 md:p-8">
+                    <PrismPanel className="p-10 md:p-12">
                         <div className="mx-auto max-w-3xl text-center">
                             <p className="prism-status-label">Entry point</p>
                             <h2 className="mt-3 text-3xl font-black text-[var(--text-primary)]">{t("ai_studio.intent_selector_title")}</h2>
@@ -408,7 +408,7 @@ function AIStudioContent() {
                                 Pick one intent and AI Studio will open in the right mode with a calmer starting layout.
                             </p>
                         </div>
-                        <div className="mx-auto mt-8 grid max-w-4xl gap-4 md:grid-cols-2">
+                        <div className="mx-auto mt-10 grid max-w-4xl gap-8 md:grid-cols-2">
                             {intentOptionsConfig.map((option) => (
                                 <button
                                     key={option.id}
@@ -434,7 +434,7 @@ function AIStudioContent() {
                     </PrismPanel>
                 ) : (
                     <PrismPanel className="overflow-hidden p-0">
-                        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)]/80 bg-[rgba(255,255,255,0.02)] px-5 py-4">
+                        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)]/80 bg-[rgba(255,255,255,0.02)] px-8 py-6">
                             <div className="flex flex-wrap items-center gap-3">
                                 <div className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[rgba(148,163,184,0.08)] px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">
                                     <PanelsTopLeft className="h-3.5 w-3.5" />

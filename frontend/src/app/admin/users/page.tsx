@@ -224,9 +224,9 @@ export default function UsersPage() {
                     />
                 ) : null}
 
-                <div className="grid gap-6 xl:grid-cols-[minmax(0,1.12fr)_minmax(340px,0.88fr)]">
-                    <div className="space-y-6 min-w-0">
-                        <PrismPanel className="p-5">
+                <div className="grid gap-10 xl:grid-cols-[minmax(0,1.12fr)_minmax(340px,0.88fr)]">
+                    <div className="space-y-10 min-w-0">
+                        <PrismPanel className="p-8">
                             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                                 <div>
                                     <h2 className="text-base font-semibold text-[var(--text-primary)]">User directory</h2>
@@ -358,8 +358,8 @@ export default function UsersPage() {
                         </PrismPanel>
                     </div>
 
-                    <div className="space-y-6 min-w-0">
-                        <PrismPanel className="p-5 xl:sticky xl:top-6">
+                    <div className="space-y-10 min-w-0">
+                        <PrismPanel className="p-8 xl:sticky xl:top-6">
                             <div className="flex items-center gap-2">
                                 <Link2 className="h-4 w-4 text-[var(--primary)]" />
                                 <h2 className="text-base font-semibold text-[var(--text-primary)]">Guardian network</h2>
@@ -421,7 +421,7 @@ export default function UsersPage() {
                             </div>
                         </PrismPanel>
 
-                        <PrismPanel className="p-5">
+                        <PrismPanel className="p-8">
                             <div className="flex items-center gap-2">
                                 <Shield className="h-4 w-4 text-[var(--primary)]" />
                                 <h2 className="text-base font-semibold text-[var(--text-primary)]">Active bindings registry</h2>
@@ -430,7 +430,7 @@ export default function UsersPage() {
                                 Current parent-child bindings remain editable here without changing the underlying user directory data.
                             </p>
 
-                            <div className="mt-4 space-y-3">
+                            <div className="mt-6 space-y-6">
                                 {links.length === 0 ? (
                                     <EmptyState
                                         icon={Unlink}
@@ -440,7 +440,7 @@ export default function UsersPage() {
                                         scopeNote="Only active parent and student identities appear in the binding workflow."
                                     />
                                 ) : links.map((link) => (
-                                    <div key={link.id} className="rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.03)] px-4 py-3">
+                                    <div key={link.id} className="rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.03)] px-6 py-5">
                                         <div className="flex items-start justify-between gap-3">
                                             <div>
                                                 <p className="text-sm font-semibold text-[var(--text-primary)]">{link.parent_name}</p>
