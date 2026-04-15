@@ -154,7 +154,7 @@ export function TeacherDashboardClient({ initialData = null }: { initialData?: T
 
                     <PrismPanel className="p-6 xl:col-span-2">
                         <PrismSectionHeader title="Since yesterday" description="A light context layer helps VidyaOS feel continuous across your teaching day." />
-                        <div className="mt-4 grid gap-4 md:grid-cols-3">
+                        <div className="mt-4 grid gap-4 sm:grid-cols-2 md:grid-cols-3">
                             <SummaryTile icon={ClipboardCheck} title="Grading queue" detail={`${pendingReviews} review item${pendingReviews === 1 ? "" : "s"} still waiting.`} />
                             <SummaryTile icon={CalendarCheck} title="Teaching load" detail={`${todayClasses.length} class session${todayClasses.length === 1 ? "" : "s"} scheduled today.`} />
                             <SummaryTile icon={weakestClass ? TrendingDown : Sparkles} title="Coaching signal" detail={weakestClass ? `${weakestClass.name} needs revision focus.` : "No weak class signal is active right now."} />
