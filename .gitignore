@@ -75,3 +75,40 @@ backend/dump_live_routes.py
 .DS_Store
 Thumbs.db
 .gitnexus
+
+# Runtime artifacts (root level)
+*.log
+*.pid
+api_logs.txt
+
+# SQLite databases (local dev/demo/test)
+*.db
+
+# Ad-hoc audit/scan scripts in root
+audit_demo.py
+audit_routes.py
+scan_codebase.py
+catch_import.py
+static_audit.py
+
+# Generated report markdown files (keep README.md, CLAUDE.md, AGENTS.md, INDEX.md)
+BACKEND_TEST_FIXES_SUMMARY.md
+CI_TEST_EXECUTION_REPORT.md
+CODEBASE_ISSUES_ANALYSIS.md
+CODE_QUALITY_IMPROVEMENTS.md
+COMPREHENSIVE_PRODUCTION_READINESS_REPORT.md
+EXECUTIVE_BRIEFING.md
+FIXES_COMPLETED.md
+FRONTEND_E2E_INFRASTRUCTURE_FIX.md
+IMPLEMENTATION_TRACKER.md
+IMPLEMENTED_FEATURES_INVENTORY.md
+NOTIFICATION_FEATURES_IMPLEMENTATION.md
+OPERATIONS_MONITORING_GUIDE.md
+PRODUCTION_READINESS_REPORTS_INDEX.md
+PRODUCTION_READINESS_SUMMARY.md
+README_REPORTS.md
+STRINGS_INVENTORY.md
+TEST_EXECUTION_PROCEDURES.md
+TEST_EXECUTION_SUMMARY_COMPLETE.md
+production_readiness_report.md
+2026-04-13.md
