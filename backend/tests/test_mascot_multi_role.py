@@ -28,3 +28,21 @@ def test_assemble_teacher_context_returns_dataclass():
     assert isinstance(ctx.todays_classes, list)
     assert isinstance(ctx.consecutive_absentees, list)
     assert ctx.to_prompt_context().startswith("TEACHER:")
+
+
+def test_assemble_parent_context_returns_dataclass():
+    from src.domains.mascot.services.parent_context_assembler import (
+        ParentContext,
+        assemble_parent_context,
+    )
+
+    db = _make_db()
+    ctx = assemble_parent_context(db, uuid.uuid4(), uuid.uuid4(), "Sunita Ji")
+
+    assert isinstance(ctx, ParentContext)
+    assert ctx.parent_name == "Sunita Ji"
+    assert ctx.attendance_today in ("Present", "Absent", "Unknown")
+    assert isinstance(ctx.latest_marks, list)
+    assert isinstance(ctx.weak_subjects, list)
+    assert isinstance(ctx.fee_due, bool)
+    assert ctx.to_prompt_context().startswith("PARENT:")
