@@ -8,6 +8,7 @@ import {
     Award,
     FileText,
     Settings,
+    Bot,
 } from "lucide-react";
 import { MascotLauncher } from "@/components/mascot/MascotLauncher";
 import { MobileBottomNav } from "@/components/ui/SharedUI";
@@ -16,7 +17,9 @@ import { ContextBar } from "@/components/ContextBar";
 const mobileNav = [
     { label: "Dashboard", href: "/parent/dashboard", icon: LayoutDashboard },
     { label: "Attendance", href: "/parent/attendance", icon: CalendarCheck },
-    { label: "Marks", href: "/parent/results", icon: Award },
+    { label: "Results", href: "/parent/results", icon: Award },
+    { label: "Reports", href: "/parent/reports", icon: FileText },
+    { label: "Assistant", href: "/parent/assistant", icon: Bot },
 ];
 
 
