@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
     Sparkles,
@@ -8,11 +9,13 @@ import {
     Swords,
     Bookmark,
 } from "lucide-react";
+import { api } from "@/lib/api";
 
 interface ActionBarProps {
     response: {
         answer: string;
         mode: string;
+        query_id?: string | null;
     };
     query: string;
 }
@@ -26,6 +29,7 @@ const actions = [
 
 export function ActionBar({ response, query }: ActionBarProps) {
     const router = useRouter();
+    const [saved, setSaved] = useState(false);
 
     const handleAction = (actionId: string) => {
         // Store context in sessionStorage for the target tool to access
@@ -36,14 +40,23 @@ export function ActionBar({ response, query }: ActionBarProps) {
             sourceMode: response.mode,
             timestamp,
         }));
-        
+
         // Navigate to AI Studio with the target tool pre-selected
         router.push(`/student/ai-studio?tool=${actionId}`);
     };
 
-    const handleSave = () => {
-        // TODO: Implement save to library functionality
-        console.log("Save to library:", { query, response });
+    const handleSave = async () => {
+        const queryId = response.query_id;
+        if (queryId) {
+            try {
+                await api.aiHistory.pin(queryId);
+                setSaved(true);
+            } catch {
+                router.push("/student/ai-library");
+            }
+        } else {
+            router.push("/student/ai-library");
+        }
     };
 
     return (
@@ -62,11 +75,16 @@ export function ActionBar({ response, query }: ActionBarProps) {
             ))}
             <div className="w-px h-4 bg-[var(--border)] mx-1" />
             <button
-                onClick={handleSave}
-                className="flex items-center gap-1.5 px-2 py-1 text-[10px] bg-[var(--primary)] text-white rounded-md hover:bg-[var(--primary-hover)] transition-colors"
+                onClick={() => void handleSave()}
+                disabled={saved}
+                className={`flex items-center gap-1.5 px-2 py-1 text-[10px] rounded-md transition-colors ${
+                    saved
+                        ? "bg-[var(--success)] text-white cursor-default"
+                        : "bg-[var(--primary)] text-white hover:bg-[var(--primary-hover)]"
+                }`}
             >
                 <Bookmark className="w-3 h-3" />
-                Save
+                {saved ? "Saved" : "Save"}
             </button>
         </div>
     );

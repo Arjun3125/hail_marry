@@ -16,6 +16,7 @@ export interface AIResponse {
     runtime_mode?: string;
     is_demo_response?: boolean;
     demo_notice?: string | null;
+    query_id?: string | null;
 }
 
 export type PersistedThreadRepository = {
