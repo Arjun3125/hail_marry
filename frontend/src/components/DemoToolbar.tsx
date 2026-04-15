@@ -132,7 +132,7 @@ export default function DemoToolbar() {
                                 window.dispatchEvent(new Event("start-guided-tour"));
                                 setOpen(false);
                             }}
-                            className="w-full flex items-center justify-center gap-2 px-3 py-2.5 text-xs font-bold text-status-indigo bg-indigo-badge0 rounded-xl hover:bg-indigo-badge transition-all"
+                            className="w-full flex items-center justify-center gap-2 px-3 py-2.5 text-xs font-bold text-status-indigo bg-indigo-500 rounded-xl hover:bg-indigo-badge transition-all"
                         >
                             <Sparkles className="h-3.5 w-3.5" />
                             Highlight Features
