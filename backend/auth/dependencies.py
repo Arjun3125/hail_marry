@@ -32,10 +32,6 @@ def is_demo_mode() -> bool:
     return configured_demo_mode and app_env in _NON_PRODUCTION_ENVS
 
 
-# Backward-compatible module constant for legacy imports/tests.
-DEMO_MODE = is_demo_mode()
-
-
 # Thread-safe cache for demo user to avoid repeated DB queries
 class DemoUserCache:
     """Thread-safe singleton cache for demo users."""
@@ -82,7 +78,7 @@ _demo_user_cache = DemoUserCache.get_instance()
 
 async def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
     """Extract and validate user from JWT cookie or Authorization header.
-    In DEMO_MODE, first tries JWT if present, then falls back to role-based lookup.
+    In demo mode (is_demo_mode() returns True), first tries JWT if present, then falls back to role-based lookup.
     """
     # ── DEMO MODE ──
     if is_demo_mode():

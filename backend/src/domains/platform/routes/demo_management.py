@@ -5,15 +5,13 @@ from fastapi import APIRouter, Depends, Response
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.schema import Column
 
-from auth.dependencies import _demo_user_cache
+from auth.dependencies import _demo_user_cache, is_demo_mode
 from database import get_db, Base, engine
 from config import settings
 from seed_cbse_demo import seed_demo_data
 from src.domains.identity.models.user import User
 
 router = APIRouter(prefix="/api/demo", tags=["Demo"])
-
-DEMO_MODE: bool = os.getenv("DEMO_MODE", "false").lower() in ("true", "1", "yes")
 
 
 def _cookie_policy() -> tuple[bool, str]:
@@ -27,7 +25,7 @@ def _cookie_policy() -> tuple[bool, str]:
 async def demo_status():
     """Return demo mode status and available roles."""
     return {
-        "demo_mode": DEMO_MODE,
+        "demo_mode": is_demo_mode(),
         "roles": ["student", "teacher", "admin", "parent"],
         "features": [
             "AI Assistant (13 modes)",
@@ -220,7 +218,7 @@ async def demo_profiles(db: Session = Depends(get_db)):
         )
 
     return {
-        "demo_mode": DEMO_MODE,
+        "demo_mode": is_demo_mode(),
         "profiles": profiles,
         "notes": [
             "Use 'Demo: Login as <Role>' or the Demo page role cards to switch persona.",
@@ -256,8 +254,8 @@ async def switch_role(data: dict, response: Response) -> dict[str, str]:
 @router.post("/reset")
 async def reset_demo(db: Session = Depends(get_db)) -> dict[str, str]:
     """Reset the demo database to its initial seeded state."""
-    if not DEMO_MODE:
-        return {"error": "Reset is only available in DEMO_MODE"}
+    if not is_demo_mode():
+        return {"error": "Reset is only available in demo mode"}
 
     try:
         # Drop all tables and recreate
