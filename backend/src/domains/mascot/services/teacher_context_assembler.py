@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import date, datetime, timezone
+from datetime import date, timedelta
 from typing import Optional
 from uuid import UUID
 
@@ -82,7 +82,7 @@ def assemble_teacher_context(
                 "class_id": str(tt.class_id),
                 "class_name": cls.name if cls else "Unknown",
                 "subject_id": str(tt.subject_id),
-                "start_time": str(tt.start_time)[:5] if tt.start_time else "TBD",
+                "start_time": tt.start_time.strftime("%H:%M") if tt.start_time else "TBD",
             }
             for tt, cls in rows
         ]
@@ -112,7 +112,6 @@ def assemble_teacher_context(
 
     # Consecutive absentees (absent yesterday AND today)
     try:
-        from datetime import timedelta
         yesterday = today - timedelta(days=1)
         class_ids = [UUID(c["class_id"]) for c in ctx.todays_classes]
         if class_ids:
@@ -162,5 +161,8 @@ def assemble_teacher_context(
             )
     except Exception as e:
         logger.warning("TeacherContext: failed to load pending reviews for %s: %s", user_id, e)
+
+    # weakest_class_topic: not populated in this phase — requires doubt heatmap
+    # or per-class mark averages which are computed by background jobs (Sub-project 3).
 
     return ctx
