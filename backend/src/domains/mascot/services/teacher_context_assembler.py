@@ -66,8 +66,10 @@ def assemble_teacher_context(
 
     # Today's classes from timetable
     try:
+        from src.domains.academic.models.core import Class as AcademicClass
         rows = (
-            db.query(Timetable)
+            db.query(Timetable, AcademicClass)
+            .join(AcademicClass, Timetable.class_id == AcademicClass.id)
             .filter(
                 Timetable.teacher_id == user_id,
                 Timetable.tenant_id == tenant_id,
@@ -77,11 +79,12 @@ def assemble_teacher_context(
         )
         ctx.todays_classes = [
             {
-                "class_id": str(r.class_id),
-                "subject_id": str(r.subject_id),
-                "start_time": str(r.start_time)[:5] if r.start_time else "TBD",
+                "class_id": str(tt.class_id),
+                "class_name": cls.name if cls else "Unknown",
+                "subject_id": str(tt.subject_id),
+                "start_time": str(tt.start_time)[:5] if tt.start_time else "TBD",
             }
-            for r in rows
+            for tt, cls in rows
         ]
     except Exception as e:
         logger.warning("TeacherContext: failed to load timetable for %s: %s", user_id, e)
