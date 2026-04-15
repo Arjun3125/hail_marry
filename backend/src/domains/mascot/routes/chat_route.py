@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from database import get_db as get_db_session
 from src.domains.identity.models.user import User
+from src.domains.mascot.models.conversation import MascotConversationTurn
 from src.domains.mascot.services.mascot_agent import run_mascot_agent
 from auth.dependencies import get_current_user
 
@@ -40,8 +41,24 @@ async def chat_with_mascot(
 
     session_id = request.session_id or str(uuid.uuid4())
 
-    # Get conversation history (simplified - would need proper history management)
-    conversation_history: list[dict] = []  # TODO: Implement proper conversation history retrieval
+    # Load recent turns for this session (last 8 exchanges = 16 rows max)
+    session_uuid = uuid.UUID(session_id)
+    recent_turns = (
+        db.query(MascotConversationTurn)
+        .filter(
+            MascotConversationTurn.student_id == current_user.id,
+            MascotConversationTurn.session_id == session_uuid,
+        )
+        .order_by(MascotConversationTurn.turn_number.asc())
+        .limit(16)
+        .all()
+    )
+    conversation_history: list[dict] = []
+    for turn in recent_turns:
+        if turn.student_message:
+            conversation_history.append({"role": "student", "content": turn.student_message})
+        if turn.mascot_response:
+            conversation_history.append({"role": "mascot", "content": turn.mascot_response})
 
     # Get student name
     student_name = current_user.full_name or "Student"
@@ -56,8 +73,21 @@ async def chat_with_mascot(
         conversation_history=conversation_history,
     )
 
+    # Persist this turn for future context
+    turn_number = len(recent_turns) + 1
+    new_turn = MascotConversationTurn(
+        student_id=current_user.id,
+        tenant_id=current_user.tenant_id,
+        session_id=session_uuid,
+        turn_number=turn_number,
+        student_message=request.message,
+        mascot_response=result["response"],
+    )
+    db.add(new_turn)
+    db.commit()
+
     return ChatResponse(
         response=result["response"],
         session_id=session_id,
-        is_elicitation_turn=False,  # TODO: Implement elicitation turn detection
+        is_elicitation_turn=bool(result.get("is_elicitation_turn", False)),
     )
