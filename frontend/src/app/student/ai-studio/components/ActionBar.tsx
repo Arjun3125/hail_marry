@@ -49,7 +49,7 @@ export function ActionBar({ response, query }: ActionBarProps) {
         const queryId = response.query_id;
         if (queryId) {
             try {
-                await api.aiHistory.pin(queryId);
+                await api.aiHistory.togglePin(queryId);
                 setSaved(true);
             } catch {
                 router.push("/student/ai-library");
