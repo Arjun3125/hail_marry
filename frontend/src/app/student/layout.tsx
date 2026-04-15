@@ -20,6 +20,8 @@ import {
     Library,
     Wand2,
     Target,
+    Bot,
+    ClipboardList,
 } from "lucide-react";
 import GuidedTour, { studentTourSteps } from "@/components/GuidedTour";
 import { MobileBottomNav } from "@/components/ui/SharedUI";
@@ -49,11 +51,11 @@ const studentNav = [
 ];
 
 const mobileNav = [
-    { label: "Home", href: "/student/overview", icon: LayoutDashboard },
-    { label: "Attendance", href: "/student/attendance", icon: CalendarCheck },
+    { label: "Overview", href: "/student/overview", icon: LayoutDashboard },
     { label: "AI Studio", href: "/student/ai-studio", icon: Wand2 },
-    { label: "Ranks", href: "/student/leaderboard", icon: Trophy },
-    { label: "Profile", href: "/student/profile", icon: User },
+    { label: "Assignments", href: "/student/assignments", icon: ClipboardList },
+    { label: "Upload", href: "/student/upload", icon: Upload },
+    { label: "Assistant", href: "/student/assistant", icon: Bot },
 ];
 
 export default function StudentLayout({
