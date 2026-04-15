@@ -45,7 +45,13 @@ async def chat_with_mascot(
     session_id = request.session_id or str(uuid.uuid4())
 
     # Load recent turns for this session (last 8 exchanges = 16 rows max)
-    session_uuid = uuid.UUID(session_id)
+    try:
+        session_uuid = uuid.UUID(session_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Invalid session_id: must be a valid UUID",
+        )
     recent_turns = (
         db.query(MascotConversationTurn)
         .filter(
