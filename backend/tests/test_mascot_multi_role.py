@@ -46,3 +46,21 @@ def test_assemble_parent_context_returns_dataclass():
     assert isinstance(ctx.weak_subjects, list)
     assert isinstance(ctx.fee_due, bool)
     assert ctx.to_prompt_context().startswith("PARENT:")
+
+
+def test_assemble_admin_context_returns_dataclass():
+    from src.domains.mascot.services.admin_context_assembler import (
+        AdminContext,
+        assemble_admin_context,
+    )
+
+    db = _make_db()
+    db.query.return_value.filter.return_value.count.return_value = 0
+    ctx = assemble_admin_context(db, uuid.uuid4(), uuid.uuid4(), "Principal Sharma")
+
+    assert isinstance(ctx, AdminContext)
+    assert ctx.admin_name == "Principal Sharma"
+    assert isinstance(ctx.total_students, int)
+    assert isinstance(ctx.open_alerts, int)
+    assert isinstance(ctx.queue_pending, int)
+    assert ctx.to_prompt_context().startswith("ADMIN:")
