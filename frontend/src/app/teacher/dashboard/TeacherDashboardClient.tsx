@@ -7,6 +7,7 @@ import { AlertCircle, ArrowRight, CalendarCheck, ClipboardCheck, Sparkles, Trend
 import { api } from "@/lib/api";
 import { PrismHeroKicker, PrismPage, PrismPageIntro, PrismPanel, PrismSectionHeader } from "@/components/prism/PrismPage";
 import { RoleMorningBriefing } from "@/components/RoleMorningBriefing";
+import ErrorRemediation from "@/components/ui/ErrorRemediation";
 
 type TeacherClass = { id: string; name: string; students: number; avg_attendance: number; avg_marks: number };
 type TodayClass = { class_id: string; class_name: string; subject: string; start_time: string; end_time: string };
@@ -96,7 +97,7 @@ export function TeacherDashboardClient({ initialData = null }: { initialData?: T
                 description="The teacher home now strips back to the daily workflow: classes, attendance, grading, and weak-topic follow-up."
             />
 
-            {error ? <div className="rounded-xl border border-[var(--error)]/30 bg-error-subtle px-4 py-3 text-sm text-[var(--error)]">{error}</div> : null}
+            {error ? <ErrorRemediation error={error} scope="teacher-dashboard" onRetry={() => void load()} /> : null}
             {!loading ? <RoleMorningBriefing role="teacher" facts={briefingFacts} fallback={briefingFallback} /> : null}
 
             {loading ? (
