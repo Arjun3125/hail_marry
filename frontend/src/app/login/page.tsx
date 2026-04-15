@@ -53,7 +53,6 @@ export default function LoginPage() {
     window.google.accounts.id.renderButton(el, {
       theme: "outline",
       size: "large",
-      width: "320",
       text: "signin_with",
       shape: "pill",
     });
@@ -138,7 +137,7 @@ export default function LoginPage() {
           ) : (
             <>
               <div className="mb-5 flex justify-center">
-                <div ref={initGoogle} />
+                <div className="w-full max-w-xs" ref={initGoogle} />
               </div>
 
               <div className="mb-5 text-center">
