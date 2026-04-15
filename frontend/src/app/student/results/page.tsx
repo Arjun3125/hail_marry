@@ -162,13 +162,13 @@ export default function ResultsPage() {
                 {/* Subject Filter */}
                 {availableSubjects.length > 1 && (
                     <PrismPanel className="mb-6">
-                        <div className="flex items-center gap-4">
-                            <Award className="w-4 h-4 text-secondary" />
-                            <span className="font-semibold">Filter by Subject</span>
+                        <div className="flex flex-wrap items-center gap-3 p-4">
+                            <Award className="h-4 w-4 flex-shrink-0 text-[var(--text-muted)]" />
+                            <span className="text-sm font-semibold text-[var(--text-secondary)]">Filter by Subject</span>
                             <select
                                 value={activeSubject || ""}
                                 onChange={(e) => mergeContext({ activeSubject: e.target.value || null })}
-                                className="px-3 py-1 border border-subtle rounded-lg text-sm"
+                                className="rounded-lg border border-[var(--border)] bg-[var(--bg-card)] px-3 py-1.5 text-sm text-[var(--text-primary)] outline-none"
                             >
                                 <option value="">All Subjects</option>
                                 {availableSubjects.map(subject => (
@@ -178,7 +178,7 @@ export default function ResultsPage() {
                             {activeSubject && (
                                 <button
                                     onClick={() => mergeContext({ activeSubject: null })}
-                                    className="text-sm text-primary hover:underline"
+                                    className="text-sm text-[var(--ai-primary)] hover:underline"
                                 >
                                     Clear filter
                                 </button>

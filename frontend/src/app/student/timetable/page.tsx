@@ -102,13 +102,13 @@ export default function TimetablePage() {
                 {/* Subject Filter */}
                 {availableSubjects.length > 1 && (
                     <PrismPanel className="mb-6">
-                        <div className="flex items-center gap-4">
-                            <Filter className="w-4 h-4 text-secondary" />
-                            <span className="font-semibold">Filter by Subject</span>
+                        <div className="flex flex-wrap items-center gap-3 p-4">
+                            <Filter className="h-4 w-4 flex-shrink-0 text-[var(--text-muted)]" />
+                            <span className="text-sm font-semibold text-[var(--text-secondary)]">Filter by Subject</span>
                             <select
                                 value={activeSubject || ""}
                                 onChange={(e) => mergeContext({ activeSubject: e.target.value || null })}
-                                className="px-3 py-1 border border-subtle rounded-lg text-sm"
+                                className="rounded-lg border border-[var(--border)] bg-[var(--bg-card)] px-3 py-1.5 text-sm text-[var(--text-primary)] outline-none"
                             >
                                 <option value="">All Subjects</option>
                                 {availableSubjects.map(subject => (
@@ -118,7 +118,7 @@ export default function TimetablePage() {
                             {activeSubject && (
                                 <button
                                     onClick={() => mergeContext({ activeSubject: null })}
-                                    className="text-sm text-primary hover:underline"
+                                    className="text-sm text-[var(--ai-primary)] hover:underline"
                                 >
                                     Clear filter
                                 </button>
@@ -154,49 +154,51 @@ export default function TimetablePage() {
 
                 {error ? <ErrorRemediation error={error} scope="student-timetable" onRetry={() => window.location.reload()} /> : null}
 
-                <PrismPanel className="space-y-6 p-6">
+                <PrismPanel className="space-y-2 p-6">
                     <PrismSectionHeader title="Weekly schedule" description="Check the matrix below to plan your study day, revision windows, and teacher follow-ups." />
-                    {loading ? (
-                        <p className="text-sm text-[var(--text-secondary)]">Loading timetable...</p>
-                    ) : timeRows.length === 0 ? (
-                        <EmptyState icon={Clock} title="No timetable entries yet" description="Your weekly timetable will appear here once the school publishes the current schedule." eyebrow="Schedule unavailable" />
-                    ) : (
-                        <div className="overflow-auto">
-                            <table className="w-full min-w-[760px]">
-                                <thead>
-                                    <tr className="border-b border-[var(--border)]">
-                                        <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">Time</th>
-                                        {days.map((day) => (
-                                            <th key={day} className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">{dayNameByIndex[day] || `Day ${day}`}</th>
-                                        ))}
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {timeRows.map((row) => (
-                                        <tr key={`${row.start}-${row.end}`} className="border-b border-[var(--border-light)]">
-                                            <td className="px-5 py-4 text-sm text-[var(--text-secondary)]">{row.start} - {row.end}</td>
-                                            {days.map((day) => {
-                                                const slot = slotByKey.get(`${day}-${row.start}-${row.end}`);
-                                                return (
-                                                    <td key={`${day}-${row.start}-${row.end}`} className="px-5 py-4 align-top">
-                                                        {slot ? (
-                                                            <div className="rounded-2xl bg-[var(--primary-light)] p-4">
-                                                                <p className="text-sm font-medium text-[var(--primary)]">{slot.subject}</p>
-                                                                <p className="text-xs text-[var(--text-muted)]">{slot.teacher}</p>
-                                                            </div>
-                                                        ) : (
-                                                            <div className="rounded-2xl bg-[var(--bg-page)] p-4 text-xs text-[var(--text-muted)]">Free</div>
-                                                        )}
-                                                    </td>
-                                                );
-                                            })}
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
                 </PrismPanel>
+                <div className="overflow-x-auto rounded-[calc(var(--radius)*1.1)] border border-[var(--border)] bg-[linear-gradient(180deg,rgba(17,25,39,0.92),rgba(12,18,30,0.94))] shadow-[var(--shadow-level-2)] backdrop-blur-[14px]">
+                    {loading ? (
+                        <p className="p-6 text-sm text-[var(--text-secondary)]">Loading timetable...</p>
+                    ) : timeRows.length === 0 ? (
+                        <div className="p-6">
+                            <EmptyState icon={Clock} title="No timetable entries yet" description="Your weekly timetable will appear here once the school publishes the current schedule." eyebrow="Schedule unavailable" />
+                        </div>
+                    ) : (
+                        <table className="w-full min-w-[640px]">
+                            <thead>
+                                <tr className="border-b border-[var(--border)]">
+                                    <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">Time</th>
+                                    {days.map((day) => (
+                                        <th key={day} className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">{dayNameByIndex[day] || `Day ${day}`}</th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {timeRows.map((row) => (
+                                    <tr key={`${row.start}-${row.end}`} className="border-b border-[var(--border-light)]">
+                                        <td className="px-5 py-4 text-sm text-[var(--text-secondary)]">{row.start} - {row.end}</td>
+                                        {days.map((day) => {
+                                            const slot = slotByKey.get(`${day}-${row.start}-${row.end}`);
+                                            return (
+                                                <td key={`${day}-${row.start}-${row.end}`} className="px-5 py-4 align-top">
+                                                    {slot ? (
+                                                        <div className="rounded-2xl bg-[var(--primary-light)] p-4">
+                                                            <p className="text-sm font-medium text-[var(--primary)]">{slot.subject}</p>
+                                                            <p className="text-xs text-[var(--text-muted)]">{slot.teacher}</p>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="rounded-2xl bg-[var(--bg-page)] p-4 text-xs text-[var(--text-muted)]">Free</div>
+                                                    )}
+                                                </td>
+                                            );
+                                        })}
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    )}
+                </div>
             </PrismSection>
         </PrismPage>
     );

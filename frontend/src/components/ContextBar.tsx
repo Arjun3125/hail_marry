@@ -95,7 +95,9 @@ export function ContextBar({
                         Context follows your current workflow
                     </span>
                 ) : null}
-                <LowDataToggle />
+                <span className="hidden sm:contents">
+                    <LowDataToggle />
+                </span>
             </div>
         </div>
     );

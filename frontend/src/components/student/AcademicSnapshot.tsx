@@ -182,8 +182,8 @@ export function AcademicSnapshot({
                             <div className="space-y-4">
                                 {allTopics.map((topic) => (
                                     <div key={topic.subject} className="flex flex-col gap-1.5">
-                                        <div className="flex items-center justify-between">
-                                            <span className="max-w-[120px] truncate text-[11px] font-semibold tracking-wide text-[var(--text-secondary)]">
+                                        <div className="flex items-center justify-between gap-2">
+                                            <span className="min-w-0 flex-1 truncate text-[11px] font-semibold tracking-wide text-[var(--text-secondary)]">
                                                 {topic.subject}
                                             </span>
                                             <span className={`text-[11px] font-bold ${topic.is_weak ? "text-rose-400" : topic.average_score >= 80 ? "text-emerald-400" : "text-indigo-300"}`}>
