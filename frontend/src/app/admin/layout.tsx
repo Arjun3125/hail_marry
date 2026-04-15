@@ -50,10 +50,11 @@ import { MobileBottomNav } from "@/components/ui/SharedUI";
 import { ContextBar } from "@/components/ContextBar";
 
 const mobileNav = [
-    { label: "Health", href: "/admin/dashboard", icon: LayoutDashboard },
-    { label: "People", href: "/admin/users", icon: Users },
-    { label: "Traces", href: "/admin/traces", icon: ScanSearch },
-    { label: "Settings", href: "/admin/settings", icon: Settings },
+    { label: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
+    { label: "Users", href: "/admin/users", icon: Users },
+    { label: "Classes", href: "/admin/classes", icon: BookOpen },
+    { label: "Queue", href: "/admin/queue", icon: Activity },
+    { label: "Assistant", href: "/admin/assistant", icon: Bot },
 ];
 
 
