@@ -7,10 +7,10 @@ import { API_BASE, clearDemoSession, setStoredAccessToken } from "@/lib/api";
 import { useToast } from "./Toast";
 
 const roles = [
-    { id: "student", label: "Student", icon: GraduationCap, path: "/student/overview", color: "bg-info-subtle0" },
+    { id: "student", label: "Student", icon: GraduationCap, path: "/student/overview", color: "bg-sky-500" },
     { id: "teacher", label: "Teacher", icon: BookOpen, path: "/teacher/dashboard", color: "bg-emerald-500" },
-    { id: "admin", label: "Admin", icon: Shield, path: "/admin/dashboard", color: "bg-violet-badge0" },
-    { id: "parent", label: "Parent", icon: Users, path: "/parent/dashboard", color: "bg-warning-subtle0" },
+    { id: "admin", label: "Admin", icon: Shield, path: "/admin/dashboard", color: "bg-violet-500" },
+    { id: "parent", label: "Parent", icon: Users, path: "/parent/dashboard", color: "bg-orange-500" },
 ];
 const salesBeats = [
     "Pain recognition: show the chaos of running a school with separate tools.",
