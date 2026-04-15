@@ -181,7 +181,7 @@ export function ParentDashboardClient({ initialData = null }: { initialData?: un
                         </div>
                     </PrismPanel>
 
-                    <div className="grid gap-4 md:grid-cols-3">
+                    <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
                         <MetricCard icon={CalendarCheck} title="Attendance %" value={`${data.attendance_pct}%`} summary={data.attendance_pct >= 75 ? "Healthy attendance range this week." : "Attendance needs attention this week."} />
                         <MetricCard icon={Activity} title="Last test score" value={data.latest_mark ? `${data.latest_mark.percentage}%` : "No marks"} summary={data.latest_mark ? `${data.latest_mark.subject} · ${data.latest_mark.exam}` : "No recent test has been recorded yet."} />
                         <MetricCard icon={FileText} title="Next assignment due" value={data.next_assignment ? formatDate(data.next_assignment.due) : `${data.pending_assignments} pending`} summary={data.next_assignment ? `${data.next_assignment.title} · ${data.next_assignment.subject}` : "No upcoming due date is available right now."} />
