@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { cookies } from "next/headers";
 import { existsSync, readFileSync } from "fs";
 import { join } from "path";
@@ -45,6 +45,13 @@ export const metadata: Metadata = {
   manifest: "/manifest.json",
 };
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#0f172a",
+};
+
 export default async function RootLayout({
   children,
 }: Readonly<{
@@ -74,10 +81,6 @@ export default async function RootLayout({
       }}
       suppressHydrationWarning
     >
-      <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-        <meta name="theme-color" content="#0f172a" />
-      </head>
       <body
         className="prism-app bg-[var(--bg-page)] text-[var(--text-primary)] antialiased transition-colors duration-300"
         suppressHydrationWarning
