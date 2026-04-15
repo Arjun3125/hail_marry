@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -125,4 +125,56 @@ def build_student_dashboard_response(
             if avg_marks < 80
             else None
         ),
+    }
+
+
+def build_student_weekly_charts(
+    *,
+    db: Session,
+    tenant_id,
+    user_id,
+    weeks: int = 6,
+) -> dict:
+    """Return last N weeks of attendance % and avg marks for charting."""
+    today = date.today()
+    weekly_attendance = []
+    weekly_marks = []
+
+    for week_offset in range(weeks - 1, -1, -1):
+        week_start = today - timedelta(days=today.weekday() + 7 * week_offset)
+        week_end = week_start + timedelta(days=6)
+        label = f"Wk {weeks - week_offset}"
+
+        total = db.query(Attendance).filter(
+            Attendance.tenant_id == tenant_id,
+            Attendance.student_id == user_id,
+            Attendance.date >= week_start,
+            Attendance.date <= week_end,
+        ).count()
+        present = db.query(Attendance).filter(
+            Attendance.tenant_id == tenant_id,
+            Attendance.student_id == user_id,
+            Attendance.date >= week_start,
+            Attendance.date <= week_end,
+            Attendance.status == "present",
+        ).count()
+        weekly_attendance.append({
+            "day": label,
+            "value": round(present / total * 100) if total > 0 else 0,
+        })
+
+        avg_row = db.query(func.avg(Mark.marks_obtained)).filter(
+            Mark.tenant_id == tenant_id,
+            Mark.student_id == user_id,
+            func.date(Mark.created_at) >= week_start,
+            func.date(Mark.created_at) <= week_end,
+        ).scalar()
+        weekly_marks.append({
+            "day": label,
+            "value": round(float(avg_row)) if avg_row else 0,
+        })
+
+    return {
+        "weekly_attendance": weekly_attendance,
+        "weekly_marks": weekly_marks,
     }

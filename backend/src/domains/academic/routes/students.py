@@ -26,6 +26,7 @@ from src.domains.academic.application.student_assignments import (
 )
 from src.domains.academic.application.student_dashboard import (
     build_student_dashboard_response as _build_student_dashboard_response_impl,
+    build_student_weekly_charts as _build_student_weekly_charts_impl,
 )
 from src.domains.academic.application.student_learning_insights import (
     build_student_profile_summary as _build_student_profile_summary_impl,
@@ -318,6 +319,11 @@ async def student_overview_bootstrap(
             ),
         ),
         "study_path": study_path,
+        "weekly_charts": _build_student_weekly_charts_impl(
+            db=db,
+            tenant_id=current_user.tenant_id,
+            user_id=current_user.id,
+        ),
     }
 
 

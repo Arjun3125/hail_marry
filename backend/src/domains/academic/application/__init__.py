@@ -13,7 +13,7 @@ from .parent_portal import (
 )
 from .student_assignments import list_student_assignments
 from .student_complaints import create_student_complaint, list_student_complaints
-from .student_dashboard import build_student_dashboard_response
+from .student_dashboard import build_student_dashboard_response, build_student_weekly_charts
 from .student_learning_insights import (
     build_student_weak_topics,
     list_student_timetable,
@@ -102,6 +102,7 @@ __all__ = [
     "build_parent_report_card_payload",
     "create_student_complaint",
     "build_student_dashboard_response",
+    "build_student_weekly_charts",
     "build_student_weak_topics",
     "list_student_timetable",
     "list_student_uploads",

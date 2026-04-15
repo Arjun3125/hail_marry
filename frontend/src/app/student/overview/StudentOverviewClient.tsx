@@ -96,12 +96,18 @@ type StreakInfo = {
     badges: Badge[];
 };
 
+type WeeklyPoint = { day: string; value: number };
+
 type StudentOverviewBootstrap = {
     dashboard?: DashboardStats | null;
     weak_topics?: WeakTopicPayload | null;
     streaks?: StreakInfo | null;
     recommendations?: { items?: PersonalizedRecommendation[] } | null;
     study_path?: { plan?: StudyPathPlan | null } | null;
+    weekly_charts?: {
+        weekly_attendance?: WeeklyPoint[];
+        weekly_marks?: WeeklyPoint[];
+    } | null;
 };
 
 const emptyStats: DashboardStats = {
@@ -116,23 +122,13 @@ const emptyStats: DashboardStats = {
     ai_insight: null,
 };
 
-const weeklyAttendance = [
-    { day: "Mon", value: 92 }, { day: "Tue", value: 88 },
-    { day: "Wed", value: 95 }, { day: "Thu", value: 90 },
-    { day: "Fri", value: 85 }, { day: "Sat", value: 100 },
-];
-
-const weeklyMarks = [
-    { day: "Week 1", value: 72 }, { day: "Week 2", value: 68 },
-    { day: "Week 3", value: 78 }, { day: "Week 4", value: 82 },
-    { day: "Week 5", value: 75 }, { day: "Week 6", value: 85 },
-];
 
 function normalizeBootstrap(payload: StudentOverviewBootstrap | null | undefined) {
     const dashboardPayload = payload?.dashboard || emptyStats;
     const topicPayload = payload?.weak_topics || { weak_topics: [], strong_topics: [] };
     const recommendationPayload = payload?.recommendations || { items: [] };
     const studyPathPayload = payload?.study_path || { plan: null };
+    const chartsPayload = payload?.weekly_charts || {};
 
     return {
         stats: dashboardPayload as DashboardStats,
@@ -141,6 +137,8 @@ function normalizeBootstrap(payload: StudentOverviewBootstrap | null | undefined
         streak: (payload?.streaks || null) as StreakInfo | null,
         recommendations: Array.isArray(recommendationPayload.items) ? recommendationPayload.items : [],
         studyPath: (studyPathPayload.plan || null) as StudyPathPlan | null,
+        weeklyAttendance: (chartsPayload.weekly_attendance || []) as WeeklyPoint[],
+        weeklyMarks: (chartsPayload.weekly_marks || []) as WeeklyPoint[],
     };
 }
 
@@ -162,6 +160,8 @@ export function StudentOverviewClient({
     const [recommendations, setRecommendations] = useState<PersonalizedRecommendation[]>(initialState.recommendations);
     const [studyPath, setStudyPath] = useState<StudyPathPlan | null>(initialState.studyPath);
     const [streak, setStreak] = useState<StreakInfo | null>(initialState.streak);
+    const [weeklyAttendance, setWeeklyAttendance] = useState<WeeklyPoint[]>(initialState.weeklyAttendance);
+    const [weeklyMarks, setWeeklyMarks] = useState<WeeklyPoint[]>(initialState.weeklyMarks);
     const [loading, setLoading] = useState(!initialData);
     const [error, setError] = useState<Error | null>(null);
     const [chartsReady, setChartsReady] = useState(false);
@@ -175,6 +175,8 @@ export function StudentOverviewClient({
         setStreak(nextState.streak);
         setRecommendations(nextState.recommendations);
         setStudyPath(nextState.studyPath);
+        setWeeklyAttendance(nextState.weeklyAttendance);
+        setWeeklyMarks(nextState.weeklyMarks);
     }, []);
 
     const load = useCallback(async () => {
