@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import uuid
 from typing import Optional
 
@@ -14,6 +15,8 @@ from src.domains.identity.models.user import User
 from src.domains.mascot.models.conversation import MascotConversationTurn
 from src.domains.mascot.services.mascot_agent import run_mascot_agent
 from auth.dependencies import get_current_user
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -83,8 +86,12 @@ async def chat_with_mascot(
         student_message=request.message,
         mascot_response=result["response"],
     )
-    db.add(new_turn)
-    db.commit()
+    try:
+        db.add(new_turn)
+        db.commit()
+    except Exception:
+        db.rollback()
+        logger.exception("Failed to persist mascot conversation turn for session %s", session_id)
 
     return ChatResponse(
         response=result["response"],
