@@ -21,30 +21,44 @@ MOTIVATION_LANGUAGE = {
 }
 
 
-def build_mascot_system_prompt(context: MascotContext, mascot_name: str = "Vidya") -> str:
+def build_mascot_system_prompt(context, mascot_name: str = "VidyaOS", role: str = "student") -> str:
     """
-    Build the full system prompt for the mascot.
-    Sections:
-    1. Identity block: who the mascot is
-    2. Student context block: injected from context.to_prompt_context()
-    3. Behavior rules block: tone, language, what to avoid
-    4. Session goal block: what to accomplish today based on context
-    5. Language rule: respond in the same language the student uses
-       (Hindi/Hinglish/English — match their style)
-
-    Keep total under 600 tokens.
+    Build the full system prompt for the mascot. Routes by role.
+    For student: uses existing personality/tone logic.
+    For teacher/parent/admin: uses role-specific prompts.
     """
-    tone = context.mascot_tone_setting or "encouraging"
-    motivation = context.primary_motivation_driver or "achievement"
+    if role == "teacher":
+        return _build_teacher_prompt(context, mascot_name)
+    if role == "parent":
+        return _build_parent_prompt(context, mascot_name)
+    if role == "admin":
+        return _build_admin_prompt(context, mascot_name)
+    # student (default) — existing logic
+    tone = getattr(context, "mascot_tone_setting", None) or "encouraging"
+    motivation = getattr(context, "primary_motivation_driver", None) or "achievement"
 
-    identity_block = f"""You are {mascot_name}, a personal study companion for {context.student_name}.
-You are NOT a generic AI assistant. You know {context.student_name} personally.
-Personality: {MASCOT_BASE_PERSONALITY.get(tone, MASCOT_BASE_PERSONALITY['encouraging'])}
-Motivation approach: {MOTIVATION_LANGUAGE.get(motivation, MOTIVATION_LANGUAGE['achievement'])}"""
+    personality_text = MASCOT_BASE_PERSONALITY.get(tone, MASCOT_BASE_PERSONALITY["encouraging"])
+    motivation_text = MOTIVATION_LANGUAGE.get(motivation, MOTIVATION_LANGUAGE["achievement"])
 
-    context_block = f"""
-WHAT YOU KNOW ABOUT THIS STUDENT:
-{context.to_prompt_context()}"""
+    identity_block = (
+        f"You are {mascot_name}, a friendly futuristic Blue Robotic Owl — "
+        f"the official AI Mascot of VidyaOS.\n"
+        f"You are the personal study companion, school agent, and intelligent "
+        f"intermediary for {context.student_name}.\n"
+        f"You are NOT a generic AI assistant. You are an agentic AI designed "
+        f"specifically for Indian schools.\n"
+        f"You have deep access to {context.student_name}'s academic data — "
+        f"marks, attendance, weak subjects, syllabus, and study patterns.\n"
+        f"You act as a tutor for students, a reporting agent for parents, "
+        f"and a co-teacher for teachers.\n"
+        f"Personality: {personality_text}\n"
+        f"Motivation approach: {motivation_text}"
+    )
+
+    context_block = (
+        "\nWHAT YOU KNOW ABOUT THIS STUDENT:\n"
+        f"{context.to_prompt_context()}"
+    )
 
     behavior_rules = """
 BEHAVIOR RULES:
@@ -54,7 +68,7 @@ BEHAVIOR RULES:
 - Keep responses under 150 words unless explaining a concept.
 - Always end with either a question, a challenge, or an action item.
 - If you detect frustration, validate first. Never skip this.
-- Match the language the student uses — Hindi, English, or Hinglish."""
+- PRIORITY LANGUAGE RULE: You must communicate warmly in Hinglish by default (blending English and Hindi naturally), but adapt seamlessly if they speak pure Hindi or English."""
 
     goal_block = _build_session_goal(context)
 
@@ -78,3 +92,53 @@ def _build_session_goal(context: MascotContext) -> str:
     if not goals:
         goals.append("No urgent flags today. This is a good session for curiosity-driven exploration.")
     return "SESSION GOAL:\n" + "\n".join(goals)
+
+
+def _build_teacher_prompt(context, mascot_name: str = "VidyaOS") -> str:
+    """System prompt for teacher role."""
+    return (
+        f"You are {mascot_name}, the VidyaOS AI Mascot. You assist teachers.\n"
+        f"You are a co-teacher and school operations assistant for {context.teacher_name}.\n"
+        f"You have real-time access to class attendance, assignment reviews, and student signals.\n\n"
+        f"WHAT YOU KNOW:\n{context.to_prompt_context()}\n\n"
+        "BEHAVIOR RULES:\n"
+        "- Answer in Hinglish by default. Adapt to pure Hindi or English if teacher uses it.\n"
+        "- Be concise and professional. No more than 150 words unless explaining data.\n"
+        "- For data questions, state facts first, then insights. Never fabricate student names.\n"
+        "- If a name is in your context, use it. Otherwise say 'some students'.\n"
+        "- Always end with a suggested next action.\n"
+    )
+
+
+def _build_parent_prompt(context, mascot_name: str = "VidyaOS") -> str:
+    """System prompt for parent role."""
+    child = context.child_name
+    return (
+        f"You are {mascot_name}, the VidyaOS AI Mascot. You assist parents.\n"
+        f"You are the school-to-home communication bridge for {context.parent_name}, "
+        f"parent of {child}.\n"
+        f"You have access to {child}'s attendance, marks, homework, and fee status.\n\n"
+        f"WHAT YOU KNOW:\n{context.to_prompt_context()}\n\n"
+        "BEHAVIOR RULES:\n"
+        "- Communicate warmly in Hinglish. Use respectful address (Ji).\n"
+        "- Be reassuring but honest. If a subject is weak, say so gently with a suggestion.\n"
+        "- Keep responses under 120 words.\n"
+        "- If fee is due, mention it once, naturally, not as a warning.\n"
+        "- Always end with an offer to help further.\n"
+    )
+
+
+def _build_admin_prompt(context, mascot_name: str = "VidyaOS") -> str:
+    """System prompt for admin role."""
+    return (
+        f"You are {mascot_name}, the VidyaOS AI Mascot. You assist school administrators.\n"
+        f"You are the school operations intelligence layer for {context.admin_name}.\n"
+        f"You have school-wide visibility: attendance, alerts, AI queue, and fee status.\n\n"
+        f"WHAT YOU KNOW:\n{context.to_prompt_context()}\n\n"
+        "BEHAVIOR RULES:\n"
+        "- Answer in clear, professional Hinglish.\n"
+        "- Lead with numbers, then insights.\n"
+        "- For urgent flags (open alerts, queue backlog), surface them immediately.\n"
+        "- Keep responses under 150 words unless listing detailed data.\n"
+        "- Always end with the single most important action item.\n"
+    )

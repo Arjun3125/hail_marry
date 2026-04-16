@@ -176,3 +176,34 @@ def assemble_context(db: Session, student_id: UUID,
         logger.warning(f"Failed to load personality profile for student {student_id}: {e}")
 
     return context
+
+
+def _empty_context(user_name: str, user_id: UUID, tenant_id: UUID):
+    """Return a minimal MascotContext when role is unknown."""
+    return MascotContext(
+        student_name=user_name,
+        student_id=str(user_id),
+        tenant_id=str(tenant_id),
+    )
+
+
+def assemble_context_for_role(
+    db: Session,
+    user_id: UUID,
+    tenant_id: UUID,
+    user_name: str,
+    role: str,
+):
+    """Dispatch to the correct context assembler based on role."""
+    if role == "student":
+        return assemble_context(db, user_id, tenant_id, user_name)
+    if role == "teacher":
+        from .teacher_context_assembler import assemble_teacher_context
+        return assemble_teacher_context(db, user_id, tenant_id, user_name)
+    if role == "parent":
+        from .parent_context_assembler import assemble_parent_context
+        return assemble_parent_context(db, user_id, tenant_id, user_name)
+    if role == "admin":
+        from .admin_context_assembler import assemble_admin_context
+        return assemble_admin_context(db, user_id, tenant_id, user_name)
+    return _empty_context(user_name, user_id, tenant_id)

@@ -64,3 +64,32 @@ def test_assemble_admin_context_returns_dataclass():
     assert isinstance(ctx.open_alerts, int)
     assert isinstance(ctx.queue_pending, int)
     assert ctx.to_prompt_context().startswith("ADMIN:")
+
+
+def test_assemble_context_for_role_dispatches_correctly():
+    from src.domains.mascot.services.context_assembler import assemble_context_for_role
+    from src.domains.mascot.services.teacher_context_assembler import TeacherContext
+    from src.domains.mascot.services.parent_context_assembler import ParentContext
+    from src.domains.mascot.services.admin_context_assembler import AdminContext
+
+    db = _make_db()
+    db.query.return_value.filter.return_value.count.return_value = 0
+    uid = uuid.uuid4()
+    tid = uuid.uuid4()
+
+    teacher_ctx = assemble_context_for_role(db, uid, tid, "Sir Ramesh", "teacher")
+    parent_ctx = assemble_context_for_role(db, uid, tid, "Sunita Ji", "parent")
+    admin_ctx = assemble_context_for_role(db, uid, tid, "Principal", "admin")
+
+    assert isinstance(teacher_ctx, TeacherContext)
+    assert isinstance(parent_ctx, ParentContext)
+    assert isinstance(admin_ctx, AdminContext)
+
+
+def test_build_teacher_system_prompt_contains_role_identity():
+    from src.domains.mascot.services.teacher_context_assembler import TeacherContext
+    from src.domains.mascot.services.prompt_builder import build_mascot_system_prompt
+
+    ctx = TeacherContext(teacher_name="Sir Ramesh", user_id="x", tenant_id="y")
+    prompt = build_mascot_system_prompt(ctx, role="teacher")
+    assert "teacher" in prompt.lower() or "Teacher" in prompt
