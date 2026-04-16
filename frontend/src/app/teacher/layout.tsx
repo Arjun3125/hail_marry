@@ -1,6 +1,8 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import { api } from "@/lib/api";
 import Sidebar from "@/components/Sidebar";
 import {
     LayoutDashboard,
@@ -46,6 +48,13 @@ const mobileNav = [
 
 export default function TeacherLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
+    const [hasBadge, setHasBadge] = useState(false);
+    useEffect(() => {
+        api.mascot
+            .greeting()
+            .then((res: any) => setHasBadge(Boolean(res.has_urgent)))
+            .catch(() => {/* badge stays false */});
+    }, []);
     return (
         <div className="flex min-h-screen bg-[var(--bg-page)]">
             <Sidebar items={teacherNav} role="teacher" />
@@ -56,7 +65,7 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
                 </div>
             </main>
             <GuidedTour steps={teacherTourSteps} storageKey="teacher-tour" />
-            {pathname !== "/teacher/assistant" ? <MascotLauncher role="teacher" /> : null}
+            {pathname !== "/teacher/assistant" ? <MascotLauncher role="teacher" hasBadge={hasBadge} /> : null}
             <MobileBottomNav items={mobileNav} currentPath={pathname} />
         </div>
     );

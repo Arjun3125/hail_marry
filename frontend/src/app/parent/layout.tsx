@@ -1,6 +1,8 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import { api } from "@/lib/api";
 import Sidebar from "@/components/Sidebar";
 import {
     LayoutDashboard,
@@ -33,6 +35,13 @@ const parentNav = [
 
 export default function ParentLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
+    const [hasBadge, setHasBadge] = useState(false);
+    useEffect(() => {
+        api.mascot
+            .greeting()
+            .then((res: any) => setHasBadge(Boolean(res.has_urgent)))
+            .catch(() => {/* badge stays false */});
+    }, []);
     return (
         <div className="flex min-h-screen bg-[var(--bg-page)]">
             <Sidebar items={parentNav} role="parent" />
@@ -42,7 +51,7 @@ export default function ParentLayout({ children }: { children: React.ReactNode }
                     {children}
                 </div>
             </main>
-            {pathname !== "/parent/assistant" ? <MascotLauncher role="parent" /> : null}
+            {pathname !== "/parent/assistant" ? <MascotLauncher role="parent" hasBadge={hasBadge} /> : null}
             <MobileBottomNav items={mobileNav} currentPath={pathname} />
         </div>
     );

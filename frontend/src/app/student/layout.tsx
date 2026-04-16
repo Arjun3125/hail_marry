@@ -1,6 +1,8 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import { api } from "@/lib/api";
 import Sidebar from "@/components/Sidebar";
 import {
     LayoutDashboard,
@@ -65,6 +67,13 @@ export default function StudentLayout({
 }) {
     const pathname = usePathname();
     const showMascotLauncher = pathname !== "/student/assistant";
+    const [hasBadge, setHasBadge] = useState(false);
+    useEffect(() => {
+        api.mascot
+            .greeting()
+            .then((res: any) => setHasBadge(Boolean(res.has_urgent)))
+            .catch(() => {/* badge stays false */});
+    }, []);
     return (
         <OnboardingGate>
             <div className="flex min-h-screen bg-[var(--bg-page)]">
@@ -76,7 +85,7 @@ export default function StudentLayout({
                     </div>
                 </main>
                 <GuidedTour steps={studentTourSteps} storageKey="student-tour" />
-                {showMascotLauncher ? <MascotLauncher role="student" /> : null}
+                {showMascotLauncher ? <MascotLauncher role="student" hasBadge={hasBadge} /> : null}
                 <MobileBottomNav items={mobileNav} currentPath={pathname} />
             </div>
         </OnboardingGate>
