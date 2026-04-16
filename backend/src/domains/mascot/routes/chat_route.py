@@ -86,22 +86,6 @@ async def chat_with_mascot(
         role=current_user.role,
     )
 
-    turn_number = len(recent_turns) + 1
-    new_turn = MascotConversationTurn(
-        student_id=current_user.id,
-        tenant_id=current_user.tenant_id,
-        session_id=session_uuid,
-        turn_number=turn_number,
-        student_message=request.message,
-        mascot_response=result["response"],
-    )
-    try:
-        db.add(new_turn)
-        db.commit()
-    except Exception:
-        db.rollback()
-        logger.exception("Failed to persist mascot turn for session %s", session_id)
-
     return ChatResponse(
         response=result["response"],
         session_id=session_id,
