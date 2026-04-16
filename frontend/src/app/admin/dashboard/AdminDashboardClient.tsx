@@ -6,6 +6,7 @@ import { AlertTriangle, Bot, CalendarCheck, MessageSquare, MessageSquareDashed, 
 
 import EmptyState from "@/components/EmptyState";
 import { RoleMorningBriefing } from "@/components/RoleMorningBriefing";
+import { MascotGreetingCard } from "@/components/mascot/MascotGreetingCard";
 import { PrismHeroKicker, PrismPage, PrismPageIntro, PrismPanel, PrismSection, PrismSectionHeader } from "@/components/prism/PrismPage";
 import ErrorRemediation from "@/components/ui/ErrorRemediation";
 import { api } from "@/lib/api";
@@ -212,6 +213,7 @@ export function AdminDashboardClient({ initialData = null }: { initialData?: Adm
 
     return (
         <PrismPage variant="dashboard" className="space-y-6">
+            <MascotGreetingCard role="admin" />
             <PrismSection className="space-y-6">
                 <PrismPageIntro kicker={<PrismHeroKicker><Shield className="h-3.5 w-3.5" />Admin command center</PrismHeroKicker>} title="See school health in one screen before you drill down" description="The admin home now leads with control: one health score, today&apos;s attendance, complaint load, and AI usage, then the supporting operational evidence underneath." />
                 {error ? <ErrorRemediation error={error} scope="admin-dashboard" onRetry={() => void load()} /> : null}

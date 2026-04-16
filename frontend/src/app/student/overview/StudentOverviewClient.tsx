@@ -18,6 +18,7 @@ import { PrismHeroKicker, PrismPage, PrismPageIntro, PrismPanel, PrismSectionHea
 import { SkeletonCard } from "@/components/Skeleton";
 import { RoleStartPanel } from "@/components/RoleStartPanel";
 import { RoleMorningBriefing } from "@/components/RoleMorningBriefing";
+import { MascotGreetingCard } from "@/components/mascot/MascotGreetingCard";
 import { GamificationHero } from "@/components/student/GamificationHero";
 import { AIActionCenter } from "@/components/student/AIActionCenter";
 import { AcademicSnapshot } from "@/components/student/AcademicSnapshot";
@@ -345,6 +346,7 @@ export function StudentOverviewClient({
 
     return (
         <PrismPage variant="dashboard" className="space-y-6">
+            <MascotGreetingCard role="student" />
             <PrismPageIntro
                 kicker={<PrismHeroKicker>Student command center</PrismHeroKicker>}
                 title="Open VidyaOS and know what to do next"

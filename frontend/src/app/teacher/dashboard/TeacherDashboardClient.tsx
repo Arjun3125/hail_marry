@@ -7,6 +7,7 @@ import { AlertCircle, ArrowRight, CalendarCheck, ClipboardCheck, Sparkles, Trend
 import { api } from "@/lib/api";
 import { PrismHeroKicker, PrismPage, PrismPageIntro, PrismPanel, PrismSectionHeader } from "@/components/prism/PrismPage";
 import { RoleMorningBriefing } from "@/components/RoleMorningBriefing";
+import { MascotGreetingCard } from "@/components/mascot/MascotGreetingCard";
 import ErrorRemediation from "@/components/ui/ErrorRemediation";
 
 type TeacherClass = { id: string; name: string; students: number; avg_attendance: number; avg_marks: number };
@@ -91,6 +92,7 @@ export function TeacherDashboardClient({ initialData = null }: { initialData?: T
 
     return (
         <PrismPage variant="dashboard" className="max-w-6xl space-y-6">
+            <MascotGreetingCard role="teacher" />
             <PrismPageIntro
                 kicker={<PrismHeroKicker>Teacher daily workflow</PrismHeroKicker>}
                 title="Guide the day, not the dashboard"

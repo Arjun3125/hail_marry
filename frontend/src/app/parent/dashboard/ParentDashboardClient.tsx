@@ -6,6 +6,7 @@ import { Activity, CalendarCheck, FileText, GraduationCap, Loader2, ShieldCheck,
 
 import { api } from "@/lib/api";
 import { PrismHeroKicker, PrismPage, PrismPageIntro, PrismPanel, PrismSectionHeader } from "@/components/prism/PrismPage";
+import { MascotGreetingCard } from "@/components/mascot/MascotGreetingCard";
 import ErrorRemediation from "@/components/ui/ErrorRemediation";
 import { SkeletonList } from "@/components/Skeleton";
 import { RoleMorningBriefing } from "@/components/RoleMorningBriefing";
@@ -140,6 +141,7 @@ export function ParentDashboardClient({ initialData = null }: { initialData?: un
 
     return (
         <PrismPage variant="dashboard" className="space-y-6">
+            <MascotGreetingCard role="parent" />
             <PrismPageIntro
                 kicker={<PrismHeroKicker><ShieldCheck className="h-3.5 w-3.5" />Parent weekly summary</PrismHeroKicker>}
                 title="Read your child&apos;s week in under a minute"
