@@ -111,7 +111,7 @@ async def tool_dispatch_node(state: Dict[str, Any]) -> Dict[str, Any]:
     try:
         params = _build_call_params(spec, state)
         import asyncio
-        result = await asyncio.get_event_loop().run_in_executor(
+        result = await asyncio.get_running_loop().run_in_executor(
             None, lambda: spec.handler(**params)
         )
         return {"tool_result": f"TOOL_RESULT ({spec.name}):\n{result}"}
