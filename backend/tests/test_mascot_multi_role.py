@@ -110,3 +110,16 @@ def test_find_tool_returns_none_for_unknown_tool():
     from src.domains.mascot.services.tool_dispatcher import _find_tool
 
     assert _find_tool("nonexistent_tool", "student") is None
+
+
+def test_run_mascot_agent_accepts_role_param():
+    import inspect
+    from src.domains.mascot.services.mascot_agent import run_mascot_agent
+    sig = inspect.signature(run_mascot_agent)
+    assert "role" in sig.parameters
+
+
+def test_mascot_agent_state_has_role_field():
+    from src.domains.mascot.services.mascot_agent import MascotAgentState
+    assert "role" in MascotAgentState.__annotations__
+    assert "tool_result" in MascotAgentState.__annotations__

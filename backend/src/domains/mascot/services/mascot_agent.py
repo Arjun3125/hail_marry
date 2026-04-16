@@ -10,8 +10,9 @@ from langgraph.graph import END, StateGraph
 
 from src.infrastructure.llm.providers import get_llm_provider
 
-from .context_assembler import assemble_context
+from .context_assembler import assemble_context, assemble_context_for_role
 from .elicitation_scheduler import get_next_elicitation, record_elicitation_asked
+from .tool_dispatcher import tool_dispatch_node
 from .memory_manager import increment_interaction_count, update_memory
 from .profile_manager import save_signal
 from .prompt_builder import build_mascot_system_prompt
@@ -30,6 +31,7 @@ class MascotAgentState(TypedDict):
     student_id: str
     tenant_id: str
     student_name: str
+    role: str
     session_id: str
     turn_number: int
     conversation_history: List[Dict[str, str]]  # [{"role": "student"|"mascot", "content": str}]
@@ -38,6 +40,9 @@ class MascotAgentState(TypedDict):
     mascot_context: Optional[Dict[str, Any]]  # MascotContext serialized to dict
     system_prompt: Optional[str]
     elicitation_question: Optional[Dict[str, Any]]
+
+    # Tool dispatch (filled by tool_dispatch node)
+    tool_result: Optional[str]
 
     # Signal extraction (filled by extract_signals node)
     detected_emotional_state: Optional[str]
@@ -52,35 +57,36 @@ class MascotAgentState(TypedDict):
 
 
 async def load_context_node(state: MascotAgentState) -> Dict[str, Any]:
-    """
-    Load context, build system prompt, and determine elicitation question.
-    """
+    """Load context, build system prompt, and determine elicitation question."""
     try:
         from src.bootstrap.app_factory import get_db_session
 
         db = next(get_db_session())
         student_id = UUID(state["student_id"])
         tenant_id = UUID(state["tenant_id"])
+        role = state.get("role", "student")
 
-        # Assemble context
-        mascot_context = assemble_context(db, student_id, tenant_id, state["student_name"])
+        # Assemble role-aware context
+        mascot_context = assemble_context_for_role(
+            db, student_id, tenant_id, state["student_name"], role
+        )
 
         # Build system prompt
-        system_prompt = build_mascot_system_prompt(mascot_context)
+        system_prompt = build_mascot_system_prompt(mascot_context, role=role)
 
-        # Get elicitation question
-        from ..models.personality_profile import StudentPersonalityProfile
-        profile = db.query(StudentPersonalityProfile).filter(
-            StudentPersonalityProfile.student_id == student_id,
-            StudentPersonalityProfile.tenant_id == tenant_id
-        ).first()
-
+        # Get elicitation question (student only)
         elicitation_question = None
-        if profile:
-            elicitation_question = get_next_elicitation(
-                db, student_id, tenant_id,
-                mascot_context.total_interactions, profile
-            )
+        if role == "student":
+            from ..models.personality_profile import StudentPersonalityProfile
+            profile = db.query(StudentPersonalityProfile).filter(
+                StudentPersonalityProfile.student_id == student_id,
+                StudentPersonalityProfile.tenant_id == tenant_id
+            ).first()
+            if profile:
+                elicitation_question = get_next_elicitation(
+                    db, student_id, tenant_id,
+                    mascot_context.total_interactions, profile
+                )
 
         return {
             "mascot_context": mascot_context.__dict__,
@@ -88,11 +94,10 @@ async def load_context_node(state: MascotAgentState) -> Dict[str, Any]:
             "elicitation_question": elicitation_question,
         }
     except Exception as e:
-        logger.exception(f"Failed to load context for student {state['student_id']}: {e}")
-        # Return safe defaults
+        logger.exception(f"Failed to load context for user {state['student_id']}: {e}")
         return {
             "mascot_context": None,
-            "system_prompt": "You are a helpful study companion.",
+            "system_prompt": "You are Vidya, a friendly futuristic Blue Robotic Owl — the official AI Mascot of VidyaOS. Tum ek smart study companion ho Indian schools ke liye. Hinglish mein baat karo, warm and encouraging raho. Koi bhi sawal ho, help karne ke liye ready raho!",
             "elicitation_question": None,
         }
 
@@ -126,8 +131,14 @@ async def generate_response_node(state: MascotAgentState) -> Dict[str, Any]:
 
         # Build messages
         messages = [{"role": "system", "content": state["system_prompt"]}]
-        messages.extend(state["conversation_history"][-8:])  # Last 8 turns
-        messages.append({"role": "user", "content": state["student_message"]})
+        messages.extend(state["conversation_history"][-8:])
+
+        # Inject tool result into user message if available
+        user_message = state["student_message"]
+        tool_result = state.get("tool_result")
+        if tool_result:
+            user_message = f"{tool_result}\n\nUser: {user_message}"
+        messages.append({"role": "user", "content": user_message})
 
         # Add elicitation question if appropriate
         elicitation_text = ""
@@ -148,7 +159,7 @@ async def generate_response_node(state: MascotAgentState) -> Dict[str, Any]:
     except Exception as e:
         logger.exception(f"Failed to generate response: {e}")
         return {
-            "mascot_response": "I'm here to help you study! What would you like to work on today?",
+            "mascot_response": "Arre yaar, ek chhota sa technical issue aa gaya! Lekin main hoon na — batao kya padhai karni hai aaj? 📚🦉",
             "is_elicitation_turn": False,
         }
 
@@ -208,12 +219,14 @@ def build_mascot_agent_graph() -> StateGraph:
     """Build the mascot agent LangGraph."""
     graph = StateGraph(MascotAgentState)
     graph.add_node("load_context", load_context_node)
+    graph.add_node("tool_dispatch", tool_dispatch_node)
     graph.add_node("extract_signals", extract_signals_node)
     graph.add_node("generate_response", generate_response_node)
     graph.add_node("persist_and_format", persist_and_format_node)
 
     graph.set_entry_point("load_context")
-    graph.add_edge("load_context", "extract_signals")
+    graph.add_edge("load_context", "tool_dispatch")
+    graph.add_edge("tool_dispatch", "extract_signals")
     graph.add_edge("extract_signals", "generate_response")
     graph.add_edge("generate_response", "persist_and_format")
     graph.add_edge("persist_and_format", END)
@@ -224,10 +237,16 @@ def build_mascot_agent_graph() -> StateGraph:
 mascot_agent_app = build_mascot_agent_graph()
 
 
-async def run_mascot_agent(student_message: str, student_id: str,
-                            tenant_id: str, student_name: str,
-                            session_id: str, turn_number: int,
-                            conversation_history: List[Dict[str, str]]) -> Dict[str, Any]:
+async def run_mascot_agent(
+    student_message: str,
+    student_id: str,
+    tenant_id: str,
+    student_name: str,
+    session_id: str,
+    turn_number: int,
+    conversation_history: List[Dict[str, str]],
+    role: str = "student",
+) -> Dict[str, Any]:
     """
     Entry point for the mascot agent.
     Returns dict with 'response' key.
@@ -237,12 +256,14 @@ async def run_mascot_agent(student_message: str, student_id: str,
         "student_id": student_id,
         "tenant_id": tenant_id,
         "student_name": student_name,
+        "role": role,
         "session_id": session_id,
         "turn_number": turn_number,
         "conversation_history": conversation_history,
         "mascot_context": None,
         "system_prompt": None,
         "elicitation_question": None,
+        "tool_result": None,
         "detected_emotional_state": None,
         "extracted_signals": None,
         "mascot_response": None,
