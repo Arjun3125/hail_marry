@@ -27,6 +27,10 @@ from src.domains.platform.models.notification import Notification
 from src.domains.platform.models.feature_flag import FeatureFlag
 from src.domains.platform.models.notebook import Notebook
 from src.domains.platform.models.generated_content import GeneratedContent
+from src.domains.mascot.models.conversation import MascotConversationTurn
+from src.domains.mascot.models.mascot_memory import StudentMascotMemory
+from src.domains.mascot.models.personality_profile import StudentPersonalityProfile
+from src.domains.mascot.models.signals import ProfileSignal, ElicitationLog
 
 __all__ = [
     "Tenant", "User",
@@ -68,5 +72,10 @@ __all__ = [
     "FeatureFlag",
     "Notebook",
     "GeneratedContent",
+    "MascotConversationTurn",
+    "StudentMascotMemory",
+    "StudentPersonalityProfile",
+    "ProfileSignal",
+    "ElicitationLog",
 ]
 

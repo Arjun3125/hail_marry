@@ -123,3 +123,97 @@ def test_mascot_agent_state_has_role_field():
     from src.domains.mascot.services.mascot_agent import MascotAgentState
     assert "role" in MascotAgentState.__annotations__
     assert "tool_result" in MascotAgentState.__annotations__
+
+
+def test_teacher_can_access_mascot_chat(client, db_session, active_tenant):
+    """Teacher role must NOT get 403 from /api/mascot/chat."""
+    from unittest.mock import patch, AsyncMock
+    from src.domains.identity.routes.auth import pwd_context
+    from auth.jwt import create_access_token
+    from src.domains.identity.models.user import User
+
+    _PRECOMPUTED_HASH = pwd_context.hash("pass123!")
+
+    # Create teacher user
+    teacher = User(
+        id=uuid.uuid4(),
+        tenant_id=active_tenant.id,
+        email="teacher-mascot@testschool.edu",
+        full_name="Sir Ramesh",
+        role="teacher",
+        hashed_password=_PRECOMPUTED_HASH,
+        is_active=True,
+    )
+    db_session.add(teacher)
+    db_session.commit()
+
+    # Mint token
+    token = create_access_token({
+        "user_id": str(teacher.id),
+        "tenant_id": str(active_tenant.id),
+        "email": "teacher-mascot@testschool.edu",
+        "role": "teacher",
+    })
+
+    with patch(
+        "src.domains.mascot.routes.chat_route.run_mascot_agent",
+        new_callable=AsyncMock,
+        return_value={"response": "Namaste Teacher!", "response_type": "text"},
+    ):
+        response = client.post(
+            "/api/mascot/chat",
+            headers={"Authorization": f"Bearer {token}"},
+            json={"message": "Aaj ki attendance?"},
+        )
+
+    assert response.status_code == 200, response.text
+    assert "Namaste" in response.json()["response"]
+
+
+def test_greeting_endpoint_returns_greeting_for_student(client, db_session, active_tenant):
+    """GET /api/mascot/greeting returns {greeting, chips, has_urgent} for any role."""
+    from unittest.mock import patch, AsyncMock
+    from src.domains.identity.routes.auth import pwd_context
+    from auth.jwt import create_access_token
+    from src.domains.identity.models.user import User
+
+    _PRECOMPUTED_HASH = pwd_context.hash("pass123!")
+
+    # Create student user
+    student = User(
+        id=uuid.uuid4(),
+        tenant_id=active_tenant.id,
+        email="student-greeting@testschool.edu",
+        full_name="Arjun",
+        role="student",
+        hashed_password=_PRECOMPUTED_HASH,
+        is_active=True,
+    )
+    db_session.add(student)
+    db_session.commit()
+
+    # Mint token
+    token = create_access_token({
+        "user_id": str(student.id),
+        "tenant_id": str(active_tenant.id),
+        "email": "student-greeting@testschool.edu",
+        "role": "student",
+    })
+
+    with patch(
+        "src.domains.mascot.routes.chat_route._generate_greeting",
+        new_callable=AsyncMock,
+        return_value="Good morning! Ready to learn. 🦉",
+    ):
+        response = client.get(
+            "/api/mascot/greeting",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert "greeting" in data
+    assert "chips" in data
+    assert "has_urgent" in data
+    assert isinstance(data["chips"], list)
+    assert isinstance(data["has_urgent"], bool)
