@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import uuid
-from typing import List, Optional
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
@@ -34,7 +34,7 @@ class ChatResponse(BaseModel):
 
 class GreetingResponse(BaseModel):
     greeting: str
-    chips: List[str]
+    chips: list[str]
     has_urgent: bool
 
 
