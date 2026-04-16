@@ -772,6 +772,8 @@ export const api = {
             const suffix = query.toString();
             return apiFetch(`/api/mascot/session${suffix ? `?${suffix}` : ""}`, { method: "DELETE" });
         },
+        greeting: (): Promise<{ greeting: string; chips: string[]; has_urgent: boolean }> =>
+            apiFetch("/api/mascot/greeting"),
     },
     personalization: {
         recommendations: (params?: {
