@@ -93,3 +93,20 @@ def test_build_teacher_system_prompt_contains_role_identity():
     ctx = TeacherContext(teacher_name="Sir Ramesh", user_id="x", tenant_id="y")
     prompt = build_mascot_system_prompt(ctx, role="teacher")
     assert "teacher" in prompt.lower() or "Teacher" in prompt
+
+
+def test_find_tool_returns_spec_for_valid_role():
+    from src.domains.mascot.services.tool_dispatcher import _find_tool
+
+    spec = _find_tool("get_student_attendance", "student")
+    assert spec is not None
+    assert spec.name == "get_student_attendance"
+
+    no_spec = _find_tool("get_student_attendance", "teacher")
+    assert no_spec is None
+
+
+def test_find_tool_returns_none_for_unknown_tool():
+    from src.domains.mascot.services.tool_dispatcher import _find_tool
+
+    assert _find_tool("nonexistent_tool", "student") is None
