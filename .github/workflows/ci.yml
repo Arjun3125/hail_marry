@@ -140,21 +140,17 @@ jobs:
           NEXT_PUBLIC_DEMO_MODE: "true"
         run: npm run build
 
-      - name: Install lsb-release for setup-python
+      - name: Install Python for Backend Server
         run: |
           apt-get update
-          apt-get install -y lsb-release
-
-      - name: Set up Python for Backend Server
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          cache: pip
-          cache-dependency-path: backend/requirements.txt
+          apt-get install -y python3 python3-pip python3-venv python-is-python3
 
       - name: Install backend dependencies for Playwright
         working-directory: backend
         run: |
+          python -m venv .venv
+          echo "$PWD/.venv/bin" >> $GITHUB_PATH
+          . .venv/bin/activate
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
