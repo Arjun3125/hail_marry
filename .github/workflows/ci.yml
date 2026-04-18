@@ -140,6 +140,19 @@ jobs:
           NEXT_PUBLIC_DEMO_MODE: "true"
         run: npm run build
 
+      - name: Set up Python for Backend Server
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install backend dependencies for Playwright
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
       - name: Run full Playwright E2E suite
         working-directory: frontend
         env:
