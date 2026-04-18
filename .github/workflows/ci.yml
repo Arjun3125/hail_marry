@@ -141,6 +141,8 @@ jobs:
         run: npm run build
 
       - name: Install Python 3.11 for Backend Server
+        env:
+          DEBIAN_FRONTEND: noninteractive
         run: |
           apt-get update
           apt-get install -y software-properties-common
