@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { stubAuthShell, stubAdminDashboard, adminBootstrapPayload, adminDashboardPayload, stubMascotSuggestions } from "../fixtures/helpers";
+import { stubAuthShell, adminBootstrapPayload, adminDashboardPayload, stubMascotSuggestions } from "../fixtures/helpers";
 
 test("admin dashboard shows alerts and dispatches them", async ({ page }) => {
     await stubAuthShell(page, "admin");

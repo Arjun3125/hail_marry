@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { stubAuthShell, stubTeacherDashboard, stubMascotSuggestions } from "../fixtures/helpers";
+import { stubAuthShell, stubMascotSuggestions } from "../fixtures/helpers";
 
 /* ═══════════════════════════════════════════════════════════════════════
    TEACHER  ACADEMIC  OPS  ·  30 hard fault-finding tests

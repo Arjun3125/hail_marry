@@ -71,7 +71,7 @@ export default function StudentLayout({
     useEffect(() => {
         api.mascot
             .greeting()
-            .then((res: any) => setHasBadge(Boolean(res.has_urgent)))
+            .then((res: { has_urgent?: boolean }) => setHasBadge(Boolean(res.has_urgent)))
             .catch(() => {/* badge stays false */});
     }, []);
     return (

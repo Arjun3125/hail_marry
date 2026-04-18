@@ -5,7 +5,7 @@ import { stubAuthShell } from "../fixtures/helpers";
    STUDENT  LEARNING  TOOLS  ·  40 hard fault-finding tests
    ═══════════════════════════════════════════════════════════════════════ */
 
-async function mockToolGenerate(page: import("@playwright/test").Page, payload: any, status = 200) {
+async function mockToolGenerate(page: import("@playwright/test").Page, payload: Record<string, unknown>, status = 200) {
     if (status !== 200) {
         await page.route("**/api/student/tools/generate**", async (route) => {
             await route.fulfill({ status, contentType: "application/json", body: JSON.stringify(payload) });

@@ -64,7 +64,7 @@ export function MascotAssistantPage({ role }: { role: string }) {
     useEffect(() => {
         api.mascot
             .greeting()
-            .then((res: any) => setLiveGreeting((res as { greeting?: string }).greeting || null))
+            .then((res: { greeting?: string }) => setLiveGreeting((res as { greeting?: string }).greeting || null))
             .catch(() => {/* fall through to static description */})
             .finally(() => setGreetingLoading(false));
     }, []);
@@ -104,7 +104,7 @@ export function MascotAssistantPage({ role }: { role: string }) {
                                 </p>
                             )}
                             <div className="flex flex-wrap gap-2 justify-center md:justify-start">
-                                {content.highlights.map((item, idx) => (
+                                {content.highlights.map((item) => (
                                     <span key={item} className="rounded-full border border-cyan-500/30 bg-cyan-500/5 px-4 py-2 text-sm text-cyan-300">
                                         {item}
                                     </span>

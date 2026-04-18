@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { stubAuthShell, stubBranding, stubStudentOverview, overviewBootstrapPayload, stubAdminDashboard, stubTeacherDashboard, stubParentDashboard } from "../fixtures/helpers";
+import { stubAuthShell, stubBranding, stubStudentOverview, stubAdminDashboard } from "../fixtures/helpers";
 
 /* ═══════════════════════════════════════════════════════════════════════
    API  ERROR  RESILIENCE  ·  35 hard fault-finding tests
