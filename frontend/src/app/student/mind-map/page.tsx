@@ -402,7 +402,7 @@ export default function InteractiveMindMapPage() {
                                 <canvas
                                     ref={canvasRef}
                                     className="w-full cursor-grab active:cursor-grabbing"
-                                    style={{ height: "550px" }}
+                                    style={{ height: "clamp(300px, 55dvh, 600px)" }}
                                     onMouseDown={handleMouseDown}
                                     onMouseMove={handleMouseMove}
                                     onMouseUp={handleMouseUp}

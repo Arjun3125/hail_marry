@@ -1,9 +1,17 @@
-import { expect, test } from "@playwright/test";
+﻿import { expect, test } from "@playwright/test";
 
 test("admin users page supports role updates, activation changes, and guardian bindings", async ({ page }) => {
     await page.addInitScript(() => {
         window.localStorage.setItem("vidyaos_access_token", "test-token");
     });
+
+    // Set demo role cookie for admin user
+    await page.context().addCookies([{
+        name: 'demo_role',
+        value: 'admin',
+        domain: 'localhost',
+        path: '/',
+    }]);
 
     const users = [
         {
@@ -145,7 +153,7 @@ test("admin users page supports role updates, activation changes, and guardian b
         });
     });
 
-    await page.goto("/admin/users");
+    await page.goto("/admin/users", { waitUntil: "domcontentloaded" });
 
     await expect(page.getByRole("heading", { name: "Govern the school directory without leaving the control room" })).toBeVisible();
     await expect(page.getByRole("heading", { name: /User directory/i })).toBeVisible();
@@ -165,3 +173,4 @@ test("admin users page supports role updates, activation changes, and guardian b
     await page.getByLabel("Disable Student One").click();
     await expect(page.locator("tr").filter({ hasText: "Student One" }).getByText("Disabled", { exact: true })).toBeVisible();
 });
+

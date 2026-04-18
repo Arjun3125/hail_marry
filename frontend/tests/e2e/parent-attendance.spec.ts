@@ -1,9 +1,17 @@
-import { expect, test } from "@playwright/test";
+﻿import { expect, test } from "@playwright/test";
 
 test("parent attendance page shows attendance story and recent records", async ({ page }) => {
     await page.addInitScript(() => {
         window.localStorage.setItem("vidyaos_access_token", "test-token");
     });
+
+    // Set demo role cookie for parent user
+    await page.context().addCookies([{
+        name: 'demo_role',
+        value: 'parent',
+        domain: 'localhost',
+        path: '/',
+    }]);
 
     await page.route("**/api/parent/attendance", async (route) => {
         await route.fulfill({
@@ -33,7 +41,7 @@ test("parent attendance page shows attendance story and recent records", async (
         });
     });
 
-    await page.goto("/parent/attendance");
+    await page.goto("/parent/attendance", { waitUntil: "domcontentloaded" });
 
     await expect(page.getByRole("heading", { name: "See the attendance story without operational noise" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Recent record" })).toBeVisible();
@@ -42,3 +50,4 @@ test("parent attendance page shows attendance story and recent records", async (
     await expect(page.getByText("present", { exact: true })).toBeVisible();
     await expect(page.getByText("There is 1 recorded absence in the current list, so this week may need a short follow-up conversation.")).toBeVisible();
 });
+

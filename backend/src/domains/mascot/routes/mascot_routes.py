@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import timezone
 from typing import List
 from uuid import UUID
 
@@ -127,6 +128,89 @@ async def get_conversation_history(
     ).order_by(MascotConversationTurn.created_at.desc()).limit(limit).offset(offset).all()
 
     return [ConversationTurnRead.from_orm(turn) for turn in turns]
+
+
+# ─── Dynamic Knowledge Base Management ─────────────────────────────────────
+
+@router.post("/admin/knowledge-base/rebuild")
+async def rebuild_mascot_knowledge_base(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db_session),
+):
+    """
+    Trigger a full dynamic knowledge base rebuild.
+    Scans source code and ingests updated capabilities into the vector store.
+    
+    ✅ Admin only
+    ⏱️ Takes ~2-5 minutes (runs async)
+    
+    Returns: {"status": "queued", "message": "Knowledge base rebuild started"}
+    """
+    # Admin check
+    if current_user.role != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
+    
+    import asyncio
+    import logging
+    
+    logger = logging.getLogger(__name__)
+    
+    async def rebuild_kb_async():
+        """Run in background"""
+        try:
+            from src.infrastructure.vector_store.knowledge_ingestion import ingest_mascot_knowledge
+            
+            result = await ingest_mascot_knowledge(force=True)
+            logger.info(f"Knowledge base rebuild result: {result}")
+        except Exception as e:
+            logger.error(f"Knowledge base rebuild failed: {e}", exc_info=True)
+    
+    # Queue as background task (fire and forget)
+    asyncio.create_task(rebuild_kb_async())
+    
+    return {
+        "status": "queued",
+        "message": "Knowledge base rebuild started. Check logs in ~2 minutes.",
+        "timestamp": str(__import__("datetime").datetime.now(timezone.utc))
+    }
+
+
+@router.get("/admin/knowledge-base/status")
+async def get_knowledge_base_status(
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Check knowledge base status and freshness.
+    Admin only.
+    """
+    # Admin check
+    if current_user.role != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
+    
+    from pathlib import Path
+    from datetime import datetime, timezone
+    import os
+    
+    knowledge_file = Path(__file__).parent.parent.parent.parent.parent / "knowledge_base" / "mascot_capabilities.jsonl"
+    cache_file = knowledge_file.parent / ".ingestion_cache"
+    
+    status = {
+        "knowledge_file_exists": knowledge_file.exists(),
+        "cache_file_exists": cache_file.exists(),
+        "knowledge_file_size": knowledge_file.stat().st_size if knowledge_file.exists() else 0,
+        "knowledge_file_mtime": datetime.fromtimestamp(knowledge_file.stat().st_mtime, tz=timezone.utc).isoformat() if knowledge_file.exists() else None,
+        "cache_file_mtime": datetime.fromtimestamp(cache_file.stat().st_mtime, tz=timezone.utc).isoformat() if cache_file.exists() else None,
+    }
+    
+    # Check if up-to-date
+    if knowledge_file.exists() and cache_file.exists():
+        kb_mtime = knowledge_file.stat().st_mtime
+        cache_mtime = cache_file.stat().st_mtime
+        status["is_current"] = kb_mtime < cache_mtime
+    else:
+        status["is_current"] = False
+    
+    return status
 
 
 @router.post("/admin/promote-signals/{student_id}")

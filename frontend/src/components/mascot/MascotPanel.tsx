@@ -1,7 +1,8 @@
 "use client";
 
 import { FormEvent } from "react";
-import { Bot, FileImage, FileText, Maximize2, Paperclip, Send, Sparkles, UploadCloud, X } from "lucide-react";
+import Image from "next/image";
+import { FileImage, FileText, Maximize2, Paperclip, Send, Sparkles, UploadCloud, X } from "lucide-react";
 
 import { MascotMessageList } from "./MascotMessageList";
 import { MascotSuggestionChips } from "./MascotSuggestionChips";
@@ -69,9 +70,16 @@ export function MascotPanel({
                 fullPage ? "rounded-3xl" : "h-[min(72vh,720px)] w-[min(420px,calc(100vw-2rem))] rounded-3xl"
             }`}
         >
-            <header className="flex items-center gap-3 border-b border-[var(--border)] px-4 py-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-orange-500 to-amber-500 text-white">
-                    <Bot className="h-5 w-5" />
+            <header className="flex items-center gap-3 border-b border-[var(--border)] px-4 py-3 bg-gradient-to-r from-slate-900/50 to-slate-800/50">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-700 to-slate-900 border border-cyan-500/30 shadow-lg shadow-cyan-500/20">
+                    <Image
+                        src="/images/mascot-owl-bg.png"
+                        alt="VidyaOS Mascot"
+                        width={40}
+                        height={40}
+                        priority
+                        className="drop-shadow-lg object-contain"
+                    />
                 </div>
                 <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold text-[var(--text-primary)]">{title}</p>

@@ -61,7 +61,7 @@ export function MascotGreetingCard({ role }: { role: string }) {
                             {data?.greeting}
                         </p>
                         <div className="flex flex-wrap items-center gap-2">
-                            {data?.chips.map((chip) => (
+                            {data?.chips?.map((chip) => (
                                 <Link
                                     key={chip}
                                     href={`${assistantHref}?q=${encodeURIComponent(chip)}`}

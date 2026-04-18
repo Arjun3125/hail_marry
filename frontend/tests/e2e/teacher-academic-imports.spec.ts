@@ -1,9 +1,17 @@
-import { expect, test } from "@playwright/test";
+﻿import { expect, test } from "@playwright/test";
 
 test.beforeEach(async ({ page }) => {
     await page.addInitScript(() => {
         window.localStorage.setItem("vidyaos_access_token", "test-token");
     });
+
+    // Set demo role cookie for teacher user
+    await page.context().addCookies([{
+        name: 'demo_role',
+        value: 'teacher',
+        domain: 'localhost',
+        path: '/',
+    }]);
 
     await page.route("**/api/branding/config", async (route) => {
         await route.fulfill({
@@ -74,7 +82,7 @@ test("teacher attendance page imports OCR attendance and surfaces review metadat
         });
     });
 
-    await page.goto("/teacher/attendance");
+    await page.goto("/teacher/attendance", { waitUntil: "domcontentloaded" });
 
     await expect(page.getByRole("heading", { name: "Mark Attendance" })).toBeVisible();
     await page.locator('input[type="file"]').setInputFiles({
@@ -138,7 +146,7 @@ test("teacher marks page imports OCR marks after creating an exam and surfaces r
         });
     });
 
-    await page.goto("/teacher/marks");
+    await page.goto("/teacher/marks", { waitUntil: "domcontentloaded" });
 
     await expect(page.getByRole("heading", { name: "Enter Assessment Marks" })).toBeVisible();
     await page.getByPlaceholder("Exam name").fill("Photosynthesis Unit Test");
@@ -154,3 +162,4 @@ test("teacher marks page imports OCR marks after creating an exam and surfaces r
     await expect(page.getByText(/One handwritten score needed review/i)).toBeVisible();
     await expect(page.getByText(/student unclear entry not in class/i)).toBeVisible();
 });
+

@@ -1,9 +1,17 @@
-import { expect, test } from "@playwright/test";
+﻿import { expect, test } from "@playwright/test";
 
 test("parent reports page shows monthly snapshot and focus subjects", async ({ page }) => {
     await page.addInitScript(() => {
         window.localStorage.setItem("vidyaos_access_token", "test-token");
     });
+
+    // Set demo role cookie for parent user
+    await page.context().addCookies([{
+        name: 'demo_role',
+        value: 'parent',
+        domain: 'localhost',
+        path: '/',
+    }]);
 
     await page.route("**/api/parent/reports", async (route) => {
         await route.fulfill({
@@ -34,7 +42,7 @@ test("parent reports page shows monthly snapshot and focus subjects", async ({ p
         });
     });
 
-    await page.goto("/parent/reports");
+    await page.goto("/parent/reports", { waitUntil: "domcontentloaded" });
 
     await expect(page.getByRole("heading", { name: "See the month in plain academic language" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Monthly story" })).toBeVisible();
@@ -43,3 +51,4 @@ test("parent reports page shows monthly snapshot and focus subjects", async ({ p
     await expect(page.getByText("History", { exact: true })).toBeVisible();
     await expect(page.getByText("Watch closely").first()).toBeVisible();
 });
+

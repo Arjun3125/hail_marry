@@ -176,25 +176,9 @@ test("admin queue page supports cancel, dead-letter, and retry actions", async (
         await route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify({ detail: "Unhandled admin route" }) });
     });
 
-    await page.route("**/api/branding/config", async (route) => {
-        await route.fulfill({
-            status: 200,
-            contentType: "application/json",
-            body: JSON.stringify({
-                name: "VidyaOS",
-                logo_url: null,
-                primary_color: "#2563eb",
-                secondary_color: "#0f172a",
-                accent_color: "#f59e0b",
-                font_family: "Inter",
-                theme_style: "modern",
-            }),
-        });
-    });
-
     await page.goto("/admin/queue");
 
-    await expect(page.getByRole("heading", { name: "Keep the AI job queue controlled before incidents spread" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "AI Queue Operations" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Persistent Audit History" })).toBeVisible();
 
     const queuedRow = page.locator("tr").filter({ hasText: "job-queued" });

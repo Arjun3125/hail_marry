@@ -1,9 +1,17 @@
-import { expect, test } from "@playwright/test";
+﻿import { expect, test } from "@playwright/test";
 
 test.beforeEach(async ({ page }) => {
     await page.addInitScript(() => {
         window.localStorage.setItem("vidyaos_access_token", "test-token");
     });
+
+    // Set demo role cookie for teacher user
+    await page.context().addCookies([{
+        name: 'demo_role',
+        value: 'teacher',
+        domain: 'localhost',
+        path: '/',
+    }]);
 
     await page.route("**/api/branding/config", async (route) => {
         await route.fulfill({
@@ -95,7 +103,7 @@ test("teacher upload page handles document OCR intake and YouTube ingestion", as
         });
     });
 
-    await page.goto("/teacher/upload");
+    await page.goto("/teacher/upload", { waitUntil: "domcontentloaded" });
 
     await expect(page.getByRole("heading", { name: "Bring class materials into one controlled intake flow" })).toBeVisible();
 
@@ -120,3 +128,4 @@ test("teacher upload page handles document OCR intake and YouTube ingestion", as
     expect(docPolls).toBeGreaterThanOrEqual(2);
     expect(youtubePolls).toBeGreaterThanOrEqual(2);
 });
+

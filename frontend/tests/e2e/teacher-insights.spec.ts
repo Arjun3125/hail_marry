@@ -1,9 +1,17 @@
-import { expect, test } from "@playwright/test";
+﻿import { expect, test } from "@playwright/test";
 
 test.beforeEach(async ({ page }) => {
     await page.addInitScript(() => {
         window.localStorage.setItem("vidyaos_access_token", "test-token");
     });
+
+    // Set demo role cookie for teacher user
+    await page.context().addCookies([{
+        name: 'demo_role',
+        value: 'teacher',
+        domain: 'localhost',
+        path: '/',
+    }]);
 
     await page.route("**/api/branding/config", async (route) => {
         await route.fulfill({
@@ -43,7 +51,7 @@ test("teacher insights page renders class analytics and recommendations", async 
         });
     });
 
-    await page.goto("/teacher/insights");
+    await page.goto("/teacher/insights", { waitUntil: "domcontentloaded" });
 
     await expect(page.getByRole("heading", { name: "Class Insights Dashboard" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Class 10 A" })).toBeVisible();
@@ -51,3 +59,4 @@ test("teacher insights page renders class analytics and recommendations", async 
     await expect(page.getByText("Photosynthesis", { exact: true })).toBeVisible();
     await expect(page.getByText(/Run a short remediation block on photosynthesis/i)).toBeVisible();
 });
+

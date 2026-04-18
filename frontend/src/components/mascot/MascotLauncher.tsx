@@ -18,8 +18,8 @@ export function MascotLauncher({ role, fullPage = false, hasBadge = false }: { r
 
     return (
         <div 
-            className="fixed right-5 z-[70] flex flex-col items-end gap-3 bottom-5 lg:bottom-5"
-            style={{ bottom: "calc(var(--bottom-nav-height, 0rem) + 1.25rem)" }}
+            className="fixed right-5 z-[70] flex flex-col items-end gap-3 fab-layer-1"
+            style={{ bottom: "var(--fab-offset)" }}
         >
             {open ? (
                 <Suspense fallback={null}>

@@ -1,7 +1,11 @@
 """
 RAG Retrieval Pipeline — search, rerank (cross-encoder), context dedup + compression, citation enforce.
+
+See docs/RAG_SYSTEM.md for architecture overview.
+See docs/RAG_CONFIGURATION.md for settings.
+See docs/RAG_TROUBLESHOOTING.md for issues.
 """
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple, Any
 import re
 from config import settings
 from src.infrastructure.llm.providers import get_embedding_provider, get_vector_store_provider
@@ -11,6 +15,7 @@ import os
 logger = logging.getLogger(__name__)
 
 # Feature flag — set WIKI_ENABLED=1 to activate wiki-first retrieval
+# See docs/RAG_SYSTEM.md#wiki-first-retrieval
 WIKI_ENABLED = os.getenv("WIKI_ENABLED", "0") == "1"
 
 
@@ -30,7 +35,7 @@ def _get_reranker():
     return _reranker
 
 
-def rerank_chunks(query: str, results: List[tuple], top_n: int = 5) -> List[tuple]:
+def rerank_chunks(query: str, results: List[Tuple[Dict[str, Any], float]], top_n: int = 5) -> List[Tuple[Dict[str, Any], float]]:
     """
     Rerank chunks using cross-encoder model for semantic relevance.
     Falls back to FAISS score ordering if cross-encoder is unavailable.
@@ -47,13 +52,92 @@ def rerank_chunks(query: str, results: List[tuple], top_n: int = 5) -> List[tupl
     return scored[:top_n]
 
 
-def _filter_by_score_threshold(results: List[tuple], min_score: float) -> List[tuple]:
+# ─── Query Rewriting (Recall Optimization) ──────────────────
+async def rewrite_query(query: str, num_variants: int = 2) -> List[str]:
+    """
+    Generate query variants/paraphrases to improve recall on vague questions.
+    Example: "Is photosynthesis hard?" → ["photosynthesis definition", "photosynthesis steps"]
+    
+    See docs/RAG_SYSTEM.md#query-rewriting
+    See docs/RAG_CONFIGURATION.md#query-rewriting
+    
+    Returns list of [original_query, variant1, variant2, ...]
+    """
+    try:
+        from src.infrastructure.llm.providers import get_llm_provider
+        llm = get_llm_provider()
+        
+        rewrite_prompt = f"""Generate {num_variants} alternative phrasings of this question to improve search recall.
+Each variant should be a different way to ask the same thing.
+Return ONLY the variants, one per line. No numbering or explanations.
+
+Original question: {query}
+
+Variants:"""
+        
+        response = await llm.generate(
+            prompt=rewrite_prompt,
+            max_tokens=200,
+            temperature=0.7
+        )
+        
+        variants = [query]  # Always include original
+        if response:
+            # Parse response: split by newlines, clean up
+            lines = response.strip().split('\n')
+            for line in lines[:num_variants]:
+                variant = line.strip()
+                if variant and len(variant) > 3:  # Skip empty or too-short lines
+                    variants.append(variant)
+        
+        logger.info(f"Query rewrite: '{query}' → {len(variants)} variants")
+        return variants
+    except Exception as exc:
+        logger.warning(f"Query rewriting failed, using original: {exc}")
+        return [query]
+
+
+def merge_search_results(
+    results_list: List[List[Tuple[Dict[str, Any], float]]],
+    dedup_threshold: float = 0.85,
+    max_results: int = 20
+) -> List[Tuple[Dict[str, Any], float]]:
+    """
+    Merge results from multiple query searches, deduplicating similar chunks.
+    Gives higher weight to chunks found in multiple searches.
+    """
+    merged: Dict[str, Tuple[Dict[str, Any], List[float]]] = {}  # {document_id + chunk_text: (chunk_meta, scores_list)}
+    
+    for results in results_list:
+        for chunk_meta, score in results:
+            doc_id = chunk_meta.get("document_id", "")
+            text = chunk_meta.get("text", "")
+            key = f"{doc_id}:{text[:50]}"  # Use doc_id + text prefix as key
+            
+            if key not in merged:
+                merged[key] = (chunk_meta, [])
+            merged[key][1].append(float(score))
+    
+    # Calculate aggregate score (average of all scores + bonus for multiple matches)
+    scored_results: List[Tuple[Dict[str, Any], float]] = []
+    for key, (chunk_meta, scores) in merged.items():
+        avg_score = sum(scores) / len(scores) if scores else 0.0
+        multi_match_bonus = min(len(scores) * 0.1, 0.3)  # Up to 0.3 bonus for appearing in multiple searches
+        final_score = min(avg_score + multi_match_bonus, 1.0)
+        scored_results.append((chunk_meta, final_score))
+    
+    # Sort by final score and return top results
+    scored_results.sort(key=lambda x: x[1], reverse=True)
+    return scored_results[:max_results]
+
+
+def _filter_by_score_threshold(results: List[Tuple[Dict[str, Any], float]], min_score: float) -> List[Tuple[Dict[str, Any], float]]:
     """Drop results below the configured minimum relevance threshold."""
     return [(chunk_meta, score) for chunk_meta, score in results if float(score) >= min_score]
 
 
 # ─── Context Deduplication ───────────────────────────────────
-def deduplicate_chunks(chunks: List[tuple], similarity_threshold: float = 0.85) -> List[tuple]:
+def deduplicate_chunks(chunks: List[Tuple[Dict[str, Any], float]], similarity_threshold: float = 0.85) -> List[Tuple[Dict[str, Any], float]]:
     """
     Remove near-duplicate chunks using text overlap ratio.
     Uses Jaccard similarity on word sets for fast computation.
@@ -61,7 +145,7 @@ def deduplicate_chunks(chunks: List[tuple], similarity_threshold: float = 0.85) 
     if not chunks:
         return []
 
-    deduped = [chunks[0]]
+    deduped: List[Tuple[Dict[str, Any], float]] = [chunks[0]]
     for chunk_meta, score in chunks[1:]:
         text = chunk_meta.get("text", "").lower()
         words_new = set(text.split())
@@ -86,7 +170,7 @@ def deduplicate_chunks(chunks: List[tuple], similarity_threshold: float = 0.85) 
 
 
 # ─── Context Compression ─────────────────────────────────────
-def compress_context(chunks: List[Dict], max_tokens: int = 3000) -> List[Dict]:
+def compress_context(chunks: List[Dict[str, Any]], max_tokens: int = 3000) -> List[Dict[str, Any]]:
     """
     Compress context to fit within token budget.
     - Keep high-scoring chunks in full
@@ -101,7 +185,7 @@ def compress_context(chunks: List[Dict], max_tokens: int = 3000) -> List[Dict]:
 
     # Keep top half in full, compress bottom half
     midpoint = max(len(chunks) // 2, 1)
-    compressed = [{**chunk, "compressed": chunk.get("compressed", False)} for chunk in chunks[:midpoint]]
+    compressed: List[Dict[str, Any]] = [{**chunk, "compressed": chunk.get("compressed", False)} for chunk in chunks[:midpoint]]
     current_tokens = sum(len(c["text"].split()) for c in compressed)
 
     for chunk in chunks[midpoint:]:
@@ -120,7 +204,7 @@ def compress_context(chunks: List[Dict], max_tokens: int = 3000) -> List[Dict]:
 
 
 # ─── Citation Enforcement ─────────────────────────────────────
-def enforce_citations(response: str, mode: str, available_citations: List[str]) -> dict:
+def enforce_citations(response: str, mode: str, available_citations: List[str]) -> Dict[str, Any]:
     """
     Post-process AI response to validate citations.
     Returns dict with validated response and citation status.
@@ -158,7 +242,7 @@ async def retrieve_context(
     subject_id: Optional[str] = None,
     notebook_id: Optional[str] = None,
     enable_wiki: Optional[bool] = None,
-) -> List[Dict]:
+) -> List[Dict[str, Any]]:
     """
     Full retrieval pipeline:
     1. Embed query
@@ -166,6 +250,10 @@ async def retrieve_context(
     3. Cross-encoder rerank
     4. Deduplicate (Jaccard similarity)
     5. Return context chunks with citations
+    
+    See docs/RAG_SYSTEM.md#pipeline-steps
+    See docs/RAG_CONFIGURATION.md#threshold-configuration
+    See docs/VECTOR_STORE_CONFIGURATION.md#metadata-filtering
     """
     # Step 0 (wiki-first): Try the LLM-Wiki before vector search
     wiki_active = enable_wiki if enable_wiki is not None else WIKI_ENABLED
@@ -190,20 +278,50 @@ async def retrieve_context(
     except Exception:
         return []
 
-    # Step 2: Vector search (over-fetch for reranking)
+    # Step 1.5: Query Rewriting (optional, controlled by config)
+    embedding_provider = get_embedding_provider()
+    use_query_rewriting = getattr(settings.retrieval, 'enable_query_rewriting', True)
+    query_variants = [query]
+    
+    if use_query_rewriting:
+        try:
+            query_variants = await rewrite_query(query, num_variants=2)
+        except Exception as exc:
+            logger.debug(f"Query rewriting skipped: {exc}")
+            query_variants = [query]
+
+    # Step 2: Vector search (over-fetch for reranking) — multi-pass with variants
     store = get_vector_store_provider(tenant_id)
     if store.chunk_count == 0:
         return []
 
-    results = store.search(
-        query_embedding=query_embedding,
-        top_k=top_k * 2,
-        subject_id=subject_id,
-        notebook_id=notebook_id,
-    )
+    all_results = []
+    for variant_query in query_variants:
+        try:
+            variant_embedding = await embedding_provider.embed(variant_query)
+            variant_results = store.search(
+                query_embedding=variant_embedding,
+                top_k=top_k * 2,
+                subject_id=subject_id,
+                notebook_id=notebook_id,
+            )
+            if variant_results:
+                all_results.append(variant_results)
+                logger.debug(f"Query variant '{variant_query}' → {len(variant_results)} results")
+        except Exception as exc:
+            logger.debug(f"Variant search failed for '{variant_query}': {exc}")
+            continue
 
-    if not results:
+    if not all_results:
         return []
+
+    # Merge results from all query variants (gives bonus to chunks found in multiple searches)
+    if len(all_results) > 1:
+        merged_results = merge_search_results(all_results, max_results=top_k * 3)
+        results = merged_results
+        logger.info(f"Merged {len(all_results)} query variants → {len(results)} unique chunks")
+    else:
+        results = all_results[0]
 
     vector_filtered = _filter_by_score_threshold(
         [({**chunk_meta, "_vector_score": float(score)}, float(score)) for chunk_meta, score in results],
@@ -256,7 +374,7 @@ async def retrieve_documents(
     query: str,
     collection: str,
     top_k: int = 3,
-) -> List[Dict]:
+) -> List[Dict[str, Any]]:
     """Simplified retrieval for non-tenant documents (e.g. system docs)."""
     return await retrieve_context(
         query=query,
@@ -265,7 +383,7 @@ async def retrieve_documents(
     )
 
 
-def build_context_string(chunks: List[Dict], max_tokens: int = 3000) -> str:
+def build_context_string(chunks: List[Dict[str, Any]], max_tokens: int = 3000) -> str:
     """Build a context string from retrieved chunks, with compression."""
     compressed = compress_context(chunks, max_tokens)
 
@@ -278,7 +396,7 @@ def build_context_string(chunks: List[Dict], max_tokens: int = 3000) -> str:
     return "\n\n".join(context_parts)
 
 
-def build_retrieval_audit(chunks: List[Dict], max_tokens: int = 3000) -> Dict:
+def build_retrieval_audit(chunks: List[Dict[str, Any]], max_tokens: int = 3000) -> Dict[str, Any]:
     """Return chunk-level diagnostics for audit/debug responses."""
     audit_chunks = compress_context(chunks, max_tokens)
     max_chunks = max(settings.retrieval.audit_max_chunks, 1)
@@ -307,7 +425,7 @@ def build_retrieval_audit(chunks: List[Dict], max_tokens: int = 3000) -> Dict:
     }
 
 
-def extract_citations(chunks: List[Dict]) -> List[Dict]:
+def extract_citations(chunks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Extract unique citations from context chunks."""
     seen = set()
     citations = []

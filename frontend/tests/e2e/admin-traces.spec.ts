@@ -1,9 +1,17 @@
-import { expect, test } from "@playwright/test";
+﻿import { expect, test } from "@playwright/test";
 
 test("admin traces page loads diagnostics summary and trace timeline", async ({ page }) => {
     await page.addInitScript(() => {
         window.localStorage.setItem("vidyaos_access_token", "test-token");
     });
+
+    // Set demo role cookie for admin user
+    await page.context().addCookies([{
+        name: 'demo_role',
+        value: 'admin',
+        domain: 'localhost',
+        path: '/',
+    }]);
 
     await page.route("**/api/admin/observability/traceability**", async (route) => {
         await route.fulfill({
@@ -84,7 +92,7 @@ test("admin traces page loads diagnostics summary and trace timeline", async ({ 
         });
     });
 
-    await page.goto("/admin/traces");
+    await page.goto("/admin/traces", { waitUntil: "domcontentloaded" });
 
     await expect(page.getByRole("heading", { name: "Read trace failures before they become repeated incidents" })).toBeVisible();
     await expect(page.getByRole("heading", { name: /Trace diagnostics/i })).toBeVisible();
@@ -99,3 +107,4 @@ test("admin traces page loads diagnostics summary and trace timeline", async ({ 
     await expect(page.getByText("worker.timeout")).toBeVisible();
     await expect(page.getByText("trace-001").first()).toBeVisible();
 });
+

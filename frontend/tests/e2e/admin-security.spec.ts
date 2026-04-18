@@ -1,9 +1,17 @@
-import { expect, test } from "@playwright/test";
+﻿import { expect, test } from "@playwright/test";
 
 test("admin security page renders audit metrics and audit trail", async ({ page }) => {
     await page.addInitScript(() => {
         window.localStorage.setItem("vidyaos_access_token", "test-token");
     });
+
+    // Set demo role cookie for admin user
+    await page.context().addCookies([{
+        name: 'demo_role',
+        value: 'admin',
+        domain: 'localhost',
+        path: '/',
+    }]);
 
     await page.route("**/api/admin/security", async (route) => {
         await route.fulfill({
@@ -46,7 +54,7 @@ test("admin security page renders audit metrics and audit trail", async ({ page 
         });
     });
 
-    await page.goto("/admin/security");
+    await page.goto("/admin/security", { waitUntil: "domcontentloaded" });
 
     await expect(page.getByRole("heading", { name: "Keep security review disciplined and actor-focused" })).toBeVisible();
     await expect(page.getByRole("heading", { name: /Audit trail/i })).toBeVisible();
@@ -56,3 +64,4 @@ test("admin security page renders audit metrics and audit trail", async ({ page 
     await expect(auditTable.getByText("policy.updated", { exact: true })).toBeVisible();
     await expect(page.getByText("invalid_password")).toBeVisible();
 });
+

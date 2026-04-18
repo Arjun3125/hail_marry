@@ -80,8 +80,8 @@ export default function DemoToolbar() {
         <>
             <button
                 onClick={() => setOpen(!open)}
-                className="fixed right-4 z-50 flex items-center gap-2 rounded-full bg-gradient-to-r from-indigo-600 to-violet-600 px-3 py-2 text-[11px] font-bold text-white shadow-xl transition-all hover:scale-105 hover:shadow-2xl sm:px-4 sm:py-2.5 sm:text-xs"
-                style={{ bottom: "calc(var(--bottom-nav-height, 4.5rem) + 1rem)" }}
+                className="fixed right-4 z-50 flex items-center gap-2 rounded-full bg-gradient-to-r from-indigo-600 to-violet-600 px-3 py-2 text-[11px] font-bold text-white shadow-xl transition-all hover:scale-105 hover:shadow-2xl sm:px-4 sm:py-2.5 sm:text-xs fab-layer-1"
+                style={{ bottom: "var(--fab-offset)" }}
             >
                 <span className={`w-2 h-2 rounded-full ${currentRole.color} animate-pulse`} />
                 <span className="hidden sm:inline">DEMO MODE | Viewing as:</span> {currentRole.label}
@@ -89,8 +89,8 @@ export default function DemoToolbar() {
 
             {open && (
                 <div 
-                    className="fixed right-4 z-50 w-[calc(100vw-2rem)] sm:w-72 max-w-72 bg-[var(--bg-card)] rounded-2xl shadow-2xl border border-[var(--border)] overflow-hidden animate-[fadeIn_0.15s_ease-out]"
-                    style={{ bottom: "calc(var(--bottom-nav-height, 4.5rem) + 3.5rem)" }}
+                    className="fixed right-4 z-50 w-[calc(100vw-2rem)] sm:w-72 max-w-72 bg-[var(--bg-card)] rounded-2xl shadow-2xl border border-[var(--border)] overflow-hidden animate-[fadeIn_0.15s_ease-out] fab-layer-2"
+                    style={{ bottom: "var(--fab-offset)" }}
                 >
                     <div className="bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-3 flex items-center justify-between">
                         <span className="text-xs font-bold text-white">DEMO MODE | Viewing as: {currentRole.label}</span>

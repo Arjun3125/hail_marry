@@ -166,7 +166,7 @@ export function StudentOverviewClient({
     const [loading, setLoading] = useState(!initialData);
     const [error, setError] = useState<Error | null>(null);
     const [chartsReady, setChartsReady] = useState(false);
-    const [showFullDashboard, setShowFullDashboard] = useState(true);
+    const [showFullDashboard, setShowFullDashboard] = useState(false);
 
     const applyBootstrap = useCallback((payload: StudentOverviewBootstrap | null | undefined) => {
         const nextState = normalizeBootstrap(payload);

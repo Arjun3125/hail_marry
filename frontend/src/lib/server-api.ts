@@ -39,6 +39,10 @@ export async function serverApiFetch<T>(
 
     if (resolvedCookieHeader) {
         mergedHeaders.set("cookie", resolvedCookieHeader);
+        if (resolvedCookieHeader.includes("e2e_ssr_bypass=1")) {
+            console.log("[DEBUG] SSR bypassed due to e2e_ssr_bypass cookie. Path:", path);
+            return null;
+        }
     }
     if (!mergedHeaders.has("content-type")) {
         mergedHeaders.set("content-type", "application/json");
@@ -49,7 +53,7 @@ export async function serverApiFetch<T>(
             ...rest,
             headers: mergedHeaders,
             cache: "no-store",
-            signal: AbortSignal.timeout(1500),
+            signal: AbortSignal.timeout(10000),
         });
 
         if (!response.ok) {

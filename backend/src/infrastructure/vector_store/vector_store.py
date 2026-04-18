@@ -151,7 +151,20 @@ class FAISSProvider(VectorStoreProvider):
         top_k: int = 8,
         subject_id: Optional[str] = None,
         notebook_id: Optional[str] = None,
+        is_system_knowledge: Optional[bool] = None,
+        user_role: Optional[str] = None,
     ) -> List[Tuple[Dict, float]]:
+        """
+        Search vector store with optional filters.
+        
+        Args:
+            query_embedding: The query vector
+            top_k: Number of results to return
+            subject_id: Filter by subject (for learning materials)
+            notebook_id: Filter by notebook (for learning materials)
+            is_system_knowledge: If True, only return system knowledge chunks
+            user_role: If specified, filter WHO_CAN_USE to include this role or "all"
+        """
         if not self.metadata:
             return []
 
@@ -167,10 +180,17 @@ class FAISSProvider(VectorStoreProvider):
                 if idx < 0 or idx >= len(self.metadata):
                     continue
                 meta = self.metadata[idx]
+                
+                # Apply filters
                 if subject_id and meta.get("subject_id") and meta["subject_id"] != subject_id:
                     continue
                 if notebook_id and meta.get("notebook_id") != notebook_id:
                     continue
+                if is_system_knowledge is not None and meta.get("is_system_knowledge", False) != is_system_knowledge:
+                    continue
+                if user_role and not self._check_role_access(meta, user_role):
+                    continue
+                
                 results.append((meta, float(score)))
                 if len(results) >= top_k:
                     break
@@ -182,14 +202,31 @@ class FAISSProvider(VectorStoreProvider):
                     vec = np.array(meta["_vector"], dtype=np.float32)
                     vec = vec / (np.linalg.norm(vec) + 1e-8)
                     score = float(np.dot(query_vec[0], vec))
+                    
+                    # Apply filters
                     if subject_id and meta.get("subject_id") and meta["subject_id"] != subject_id:
                         continue
                     if notebook_id and meta.get("notebook_id") != notebook_id:
                         continue
+                    if is_system_knowledge is not None and meta.get("is_system_knowledge", False) != is_system_knowledge:
+                        continue
+                    if user_role and not self._check_role_access(meta, user_role):
+                        continue
+                    
                     results.append((meta, score))
 
             results.sort(key=lambda x: x[1], reverse=True)
             return results[:top_k]
+    
+    def _check_role_access(self, metadata: Dict, user_role: str) -> bool:
+        """
+        Check if a metadata chunk is accessible to a given role.
+        Uses who_can_use field which contains list of roles or ["all"].
+        """
+        who_can_use = metadata.get("who_can_use", ["all"])
+        if isinstance(who_can_use, str):
+            who_can_use = [who_can_use]
+        return "all" in who_can_use or user_role.lower() in [r.lower() for r in who_can_use]
 
     def delete_document(self, document_id: str):
         keep_indices = [i for i, m in enumerate(self.metadata) if m.get("document_id") != document_id]

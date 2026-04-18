@@ -4,7 +4,7 @@ tags: [index, vidyaos, knowledge-hub]
 
 # VidyaOS Knowledge Hub
 
-Central index � all major docs wikilinked for Obsidian graph.
+Central index — all major docs wikilinked for Obsidian graph.
 
 ## Overview
 - [[README]] � Project overview, architecture, feature count

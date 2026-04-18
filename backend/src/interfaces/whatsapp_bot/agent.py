@@ -633,7 +633,7 @@ def _llm_interpretation(message: str, role: str) -> Optional[IntentInterpretatio
         allowed_tools.append("ask_ai_question")
 
     prompt = (
-        "You are a WhatsApp request interpreter for a school AI assistant.\n"
+        "You are the request interpreter for VidyaOS — a friendly Blue Robotic Owl AI Mascot for Indian schools.\n"
         "The user may write in English, Hindi, Marathi, or mixed Hinglish.\n"
         "Translate the request to clear English, infer what the user wants, and choose the best tool.\n"
         "If the request is an educational or app-use request but does not match a specialized tool, use ask_ai_question.\n"
@@ -882,8 +882,9 @@ def generate_response(state: WhatsAppAgentState) -> dict:
             history_str += f"\n{msg.get('role', 'user')}: {msg.get('content', '')}"
 
         prompt = (
-            f"You are VidyaOS, a school WhatsApp assistant. The user is a {state['role']}.\n"
-            "Reply briefly, clearly, and helpfully. Keep it under 180 words.\n"
+            f"You are VidyaOS, a friendly futuristic Blue Robotic Owl — the official AI Mascot of VidyaOS school platform. The user is a {state['role']}.\n"
+            "You are an intelligent agent for Indian schools — a tutor for students, informant for parents, and assistant for teachers.\n"
+            "Communicate warmly in Hinglish by default (blend English and Hindi naturally). Keep it under 180 words.\n"
             "If the user needs ERP or AI actions, tell them to ask directly in natural language.\n"
             f"Conversation:{history_str}\n\n"
             f"user: {state['message']}\nassistant:"
@@ -894,8 +895,8 @@ def generate_response(state: WhatsAppAgentState) -> dict:
         logger.exception("LLM response generation failed")
         return {
             "response": (
-                "I can help with timetable, attendance, assignments, results, uploaded study material, "
-                "and AI study tools. Ask naturally, for example: *Explain photosynthesis*."
+                "Main VidyaOS hoon — aapka school assistant! 🦉 Timetable, attendance, assignments, results, "
+                "ya AI study tools — kuch bhi poocho. Example: *Photosynthesis explain karo*."
             ),
         }
 

@@ -26,6 +26,12 @@ async function stubAuthenticatedShell(page: Page) {
     await page.addInitScript(() => {
         window.localStorage.setItem("vidyaos_access_token", "test-token");
         window.localStorage.setItem("student-tour", "completed");
+        window.localStorage.setItem("student-onboarding", JSON.stringify({
+            "profile-ready": true,
+            "upload-material": true,
+            "ask-ai": true,
+            "read-timetable": true,
+        }));
         window.localStorage.setItem("teacher-tour", "completed");
         window.localStorage.setItem("admin-tour", "completed");
         window.localStorage.setItem("parent-tour", "completed");
@@ -35,10 +41,25 @@ async function stubAuthenticatedShell(page: Page) {
 }
 
 async function readNavigationMetrics(page: Page) {
-    return page.evaluate(() => {
+    return page.evaluate(async () => {
         const navigation = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined;
-        const paints = performance.getEntriesByType("paint");
-        const firstContentfulPaint = paints.find((entry) => entry.name === "first-contentful-paint")?.startTime ?? 0;
+        const firstContentfulPaint = await new Promise<number>((resolve) => {
+            const paints = performance.getEntriesByType("paint");
+            const existingFCP = paints.find((entry) => entry.name === "first-contentful-paint");
+            if (existingFCP) return resolve(existingFCP.startTime);
+            
+            const observer = new PerformanceObserver((list) => {
+                const entry = list.getEntriesByName("first-contentful-paint")[0];
+                if (entry) {
+                    observer.disconnect();
+                    resolve(entry.startTime);
+                }
+            });
+            observer.observe({ type: "paint", buffered: true });
+            
+            // Timeout fallback
+            setTimeout(() => { observer.disconnect(); resolve(0); }, 5000);
+        });
 
         if (!navigation) {
             throw new Error("Missing navigation timing entry: domContentLoaded, loadEventEnd, and responseEnd are unavailable.");
@@ -58,7 +79,7 @@ test.describe("Mobile performance budgets", () => {
         await page.setViewportSize({ width: 390, height: 844 });
         await stubBranding(page);
 
-        await page.goto("/", { waitUntil: "load" });
+        await page.goto("/", { waitUntil: "domcontentloaded" });
         await expect(page.getByRole("link", { name: /Explore demo/i })).toBeVisible();
 
         const metrics = await readNavigationMetrics(page);
@@ -201,7 +222,7 @@ test.describe("Mobile performance budgets", () => {
             });
         });
 
-        await page.goto("/student/overview", { waitUntil: "load" });
+        await page.goto("/student/overview", { waitUntil: "domcontentloaded" });
         await expect(page.getByRole("heading", { name: /Open VidyaOS and know what to do next/i })).toBeVisible({ timeout: 15000 });
 
         const metrics = await readNavigationMetrics(page);
@@ -212,3 +233,4 @@ test.describe("Mobile performance budgets", () => {
         expect(metrics.loadEventEnd).toBeLessThan(4200);
     });
 });
+

@@ -1,9 +1,17 @@
-import { expect, test } from "@playwright/test";
+﻿import { expect, test } from "@playwright/test";
 
 test.beforeEach(async ({ page }) => {
     await page.addInitScript(() => {
         window.localStorage.setItem("vidyaos_access_token", "test-token");
     });
+
+    // Set demo role cookie for teacher user
+    await page.context().addCookies([{
+        name: 'demo_role',
+        value: 'teacher',
+        domain: 'localhost',
+        path: '/',
+    }]);
 
     await page.route("**/api/branding/config", async (route) => {
         await route.fulfill({
@@ -79,7 +87,7 @@ test("teacher discover page searches sources and ingests a result", async ({ pag
         });
     });
 
-    await page.goto("/teacher/discover");
+    await page.goto("/teacher/discover", { waitUntil: "domcontentloaded" });
 
     await expect(page.getByRole("heading", { name: "Find relevant external sources before you add them to class knowledge" })).toBeVisible();
     await page.getByPlaceholder(/NCERT Class 10 Photosynthesis/i).fill("NCERT Photosynthesis");
@@ -92,3 +100,4 @@ test("teacher discover page searches sources and ingests a result", async ({ pag
     await expect(page.getByText(/7 chunks added to the knowledge base/i)).toBeVisible();
     expect(jobPolls).toBeGreaterThanOrEqual(2);
 });
+

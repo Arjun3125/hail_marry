@@ -1,9 +1,17 @@
-import { expect, test } from "@playwright/test";
+﻿import { expect, test } from "@playwright/test";
 
 test("parent assistant page shows supportive entry shell and mascot workspace", async ({ page }) => {
     await page.addInitScript(() => {
         window.localStorage.setItem("vidyaos_access_token", "test-token");
     });
+
+    // Set demo role cookie for parent user
+    await page.context().addCookies([{
+        name: 'demo_role',
+        value: 'parent',
+        domain: 'localhost',
+        path: '/',
+    }]);
 
     await page.route("**/api/mascot/suggestions**", async (route) => {
         await route.fulfill({
@@ -31,13 +39,14 @@ test("parent assistant page shows supportive entry shell and mascot workspace", 
         });
     });
 
-    await page.goto("/parent/assistant");
+    await page.goto("/parent/assistant", { waitUntil: "domcontentloaded" });
 
     await expect(page.getByRole("heading", { name: "Track child progress and reports with guided prompts." })).toBeVisible();
-    await expect(page.getByText("Best starting points")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "What the mascot can do for you" })).toBeVisible();
     await expect(page.getByText("See attendance status")).toBeVisible();
     await expect(page.getByText("Open reports quickly")).toBeVisible();
     await expect(page.getByText("Ask for progress summaries")).toBeVisible();
     await expect(page.getByText("Vidya Mascot")).toBeVisible();
     await expect(page.getByText("Show attendance summary")).toBeVisible();
 });
+

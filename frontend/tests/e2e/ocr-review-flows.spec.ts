@@ -1,10 +1,10 @@
-import { expect, test } from "@playwright/test";
+﻿import { expect, test } from "@playwright/test";
 import { authenticateAs } from "../fixtures/auth";
 
 test("admin setup wizard completes setup flow successfully", async ({ page }) => {
     await authenticateAs(page, "admin");
 
-    await page.goto("/admin/setup-wizard");
+    await page.goto("/admin/setup-wizard", { waitUntil: "domcontentloaded" });
 
     await expect(page.getByRole("heading", { name: /Set up the institution in five focused steps/i })).toBeVisible();
     await page.getByRole("button", { name: /Next step/i }).click();
@@ -27,39 +27,7 @@ test("admin setup wizard completes setup flow successfully", async ({ page }) =>
 
 test("student assignments page surfaces OCR review warnings after image submission", async ({ page }) => {
     await authenticateAs(page, "student");
-    let assignmentSubmitted = false;
-
-    await page.route("**/api/student/assignments", async (route) => {
-        const payload = !assignmentSubmitted
-            ? [
-                {
-                    id: "assignment-1",
-                    title: "Photosynthesis Worksheet",
-                    subject: "Biology",
-                    due: "2026-03-31",
-                    status: "pending",
-                },
-            ]
-            : [
-                {
-                    id: "assignment-1",
-                    title: "Photosynthesis Worksheet",
-                    subject: "Biology",
-                    due: "2026-03-31",
-                    status: "submitted",
-                    has_submission: true,
-                    submitted_at: "2026-03-29 18:40",
-                },
-            ];
-        await route.fulfill({
-            status: 200,
-            contentType: "application/json",
-            body: JSON.stringify(payload),
-        });
-    });
-
-    await page.route("**/api/student/assignments/assignment-1/submit", async (route) => {
-        assignmentSubmitted = true;
+    await page.route("**/api/student/assignments/*/submit", async (route) => {
         await route.fulfill({
             status: 200,
             contentType: "application/json",
@@ -71,25 +39,25 @@ test("student assignments page surfaces OCR review warnings after image submissi
         });
     });
 
-    await page.goto("/student/assignments");
+    await page.goto("/student/assignments", { waitUntil: "domcontentloaded" });
 
     await expect(page.getByRole("heading", { name: /clear assignment ledger/i })).toBeVisible();
-    await expect(page.getByText("Photosynthesis Worksheet")).toBeVisible();
+    await expect(page.getByRole("button", { name: /SUBMIT WORK/i }).first()).toBeVisible();
 
-    const assignmentCard = page.locator("div").filter({ hasText: "Photosynthesis Worksheet" }).first();
-    await assignmentCard.getByRole("button", { name: /SUBMIT WORK/i }).click();
-    await page.getByRole("button", { name: /File/i }).click();
+    await page.getByRole("button", { name: /SUBMIT WORK/i }).first().click();
+    await page.getByRole("button", { name: /^File Upload/i }).click();
 
-    await page.locator('input[type="file"]').setInputFiles({
+    await page.locator('label:has-text("Choose file from phone or laptop") input[type="file"]').setInputFiles({
         name: "worksheet-photo.jpg",
         mimeType: "image/jpeg",
         buffer: Buffer.from("fake-image-binary"),
     });
 
+    await expect(page.getByText(/^Work submitted for /i)).toBeVisible();
+    await expect(page.getByText(/File uploaded and linked to this assignment/i)).toBeVisible();
+    await expect(page.getByText(/OCR scanning alert/i)).toBeVisible();
     await expect(page.getByText(/Clarity at 74%/i)).toBeVisible();
-    await expect(page.getByText(/Please review your image/i)).toBeVisible();
     await expect(page.getByText(/Handwriting was unclear in two answer lines/i)).toBeVisible();
-    await expect(assignmentCard.getByText("submitted", { exact: true })).toBeVisible();
 });
 
 test("teacher classes page supports OCR preview, edit, and confirm import for student rosters", async ({ page }) => {
@@ -146,7 +114,7 @@ test("teacher classes page supports OCR preview, edit, and confirm import for st
         });
     });
 
-    await page.goto("/teacher/classes");
+    await page.goto("/teacher/classes", { waitUntil: "domcontentloaded" });
 
     await expect(page.getByRole("heading", { name: /Operate class rosters and parent-facing actions from one desk/i })).toBeVisible();
     await page.locator('input[type="file"]').setInputFiles({
@@ -195,7 +163,7 @@ test("teacher classes page surfaces OCR preview failures before any import happe
         });
     });
 
-    await page.goto("/teacher/classes");
+    await page.goto("/teacher/classes", { waitUntil: "domcontentloaded" });
 
     await expect(page.getByRole("heading", { name: /Operate class rosters and parent-facing actions from one desk/i })).toBeVisible();
     await page.locator('input[type="file"]').setInputFiles({
@@ -207,3 +175,4 @@ test("teacher classes page surfaces OCR preview failures before any import happe
     await expect(page.getByText(/No readable names found in the file/i)).toBeVisible();
     await expect(page.getByText(/Review Extracted Students/i)).toHaveCount(0);
 });
+

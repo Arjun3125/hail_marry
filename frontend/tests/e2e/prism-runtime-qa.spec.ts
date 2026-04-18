@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+﻿import { expect, test } from "@playwright/test";
 
 function brandingPayload() {
     return {
@@ -55,7 +55,7 @@ test.describe("Prism landing runtime safeguards", () => {
         ]);
 
         await stubBranding(page);
-        await page.goto("/");
+        await page.goto("/", { waitUntil: "domcontentloaded" });
 
         await expect(page.locator("html")).toHaveAttribute("lang", "hi");
         await expect(page.getByRole("link", { name: /Explore demo/i })).toBeVisible();
@@ -65,7 +65,7 @@ test.describe("Prism landing runtime safeguards", () => {
         await page.emulateMedia({ reducedMotion: "reduce" });
         await stubBranding(page);
 
-        await page.goto("/");
+        await page.goto("/", { waitUntil: "domcontentloaded" });
 
         await expect(page.getByRole("link", { name: /Explore demo/i })).toBeVisible();
         await expect(page.getByTestId("prism-hero-scene")).toHaveAttribute("data-reduced-motion", "true");
@@ -87,7 +87,7 @@ test.describe("Prism landing runtime safeguards", () => {
         });
 
         await stubBranding(page);
-        await page.goto("/");
+        await page.goto("/", { waitUntil: "domcontentloaded" });
 
         await expect(page.getByTestId("prism-hero-scene")).toHaveAttribute("data-webgl", "fallback");
         await expect(page.getByTestId("prism-hero-fallback")).toContainText("without WebGL");
@@ -108,7 +108,7 @@ test.describe("Prism landing runtime safeguards", () => {
         });
 
         await stubBranding(page);
-        await page.goto("/");
+        await page.goto("/", { waitUntil: "domcontentloaded" });
 
         await expect(page.getByTestId("prism-hero-scene")).toHaveAttribute("data-network", "3g");
         await expect(page.getByTestId("prism-hero-fallback")).toContainText("Reduced Network Mode");
@@ -252,7 +252,7 @@ test.describe("Phase 2 adaptive polling safeguards", () => {
             });
         });
 
-        await page.goto("/admin/queue");
+        await page.goto("/admin/queue", { waitUntil: "domcontentloaded" });
 
         await expect(page.getByRole("heading", { name: /Keep the AI job queue controlled before incidents spread/i })).toBeVisible();
 
@@ -263,3 +263,4 @@ test.describe("Phase 2 adaptive polling safeguards", () => {
         expect(intervals).toContain(30000);
     });
 });
+

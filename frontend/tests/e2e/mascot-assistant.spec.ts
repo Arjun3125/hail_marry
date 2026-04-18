@@ -1,9 +1,12 @@
-import { expect, test } from "@playwright/test";
+﻿import { expect, test } from "@playwright/test";
 import { authenticateAs } from "../fixtures/auth";
 
-test.beforeEach(async () => {
-    // Standard auth and branding stubs are now handled by authenticateAs
-});
+test.describe("mascot assistant", () => {
+    test.describe.configure({ mode: "serial" });
+
+    test.beforeEach(async () => {
+        // Standard auth and branding stubs are now handled by authenticateAs
+    });
 
 test("student mascot page creates a notebook and opens AI Studio", async ({ page }) => {
     await authenticateAs(page, "student");
@@ -55,7 +58,7 @@ test("student mascot page creates a notebook and opens AI Studio", async ({ page
         });
     });
 
-    await page.goto("/student/assistant");
+    await page.goto("/student/assistant", { waitUntil: "domcontentloaded" });
     await expect(page.getByText("Vidya Mascot")).toBeVisible();
     await expect(page.getByText("Student Copilot")).toBeVisible();
     await expect(page.getByText("Plan, learn, and build study outputs from one place.")).toBeVisible();
@@ -90,8 +93,8 @@ test("student upload layout shows floating mascot launcher", async ({ page }) =>
         });
     });
 
-    await page.goto("/student/upload");
-    await page.getByLabel("Open mascot assistant").click({ force: true });
+    await page.goto("/student/upload", { waitUntil: "domcontentloaded" });
+    await page.getByLabel("Open mascot assistant").click();
     await expect(page.getByText("Vidya Mascot")).toBeVisible();
 });
 
@@ -114,8 +117,8 @@ test("teacher classes layout shows floating mascot launcher", async ({ page }) =
         });
     });
 
-    await page.goto("/teacher/classes");
-    await page.getByLabel("Open mascot assistant").click({ force: true });
+    await page.goto("/teacher/classes", { waitUntil: "domcontentloaded" });
+    await page.getByLabel("Open mascot assistant").click();
     await expect(page.getByText("Vidya Mascot")).toBeVisible();
     await expect(page.getByText("Context: Student Onboarding")).toBeVisible();
     await expect(page.getByRole("button", { name: "Import student roster from image" })).toBeVisible();
@@ -131,10 +134,10 @@ test("admin setup wizard layout shows floating mascot launcher", async ({ page }
         });
     });
 
-    await page.goto("/admin/setup-wizard");
-    await page.getByLabel("Open mascot assistant").click({ force: true });
+    await page.goto("/admin/setup-wizard", { waitUntil: "domcontentloaded" });
+    await page.getByLabel("Open mascot assistant").click();
     await expect(page.getByText("Vidya Mascot")).toBeVisible();
-    await expect(page.getByText("Context: Setup Step: school")).toBeVisible();
+    await expect(page.getByText("Context: Setup Step: identity")).toBeVisible();
     await expect(page.getByRole("button", { name: "Show setup progress" })).toBeVisible();
 });
 
@@ -167,7 +170,7 @@ test("admin mascot page can navigate to setup wizard", async ({ page }) => {
         });
     });
 
-    await page.goto("/admin/assistant");
+    await page.goto("/admin/assistant", { waitUntil: "domcontentloaded" });
     await page.getByPlaceholder(/Tell the mascot what you want to do/i).fill("Open setup wizard");
     await page.locator("button[type='submit']").click();
     await expect(page).toHaveURL(/\/admin\/setup-wizard/);
@@ -219,7 +222,7 @@ test("student mascot can upload a file and ask a follow-up", async ({ page }) =>
         });
     });
 
-    await page.goto("/student/assistant");
+    await page.goto("/student/assistant", { waitUntil: "domcontentloaded" });
     await expect(page.getByText("PDF, DOCX, PPTX, XLSX, or image")).toBeVisible();
     await page.getByLabel("Attach file to mascot").setInputFiles({
         name: "notes.pdf",
@@ -238,3 +241,6 @@ test("student mascot can upload a file and ask a follow-up", async ({ page }) =>
     await expect(page.getByText("5 chunks", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Generate flashcards", exact: true })).toBeVisible();
 });
+
+}); // end describe "mascot assistant"
+

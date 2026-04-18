@@ -41,3 +41,9 @@ from src.domains.platform.models.learner_profile import LearnerProfile  # noqa: 
 from src.domains.platform.models.study_path_plan import StudyPathPlan  # noqa: F401
 from src.domains.platform.models.usage_counter import UsageCounter  # noqa: F401
 from src.domains.platform.models.knowledge_graph import KGConcept, KGRelationship  # noqa: F401
+
+# Mascot
+from src.domains.mascot.models.conversation import MascotConversationTurn  # noqa: F401
+from src.domains.mascot.models.mascot_memory import StudentMascotMemory  # noqa: F401
+from src.domains.mascot.models.personality_profile import StudentPersonalityProfile  # noqa: F401
+from src.domains.mascot.models.signals import ProfileSignal, ElicitationLog  # noqa: F401

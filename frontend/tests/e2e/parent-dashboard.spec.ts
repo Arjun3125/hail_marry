@@ -75,15 +75,16 @@ test("parent dashboard shows progress story and plays audio summary", async ({ p
         });
     });
 
-    await page.goto("/parent/dashboard");
+    await page.goto("/parent/dashboard", { waitUntil: "domcontentloaded" });
 
     await expect(page.getByRole("heading", { name: /Read your child's week in under a minute/i })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Aarav" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Progress story" })).toBeVisible();
-    await expect(page.getByText("Attendance is in a healthy range.")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Last week's highlights" })).toBeVisible();
+    await expect(page.getByText("Attendance recorded this week.")).toBeVisible();
     await expect(page.getByText("Unit Test 3", { exact: true })).toBeVisible();
     await expect(page.getByText("Science")).toBeVisible();
 
     await page.getByRole("button", { name: "Play audio update" }).click();
     await expect.poll(async () => page.evaluate(() => (window as Window & { __spokenText?: string }).__spokenText || "")).toContain("Aarav is doing well this week");
 });
+

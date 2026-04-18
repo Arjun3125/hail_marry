@@ -5,6 +5,14 @@ test.beforeEach(async ({ page }) => {
         window.localStorage.setItem("vidyaos_access_token", "test-token");
     });
 
+    // Set demo role cookie for teacher user
+    await page.context().addCookies([{
+        name: 'demo_role',
+        value: 'teacher',
+        domain: 'localhost',
+        path: '/',
+    }]);
+
     await page.route("**/api/branding/config", async (route) => {
         await route.fulfill({
             status: 200,
@@ -80,9 +88,9 @@ test("teacher assignments page creates a new assignment and refreshes the board"
         });
     });
 
-    await page.goto("/teacher/assignments");
+    await page.goto("/teacher/assignments", { waitUntil: "domcontentloaded" });
 
-    await expect(page.getByRole("heading", { name: "Manage Assignments" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Manage Assignments" })).toBeVisible({ timeout: 10000 });
     await expect(page.getByText("Cell Structure Worksheet")).toBeVisible();
 
     await page.getByPlaceholder("Assignment title").fill("Photosynthesis Reflection");

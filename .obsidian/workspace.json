@@ -16,6 +16,16 @@
               "icon": "lucide-git-fork",
               "title": "Graph view"
             }
+          },
+          {
+            "id": "70c7df3f3d754f9a",
+            "type": "leaf",
+            "state": {
+              "type": "empty",
+              "state": {},
+              "icon": "lucide-file",
+              "title": "New tab"
+            }
           }
         ]
       }
@@ -108,12 +118,11 @@
             "state": {
               "type": "outgoing-link",
               "state": {
-                "file": "frontend/node_modules/jose/README.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               },
               "icon": "links-going-out",
-              "title": "Outgoing links from README"
+              "title": "Outgoing links"
             }
           },
           {
@@ -160,7 +169,8 @@
               "title": "Outline of README"
             }
           }
-        ]
+        ],
+        "currentTab": 1
       }
     ],
     "direction": "horizontal",
@@ -177,54 +187,53 @@
       "bases:Create new base": false
     }
   },
-  "active": "454d2d7629fe1529",
+  "active": "a1ddcd7ffa5fa641",
   "lastOpenFiles": [
-    "frontend/node_modules/jose/README.md",
-    "repo/llama_index/docs/api_reference/api_reference/llms/you.md",
-    "frontend/test-results/junit.xml",
     "frontend/test-results",
-    "frontend/playwright-report/data/dd0929637602c85b9b8cf3fba5d6bb96ab62f59e.webm",
-    "frontend/playwright-report/data/be9b12fac91f9c8f744d985ba4d53b044e66a37f.zip",
-    "frontend/playwright-report/data/4b9ac59ab531d6ed5419cbe290fa3c40b782b4ce.webm",
-    "frontend/playwright-report/data/a352fc788f094fc6572e9d3fca6cad54a884677a.webm",
-    "frontend/playwright-report/data/0f0223e06d1e846ebeb97258e6ced99979518ff2.webm",
-    "frontend/playwright-report/data/67900872c3b60c8490fd306bd36aa0402f511bdf.zip",
-    "frontend/playwright-report/data/ab86df0d83b69a793a0d0bdbe003d28585698142.webm",
-    "frontend/playwright-report/data/9cd97f5e8d248f9994b3084da7d5b89f677da916.png",
-    "frontend/playwright-report/data/853293a484ec044f5388b9a05f54b7a36503eb62.webm",
-    "frontend/playwright-report/trace/playwright-logo.svg",
-    "frontend/playwright-report/data/fe48b8a473a2f2b5340383e8b9cfcf513b51d080.png",
-    "frontend/test-results/mobile-ai-studio-AI-Studio-18354-ract-with-quiz-if-displayed-Mobile-Chrome-retry2/error-context.md",
-    "frontend/test-results/mobile-ai-studio-AI-Studio-18354-ract-with-quiz-if-displayed-Mobile-Chrome-retry2/test-failed-1.png",
-    "frontend/test-results/mobile-ai-studio-AI-Studio-18354-ract-with-quiz-if-displayed-Mobile-Chrome-retry1/error-context.md",
-    "frontend/test-results/mobile-ai-studio-AI-Studio-18354-ract-with-quiz-if-displayed-Mobile-Chrome-retry1/test-failed-1.png",
-    "frontend/test-results/mobile-ai-studio-AI-Studio-18354-ract-with-quiz-if-displayed-Mobile-Chrome/error-context.md",
-    "frontend/test-results/mobile-ai-studio-AI-Studio-18354-ract-with-quiz-if-displayed-Mobile-Chrome/test-failed-1.png",
-    "frontend/test-results/mobile-ai-studio-AI-Studio-0efd4-ion-panel-responds-to-touch-Mobile-Chrome-retry2/error-context.md",
-    "frontend/test-results/mobile-ai-studio-AI-Studio-0efd4-ion-panel-responds-to-touch-Mobile-Chrome-retry2/test-failed-1.png",
-    "frontend/test-results/mobile-ai-studio-AI-Studio-0efd4-ion-panel-responds-to-touch-Mobile-Chrome-retry1/error-context.md",
-    "frontend/test-results/mobile-ai-studio-AI-Studio-0efd4-ion-panel-responds-to-touch-Mobile-Chrome-retry1/test-failed-1.png",
-    "frontend/test-results/mobile-ai-studio-AI-Studio-0efd4-ion-panel-responds-to-touch-Mobile-Chrome/error-context.md",
-    "frontend/test-results/mobile-ai-studio-AI-Studio-0efd4-ion-panel-responds-to-touch-Mobile-Chrome/test-failed-1.png",
-    "frontend/playwright-report/data/72f1b06f0a7f679a9bdea602f1a0ad16f2802800.png",
-    "frontend/playwright-report/data/63486c7bd34e03a43e1d59afc03074df52662ebc.md",
-    "frontend/playwright-report/data/073c21235ad9eba6e27f7bacb7673a7b2f323058.md",
-    "frontend/test-results/mobile-parent-dashboard-Pa-e4a25-ce-metrics-display-properly-Mobile-Chrome/error-context.md",
-    "frontend/test-results/mobile-parent-dashboard-Pa-a9839-plays-full-dashboard-layout-Mobile-Chrome/error-context.md",
-    "frontend/test-results/mobile-parent-dashboard-Pa-8c99e-s-without-horizontal-scroll-Mobile-Chrome/error-context.md",
-    "frontend/test-results/mobile-ai-studio-AI-Studio-3b219-dio-displays-full-interface-Mobile-Chrome/error-context.md",
-    "frontend/test-results/mobile-parent-dashboard-Pa-e4a25-ce-metrics-display-properly-chromium/error-context.md",
-    "frontend/test-results/mobile-ai-studio-AI-Studio-a7ee1-s-without-horizontal-scroll-Mobile-Chrome/error-context.md",
-    "frontend/test-results/mobile-parent-dashboard-Pa-a9839-plays-full-dashboard-layout-chromium/error-context.md",
-    "frontend/test-results/mobile-ai-studio-AI-Studio-70c48-tool-buttons-are-accessible-Mobile-Chrome/error-context.md",
-    "frontend/test-results/mobile-ai-studio-AI-Studio-70c48-tool-buttons-are-accessible-chromium/error-context.md",
-    "frontend/test-results/mobile-ai-studio-AI-Studio-5d760-display-side-by-side-layout-chromium/error-context.md",
-    "md/STAR_FEATURES_ANALYSIS.md",
-    "frontend/test-results/student-mastery-student-ma-132a7-nders-live-sub-topic-signal-chromium/error-context.md",
-    "frontend/test-results/student-mastery-student-ma-132a7-nders-live-sub-topic-signal-Mobile-Chrome/error-context.md",
+    "frontend/test-results/mascot-assistant-mascot-as-a81be-otebook-and-opens-AI-Studio-chromium/error-context.md",
+    "frontend/test-results/mascot-assistant-mascot-as-a81be-otebook-and-opens-AI-Studio-chromium/video.webm",
+    "frontend/test-results/mascot-assistant-mascot-as-a81be-otebook-and-opens-AI-Studio-chromium/test-failed-1.png",
+    "frontend/test-results/mascot-assistant-mascot-as-a81be-otebook-and-opens-AI-Studio-chromium",
+    "frontend/tests/e2e/mascot-assistant.spec.ts.tmp.32260.1776442590849",
+    "frontend/test-results/mascot-assistant-mascot-as-a9746-ws-floating-mascot-launcher-chromium/error-context.md",
+    "frontend/test-results/mascot-assistant-mascot-as-a9746-ws-floating-mascot-launcher-chromium/video.webm",
+    "frontend/test-results/mascot-assistant-mascot-as-a9746-ws-floating-mascot-launcher-chromium/test-failed-1.png",
+    "frontend/test-results/mascot-assistant-mascot-as-a9746-ws-floating-mascot-launcher-chromium",
+    "backend/playwright_e2e.db-journal",
+    "frontend/tests/e2e/mascot-assistant.spec.ts.tmp.32260.1776442057036",
+    "frontend/tests/e2e/mascot-assistant.spec.ts.tmp.32260.1776442037904",
+    "frontend/test-results/ocr-review-flows-student-a-4ee93-ings-after-image-submission-chromium/error-context.md",
+    "frontend/test-results/ocr-review-flows-student-a-4ee93-ings-after-image-submission-chromium/video.webm",
+    "frontend/test-results/ocr-review-flows-student-a-4ee93-ings-after-image-submission-chromium/test-failed-1.png",
+    "frontend/test-results/student-learning-flows-leg-2c186-nd-restores-history-context-Tablet/error-context.md",
+    "frontend/test-results/student-learning-flows-leg-2c186-nd-restores-history-context-Tablet/test-failed-1.png",
+    "frontend/test-results/student-learning-flows-leg-2c186-nd-restores-history-context-Desktop-Small-retry2/error-context.md",
+    "frontend/test-results/student-learning-flows-leg-2c186-nd-restores-history-context-Desktop-Small-retry2/test-failed-1.png",
+    "frontend/test-results/student-learning-flows-leg-2c186-nd-restores-history-context-Desktop-Small/error-context.md",
+    "frontend/test-results/student-learning-flows-leg-2c186-nd-restores-history-context-Desktop-Small/test-failed-1.png",
+    "frontend/test-results/student-learning-flows-stu-9fe3d-path-and-routes-into-mascot-Desktop-Small-retry2/error-context.md",
+    "frontend/test-results/student-learning-flows-stu-9fe3d-path-and-routes-into-mascot-Desktop-Small-retry2/test-failed-1.png",
+    "frontend/test-results/student-learning-flows-stu-9fe3d-path-and-routes-into-mascot-Desktop-Small-retry1/error-context.md",
+    "frontend/test-results/student-learning-flows-stu-9fe3d-path-and-routes-into-mascot-Desktop-Small-retry1/test-failed-1.png",
+    "frontend/test-results/student-learning-flows-stu-9fe3d-path-and-routes-into-mascot-Desktop-Small/error-context.md",
+    "frontend/test-results/student-learning-flows-stu-9fe3d-path-and-routes-into-mascot-Desktop-Small/test-failed-1.png",
+    "frontend/test-results/performance-budgets-Mobile-437b7-ays-within-budget-on-mobile-Desktop-Small/error-context.md",
+    "frontend/test-results/performance-budgets-Mobile-437b7-ays-within-budget-on-mobile-Desktop-Small/test-failed-1.png",
+    "frontend/test-results/performance-budgets-Mobile-f0aa2-ays-within-budget-on-mobile-Desktop-Small/error-context.md",
+    "frontend/test-results/ocr-review-flows-student-a-4ee93-ings-after-image-submission-Desktop-Small-retry2/error-context.md",
+    "frontend/test-results/ocr-review-flows-student-a-4ee93-ings-after-image-submission-Desktop-Small/error-context.md",
+    "frontend/test-results/student-learning-flows-AI--5f1f9-tions-and-seed-the-composer-Tablet-retry2/error-context.md",
+    "frontend/test-results/student-learning-flows-AI--5f1f9-tions-and-seed-the-composer-Tablet-retry1/error-context.md",
+    "frontend/test-results/student-learning-flows-AI--5f1f9-tions-and-seed-the-composer-Tablet/error-context.md",
+    "frontend/test-results/student-learning-flows-stu-9fe3d-path-and-routes-into-mascot-Tablet-retry2/error-context.md",
+    "frontend/test-results/student-learning-flows-stu-9fe3d-path-and-routes-into-mascot-Tablet-retry1/error-context.md",
+    "frontend/test-results/student-learning-flows-stu-9fe3d-path-and-routes-into-mascot-Tablet/error-context.md",
+    "frontend/test-results/student-learning-flows-stu-485ca-ders-grounded-results-smoke-Tablet-retry2/error-context.md",
+    "frontend/test-results/student-learning-flows-stu-485ca-ders-grounded-results-smoke-Tablet-retry1/error-context.md",
+    "frontend/test-results/student-learning-flows-stu-485ca-ders-grounded-results-smoke-Tablet/error-context.md",
+    "frontend/test-results/performance-budgets-Mobile-437b7-ays-within-budget-on-mobile-Tablet-retry1/error-context.md",
     "frontend/test-results/performance-budgets-Mobile-437b7-ays-within-budget-on-mobile-Tablet/error-context.md",
-    "frontend/test-results/performance-budgets-Mobile-437b7-ays-within-budget-on-mobile-Mobile-Chrome/error-context.md",
-    "frontend/test-results/mobile-ai-studio-AI-Studio-70c48-tool-buttons-are-accessible-Tablet/error-context.md",
+    "frontend/test-results/performance-budgets-Mobile-f0aa2-ays-within-budget-on-mobile-Tablet/error-context.md",
     "Untitled.canvas"
   ]
 }

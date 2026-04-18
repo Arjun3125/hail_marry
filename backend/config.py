@@ -588,6 +588,12 @@ class VectorBackendSettings(BaseSettings):
 
 
 class RetrievalSettings(BaseSettings):
+    """
+    RAG retrieval pipeline configuration.
+    
+    See docs/RAG_CONFIGURATION.md for detailed settings.
+    See docs/RAG_SYSTEM.md for how these affect retrieval.
+    """
     min_vector_score: float = Field(
         default=float(
             os.getenv(
@@ -611,6 +617,12 @@ class RetrievalSettings(BaseSettings):
                 _yaml_config.get("retrieval", {}).get("audit_max_chunks", 5),
             )
         )
+    )
+    enable_query_rewriting: bool = Field(
+        default=os.getenv(
+            "RAG_ENABLE_QUERY_REWRITING",
+            str(_yaml_config.get("retrieval", {}).get("enable_query_rewriting", True)),
+        ).lower() in ("true", "1", "yes")
     )
 
 

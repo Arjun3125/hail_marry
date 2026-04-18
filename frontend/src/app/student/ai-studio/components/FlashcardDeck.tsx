@@ -186,7 +186,7 @@ export function FlashcardDeck({ cards, initialState, onStateChange, isLoading = 
                                             }}
                                             transition={{ duration: 0.6, type: "spring", stiffness: 260, damping: 20 }}
                                             className="relative cursor-pointer"
-                                            style={{ transformStyle: "preserve-3d", height: "320px" }}
+                                            style={{ transformStyle: "preserve-3d", height: "clamp(240px, 38dvh, 360px)" }}
                                             role="button"
                                             aria-label={`Flashcard ${index + 1}: ${flipped ? 'Answer' : 'Question'}`}
                                             aria-pressed={flipped}

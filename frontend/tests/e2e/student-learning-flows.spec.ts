@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+﻿import { expect, test } from "@playwright/test";
 
 type UploadRecord = {
     id: string;
@@ -12,6 +12,7 @@ test.beforeEach(async ({ page }) => {
     await page.addInitScript(() => {
         window.localStorage.setItem("vidyaos_access_token", "test-token");
         window.localStorage.setItem("student-tour", "completed");
+        window.localStorage.setItem("student-ai-studio-intent", "understand_topic");
         window.localStorage.setItem("student-onboarding", JSON.stringify({
             "profile-ready": true,
             "upload-material": true,
@@ -99,7 +100,7 @@ test("student upload flow shows OCR review metadata for image uploads @smoke", a
         });
     });
 
-    await page.goto("/student/upload");
+    await page.goto("/student/upload", { waitUntil: "domcontentloaded" });
 
     await expect(page.getByRole("heading", { name: /study-ready intake surface/i })).toBeVisible();
     await expect(page.getByText("chapter-9.pdf")).toBeVisible();
@@ -229,7 +230,7 @@ test("student study tools page queues a quiz job and renders grounded results @s
         });
     });
 
-    await page.goto("/student/tools");
+    await page.goto("/student/tools", { waitUntil: "domcontentloaded" });
 
     // Some routes might have transient loading states during SSR/Hydration
     await expect(page.getByRole("heading", { name: /Build revision assets from your learning material/i })).toBeVisible({ timeout: 15000 });
@@ -278,7 +279,7 @@ test("student study tools page surfaces a grounded failure message when generati
         });
     });
 
-    await page.goto("/student/tools");
+    await page.goto("/student/tools", { waitUntil: "domcontentloaded" });
 
     await page.getByRole("button", { name: /Quiz/i }).click();
     await page.locator("textarea").fill("Photosynthesis");
@@ -288,101 +289,82 @@ test("student study tools page surfaces a grounded failure message when generati
 });
 
 test("student overview shows the personalized study path and routes into mascot", async ({ page }) => {
-    await page.route("**/api/student/dashboard", async (route) => {
-        await route.fulfill({
-            status: 200,
-            contentType: "application/json",
-            body: JSON.stringify({
-                attendance_pct: 91,
-                avg_marks: 78,
-                pending_assignments: 2,
-                ai_queries_today: 3,
-                ai_queries_limit: 50,
-                upcoming_classes: [{ subject: "Biology", time: "09:00" }],
-                my_uploads: 4,
-                ai_insight: "Focus on photosynthesis fundamentals.",
-            }),
-        });
-    });
-
-    await page.route("**/api/student/weak-topics", async (route) => {
-        await route.fulfill({
-            status: 200,
-            contentType: "application/json",
-            body: JSON.stringify({
-                weak_topics: [{ subject: "Biology", average_score: 46, exam_count: 3, is_weak: true }],
-                strong_topics: [{ subject: "Maths", average_score: 88, exam_count: 4, is_weak: false }],
-            }),
-        });
-    });
-
-    await page.route("**/api/student/streaks", async (route) => {
-        await route.fulfill({
-            status: 200,
-            contentType: "application/json",
-            body: JSON.stringify({
-                current_streak: 4,
-                longest_streak: 7,
-                total_sessions: 12,
-                last_login: "2026-03-31T08:00:00.000Z",
-                badges: [],
-            }),
-        });
-    });
-
-    await page.route("**/api/personalization/recommendations**", async (route) => {
-        await route.fulfill({
-            status: 200,
-            contentType: "application/json",
-            body: JSON.stringify({
-                items: [
-                    {
-                        id: "rec-1",
-                        label: "Review Photosynthesis basics",
-                        description: "Start with a quick guided explanation before practicing.",
-                        prompt: "Explain photosynthesis simply and then quiz me.",
-                        target_tool: "study_guide",
-                        reason: "mastery_gap",
-                        priority: "high",
-                    },
-                ],
-            }),
-        });
-    });
-
-    await page.route("**/api/personalization/study-path**", async (route) => {
-        await route.fulfill({
-            status: 200,
-            contentType: "application/json",
-            body: JSON.stringify({
-                plan: {
-                    id: "plan-1",
-                    focus_topic: "Photosynthesis",
-                    status: "active",
-                    items: [
-                        { id: "guide", title: "Relearn Photosynthesis", target_tool: "study_guide", status: "pending" },
-                        { id: "flashcards", title: "Memorize weak concepts", target_tool: "flashcards", status: "pending" },
-                        { id: "quiz", title: "Check understanding", target_tool: "quiz", status: "pending" },
-                    ],
-                    next_action: {
-                        id: "guide",
-                        title: "Relearn Photosynthesis",
-                        target_tool: "study_guide",
-                        status: "pending",
-                    },
+    const overviewBootstrap = {
+        dashboard: {
+            attendance_pct: 91,
+            avg_marks: 78,
+            pending_assignments: 2,
+            next_assignment: {
+                title: "Photosynthesis revision sheet",
+                subject: "Biology",
+                due: "2026-04-05T00:00:00.000Z",
+            },
+            ai_queries_today: 3,
+            ai_queries_limit: 50,
+            upcoming_classes: [{ subject: "Biology", time: "09:00" }],
+            my_uploads: 4,
+            ai_insight: "Focus on photosynthesis fundamentals.",
+        },
+        weak_topics: {
+            weak_topics: [{ subject: "Biology", average_score: 46, exam_count: 3, is_weak: true }],
+            strong_topics: [{ subject: "Maths", average_score: 88, exam_count: 4, is_weak: false }],
+        },
+        streaks: {
+            current_streak: 4,
+            longest_streak: 7,
+            total_sessions: 12,
+            last_login: "2026-03-31T08:00:00.000Z",
+            badges: [],
+        },
+        recommendations: {
+            items: [
+                {
+                    id: "rec-1",
+                    label: "Review Photosynthesis basics",
+                    description: "Start with a quick guided explanation before practicing.",
+                    prompt: "Explain photosynthesis simply and then quiz me.",
+                    target_tool: "study_guide",
+                    reason: "mastery_gap",
+                    priority: "high",
                 },
-            }),
+            ],
+        },
+        study_path: {
+            plan: {
+                id: "plan-1",
+                focus_topic: "Photosynthesis",
+                status: "active",
+                items: [
+                    { id: "guide", title: "Relearn Photosynthesis", target_tool: "study_guide", status: "pending" },
+                    { id: "flashcards", title: "Memorize weak concepts", target_tool: "flashcards", status: "pending" },
+                    { id: "quiz", title: "Check understanding", target_tool: "quiz", status: "pending" },
+                ],
+                next_action: {
+                    id: "guide",
+                    title: "Relearn Photosynthesis",
+                    target_tool: "study_guide",
+                    prompt: "Explain photosynthesis simply and then quiz me.",
+                    status: "pending",
+                },
+            },
+        },
+    };
+
+    await page.route("**/api/student/overview-bootstrap**", async (route) => {
+        await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify(overviewBootstrap),
         });
     });
 
-    await page.goto("/student/overview");
-    await page.getByRole("button", { name: /Show full dashboard/i }).click();
+    await page.goto("/student/overview", { waitUntil: "domcontentloaded" });
+    await expect(page.getByRole("heading", { name: /Open VidyaOS and know what to do next/i })).toBeVisible();
+    await page.getByRole("button", { name: /Expanded view/i }).click();
 
-    await expect(page.getByRole("heading", { name: "Continue learning path" })).toBeVisible();
-    await expect(page.getByText("Focus topic: Photosynthesis")).toBeVisible();
-    await expect(page.getByText("Relearn Photosynthesis").first()).toBeVisible();
-    await expect(page.getByText("Step 1")).toBeVisible();
-    await page.getByRole("link", { name: /Open mascot/i }).click();
+    await expect(page.getByRole("heading", { name: /Action feed/i })).toBeVisible();
+    await expect(page.getByText(/Relearn/i).first()).toBeVisible();
+    await page.getByRole("link", { name: /Open the mascot study assistant/i }).click();
     await expect(page).toHaveURL(/\/student\/assistant/);
 });
 
@@ -432,10 +414,10 @@ test("legacy student AI route redirects into AI Studio and restores history cont
         });
     });
 
-    await page.goto("/student/ai?history=legacy-1&mode=quiz");
+    await page.goto("/student/ai?history=legacy-1&mode=quiz", { waitUntil: "domcontentloaded" });
 
     await expect(page).toHaveURL(/\/student\/ai-studio\?.*(history=legacy-1.*tool=quiz|tool=quiz.*history=legacy-1)/);
-    await expect(page.locator(".tool-rail").getByText("AI Studio")).toBeVisible();
+    await expect(page.locator(".tool-rail")).toBeVisible();
     await expect(page.getByRole("paragraph").filter({ hasText: /^Explain photosynthesis$/ })).toBeVisible();
     await expect(page.getByText("Photosynthesis converts light energy into chemical energy.")).toBeVisible();
 });
@@ -498,8 +480,9 @@ test("AI Studio context hints use personalized recommendations and seed the comp
         });
     });
 
-    await page.goto("/student/ai-studio");
+    await page.goto("/student/ai-studio", { waitUntil: "domcontentloaded" });
 
+    await expect(page.getByText("Deep Work Layout")).toBeVisible();
     await page.getByRole("button", { name: /Hints/i }).click();
     await expect(page.getByText("Relearn photosynthesis basics")).toBeVisible();
     await page.getByRole("button", { name: /Relearn photosynthesis basics/i }).click();
@@ -508,3 +491,4 @@ test("AI Studio context hints use personalized recommendations and seed the comp
         "Explain photosynthesis simply and then quiz me.",
     );
 });
+

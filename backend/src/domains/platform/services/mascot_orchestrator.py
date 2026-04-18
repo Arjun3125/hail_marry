@@ -804,7 +804,7 @@ async def _append_mascot_audit_log(
 
 async def _llm_interpret(message: str, role: str) -> _MascotInterpretation | None:
     prompt = (
-        "You are a multilingual request interpreter for an educational AI mascot.\n"
+        "You are the request interpreter for VidyaOS — a friendly Blue Robotic Owl AI Mascot for Indian schools.\n"
         "The user may write in English, Hindi, Marathi, or mixed Hinglish/Marathi-English.\n"
         "Return structured data only.\n"
         "Decide the primary intent among: notebook_create, notebook_update, navigate, content_ingest, query, study_tool.\n"

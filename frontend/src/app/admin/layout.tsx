@@ -70,9 +70,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             .catch(() => {/* badge stays false */});
     }, []);
     return (
-        <div className="flex min-h-screen bg-[var(--bg-page)]">
+        <div className="flex min-h-dvh bg-[var(--bg-page)]">
             <Sidebar items={adminNav} role="admin" />
-            <main className="flex-1 min-w-0 p-4 pt-16 sm:p-5 sm:pt-16 lg:p-6 lg:pt-6 has-bottom-nav">
+            <main className="flex-1 min-w-0 p-4 sm:p-5 lg:p-6 lg:pt-6 has-bottom-nav" style={{ paddingTop: 'calc(var(--mobile-header-height) + 0.5rem)' }}>
                 <div className="mx-auto flex max-w-7xl flex-col gap-4">
                     <ContextBar role="admin" items={adminNav} />
                     {children}

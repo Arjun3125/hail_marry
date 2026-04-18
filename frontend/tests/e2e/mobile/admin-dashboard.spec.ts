@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+﻿import { expect, test } from "@playwright/test";
 import {
     authenticateAs,
     expectKeyboardNavigation,
@@ -51,13 +51,13 @@ test.describe("Admin Dashboard - Mobile (360px)", { tag: "@mobile @admin" }, () 
     });
 
     test("admin dashboard loads without horizontal scroll", async ({ page }) => {
-        await page.goto("/admin/dashboard");
+            await page.goto("/admin/dashboard", { waitUntil: "domcontentloaded" });
         await expect(page).toHaveTitle(/VidyaOS/i);
         await expectNoHorizontalScroll(page);
     });
 
     test("stat cards are stacked mobile-friendly", async ({ page }) => {
-        await page.goto("/admin/dashboard");
+            await page.goto("/admin/dashboard", { waitUntil: "domcontentloaded" });
 
         const firstCard = page.locator("[data-testid*='stat'], [data-testid*='card']").first();
         await expect(firstCard).toBeVisible();
@@ -74,7 +74,7 @@ test.describe("Admin Dashboard - Mobile (360px)", { tag: "@mobile @admin" }, () 
     });
 
     test("navigation buttons are accessible", async ({ page }) => {
-        await page.goto("/admin/dashboard");
+            await page.goto("/admin/dashboard", { waitUntil: "domcontentloaded" });
 
         // Look for nav links
         const navLinks = await page.locator(".prism-nav-link, .prism-action").filter({ hasText: /school|teacher|user|setting/i }).all();
@@ -91,12 +91,12 @@ test.describe("Admin Dashboard - Mobile (360px)", { tag: "@mobile @admin" }, () 
     });
 
     test("touch targets meet 44px minimum", async ({ page }) => {
-        await page.goto("/admin/dashboard");
+            await page.goto("/admin/dashboard", { waitUntil: "domcontentloaded" });
         await expectTouchTargetSizes(page);
     });
 
     test("large tables/grids are scrollable", async ({ page }) => {
-        await page.goto("/admin/dashboard");
+            await page.goto("/admin/dashboard", { waitUntil: "domcontentloaded" });
 
         // Look for data tables
         const tables = await page.locator("table, [role='table']").all();
@@ -113,12 +113,12 @@ test.describe("Admin Dashboard - Mobile (360px)", { tag: "@mobile @admin" }, () 
     });
 
     test("text remains readable", async ({ page }) => {
-        await page.goto("/admin/dashboard");
+            await page.goto("/admin/dashboard", { waitUntil: "domcontentloaded" });
         await expectReadableText(page, 12);
     });
 
     test("can access settings/config", async ({ page }) => {
-        await page.goto("/admin/dashboard");
+            await page.goto("/admin/dashboard", { waitUntil: "domcontentloaded" });
 
         // Open mobile nav if available to expose settings
         const toggles = page.locator("button[aria-label='Open menu'], .mobile-menu-toggle");
@@ -135,12 +135,12 @@ test.describe("Admin Dashboard - Mobile (360px)", { tag: "@mobile @admin" }, () 
     });
 
     test("keyboard navigation working", async ({ page }) => {
-        await page.goto("/admin/dashboard");
+            await page.goto("/admin/dashboard", { waitUntil: "domcontentloaded" });
         await expectKeyboardNavigation(page);
     });
 
     test("modals/dialogs fit mobile viewport", async ({ page }) => {
-        await page.goto("/admin/dashboard");
+            await page.goto("/admin/dashboard", { waitUntil: "domcontentloaded" });
 
         // Try opening a modal if available
         const actionButton = page.locator("button").filter({ hasText: /add|edit|create|manage/i }).first();
@@ -189,7 +189,7 @@ test.describe("Admin Dashboard - Tablet (768px)", { tag: "@tablet @admin" }, () 
 
     test("can display stats in grid layout", async ({ page }) => {
         await page.setViewportSize({ width: 768, height: 1024 });
-        await page.goto("/admin/dashboard");
+            await page.goto("/admin/dashboard", { waitUntil: "domcontentloaded" });
 
         await expectNoHorizontalScroll(page);
 
@@ -225,7 +225,7 @@ test.describe("Admin Dashboard - Desktop (1280px)", { tag: "@desktop @admin" }, 
 
     test("displays full admin interface", async ({ page }) => {
         await page.setViewportSize({ width: 1280, height: 720 });
-        await page.goto("/admin/dashboard");
+            await page.goto("/admin/dashboard", { waitUntil: "domcontentloaded" });
 
         await expect(page).toHaveTitle(/VidyaOS/i);
         await expectNoHorizontalScroll(page);
@@ -234,3 +234,4 @@ test.describe("Admin Dashboard - Desktop (1280px)", { tag: "@desktop @admin" }, 
         await expect(page.getByTestId("sidebar")).toBeVisible();
     });
 });
+

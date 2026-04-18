@@ -1,9 +1,17 @@
-import { expect, test } from "@playwright/test";
+﻿import { expect, test } from "@playwright/test";
 
 test("admin timetable page supports generation and manual slot changes", async ({ page }) => {
     await page.addInitScript(() => {
         window.localStorage.setItem("vidyaos_access_token", "test-token");
     });
+
+    // Set demo role cookie for admin user
+    await page.context().addCookies([{
+        name: 'demo_role',
+        value: 'admin',
+        domain: 'localhost',
+        path: '/',
+    }]);
 
     const classes = [
         {
@@ -128,7 +136,7 @@ test("admin timetable page supports generation and manual slot changes", async (
         });
     });
 
-    await page.goto("/admin/timetable");
+    await page.goto("/admin/timetable", { waitUntil: "domcontentloaded" });
 
     await expect(page.getByRole("heading", { name: "Keep the school timetable editable and generation-safe" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Class Timetable" })).toBeVisible();
@@ -149,3 +157,4 @@ test("admin timetable page supports generation and manual slot changes", async (
     await expect(page.getByText("Generated 1 slots.")).toBeVisible();
     await expect(page.getByText("Class balance score: 0.91")).toBeVisible();
 });
+

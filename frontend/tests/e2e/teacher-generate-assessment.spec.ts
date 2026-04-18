@@ -1,9 +1,17 @@
-import { expect, test } from "@playwright/test";
+﻿import { expect, test } from "@playwright/test";
 
 test.beforeEach(async ({ page }) => {
     await page.addInitScript(() => {
         window.localStorage.setItem("vidyaos_access_token", "test-token");
     });
+
+    // Set demo role cookie for teacher user
+    await page.context().addCookies([{
+        name: 'demo_role',
+        value: 'teacher',
+        domain: 'localhost',
+        path: '/',
+    }]);
 
     await page.route("**/api/branding/config", async (route) => {
         await route.fulfill({
@@ -79,7 +87,7 @@ test("teacher assessment generator queues a job and renders the completed draft"
         });
     });
 
-    await page.goto("/teacher/generate-assessment");
+    await page.goto("/teacher/generate-assessment", { waitUntil: "domcontentloaded" });
 
     await expect(page.getByRole("heading", { name: "Generate Assessment" })).toBeVisible();
     await page.getByPlaceholder(/Photosynthesis, Quadratic Equations/i).fill("Photosynthesis");
@@ -90,3 +98,4 @@ test("teacher assessment generator queues a job and renders the completed draft"
     await expect(page.getByText("2. Explain the role of chlorophyll.")).toBeVisible();
     expect(jobPolls).toBeGreaterThanOrEqual(2);
 });
+

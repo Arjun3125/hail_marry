@@ -32,7 +32,7 @@ test.describe("Prism representative visual smoke", () => {
     test("landing renders premium public shell @visual", async ({ page }, testInfo) => {
         await stubBranding(page);
 
-        await page.goto("/");
+        await page.goto("/", { waitUntil: "domcontentloaded" });
 
         await expect(page.getByRole("link", { name: /Login To Platform/i }).first()).toBeVisible();
         await expect(page.getByRole("heading", { name: /One product for classroom work,/i })).toBeVisible();
@@ -43,7 +43,7 @@ test.describe("Prism representative visual smoke", () => {
     test("demo renders curated role gateway @visual", async ({ page }, testInfo) => {
         await stubBranding(page);
 
-        await page.goto("/demo");
+        await page.goto("/demo", { waitUntil: "domcontentloaded" });
 
         await expect(page.getByRole("heading", { name: /Enter the product as a real/i })).toBeVisible();
         await expect(page.getByRole("button", { name: /Parent Mrs\. Sharma, Parent/i })).toBeVisible();
@@ -54,7 +54,7 @@ test.describe("Prism representative visual smoke", () => {
     test("login renders the Prism auth shell @visual", async ({ page }, testInfo) => {
         await stubBranding(page);
 
-        await page.goto("/login");
+        await page.goto("/login", { waitUntil: "domcontentloaded" });
 
         await expect(page.getByRole("heading", { name: /Enter the platform through a cleaner, calmer control point/i })).toBeVisible();
         await expect(page.getByRole("heading", { name: /Welcome to VidyaOS/i })).toBeVisible();
@@ -63,10 +63,12 @@ test.describe("Prism representative visual smoke", () => {
     });
 
     test.describe("authenticated representatives", () => {
+        test.describe.configure({ mode: "serial" });
         test.beforeEach(async ({ page }) => {
             await page.addInitScript(() => {
                 window.localStorage.setItem("vidyaos_access_token", "test-token");
                 window.localStorage.setItem("student-tour", "completed");
+                window.localStorage.setItem("student-ai-studio-intent", "understand_topic");
                 window.localStorage.setItem("teacher-tour", "completed");
                 window.localStorage.setItem("admin-tour", "completed");
                 window.localStorage.setItem("parent-tour", "completed");
@@ -141,9 +143,9 @@ test.describe("Prism representative visual smoke", () => {
                 });
             });
 
-            await page.goto("/student/ai-studio");
+            await page.goto("/student/ai-studio", { waitUntil: "domcontentloaded" });
 
-            await expect(page.getByRole("heading", { name: /Start with one clear intent, then open the full study desk/i })).toBeVisible();
+            await expect(page.getByRole("heading", { name: /Start with one clear intent, then open the full study desk/i })).toBeVisible({ timeout: 10000 });
             await expect(page.getByText(/Deep Work Layout/i)).toBeVisible();
             await expect(page.getByText(/Context Lab/i)).toBeVisible();
 
@@ -187,9 +189,9 @@ test.describe("Prism representative visual smoke", () => {
                 });
             });
 
-            await page.goto("/teacher/dashboard");
+            await page.goto("/teacher/dashboard", { waitUntil: "domcontentloaded" });
 
-            await expect(page.getByRole("heading", { name: /Guide the day, not the dashboard/i })).toBeVisible();
+            await expect(page.getByRole("heading", { name: /Guide the day, not the dashboard/i })).toBeVisible({ timeout: 10000 });
             await expect(page.getByText(/Today.s classes/i)).toBeVisible();
             await expect(page.getByText(/Needs your attention/i)).toBeVisible();
 
@@ -197,48 +199,143 @@ test.describe("Prism representative visual smoke", () => {
         });
 
         test("admin dashboard renders the enterprise shell @visual", async ({ page }, testInfo) => {
+            const dashboardPayload = {
+                total_students: 120,
+                total_teachers: 14,
+                total_parents: 96,
+                active_today: 52,
+                ai_queries_today: 31,
+                avg_attendance: 93,
+                avg_performance: 81,
+                open_complaints: 2,
+                queue_pending_depth: 5,
+                queue_processing_depth: 2,
+                queue_failure_rate_pct: 12,
+                queue_stuck_jobs: 1,
+                student_risk_summary: {
+                    high_risk_students: 2,
+                    medium_risk_students: 3,
+                    academic_high_risk: 1,
+                    fee_high_risk: 1,
+                    dropout_high_risk: 1,
+                },
+                student_risk_alerts: [
+                    {
+                        student_id: "student-1",
+                        student_name: "Aarav Kumar",
+                        class_name: "Class 10",
+                        dropout_risk: "high",
+                        academic_risk: "high",
+                        fee_risk: "medium",
+                        attendance_pct: 58,
+                        overall_score_pct: 39,
+                    },
+                ],
+                observability_alerts: [
+                    {
+                        code: "queue_depth_high",
+                        severity: "warning",
+                        message: "Queue depth is 5 / 200 for this tenant.",
+                    },
+                ],
+                monthly_trends: [
+                    {
+                        month: "Mar",
+                        active_users: 410,
+                        ai_queries: 928,
+                        complaints_resolved: 17,
+                        attendance_pct: 93,
+                        average_marks: 81,
+                    },
+                ],
+                complaint_health: {
+                    resolution_rate_pct: 88,
+                },
+                latest_milestones: {
+                    last_ai_query_at: "2026-03-30T08:15:00Z",
+                    last_complaint_at: "2026-03-30T07:45:00Z",
+                    last_resolved_complaint_at: "2026-03-30T08:00:00Z",
+                    last_attendance_marked_at: "2026-03-30T08:05:00Z",
+                },
+            };
+
+            const whatsappSnapshot = {
+                generated_at: "2026-03-30T03:30:00Z",
+                period_days: 7,
+                analytics: {
+                    total_messages: 84,
+                    inbound: 42,
+                    outbound: 42,
+                    unique_users: 12,
+                    avg_latency_ms: 920,
+                },
+                release_gate_metrics: {
+                    duplicate_inbound_total: 1,
+                    routing_failure_total: 2,
+                    visible_failure_total: 1,
+                    outbound_retryable_failure_total: 1,
+                    upload_ingest_failure_total: 0,
+                    link_ingest_failure_total: 0,
+                },
+                derived_rates: {
+                    duplicate_inbound_pct: 2.38,
+                    routing_failure_pct: 4.76,
+                    visible_failure_pct: 2.38,
+                    outbound_retryable_failure_pct: 2.38,
+                },
+            };
+
+            const mascotSnapshot = {
+                generated_at: "2026-03-30T03:30:00Z",
+                period_days: 7,
+                analytics: {
+                    total_actions: 126,
+                    unique_users: 18,
+                },
+                release_gate_metrics: {
+                    interpretation_success_total: 120,
+                    interpretation_failure_total: 2,
+                    execution_success_total: 110,
+                    execution_failure_total: 3,
+                    confirmation_success_total: 8,
+                    confirmation_failure_total: 1,
+                    confirmation_cancelled_total: 2,
+                    upload_success_total: 14,
+                    upload_failure_total: 1,
+                },
+                derived_rates: {
+                    interpretation_failure_pct: 1.64,
+                    execution_failure_pct: 2.65,
+                    upload_failure_pct: 6.67,
+                    confirmation_failure_pct: 9.09,
+                    overall_failure_pct: 2.84,
+                },
+                active_alerts: [
+                    {
+                        code: "mascot_failure_rate_high",
+                        severity: "critical",
+                        message: "Mascot upload failure rate reached 16.7% over 12 events.",
+                    },
+                ],
+            };
+
             await page.route("**/api/admin/dashboard", async (route) => {
                 await route.fulfill({
                     status: 200,
                     contentType: "application/json",
+                    body: JSON.stringify(dashboardPayload),
+                });
+            });
+
+            await page.route("**/api/admin/dashboard-bootstrap", async (route) => {
+                await route.fulfill({
+                    status: 200,
+                    contentType: "application/json",
                     body: JSON.stringify({
-                        total_students: 120,
-                        total_teachers: 14,
-                        active_today: 52,
-                        ai_queries_today: 31,
-                        avg_attendance: 93,
-                        avg_performance: 81,
-                        open_complaints: 2,
-                        queue_pending_depth: 5,
-                        queue_processing_depth: 2,
-                        queue_failure_rate_pct: 12,
-                        queue_stuck_jobs: 1,
-                        student_risk_summary: {
-                            high_risk_students: 2,
-                            medium_risk_students: 3,
-                            academic_high_risk: 1,
-                            fee_high_risk: 1,
-                            dropout_high_risk: 1,
-                        },
-                        student_risk_alerts: [
-                            {
-                                student_id: "student-1",
-                                student_name: "Aarav Kumar",
-                                class_name: "Class 10",
-                                dropout_risk: "high",
-                                academic_risk: "high",
-                                fee_risk: "medium",
-                                attendance_pct: 58,
-                                overall_score_pct: 39,
-                            },
-                        ],
-                        observability_alerts: [
-                            {
-                                code: "queue_depth_high",
-                                severity: "warning",
-                                message: "Queue depth is 5 / 200 for this tenant.",
-                            },
-                        ],
+                        dashboard: dashboardPayload,
+                        security: [],
+                        whatsapp_snapshot: whatsappSnapshot,
+                        mascot_snapshot: mascotSnapshot,
                     }),
                 });
             });
@@ -255,31 +352,7 @@ test.describe("Prism representative visual smoke", () => {
                 await route.fulfill({
                     status: 200,
                     contentType: "application/json",
-                    body: JSON.stringify({
-                        generated_at: "2026-03-30T03:30:00Z",
-                        period_days: 7,
-                        analytics: {
-                            total_messages: 84,
-                            inbound: 42,
-                            outbound: 42,
-                            unique_users: 12,
-                            avg_latency_ms: 920,
-                        },
-                        release_gate_metrics: {
-                            duplicate_inbound_total: 1,
-                            routing_failure_total: 2,
-                            visible_failure_total: 1,
-                            outbound_retryable_failure_total: 1,
-                            upload_ingest_failure_total: 0,
-                            link_ingest_failure_total: 0,
-                        },
-                        derived_rates: {
-                            duplicate_inbound_pct: 2.38,
-                            routing_failure_pct: 4.76,
-                            visible_failure_pct: 2.38,
-                            outbound_retryable_failure_pct: 2.38,
-                        },
-                    }),
+                    body: JSON.stringify(whatsappSnapshot),
                 });
             });
 
@@ -287,45 +360,13 @@ test.describe("Prism representative visual smoke", () => {
                 await route.fulfill({
                     status: 200,
                     contentType: "application/json",
-                    body: JSON.stringify({
-                        generated_at: "2026-03-30T03:30:00Z",
-                        period_days: 7,
-                        analytics: {
-                            total_actions: 126,
-                            unique_users: 18,
-                        },
-                        release_gate_metrics: {
-                            interpretation_success_total: 120,
-                            interpretation_failure_total: 2,
-                            execution_success_total: 110,
-                            execution_failure_total: 3,
-                            confirmation_success_total: 8,
-                            confirmation_failure_total: 1,
-                            confirmation_cancelled_total: 2,
-                            upload_success_total: 14,
-                            upload_failure_total: 1,
-                        },
-                        derived_rates: {
-                            interpretation_failure_pct: 1.64,
-                            execution_failure_pct: 2.65,
-                            upload_failure_pct: 6.67,
-                            confirmation_failure_pct: 9.09,
-                            overall_failure_pct: 2.84,
-                        },
-                        active_alerts: [
-                            {
-                                code: "mascot_failure_rate_high",
-                                severity: "critical",
-                                message: "Mascot upload failure rate reached 16.7% over 12 events.",
-                            },
-                        ],
-                    }),
+                    body: JSON.stringify(mascotSnapshot),
                 });
             });
 
-            await page.goto("/admin/dashboard");
+            await page.goto("/admin/dashboard", { waitUntil: "domcontentloaded" });
 
-            await expect(page.getByRole("heading", { name: /See school health in one screen before you drill down/i })).toBeVisible();
+            await expect(page.getByRole("heading", { name: /See school health in one screen before you drill down/i })).toBeVisible({ timeout: 10000 });
             await expect(page.getByRole("heading", { name: /WhatsApp release gate/i })).toBeVisible();
             await expect(page.getByRole("heading", { name: /Mascot Release Gate/i })).toBeVisible();
 
@@ -363,9 +404,9 @@ test.describe("Prism representative visual smoke", () => {
                 });
             });
 
-            await page.goto("/parent/dashboard");
+            await page.goto("/parent/dashboard", { waitUntil: "domcontentloaded" });
 
-            await expect(page.getByRole("heading", { name: /Read your child['’]s week in under a minute/i })).toBeVisible();
+            await expect(page.getByRole("heading", { name: /Read your child['']s week in under a minute/i })).toBeVisible({ timeout: 10000 });
             await expect(page.getByText(/Last week.s highlights/i)).toBeVisible();
             await expect(page.getByText(/Quick links/i)).toBeVisible();
 

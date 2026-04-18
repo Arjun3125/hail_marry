@@ -1,9 +1,17 @@
-import { expect, test } from "@playwright/test";
+﻿import { expect, test } from "@playwright/test";
 
 test.beforeEach(async ({ page }) => {
     await page.addInitScript(() => {
         window.localStorage.setItem("vidyaos_access_token", "test-token");
     });
+
+    // Set demo role cookie for student user
+    await page.context().addCookies([{
+        name: 'demo_role',
+        value: 'student',
+        domain: 'localhost',
+        path: '/',
+    }]);
 
     await page.route("**/api/branding/config", async (route) => {
         await route.fulfill({
@@ -86,7 +94,7 @@ test("student mastery map renders live sub-topic signal", async ({ page }) => {
         });
     });
 
-    await page.goto("/student/mastery");
+    await page.goto("/student/mastery", { waitUntil: "domcontentloaded" });
 
     await expect(page.getByRole("heading", { name: /real mastery signal/i })).toBeVisible();
     await expect(page.getByRole("heading", { name: /subject mastery radar/i })).toBeVisible();
@@ -96,3 +104,4 @@ test("student mastery map renders live sub-topic signal", async ({ page }) => {
     await expect(page.getByText("Confidence 57%")).toBeVisible();
     await expect(page.getByText("Needs attention").first()).toBeVisible();
 });
+

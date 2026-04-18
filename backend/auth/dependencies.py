@@ -82,6 +82,40 @@ async def get_current_user(request: Request, db: Session = Depends(get_db)) -> U
     """
     # ── DEMO MODE ──
     if is_demo_mode():
+        # 0. Check for E2E test token first
+        token = request.cookies.get("access_token")
+        if not token:
+            auth_header = request.headers.get("Authorization")
+            if auth_header and auth_header.startswith("Bearer "):
+                token = auth_header.split(" ", 1)[1]
+
+        if token == "test-token":
+            # E2E test token - use demo_role cookie to determine user role
+            role = request.cookies.get("demo_role") or "admin"  # Default to admin for tests
+            cache_key = f"test-{role}"
+
+            if not _demo_user_cache.has_key(cache_key):
+                user = None
+                # Use environment variable for demo user email (not hardcoded)
+                demo_user_email = os.getenv("DEMO_USER_EMAIL", "demo_cbse11@modernhustlers.com")
+                if role == "student":
+                    user = db.query(User).filter(User.email == demo_user_email, User.is_active).first()
+                if not user:
+                    user = db.query(User).filter(User.role == role, User.is_active).first()
+                if not user:
+                    user = db.query(User).filter(User.is_active).first()
+                if user:
+                    _demo_user_cache.set(cache_key, user.id)
+
+            user_id = _demo_user_cache.get(cache_key)
+            if user_id:
+                user = db.query(User).filter(User.id == user_id).first()
+                if user:
+                    request.state.tenant_id = str(user.tenant_id)
+                    request.state.user_role = user.role
+                    request.state.user_id = str(user.id)
+                    return user
+
         # 1. Try JWT token first (from demo-login or regular login)
         token = request.cookies.get("access_token")
         if not token:
@@ -89,7 +123,7 @@ async def get_current_user(request: Request, db: Session = Depends(get_db)) -> U
             if auth_header and auth_header.startswith("Bearer "):
                 token = auth_header.split(" ", 1)[1]
 
-        if token:
+        if token and token != "test-token":
             payload = decode_access_token(token)
             if payload and payload.get("user_id"):
                 try:

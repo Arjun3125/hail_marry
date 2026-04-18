@@ -11,7 +11,7 @@ let backendProcess: ChildProcess | null = null;
 
 function checkBackendHealth(attempt = 1): Promise<boolean> {
   return new Promise<boolean>((resolve) => {
-    const req = http.get(`${BACKEND_URL}/api/health`, { timeout: 2000 }, (res) => {
+    const req = http.get(`${BACKEND_URL}/health`, { timeout: 2000 }, (res) => {
       resolve(res.statusCode === 200 || res.statusCode === 204);
     });
 
@@ -78,6 +78,7 @@ async function globalSetup() {
         ...process.env,
         PYTHONUNBUFFERED: '1',
         PYTHONDONTWRITEBYTECODE: '1',
+        DEMO_MODE: 'true',  // Enable demo mode for E2E tests
       },
       stdio: ['ignore', 'pipe', 'pipe'],
       shell: process.platform === 'win32' ? true : false,

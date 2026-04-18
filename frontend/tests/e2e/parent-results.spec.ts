@@ -1,9 +1,17 @@
-import { expect, test } from "@playwright/test";
+﻿import { expect, test } from "@playwright/test";
 
 test("parent results page shows academic snapshot and subject breakdown", async ({ page }) => {
     await page.addInitScript(() => {
         window.localStorage.setItem("vidyaos_access_token", "test-token");
     });
+
+    // Set demo role cookie for parent user
+    await page.context().addCookies([{
+        name: 'demo_role',
+        value: 'parent',
+        domain: 'localhost',
+        path: '/',
+    }]);
 
     await page.route("**/api/parent/results", async (route) => {
         await route.fulfill({
@@ -45,7 +53,7 @@ test("parent results page shows academic snapshot and subject breakdown", async 
         });
     });
 
-    await page.goto("/parent/results");
+    await page.goto("/parent/results", { waitUntil: "domcontentloaded" });
 
     await expect(page.getByRole("heading", { name: "Read academic progress clearly before looking at raw marks" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Subject performance" })).toBeVisible();
@@ -54,3 +62,4 @@ test("parent results page shows academic snapshot and subject breakdown", async 
     await expect(page.getByText("44 / 50")).toBeVisible();
     await expect(page.getByText("Mathematics is currently the strongest subject with an average of 88%.")).toBeVisible();
 });
+

@@ -5,6 +5,14 @@ test("admin branding page loads config, extracts palette, and saves settings", a
         window.localStorage.setItem("vidyaos_access_token", "test-token");
     });
 
+    // Set demo role cookie for admin user
+    await page.context().addCookies([{
+        name: 'demo_role',
+        value: 'admin',
+        domain: 'localhost',
+        path: '/',
+    }]);
+
     const state = {
         savedPayload: null as null | Record<string, unknown>,
     };
@@ -45,10 +53,10 @@ test("admin branding page loads config, extracts palette, and saves settings", a
         });
     });
 
-    await page.goto("/admin/branding");
+    await page.goto("/admin/branding", { waitUntil: "domcontentloaded" });
 
-    await expect(page.getByRole("heading", { name: "Tune the institution identity without affecting platform behavior" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Live Interface Preview" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Tune the institution identity without affecting platform behavior" })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole("heading", { name: "Live Interface Preview" })).toBeVisible({ timeout: 10000 });
 
     const logoUpload = page.getByRole("button", { name: /upload organization logo/i });
     const fileChooserPromise = page.waitForEvent("filechooser");
@@ -64,7 +72,7 @@ test("admin branding page loads config, extracts palette, and saves settings", a
     await expect(page.locator('input[value="#112233"]').first()).toBeVisible();
     await expect(page.locator('input[value="#445566"]').first()).toBeVisible();
 
-    await page.getByRole("combobox").selectOption({ value: "Poppins" });
+    await page.locator('section').filter({ hasText: 'Admin Branding SurfaceTune' }).getByRole("combobox").selectOption({ value: "Poppins" });
     await page.getByRole("button", { name: /save brand settings/i }).click();
 
     await expect(page.getByText("Brand settings saved. Reload the app shell to see the updated identity everywhere.")).toBeVisible();

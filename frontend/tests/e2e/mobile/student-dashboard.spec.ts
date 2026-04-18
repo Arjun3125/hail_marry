@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+﻿import { expect, test } from "@playwright/test";
 import {
     authenticateAs,
     expectKeyboardNavigation,
@@ -30,13 +30,13 @@ test.describe("Student Dashboard - Mobile (360px)", { tag: "@mobile @student" },
     });
 
     test("dashboard loads without horizontal scroll", async ({ page }) => {
-        await page.goto("/student/overview");
+            await page.goto("/student/overview", { waitUntil: "domcontentloaded" });
         await expect(page).toHaveTitle(/VidyaOS/i);
         await expectNoHorizontalScroll(page);
     });
 
     test("sidebar is accessible on mobile", async ({ page }) => {
-        await page.goto("/student/overview");
+            await page.goto("/student/overview", { waitUntil: "domcontentloaded" });
         const { toggleAvailable } = await testResponsiveSidebar(page);
 
         if (!toggleAvailable) {
@@ -48,7 +48,7 @@ test.describe("Student Dashboard - Mobile (360px)", { tag: "@mobile @student" },
     });
 
     test("cards are stacked vertically", async ({ page }) => {
-        await page.goto("/student/overview");
+            await page.goto("/student/overview", { waitUntil: "domcontentloaded" });
 
         // Wait for at least one card to appear (bypassing skeletons)
         const firstCard = page.locator(".vidya-command-card, .vidya-feed-row").first();
@@ -67,17 +67,17 @@ test.describe("Student Dashboard - Mobile (360px)", { tag: "@mobile @student" },
     });
 
     test("touch targets are 44px minimum", async ({ page }) => {
-        await page.goto("/student/overview");
+            await page.goto("/student/overview", { waitUntil: "domcontentloaded" });
         await expectTouchTargetSizes(page);
     });
 
     test("text is readable (min 12px)", async ({ page }) => {
-        await page.goto("/student/overview");
+            await page.goto("/student/overview", { waitUntil: "domcontentloaded" });
         await expectReadableText(page, 12);
     });
 
     test("quick action buttons accessible", async ({ page }) => {
-        await page.goto("/student/overview");
+            await page.goto("/student/overview", { waitUntil: "domcontentloaded" });
 
         // Look for common action buttons
         const buttons = page.locator("button").first();
@@ -91,12 +91,12 @@ test.describe("Student Dashboard - Mobile (360px)", { tag: "@mobile @student" },
     });
 
     test("can navigate with keyboard", async ({ page }) => {
-        await page.goto("/student/overview");
+            await page.goto("/student/overview", { waitUntil: "domcontentloaded" });
         await expectKeyboardNavigation(page);
     });
 
     test("modals fit within viewport", async ({ page }) => {
-        await page.goto("/student/overview");
+            await page.goto("/student/overview", { waitUntil: "domcontentloaded" });
 
         // Find and click a modal trigger if available
         const modalTrigger = page.locator("button").first();
@@ -120,7 +120,7 @@ test.describe("Student Dashboard - Mobile (360px)", { tag: "@mobile @student" },
     });
 
     test("images are responsive", async ({ page }) => {
-        await page.goto("/student/overview");
+            await page.goto("/student/overview", { waitUntil: "domcontentloaded" });
 
         const images = await page.locator("img").all();
         for (const img of images.slice(0, 3)) {
@@ -155,13 +155,13 @@ test.describe("Student Dashboard - Tablet (768px)", { tag: "@tablet @student" },
 
     test("dashboard loads without horizontal scroll", async ({ page }) => {
         await page.setViewportSize({ width: 768, height: 1024 });
-        await page.goto("/student/overview");
+            await page.goto("/student/overview", { waitUntil: "domcontentloaded" });
         await expectNoHorizontalScroll(page);
     });
 
     test("can display grid layout", async ({ page }) => {
         await page.setViewportSize({ width: 768, height: 1024 });
-        await page.goto("/student/overview");
+            await page.goto("/student/overview", { waitUntil: "domcontentloaded" });
 
         // On tablet, grid might be 2 columns
         const firstCard = page.locator(".vidya-command-card, .vidya-feed-row").first();
@@ -192,7 +192,7 @@ test.describe("Student Dashboard - Desktop (1280px)", { tag: "@desktop @student"
 
     test("dashboard displays full layout", async ({ page }) => {
         await page.setViewportSize({ width: 1280, height: 720 });
-        await page.goto("/student/overview");
+            await page.goto("/student/overview", { waitUntil: "domcontentloaded" });
 
         await expect(page).toHaveTitle(/VidyaOS/i);
         await expectNoHorizontalScroll(page);
@@ -201,3 +201,4 @@ test.describe("Student Dashboard - Desktop (1280px)", { tag: "@desktop @student"
         await expect(page.getByTestId("sidebar")).toBeVisible();
     });
 });
+

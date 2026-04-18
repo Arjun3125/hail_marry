@@ -263,7 +263,7 @@ export default function Sidebar({ items, role, userName }: SidebarProps) {
 
     return (
         <>
-            <div className="fixed left-0 right-0 top-0 z-50 flex h-16 items-center gap-3 border-b border-[var(--border)] bg-[rgba(8,14,28,0.9)] px-4 backdrop-blur-xl lg:hidden">
+            <div className="fixed left-0 right-0 top-0 z-50 flex items-center gap-3 border-b border-[var(--border)] bg-[rgba(8,14,28,0.9)] px-4 backdrop-blur-xl lg:hidden" style={{ height: 'var(--mobile-header-height)' }}>
                 <button
                     onClick={() => setMobileOpen(true)}
                     className="flex h-11 w-11 items-center justify-center rounded-xl text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] active:bg-[var(--border)]"
@@ -292,7 +292,7 @@ export default function Sidebar({ items, role, userName }: SidebarProps) {
             ) : null}
 
             <PrismDrawer
-                className={`fixed left-0 top-0 z-50 flex flex-col transition-transform duration-300 lg:hidden ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}
+                className={`fixed left-0 top-0 z-50 flex h-dvh flex-col transition-transform duration-300 lg:hidden ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}
             >
                 <div className="flex items-center justify-end p-2">
                     <button
@@ -312,9 +312,8 @@ export default function Sidebar({ items, role, userName }: SidebarProps) {
                     setHoverExpanded(false);
                     setUtilityOpen(false);
                 }}
-                className={`fixed left-0 top-0 z-40 hidden h-screen flex-col border-r border-[var(--border)] bg-[rgba(8,14,28,0.82)] backdrop-blur-2xl transition-all duration-[var(--transition-base)] lg:flex ${
-                    visuallyCollapsed ? "w-[76px]" : "w-[304px]"
-                }`}
+                className={`fixed left-0 top-0 z-40 hidden h-dvh flex-col border-r border-[var(--border)] bg-[rgba(8,14,28,0.82)] backdrop-blur-2xl transition-all duration-[var(--transition-base)] lg:flex`}
+                style={{ width: visuallyCollapsed ? 'var(--rail-collapsed-width)' : 'var(--rail-width)' }}
             >
                 {sidebarContent}
                 <button
@@ -326,7 +325,7 @@ export default function Sidebar({ items, role, userName }: SidebarProps) {
                 </button>
             </aside>
 
-            <div className={`hidden flex-shrink-0 lg:block ${collapsed ? "w-[76px]" : "w-[304px]"}`} aria-hidden="true" />
+            <div className="hidden flex-shrink-0 lg:block transition-all duration-[var(--transition-base)]" style={{ width: collapsed ? 'var(--rail-collapsed-width)' : 'var(--rail-width)' }} aria-hidden="true" />
         </>
     );
 }

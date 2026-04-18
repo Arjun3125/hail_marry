@@ -56,7 +56,7 @@ test.describe("Prism representative responsive smoke", () => {
         await page.setViewportSize({ width: 390, height: 844 });
         await stubBranding(page);
 
-        await page.goto("/");
+        await page.goto("/", { waitUntil: "domcontentloaded" });
 
         await expect(page.getByRole("link", { name: /Explore demo/i })).toBeVisible();
         await expectNoHorizontalOverflow(page);
@@ -101,9 +101,9 @@ test.describe("Prism representative responsive smoke", () => {
             });
         });
 
-        await page.goto("/student/ai-studio");
+        await page.goto("/student/ai-studio", { waitUntil: "domcontentloaded" });
 
-        await expect(page.getByRole("heading", { name: /Ask, revise, and build answers from your own study material/i })).toBeVisible();
+        await expect(page.getByRole("heading", { name: /Start with one clear intent, then open the full study desk/i })).toBeVisible();
         await expectNoHorizontalOverflow(page);
     });
 
@@ -135,7 +135,7 @@ test.describe("Prism representative responsive smoke", () => {
             });
         });
 
-        await page.goto("/teacher/dashboard");
+        await page.goto("/teacher/dashboard", { waitUntil: "domcontentloaded" });
 
         await expect(page.getByRole("heading", { name: /Guide the day, not the dashboard/i })).toBeVisible();
         await expectNoHorizontalOverflow(page);
@@ -262,7 +262,7 @@ test.describe("Prism representative responsive smoke", () => {
             });
         });
 
-        await page.goto("/admin/dashboard");
+        await page.goto("/admin/dashboard", { waitUntil: "domcontentloaded" });
 
         await expect(page.getByRole("heading", { name: /See school health in one screen before you drill down/i })).toBeVisible();
         await expectNoHorizontalOverflow(page);
@@ -302,9 +302,10 @@ test.describe("Prism representative responsive smoke", () => {
             });
         });
 
-        await page.goto("/parent/dashboard");
+        await page.goto("/parent/dashboard", { waitUntil: "domcontentloaded" });
 
         await expect(page.getByRole("heading", { name: /Read your child's week in under a minute/i })).toBeVisible();
         await expectNoHorizontalOverflow(page);
     });
 });
+

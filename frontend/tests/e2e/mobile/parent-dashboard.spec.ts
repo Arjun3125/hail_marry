@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+﻿import { expect, test } from "@playwright/test";
 import {
     authenticateAs,
     expectKeyboardNavigation,
@@ -73,13 +73,13 @@ test.describe("Parent Dashboard - Mobile (360px)", { tag: "@mobile @parent" }, (
     });
 
     test("parent dashboard loads without horizontal scroll", async ({ page }) => {
-        await page.goto("/parent/dashboard");
+            await page.goto("/parent/dashboard", { waitUntil: "domcontentloaded" });
         await expect(page).toHaveTitle(/parent|dashboard|VidyaOS/i);
         await expectNoHorizontalScroll(page);
     });
 
     test("child cards are vertically stacked", async ({ page }) => {
-        await page.goto("/parent/dashboard");
+            await page.goto("/parent/dashboard", { waitUntil: "domcontentloaded" });
 
         const childCards = await page.locator("[data-testid*='child'], .child-card").all();
 
@@ -92,7 +92,7 @@ test.describe("Parent Dashboard - Mobile (360px)", { tag: "@mobile @parent" }, (
     });
 
     test("performance metrics display properly", async ({ page }) => {
-        await page.goto("/parent/dashboard");
+            await page.goto("/parent/dashboard", { waitUntil: "domcontentloaded" });
 
         // Wait for at least one metric card to appear (client-side data load after SSR null)
         await page.locator("[data-testid='metric-card']").first().waitFor({ state: "visible", timeout: 10000 });
@@ -110,17 +110,17 @@ test.describe("Parent Dashboard - Mobile (360px)", { tag: "@mobile @parent" }, (
     });
 
     test("touch targets are accessible (44px+)", async ({ page }) => {
-        await page.goto("/parent/dashboard");
+            await page.goto("/parent/dashboard", { waitUntil: "domcontentloaded" });
         await expectTouchTargetSizes(page);
     });
 
     test("text is readable", async ({ page }) => {
-        await page.goto("/parent/dashboard");
+            await page.goto("/parent/dashboard", { waitUntil: "domcontentloaded" });
         await expectReadableText(page, 12);
     });
 
     test("can view child insights", async ({ page }) => {
-        await page.goto("/parent/dashboard");
+            await page.goto("/parent/dashboard", { waitUntil: "domcontentloaded" });
 
         // Look for insights button or card
         const insightButton = page.locator("button, a").filter({ hasText: /insight|summary|session|learning/i }).first();
@@ -133,12 +133,12 @@ test.describe("Parent Dashboard - Mobile (360px)", { tag: "@mobile @parent" }, (
     });
 
     test("keyboard navigation working", async ({ page }) => {
-        await page.goto("/parent/dashboard");
+            await page.goto("/parent/dashboard", { waitUntil: "domcontentloaded" });
         await expectKeyboardNavigation(page);
     });
 
     test("notification badges visible", async ({ page }) => {
-        await page.goto("/parent/dashboard");
+            await page.goto("/parent/dashboard", { waitUntil: "domcontentloaded" });
 
         // WhatsApp or notification badges
         const badges = await page.locator("[data-testid*='badge'], .badge").all();
@@ -150,7 +150,7 @@ test.describe("Parent Dashboard - Mobile (360px)", { tag: "@mobile @parent" }, (
     });
 
     test("can switch between children if multiple", async ({ page }) => {
-        await page.goto("/parent/dashboard");
+            await page.goto("/parent/dashboard", { waitUntil: "domcontentloaded" });
 
         // Look for child switcher
         const childSwitcher = page.locator("select, [role='combobox'], button").filter({ hasText: /child|select/i }).first();
@@ -188,7 +188,7 @@ test.describe("Parent Dashboard - Tablet (768px)", { tag: "@tablet @parent" }, (
 
     test("can display multi-column layout", async ({ page }) => {
         await page.setViewportSize({ width: 768, height: 1024 });
-        await page.goto("/parent/dashboard");
+            await page.goto("/parent/dashboard", { waitUntil: "domcontentloaded" });
 
         await expectNoHorizontalScroll(page);
     });
@@ -217,9 +217,10 @@ test.describe("Parent Dashboard - Desktop (1280px)", { tag: "@desktop @parent" }
 
     test("displays full dashboard layout", async ({ page }) => {
         await page.setViewportSize({ width: 1280, height: 720 });
-        await page.goto("/parent/dashboard");
+            await page.goto("/parent/dashboard", { waitUntil: "domcontentloaded" });
 
         await expect(page).toHaveTitle(/parent|dashboard|VidyaOS/i);
         await expectNoHorizontalScroll(page);
     });
 });
+

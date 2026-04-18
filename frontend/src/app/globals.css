@@ -66,10 +66,11 @@
   --visual-primary: #67e8f9;
   --visual-secondary: #60a5fa;
 
-  --rail-width: 256px;
-  --rail-collapsed-width: 68px;
+  --rail-width: 304px;
+  --rail-collapsed-width: 76px;
   --panel-width: 320px;
   --panel-collapsed-width: 48px;
+  --mobile-header-height: 4rem;
 
   --radius: 24px;
   --radius-sm: 12px;
@@ -756,7 +757,7 @@ main > div {
 
 .prism-dialog,
 .prism-drawer {
-  position: relative;
+  position: fixed;
   overflow: hidden;
   border: 1px solid var(--border);
   background:
@@ -1308,6 +1309,54 @@ main > div {
 
   .prism-section-actions {
     width: 100%;
+  }
+}
+
+/* Landscape mobile: reduce vertical padding, compact floating elements */
+@media (max-height: 500px) and (orientation: landscape) {
+  :root {
+    --bottom-nav-height: 3rem;
+    --mobile-header-height: 3rem;
+  }
+
+  .mobile-bottom-nav {
+    padding: 0.25rem 0;
+  }
+
+  .has-bottom-nav {
+    padding-bottom: 3rem;
+  }
+
+  .prism-page {
+    padding-top: 0.75rem;
+    padding-bottom: 1rem;
+  }
+}
+
+/* Floating action button stacking: ensures consistent z-layering */
+.fab-layer-1 {
+  --fab-offset: calc(var(--bottom-nav-height, 0rem) + 1.25rem);
+}
+
+.fab-layer-2 {
+  --fab-offset: calc(var(--bottom-nav-height, 0rem) + 6rem);
+}
+
+.fab-layer-3 {
+  --fab-offset: calc(var(--bottom-nav-height, 0rem) + 10.5rem);
+}
+
+@media (min-width: 1024px) {
+  .fab-layer-1 {
+    --fab-offset: 1.25rem;
+  }
+
+  .fab-layer-2 {
+    --fab-offset: 6rem;
+  }
+
+  .fab-layer-3 {
+    --fab-offset: 10.5rem;
   }
 }
 
