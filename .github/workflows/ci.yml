@@ -88,14 +88,22 @@ jobs:
           REDIS_URL: redis://localhost:6379/0
           JWT_SECRET: test-secret-key-minimum-256-bits-long-enough
           REFRESH_SECRET_KEY: test-refresh-key-minimum-256-bits-long-enough
-        run: pytest tests/ -q --maxfail=1
+        run: pytest tests/ -v --junitxml=test-results/junit.xml
+
+      - name: Upload Backend Test Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-report
+          path: backend/test-results
+          if-no-files-found: ignore
 
   frontend_ci:
     name: Frontend CI & E2E
     runs-on: ubuntu-latest
     container:
       image: mcr.microsoft.com/playwright:v1.58.2-jammy
-    timeout-minutes: 45
+    timeout-minutes: 60
 
     steps:
       - name: Checkout
@@ -129,22 +137,18 @@ jobs:
         working-directory: frontend
         env:
           NEXT_PUBLIC_API_URL: http://localhost:8000
+          NEXT_PUBLIC_DEMO_MODE: "true"
         run: npm run build
 
-      - name: Run Playwright E2E Suites
+      - name: Run full Playwright E2E suite
         working-directory: frontend
         env:
           CI: "true"
           NEXT_PUBLIC_API_URL: http://localhost:8000
-        run: |
-          if [ "${{ github.event_name }}" == "push" ] && [ "${{ github.ref }}" == "refs/heads/main" ] || [ "${{ github.event.inputs.run_full_e2e }}" == "true" ]; then
-            echo "Running full E2E suite on main branch"
-            npm run test:e2e:full
-          else
-            echo "Running Smoke and Mobile suites on PR"
-            npm run test:e2e:smoke
-            npm run test:e2e -- tests/e2e/mobile
-          fi
+          NEXT_PUBLIC_DEMO_MODE: "true"
+          PLAYWRIGHT_WORKERS: "4"
+          PLAYWRIGHT_RETRIES: "1"
+        run: npm run test:e2e:full
 
       - name: Upload Playwright artifacts
         if: always()
