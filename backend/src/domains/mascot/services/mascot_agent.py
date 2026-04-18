@@ -130,7 +130,6 @@ async def generate_response_node(state: MascotAgentState) -> Dict[str, Any]:
         provider = get_llm_provider()
         
         # Dynamic system knowledge retrieval
-        system_prompt = state["system_prompt"]
         system_knowledge_context = ""
         
         try:

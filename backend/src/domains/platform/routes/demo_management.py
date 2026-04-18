@@ -1,5 +1,4 @@
 """Demo management routes — role switching, data reset, status."""
-import os
 from typing import List
 from fastapi import APIRouter, Depends, Response
 from sqlalchemy.orm import Session

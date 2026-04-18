@@ -189,12 +189,11 @@ async def get_knowledge_base_status(
     
     from pathlib import Path
     from datetime import datetime, timezone
-    import os
     
     knowledge_file = Path(__file__).parent.parent.parent.parent.parent / "knowledge_base" / "mascot_capabilities.jsonl"
     cache_file = knowledge_file.parent / ".ingestion_cache"
     
-    status = {
+    kb_status = {
         "knowledge_file_exists": knowledge_file.exists(),
         "cache_file_exists": cache_file.exists(),
         "knowledge_file_size": knowledge_file.stat().st_size if knowledge_file.exists() else 0,
@@ -206,11 +205,11 @@ async def get_knowledge_base_status(
     if knowledge_file.exists() and cache_file.exists():
         kb_mtime = knowledge_file.stat().st_mtime
         cache_mtime = cache_file.stat().st_mtime
-        status["is_current"] = kb_mtime < cache_mtime
+        kb_status["is_current"] = kb_mtime < cache_mtime
     else:
-        status["is_current"] = False
+        kb_status["is_current"] = False
     
-    return status
+    return kb_status
 
 
 @router.post("/admin/promote-signals/{student_id}")

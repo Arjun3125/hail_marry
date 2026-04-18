@@ -272,12 +272,6 @@ async def retrieve_context(
         except Exception as exc:
             logger.warning("Wiki retrieval failed, falling through to RAG: %s", exc)
 
-    # Step 1: Embed query
-    try:
-        query_embedding = await get_embedding_provider().embed(query)
-    except Exception:
-        return []
-
     # Step 1.5: Query Rewriting (optional, controlled by config)
     embedding_provider = get_embedding_provider()
     use_query_rewriting = getattr(settings.retrieval, 'enable_query_rewriting', True)
