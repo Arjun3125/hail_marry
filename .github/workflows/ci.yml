@@ -140,6 +140,11 @@ jobs:
           NEXT_PUBLIC_DEMO_MODE: "true"
         run: npm run build
 
+      - name: Install lsb-release for setup-python
+        run: |
+          apt-get update
+          apt-get install -y lsb-release
+
       - name: Set up Python for Backend Server
         uses: actions/setup-python@v5
         with:
