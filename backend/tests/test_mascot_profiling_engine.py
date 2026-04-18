@@ -71,7 +71,8 @@ def test_build_mascot_system_prompt_includes_context_and_session_goals():
 
     prompt = build_mascot_system_prompt(context)
 
-    assert "You are Vidya, a personal study companion for Aarav." in prompt
+    assert "You are VidyaOS" in prompt
+    assert "companion for Aarav" in prompt
     assert "WHAT YOU KNOW ABOUT THIS STUDENT:" in prompt
     assert "SESSION GOAL:" in prompt
     assert "high academic risk" in prompt

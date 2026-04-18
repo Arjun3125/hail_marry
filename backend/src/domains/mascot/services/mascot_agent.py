@@ -33,6 +33,7 @@ class MascotAgentState(TypedDict):
     session_id: str
     turn_number: int
     conversation_history: List[Dict[str, str]]  # [{"role": "student"|"mascot", "content": str}]
+    role: str
 
     # Assembled context (filled by load_context node)
     mascot_context: Optional[Dict[str, Any]]  # MascotContext serialized to dict
@@ -46,6 +47,9 @@ class MascotAgentState(TypedDict):
     # Response (filled by generate_response node)
     mascot_response: Optional[str]
     is_elicitation_turn: bool  # True if this turn includes an elicitation question
+
+    # Tools
+    tool_result: Optional[str]
 
     # Output
     final_response: Optional[str]
@@ -66,6 +70,7 @@ async def load_context_node(state: MascotAgentState) -> Dict[str, Any]:
         mascot_context = assemble_context(db, student_id, tenant_id, state["student_name"])
 
         # Build system prompt
+        # We explicitly pass role if the model expects it, though prompt_builder supports it
         system_prompt = build_mascot_system_prompt(mascot_context)
 
         # Get elicitation question
@@ -79,7 +84,7 @@ async def load_context_node(state: MascotAgentState) -> Dict[str, Any]:
         if profile:
             elicitation_question = get_next_elicitation(
                 db, student_id, tenant_id,
-                mascot_context.total_interactions, profile
+                getattr(mascot_context, "total_interactions", 0), profile
             )
 
         return {
@@ -142,7 +147,7 @@ async def generate_response_node(state: MascotAgentState) -> Dict[str, Any]:
                 # Retrieve relevant system knowledge chunks
                 chunks = await retrieve_system_knowledge(
                     query=state["student_message"],
-                    user_role=None,  # TODO: Extract role from context if available
+                    user_role=state.get("role"),
                     top_k=5
                 )
                 
@@ -261,7 +266,8 @@ mascot_agent_app = build_mascot_agent_graph()
 async def run_mascot_agent(student_message: str, student_id: str,
                             tenant_id: str, student_name: str,
                             session_id: str, turn_number: int,
-                            conversation_history: List[Dict[str, str]]) -> Dict[str, Any]:
+                            conversation_history: List[Dict[str, str]],
+                            role: str = "student") -> Dict[str, Any]:
     """
     Entry point for the mascot agent.
     Returns dict with 'response' key.
@@ -274,6 +280,7 @@ async def run_mascot_agent(student_message: str, student_id: str,
         "session_id": session_id,
         "turn_number": turn_number,
         "conversation_history": conversation_history,
+        "role": role,
         "mascot_context": None,
         "system_prompt": None,
         "elicitation_question": None,
@@ -281,8 +288,10 @@ async def run_mascot_agent(student_message: str, student_id: str,
         "extracted_signals": None,
         "mascot_response": None,
         "is_elicitation_turn": False,
+        "tool_result": None,
         "final_response": None,
     }
 
     result = await mascot_agent_app.ainvoke(initial_state)
     return {"response": result.get("final_response", ""), "response_type": "text"}
+
