@@ -146,7 +146,7 @@ jobs:
           apt-get install -y software-properties-common
           add-apt-repository ppa:deadsnakes/ppa -y
           apt-get update
-          apt-get install -y python3.11 python3.11-venv python3.11-distutils pythonispython3 || true
+          apt-get install -y python3.11 python3.11-venv python3.11-distutils
 
       - name: Install backend dependencies for Playwright
         working-directory: backend
